@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Exports\ExportCategories;
 use Illuminate\Http\Request;
 use Yajra\DataTables\DataTables;
+use Illuminate\Support\Facades\Auth;
 use PDF;
 
 class CategoryController extends Controller
@@ -73,6 +74,17 @@ class CategoryController extends Controller
      */
     public function destroy($id)
     {
+        if (!Auth::check()) {
+        return response()->json(['message' => 'ავტორიზაცია საჭიროა'], 401);
+    }
+
+    // ვამოწმებთ როლს (დააკვირდი, ბაზაში 'admin' წერია თუ 'Admin' - დიდ ასოს აქვს მნიშვნელობა!)
+    if (Auth::user()->role != 'admin') {
+        return response()->json([
+            'success' => false,
+            'message' => 'ამ ქმედების უფლება მხოლოდ ადმინისტრატორს აქვს!'
+        ], 403);
+    }
         Category::destroy($id);
 
         return response()->json([
@@ -90,8 +102,14 @@ class CategoryController extends Controller
 
         return DataTables::of($categories)
             ->addColumn('action', function($category) {
-                return '<a onclick="editForm('. $category->id .')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i> Edit</a> ' .
-                       '<a onclick="deleteData('. $category->id .')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i> Delete</a>';
+                // ვამოწმებთ, არის თუ არა მომხმარებელი ადმინი
+                if (auth()->user()->role === 'admin') {
+                    return '<a onclick="editForm('. $category->id .')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i> Edit</a> ' .
+                        '<a onclick="deleteData('. $category->id .')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i> Delete</a>';
+                }
+                
+                // თუ არ არის ადმინი, ვაბრუნებთ ცარიელ მნიშვნელობას
+                return '';
             })
             ->rawColumns(['action'])
             ->make(true);

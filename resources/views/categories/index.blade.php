@@ -15,7 +15,9 @@
         </div>
 
         <div class="box-header">
-            <a onclick="addForm()" class="btn btn-success" ><i class="fa fa-plus"></i> Add a New Category</a>
+           @if(Auth::user()->role === 'admin')
+                <a onclick="addForm()" class="btn btn-success"><i class="fa fa-plus"></i> Add New Category</a>
+            @endif
             <a href="{{ route('exportPDF.categoriesAll') }}" class="btn btn-danger"><i class="fa fa-file-pdf-o"></i> Export PDF</a>
             <a href="{{ route('exportExcel.categoriesAll') }}" class="btn btn-primary"><i class="fa fa-file-excel-o"></i> Export Excel</a>
         </div>
@@ -130,14 +132,17 @@
                         timer: '1500'
                     })
                 },
-                error : function (data) {
-                    swal({
-                        title: 'Oops...',
-                        text: 'Error deleting data',
-                        type: 'error',
-                        timer: '1500'
-                    })
-                }
+               error : function (data) {
+                // აქ ვიჭერთ 403 შეცდომას (ან ნებისმიერ სხვა შეცდომას)
+                var response = data.responseJSON;
+                
+                swal({
+                    title: 'შეცდომა!',
+                    text: response.message ? response.message : 'რაღაც შეცდომა მოხდა!',
+                    type: 'error',
+                    timer: '3000'
+                });
+            }
             });
         });
     }

@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 
 use App\Exports\ExportSales;
 use App\Imports\SalesImport;
-use App\Sale;
+use App\Models\Sale;
 use Illuminate\Http\Request;
 use Yajra\DataTables\DataTables;
 use Excel;
