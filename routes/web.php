@@ -82,4 +82,6 @@ Route::middleware(['auth'])->group(function () {
     // Users
     Route::resource('user', UserController::class);
     Route::get('/apiUser', [UserController::class, 'apiUsers'])->name('api.users');
-});
+
+Route::get('/get-sizes/{category_id}', [ProductController::class, 'getSizes']);
+    });

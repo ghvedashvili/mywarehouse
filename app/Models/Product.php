@@ -6,9 +6,20 @@ use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
 {
-    protected $fillable = ['category_id','name','price_geo','price_usa','image'];
+    // დავამატეთ ყველა ახალი ველი fillable-ში
+    protected $fillable = [
+        'category_id', 
+        'product_code', 
+        'name', 
+        'price_geo', 
+        'price_usa', 
+        'image', 
+        'product_status', 
+        'in_warehouse', 
+        'sizes'
+    ];
 
-    protected $hidden = ['created_at','updated_at'];
+    protected $hidden = ['created_at', 'updated_at'];
 
     public function category()
     {

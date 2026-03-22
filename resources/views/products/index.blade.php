@@ -18,21 +18,47 @@
 
         <!-- /.box-header -->
         <div class="box-body">
+            <div class="row" style="margin-bottom: 20px;">
+    <div class="col-md-3">
+        <label>Filter by Category</label>
+        <select id="filter_category" class="form-control">
+            <option value="">All Categories</option>
+            @foreach($category as $id => $name)
+                <option value="{{ $id }}">{{ $name }}</option>
+            @endforeach
+        </select>
+    </div>
+    <div class="col-md-3">
+        <label>Filter by Status</label>
+        <select id="filter_status" class="form-control">
+            <option value="">All Statuses</option>
+            <option value="1">Active</option>
+            <option value="0">Inactive</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <label>Filter by Stock</label>
+        <select id="filter_stock" class="form-control">
+            <option value="">All Stock</option>
+            <option value="1">In Stock</option>
+            <option value="0">Out of Stock</option>
+        </select>
+    </div>
+</div>
             <table id="products-table" class="table table-bordered table-hover table-striped">
                 <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Name</th>
- 
-                    <th>Price_geo</th>
-                    <!-- <th>Qty.</th> -->
- 
-                    <th>Price_usa</th>
-                    <!-- <th>Qty.</th>
-    -->
-                    <th>Image</th>
-                    <th>Category</th>
-                    <th>Actions</th>
+        <th>Code</th>
+        <th>Name</th>
+        <th>Price geo</th>
+        <th>Price usa</th>
+        <th>Sizes</th>
+        <th>Image</th>
+        <th>Status</th>
+        <th>Stock</th>
+        <th>Category</th>
+        <th>Actions</th>
                 </tr>
                 </thead>
                 <tbody></tbody>
@@ -70,21 +96,41 @@
 
    <script type="text/javascript">
     // DataTable-ის ინიციალიზაცია
-    var table = $('#products-table').DataTable({
-        processing: true,
-        serverSide: true,
-        ajax: "{{ route('api.products') }}",
-        columns: [
-            {data: 'id', name: 'id'},
-            {data: 'name', name: 'name'},
-            {data: 'price_geo', name: 'price_geo'},
-            {data: 'price_usa', name: 'price_usa'},
-            // {data: 'qty', name: 'qty'},
-            {data: 'show_photo', name: 'show_photo', orderable: false, searchable: false},
-            {data: 'category_name', name: 'category_name'},
-            {data: 'action', name: 'action', orderable: false, searchable: false}
-        ]
-    });
+   var table = $('#products-table').DataTable({
+    processing: true,
+    serverSide: true,
+    lengthMenu: [
+        [10, 25, 50, 100, -1], // რეალური მნიშვნელობები (-1 ნიშნავს ყველას)
+        [10, 25, 50, 100, "All"] // რას დაწერს მომხმარებლისთვის დროპდაუნში
+    ],
+    pageLength: 10, // სტანდარტულად რამდენი გამოჩნდეს ჩატვირთვისას
+    ajax: {
+        url: "{{ route('api.products') }}",
+        data: function (d) {
+            d.category_id = $('#filter_category').val();
+            d.product_status = $('#filter_status').val();
+            d.in_warehouse = $('#filter_stock').val();
+        }
+    },
+    columns: [
+        {data: 'id', name: 'id'},
+        {data: 'product_code', name: 'product_code'},
+        {data: 'name', name: 'name'},
+        {data: 'price_geo', name: 'price_geo'},
+        {data: 'price_usa', name: 'price_usa'},
+        {data: 'format_sizes', name: 'format_sizes', orderable: false},
+        {data: 'show_photo', name: 'show_photo', orderable: false, searchable: false},
+        {data: 'status_label', name: 'status_label'},
+        {data: 'warehouse_label', name: 'warehouse_label'},
+        {data: 'category_name', name: 'category_name'},
+        {data: 'action', name: 'action', orderable: false, searchable: false}
+    ]
+});
+
+// ფილტრების შეცვლისას ცხრილის ავტომატური განახლება
+$('#filter_category, #filter_status, #filter_stock').change(function(){
+    table.draw();
+});
 
     function addForm() {
         save_method = "add";
@@ -96,76 +142,64 @@
     }
 
     function editForm(id) {
-        save_method = 'edit';
-        $('input[name=_method]').val('PATCH');
-        $('#modal-form form')[0].reset();
-        $('#image-preview').empty();
-
-        $.ajax({
-            url: "{{ url('products') }}" + '/' + id + "/edit",
-            type: "GET",
-            dataType: "JSON",
-            success: function(data) {
-    $('#modal-form').modal('show');
-    $('.modal-title').text('Edit Products');
-
-    $('#id').val(data.id);
-    $('#name').val(data.name);
-    
-    // მნიშვნელოვანია: დავრწმუნდეთ, რომ პატარა/დიდი ასოები ემთხვევა HTML-ს
-    $('#price_geo').val(data.price_geo);
-    $('#price_usa').val(data.price_usa); 
-    // $('#qty').val(data.qty);
-    $('#category_id').val(data.category_id);
-
-    // სურათის ჩვენების ლოგიკა
-    $('#image-preview').empty(); // ჯერ ვასუფთავებთ
-    
-    // ვამოწმებთ 'image' ველს (ან 'show_photo', გააჩნია რას აბრუნებს კონტროლერი)
-    var imagePath = data.image || data.show_photo; 
-
-    if (imagePath) {
-        // თუ ბაზაში ინახება სრული path (მაგ: uploads/product/img.jpg)
-        // მაშინ url('') + imagePath სწორია
-        var imageUrl = "{{ url('') }}/" + imagePath.replace(/^\//, ''); 
-        
-        $('#image-preview').html(
-            '<p>Current Image:</p>' +
-            '<img src="' + imageUrl + '" class="img-thumbnail" style="width:150px; height:150px; object-fit:cover;">'
-        );
-    }
-},success: function(data) {
-    $('#modal-form').modal('show');
-    $('.modal-title').text('Edit Products');
-
-    $('#id').val(data.id);
-    $('#name').val(data.name);
-    
-    // კონტროლერიდან მოდის პატარა ასოებით: price_geo, price_usa
-    // ფორმაში კი ID-ები გაქვს: price_geo, price_usa
-    $('#price_geo').val(data.price_geo);
-    $('#price_usa').val(data.price_usa); 
-    // $('#qty').val(data.qty);
-    $('#category_id').val(data.category_id);
-
+    save_method = 'edit';
+    $('input[name=_method]').val('PATCH');
+    $('#modal-form form')[0].reset();
     $('#image-preview').empty();
-    
-    if (data.image) {
-        // რადგან კონტროლერში გზას ინახავ როგორც /upload/..., 
-        // აქ უბრალოდ url('') + data.image საკმარისია
-        var imageUrl = "{{ url('') }}" + data.image;
-        
-        $('#image-preview').html(
-            '<p style="margin-top:10px;">Current Image:</p>' +
-            '<img src="' + imageUrl + '" class="img-thumbnail" style="width:120px; height:120px; object-fit:cover;">'
-        );
-    }
-},
-            error: function() {
-                swal("Error", "Could not fetch data", "error");
+
+    $.ajax({
+        url: "{{ url('products') }}" + '/' + id + "/edit",
+        type: "GET",
+        dataType: "JSON",
+        success: function(data) {
+            $('#modal-form').modal('show');
+            $('.modal-title').text('Edit Product');
+
+            // ძირითადი ინპუტების შევსება
+            $('#id').val(data.id);
+            $('#product_code').val(data.product_code);
+            $('#name').val(data.name);
+            $('#price_geo').val(data.price_geo);
+            $('#price_usa').val(data.price_usa);
+            $('#category_id').val(data.category_id);
+
+            // სტატუსების მონიშვნა (Prop მეთოდი საუკეთესოა ჩეკბოქსებისთვის)
+            $('#product_status').prop('checked', data.product_status == 1);
+            $('#in_warehouse').prop('checked', data.in_warehouse == 1);
+
+            // ზომების დამუშავება
+            // ბაზიდან მოდის სტრიქონი "S,M", ვაქცევთ მასივად ["S", "M"]
+            var currentSizes = [];
+            if (data.sizes) {
+                currentSizes = data.sizes.split(',').map(function(item) {
+                    return item.trim();
+                });
             }
-        });
-    }
+            
+            // ვიძახებთ ზომების ფილტრაციას და გადავცემთ არჩეულ ზომებს მოსანიშნად
+            filterSizes(currentSizes);
+
+            // სურათის ჩვენების ლოგიკა
+            if (data.image) {
+                // რადგან ბაზაში გზა იწყება /upload-ით, url('') პირდაპირ დაემატება
+                var imageUrl = "{{ url('') }}" + data.image; 
+                
+                $('#image-preview').html(
+                    '<p style="margin-top:10px; font-weight: bold;">Current Image:</p>' +
+                    '<img src="' + imageUrl + '" class="img-thumbnail" style="width:120px; height:120px; object-fit:cover;">'
+                );
+            }
+        },
+        error: function() {
+            swal({
+                title: 'Error',
+                text: 'მონაცემების წამოღება ვერ მოხერხდა!',
+                type: 'error',
+                timer: '1500'
+            });
+        }
+    });
+}
 
     function deleteData(id) {
         var csrf_token = $('meta[name="csrf-token"]').attr('content');
@@ -218,6 +252,47 @@
             }
         });
     });
+
+    function filterSizes(selectedSizes = []) {
+    var categoryId = $('#category_id').val();
+    var container = $('#size-checkboxes');
+    var group = $('#sizes-group');
+
+    container.empty(); // ჯერ ვასუფთავებთ კონტეინერს
+
+    if (!categoryId) {
+        group.hide();
+        return;
+    }
+
+    $.ajax({
+        url: "{{ url('get-sizes') }}/" + categoryId,
+        type: "GET",
+        dataType: "JSON",
+        success: function(data) {
+            if (data.length > 0) {
+                data.forEach(function(size) {
+                    // ვამოწმებთ არის თუ არა ეს ზომა არჩეულების მასივში
+                    // ვიყენებთ trim()-ს იმ შემთხვევისთვის თუ ბაზაში ზედმეტი დაშორებებია
+                    var isChecked = selectedSizes.includes(size.name.trim()) ? 'checked' : '';
+                    
+                    var checkbox = `
+                        <label style="font-weight: normal; margin-right: 15px; cursor: pointer;">
+                            <input type="checkbox" name="sizes[]" value="${size.name}" ${isChecked} class="size-checkbox"> 
+                            ${size.name}
+                        </label>`;
+                    container.append(checkbox);
+                });
+                group.show();
+            } else {
+                group.hide();
+            }
+        },
+        error: function() {
+            console.error("ზომების წამოღება ვერ მოხერხდა");
+        }
+    });
+}
 </script>
 
 @endsection

@@ -33,15 +33,36 @@
                         </div>
 
                         
+<div class="form-group">
+    <label>Product Code</label>
+    <input type="text" class="form-control" id="product_code" name="product_code" required>
+    <span class="help-block with-errors"></span>
+</div>
 
-                        <div class="form-group">
-                            <label>Category</label>
-                           <select name="category_id" id="category_id" class="form-control select" required>
-    <option value="">-- Choose Category --</option>
-    @foreach($category as $id => $name)
-        <option value="{{ $id }}">{{ $name }}</option>
-    @endforeach
-</select>
+<div class="form-group">
+    <label>Category</label>
+    <select name="category_id" id="category_id" class="form-control select" required onchange="filterSizes()">
+        <option value="">-- Choose Category --</option>
+        @foreach($category as $id => $name)
+            <option value="{{ $id }}">{{ $name }}</option>
+        @endforeach
+    </select>
+</div>
+
+<div class="form-group" id="sizes-group" style="display:none;">
+    <label>Available Sizes</label>
+    <div id="size-checkboxes" style="display: flex; gap: 15px; flex-wrap: wrap; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+</div>
+
+<div class="form-group">
+    <div class="checkbox">
+        <label><input type="checkbox" name="product_status" id="product_status" value="1" checked> Active (Visible in Shop)</label>
+    </div>
+    <div class="checkbox">
+        <label><input type="checkbox" name="in_warehouse" id="in_warehouse" value="1" checked> In Warehouse</label>
+    </div>
+</div>
  
                             
    
