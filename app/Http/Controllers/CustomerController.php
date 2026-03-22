@@ -96,18 +96,31 @@ class CustomerController extends Controller
     /**
      * Yajra DataTables API
      */
-    public function apiCustomers()
-    {
-        $customers = Customer::all();
+    public function apiCustomers(Request $request)
+{
+    // ვიყენებთ with('city') ოპტიმიზაციისთვის
+    $customers = Customer::leftJoin('cities', 'customers.city_id', '=', 'cities.id')
+        ->select('customers.*', 'cities.name as city_name');
 
-        return Datatables::of($customers)
-            ->addColumn('action', function($customer){
-                return '<a onclick="editForm('. $customer->id .')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i> Edit</a> ' .
-                       '<a onclick="deleteData('. $customer->id .')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i> Delete</a>';
-            })
-            ->rawColumns(['action'])
-            ->make(true);
+    // ფილტრაცია ქალაქის მიხედვით
+    if ($request->has('city_id') && $request->city_id != "") {
+        $customers->where('customers.city_id', $request->city_id);
     }
+
+    return Datatables::of($customers->get())
+        ->addColumn('contact_info', function($customer){
+            return "<b>Tel:</b> {$customer->tel}<br>" . 
+                   ($customer->alternative_tel ? "<b>Alt:</b> {$customer->alternative_tel}" : "");
+        })
+        ->addColumn('action', function($customer){
+            return '<center>'.
+                   '<a onclick="editForm('. $customer->id .')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i> Edit</a> ' .
+                   '<a onclick="deleteData('. $customer->id .')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i> Delete</a>'.
+                   '</center>';
+        })
+        ->rawColumns(['contact_info', 'action'])
+        ->make(true);
+}
 
     /**
      * Import Customers from Excel

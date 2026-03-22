@@ -27,19 +27,33 @@
 
         <!-- /.box-header -->
         <div class="box-body">
-            <table id="customer-table" class="table table-bordered table-hover table-striped">
-                <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Address</th>
-                    <th>Email</th>
-                    <th>Contact</th>
-                    <th>Actions</th>
-                </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+            <div class="row" style="margin-bottom: 20px;">
+    <div class="col-md-4">
+        <label>Filter by City</label>
+        <select id="filter_city" class="form-control">
+            <option value="">All Cities</option>
+            @foreach($cities as $city)
+                <option value="{{ $city->id }}">{{ $city->name }}</option>
+            @endforeach
+        </select>
+    </div>
+</div>
+
+<table id="customer-table" class="table table-bordered table-hover table-striped">
+    <thead>
+    <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>City</th>
+        <th>Address</th>
+        <th>Email</th>
+        <th>Contact Details</th>
+        <th>Comment</th>
+        <th>Actions</th>
+    </tr>
+    </thead>
+    <tbody></tbody>
+</table>
         </div>
         <!-- /.box-body -->
     </div>
@@ -61,18 +75,31 @@
     <script type="text/javascript">
         // 1. ცხრილის ინიციალიზაცია
         var table = $('#customer-table').DataTable({
-            processing: true,
-            serverSide: true, // თუ Yajra-ს იყენებ, უნდა იყოს true
-            ajax: "{{ route('api.customers') }}",
-            columns: [
-                {data: 'id', name: 'id'},
-                {data: 'name', name: 'name'},
-                {data: 'address', name: 'address'},
-                {data: 'email', name: 'email'},
-                {data: 'phone', name: 'phone'},
-                {data: 'action', name: 'action', orderable: false, searchable: false}
-            ]
-        });
+    processing: true,
+    serverSide: true,
+    lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
+    ajax: {
+        url: "{{ route('api.customers') }}",
+        data: function (d) {
+            d.city_id = $('#filter_city').val();
+        }
+    },
+    columns: [
+        {data: 'id', name: 'id'},
+        {data: 'name', name: 'name'},
+        {data: 'city_name', name: 'city_name'}, // ქალაქის სახელი Join-იდან
+        {data: 'address', name: 'address'},
+        {data: 'email', name: 'email'},
+        {data: 'contact_info', name: 'contact_info'}, // ტელეფონები ერთად
+        {data: 'comment', name: 'comment'},
+        {data: 'action', name: 'action', orderable: false, searchable: false}
+    ]
+});
+
+// ფილტრის ცვლილებაზე ცხრილის დახატვა
+$('#filter_city').change(function(){
+    table.draw();
+});
 
         // 2. დამატების ფორმა
         function addForm() {
