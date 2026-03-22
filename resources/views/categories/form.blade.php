@@ -21,6 +21,11 @@
                             <input type="text" class="form-control" id="name" name="name"  autofocus required>
                             <span class="help-block with-errors"></span>
                         </div>
+                        <div class="form-group">
+            <label>Sizes (მაგ: S, M, L ან 37, 38, 39)</label>
+            <input type="text" class="form-control" id="sizes" name="sizes" placeholder="შეიყვანეთ მძიმით გამოყოფილი">
+            <p class="help-block">ჩაწერეთ ზომები და გამოყავით მძიმეებით.</p>
+        </div>
                     </div>
                     <!-- /.box-body -->
 

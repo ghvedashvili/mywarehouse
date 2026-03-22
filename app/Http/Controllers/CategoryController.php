@@ -29,45 +29,87 @@ class CategoryController extends Controller
      * Store a newly created resource in storage.
      */
     public function store(Request $request)
-    {
-        $this->validate($request, [
-            'name' => 'required|string|min:2|unique:categories,name'
-        ]);
+{
+    // 1. ვალიდაცია
+    $this->validate($request, [
+        'name' => 'required|string|min:2|unique:categories,name',
+        'sizes' => 'nullable|string' // ზომები სავალდებულო არაა, მაგრამ თუ არის - ტექსტია
+    ]);
 
-        Category::create($request->all());
+    // 2. ვინახავთ კატეგორიას
+    $category = Category::create($request->all());
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Category Created Successfully'
-        ]);
+    // 3. თუ მომხმარებელმა ზომები მიუთითა
+    if ($request->sizes) {
+        // ტექსტს (მაგ: "S, M, L") ვშლით მძიმეებით მასივად ["S", " M", " L"]
+        $sizesArray = explode(',', $request->sizes);
+
+        foreach ($sizesArray as $sizeName) {
+            $trimmedSize = trim($sizeName); // ვაშორებთ ზედმეტ სფეისებს (" M" -> "M")
+            
+            if ($trimmedSize != "") {
+                // ვიყენებთ მოდელებს შორის კავშირს ჩასაწერად
+                $category->sizes()->create([
+                    'name' => $trimmedSize
+                ]);
+            }
+        }
     }
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Category and Sizes Created Successfully'
+    ]);
+}
 
     /**
      * Show the form for editing the specified resource.
      */
     public function edit($id)
-    {
-        $category = Category::findOrFail($id);
-        return response()->json($category);
-    }
+{
+    // ვიღებთ კატეგორიას თავისი ზომებით
+    $category = Category::with('sizes')->findOrFail($id);
+    
+    // ზომების მასივს ვაქცევთ მძიმით გამოყოფილ ტექსტად (მაგ: "S, M, L")
+    $category->sizes_list = $category->sizes->pluck('name')->implode(', ');
+
+    return response()->json($category);
+}
 
     /**
      * Update the specified resource in storage.
      */
     public function update(Request $request, $id)
-    {
-        $this->validate($request, [
-            'name' => 'required|string|min:2|unique:categories,name,' . $id,
-        ]);
+{
+    $this->validate($request, [
+        'name' => 'required|string|min:2|unique:categories,name,' . $id,
+        'sizes' => 'nullable|string'
+    ]);
 
-        $category = Category::findOrFail($id);
-        $category->update($request->all());
+    $category = Category::findOrFail($id);
+    $category->update($request->all());
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Category Updated Successfully'
-        ]);
+    // 1. ვშლით ძველ ზომებს, რომ ახლებით ჩავანაცვლოთ
+    $category->sizes()->delete();
+
+    // 2. ვამატებთ ახალ ზომებს (თუ შეყვანილია)
+    if ($request->sizes) {
+        $sizesArray = explode(',', $request->sizes);
+        foreach ($sizesArray as $sizeName) {
+            $trimmedSize = trim($sizeName);
+            if ($trimmedSize != "") {
+                $category->sizes()->create([
+                    'name' => $trimmedSize
+                ]);
+            }
+        }
     }
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Category Updated Successfully'
+    ]);
+}
 
     /**
      * Remove the specified resource from storage.

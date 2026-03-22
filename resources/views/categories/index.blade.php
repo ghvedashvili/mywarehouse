@@ -88,25 +88,27 @@
     }
 
     function editForm(id) {
-        save_method = 'edit';
-        $('input[name=_method]').val('PATCH');
-        $('#modal-form form')[0].reset();
-        $.ajax({
-            url: "{{ url('categories') }}" + '/' + id + "/edit",
-            type: "GET",
-            dataType: "JSON",
-            success: function(data) {
-                $('#modal-form').modal('show');
-                $('.modal-title').text('Edit Categories');
+    save_method = 'edit';
+    $('input[name=_method]').val('PATCH');
+    $('#modal-form form')[0].reset();
+    $.ajax({
+        url: "{{ url('categories') }}" + '/' + id + "/edit",
+        type: "GET",
+        dataType: "JSON",
+        success: function(data) {
+            $('#modal-form').modal('show');
+            $('.modal-title').text('Edit Category');
 
-                $('#id').val(data.id);
-                $('#name').val(data.name);
-            },
-            error : function() {
-                alert("Nothing Data");
-            }
-        });
-    }
+            $('#id').val(data.id);
+            $('#name').val(data.name);
+            // აი ეს ხაზი დაამატე:
+            $('#sizes').val(data.sizes_list); 
+        },
+        error : function() {
+            alert("Nothing Data");
+        }
+    });
+}
 
     function deleteData(id){
         var csrf_token = $('meta[name="csrf-token"]').attr('content');
