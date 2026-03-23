@@ -190,9 +190,10 @@ $('#filter_category, #filter_status, #filter_stock').change(function(){
                 var imageUrl = "{{ url('') }}" + data.image; 
                 
                 $('#image-preview').html(
-                    '<p style="margin-top:10px; font-weight: bold;">Current Image:</p>' +
-                    '<img src="' + imageUrl + '" class="img-thumbnail" style="width:120px; height:120px; object-fit:cover;">'
-                );
+    '<img src="' + imageUrl + '" ' +
+    'class="img-thumbnail img-zoom-trigger" ' +
+    'style="width:100%; height:100%; object-fit:cover; cursor:pointer; display:block;">'
+);
             }
         },
         error: function() {
@@ -344,6 +345,16 @@ $(document).ready(function() {
     $('#price_georgia, #paid_tbc, #paid_bog, #paid_lib, #paid_cash').on('input', function() {
         calculateBalance();
     });
+});
+
+
+$(document).on('click', '.img-zoom-trigger', function() {
+    $('#img-lightbox-img').attr('src', $(this).attr('src'));
+    $('#img-lightbox').modal('show');
+});
+
+$(document).on('keydown', function(e) {
+    if (e.key === 'Escape') $('#img-lightbox').modal('hide');
 });
 </script>
 

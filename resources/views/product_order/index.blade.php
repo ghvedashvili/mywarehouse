@@ -349,11 +349,13 @@ $('#modal-sale').modal('show');
         }
 
         // modal-form დაიხურა → sale გახსნა
-        $('#modal-form').on('hidden.bs.modal', function() {
-            if ($('#modal-sale').length && (save_method === 'add' || save_method === undefined)) {
-                $('#modal-sale').modal('show');
-            }
-        });
+       $('#modal-form').on('hidden.bs.modal', function() {
+    if ($('#modal-sale').length) {
+        setTimeout(function() {
+            $('#modal-sale').modal('show');
+        }, 400);
+    }
+});
 // =====================
 // Quick Status Change
 // =====================

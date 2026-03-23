@@ -200,7 +200,8 @@ class ProductController extends Controller
             if (!$product->image) {
                 return '<span class="label label-default">No Image</span>';
             }
-            return '<img class="rounded-square" width="50" height="50" src="' . url($product->image) . '" style="object-fit: cover; border-radius:5px; border: 1px solid #ddd;">';
+            return'<img src="'.url($product->image).'" class="img-thumbnail img-zoom-trigger" 
+                     style="width:50px; height:50px; object-fit:cover; cursor:pointer;">';
         })
         // სტატუსის Badge (Active/Inactive)
         ->addColumn('status_label', function ($product) {

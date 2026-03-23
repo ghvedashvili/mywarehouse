@@ -119,11 +119,11 @@
     <footer class="main-footer">
         <!-- To the right -->
         <div class="pull-right hidden-xs">
-            Developed by Revan Apriyandi
+            Developed by Ghvedashvili
         </div>
         <!-- Default to the left -->
         <?php $date = date('Y')?>
-        <strong>&copy; {{$date}} - Inventory Management System </strong>
+        <strong>&copy; {{$date}} - Warehouse Management System </strong>
     </footer>
 
     <!-- Control Sidebar -->

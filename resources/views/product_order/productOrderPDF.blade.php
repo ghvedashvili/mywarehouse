@@ -64,7 +64,14 @@
                 <td><b>Quantity</b></td>
                 <td >: {{ $product_order->tel }}</td>
             </tr>
-
+@if($imageBase64)
+<tr>
+    <td><b>Product Image</b></td>
+    <td colspan="3">
+        <img src="{{ $imageBase64 }}" style="width:150px; height:auto;">
+    </td>
+</tr>
+@endif
         </table>
 
         {{--<hr  size="2px" color="black" align="left" width="45%">--}}

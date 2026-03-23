@@ -167,11 +167,23 @@ public function updateStatus(Request $request, $id)
     return response()->json(['success' => true, 'message' => 'სტატუსი განახლდა']);
 }
     public function exportProductOrder($id)
-    {
-        $product_order = Product_Order::with(['product', 'customer', 'status'])->findOrFail($id);
-        $pdf = Pdf::loadView('product_Order.productOrderPDF', compact('product_order'));
-        return $pdf->download($id.'_invoice.pdf');
+{
+    $product_order = Product_Order::with(['product', 'customer', 'status'])->findOrFail($id);
+    
+    // პროდუქტის სურათის base64-ად გადაყვანა
+    $imageBase64 = null;
+    if ($product_order->product->image) {
+        $imagePath = public_path($product_order->product->image);
+        if (file_exists($imagePath)) {
+            $imageData = file_get_contents($imagePath);
+            $mimeType = mime_content_type($imagePath);
+            $imageBase64 = 'data:' . $mimeType . ';base64,' . base64_encode($imageData);
+        }
     }
+    
+    $pdf = Pdf::loadView('product_Order.productOrderPDF', compact('product_order', 'imageBase64'));
+    return $pdf->download($id.'_invoice.pdf');
+}
 
     public function exportExcel()
     {

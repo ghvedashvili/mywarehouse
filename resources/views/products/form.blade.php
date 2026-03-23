@@ -125,6 +125,21 @@
     </div>
 </div>
 
+<!-- სურათის გადიდების მოდალი -->
+<div class="modal fade" id="img-lightbox" tabindex="-1">
+    <div class="modal-dialog modal-lg" style="margin-top: 80px;">
+        <div class="modal-content" style="background:transparent; border:none; box-shadow:none;">
+            <div class="modal-header" style="border:none; padding-bottom:0;">
+                <button type="button" class="close" data-dismiss="modal">
+                    <span style="color:#fff; font-size:36px;">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="img-lightbox-img" src="" class="img-responsive" style="margin:auto; max-height:75vh;">
+            </div>
+        </div>
+    </div>
+</div>
 {{-- სურათის პრევიუ — ახალი ფაილის არჩევისას --}}
 <script>
 document.getElementById('image').addEventListener('change', function () {
@@ -142,4 +157,6 @@ document.getElementById('image').addEventListener('change', function () {
         preview.innerHTML = '<span class="text-muted" id="preview-placeholder">No Preview</span>';
     }
 });
+
+
 </script>
