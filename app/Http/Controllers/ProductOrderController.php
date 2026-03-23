@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Customer;
 use App\Models\OrderStatus;
 use App\Models\Product;
+use App\Models\City;
+use App\Models\Courier;
 use App\Models\Product_Order;
 use App\Exports\ExportProdukOrder;
 use Illuminate\Http\Request;
@@ -24,11 +26,12 @@ class ProductOrderController extends Controller
     
     // ეს გვჭირდება JavaScript-ისთვის, რომ ფასები ამოიღოს
     $all_products = Product::where('product_status', 1)->get();
-    
-    $customers = Customer::orderBy('name','ASC')->pluck('name','id');
+      $cities = City::all(); // ეს დაამატე
+    $customers = Customer::with('city')->get();
     $statuses = OrderStatus::all(); 
+$courier = Courier::first(); // ეს დაამატე
 
-    return view('product_Order.index', compact('products', 'customers', 'statuses', 'all_products'));
+    return view('product_Order.index', compact('products', 'customers', 'statuses', 'all_products', 'cities', 'courier'));
     }
 
     public function store(Request $request)
@@ -37,47 +40,48 @@ class ProductOrderController extends Controller
         'product_id'   => 'required',
         'customer_id'  => 'required',
         'status_id'    => 'required',
-        // 'product_size' => 'required', // სურვილისამებრ, თუ ზომა სავალდებულოა
     ]);
-$product = Product::findOrFail($request->product_id);
 
-    // 2. შევამოწმოთ სტატუსი
+    $product = Product::findOrFail($request->product_id);
+
     if ($product->product_status != 1) {
-        // ვაბრუნებთ შეცდომას JSON ფორმატში, რომელსაც Ajax დაიჭერს
         return response()->json([
             'success' => false,
-            'message' => 'პროდუქტი არაა აქტიური, განაახლეთ გვერდი!'
-        ], 422); // 422 არის Unprocessable Entity
+            'message' => 'პროდუქტი არაა აქტიური!'
+        ], 422);
     }
 
-    // თუ სტატუსი 1-ია, ვაგრძელებთ ჩვეულებრივად...
     $data = $request->all();
- 
+    $user = auth()->user();
 
-    // 1. ვამატებთ სისტემაში შესული მომხმარებლის ID-ს
-    $data['user_id'] = auth()->id();
+    $data['user_id'] = $user->id;
 
-    // 2. კურიერის ლოგიკა: ვიღებთ რიცხვებს (decimal), თუ არ არის - ვწერთ 0-ს
-    $data['courier_price_international'] = $request->courier_price_international ?: 0;
-    $table_courier_tbilisi = $request->courier_price_tbilisi ?: 0;
-    $data['courier_price_tbilisi'] = $table_courier_tbilisi;
-    $data['courier_price_region'] = $request->courier_price_region ?: 0;
+    // ❗ ყოველთვის სერვერიდან ავიღოთ ფასები
+    $data['price_georgia'] = $product->price_geo;
+    $data['price_usa'] = $product->price_usa;
 
-    // 3. ფასდაკლება და სხვა ველები
-    $data['discount'] = $request->discount ?: 0;
-    $data['product_size'] = $request->product_size; // Blade-დან წამოსული ზომა
+    // ❗ STAFF შეზღუდვა
+    if ($user->role === 'staff') {
+        $data['discount'] = 0;
+        $data['paid_tbc'] = 0;
+        $data['paid_bog'] = 0;
+        $data['paid_lib'] = 0;
+    }
 
-    // 4. გადახდები (უცვლელია, უბრალოდ ვამოწმებთ რომ null არ იყოს)
-    $data['paid_tbc']  = $request->paid_tbc ?: 0;
-    $data['paid_bog']  = $request->paid_bog ?: 0;
-    $data['paid_lib']  = $request->paid_lib ?: 0;
-    $data['paid_cash'] = $request->paid_cash ?: 0;
-
-    // 5. შენახვა (დარწმუნდი, რომ მოდელის სახელი Product_Order სწორია)
+    // default values
+    $data['discount'] = $data['discount'] ?? 0;
+    $data['paid_tbc'] = $data['paid_tbc'] ?? 0;
+    $data['paid_bog'] = $data['paid_bog'] ?? 0;
+    $data['paid_lib'] = $data['paid_lib'] ?? 0;
+    $data['paid_cash'] = $data['paid_cash'] ?? 0;
+$courier = Courier::first();
+$data['courier_price_international'] = $courier->international_price ?? 30;
+$data['courier_servise_local'] = $request->has('courier_servise_local') ? 1 : 0;
+$data['courier_price_tbilisi'] = $request->has('courier_servise_local') ? ($courier->tbilisi_price ?? 6) : 0;
     Product_Order::create($data);
 
     return response()->json([
-        'success' => true, 
+        'success' => true,
         'message' => 'Order Created Successfully'
     ]);
 }
@@ -93,8 +97,11 @@ $product = Product::findOrFail($request->product_id);
         $order = Product_Order::findOrFail($id);
         $data = $request->all();
         
-        $data['courier_servise_international'] = $request->has('courier_servise_international') ? 1 : 0;
-        $data['courier_servise_local'] = $request->has('courier_servise_local') ? 1 : 0;
+        $courier = Courier::first();
+        $data['courier_price_international'] = $courier->international_price ?? 30;
+$data['courier_servise_local'] = $request->has('courier_servise_local') ? 1 : 0;
+$data['courier_price_tbilisi'] = $data['courier_servise_local'] ? ($courier->tbilisi_price ?? 6) : 0;
+
 
         $order->update($data);
 

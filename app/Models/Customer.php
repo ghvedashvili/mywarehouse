@@ -6,8 +6,21 @@ use Illuminate\Database\Eloquent\Model;
 
 class Customer extends Model
 {
-    // განახლებული ველები
-    protected $fillable = ['name', 'city_id', 'address', 'email', 'tel', 'alternative_tel', 'comment'];
+    protected $fillable = [
+        'name',
+        'city_id',
+        'address',
+        'email',
+        'tel',
+        'alternative_tel',
+        'comment'
+    ];
 
     protected $hidden = ['created_at', 'updated_at'];
+
+    // ✅ belongsTo
+    public function city()
+    {
+        return $this->belongsTo(City::class);
+    }
 }

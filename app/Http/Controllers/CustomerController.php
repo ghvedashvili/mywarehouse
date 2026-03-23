@@ -32,22 +32,49 @@ class CustomerController extends Controller
      * Store a newly created resource in storage.
      */
     public function store(Request $request)
-    {
-        $this->validate($request, [
-            'name'    => 'required|string|max:255',
-            'city_id' => 'required|exists:cities,id',
-            'address' => 'required|string|max:255',
-            'email'   => 'required|email|unique:customers,email',
-            'tel'     => 'required|unique:customers,tel',
-        ]);
+{
+    $this->validate($request, [
+        'name'    => 'required|string|max:255',
+        'city_id' => 'required|exists:cities,id',
+        'address' => 'required|string|max:255',
+        'email'   => 'required|email|unique:customers,email',
+        'tel'     => 'required|unique:customers,tel',
+    ]);
 
-        Customer::create($request->all());
+    $customer = Customer::create($request->all());
+    $customer->load('city');
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Customer Created Successfully!'
-        ]);
-    }
+    return response()->json([
+        'success'         => true,
+        'message'         => 'Customer Created Successfully!',
+        'id'              => $customer->id,
+        'name'            => $customer->name,
+        'tel'             => $customer->tel,
+        'address'         => $customer->address,
+        'city_name'       => $customer->city->name ?? '',
+        'alternative_tel' => $customer->alternative_tel,
+        'comment'         => $customer->comment,
+    ]);
+}
+
+public function update(Request $request, $id)
+{
+    $this->validate($request, [
+        'name'    => 'required|string|max:255',
+        'city_id' => 'required|exists:cities,id',
+        'address' => 'required|string|max:255',
+        'email'   => 'required|email|unique:customers,email,' . $id,
+        'tel'     => 'required|unique:customers,tel,' . $id,
+    ]);
+
+    $customer = Customer::findOrFail($id); // პირველ ეს
+    $customer->update($request->all());    // მერე ეს
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Customer Updated Successfully!'
+    ]);
+}
 
     /**
      * Show the form for editing the specified resource.
@@ -61,24 +88,7 @@ class CustomerController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, $id)
-    {
-        $this->validate($request, [
-            'name'    => 'required|string|max:255',
-            'city_id' => 'required|exists:cities,id',
-            'address' => 'required|string|max:255',
-            'email'   => 'required|email|unique:customers,email,' . $id,
-            'tel'     => 'required|unique:customers,tel,' . $id,
-        ]);
-
-        $customer = Customer::findOrFail($id);
-        $customer->update($request->all());
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Customer Updated Successfully!'
-        ]);
-    }
+    
 
     /**
      * Remove the specified resource from storage.

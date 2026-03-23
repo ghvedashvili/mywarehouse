@@ -1,6 +1,7 @@
 @extends('layouts.master')
 
 @section('top')
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('assets/bower_components/datatables.net-bs/css/dataTables.bootstrap.min.css') }}">
 @endsection
 
@@ -22,7 +23,6 @@
                         <th>Customer</th>
                         <th>Prices (GE/US)</th>
                         <th>Status</th>
-                       
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -38,8 +38,13 @@
     <script src="{{ asset('assets/bower_components/datatables.net/js/jquery.dataTables.min.js') }}"></script>
     <script src="{{ asset('assets/bower_components/datatables.net-bs/js/dataTables.bootstrap.min.js') }}"></script>
     <script src="{{ asset('assets/validator/validator.min.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
     <script type="text/javascript">
+
+        // =====================
+        // DataTable
+        // =====================
         var save_method;
         var table = $('#products-out-table').DataTable({
             processing: true,
@@ -51,15 +56,40 @@
                 {data: 'customer_name', name: 'customer_name'},
                 {data: 'prices', name: 'prices'},
                 {data: 'status_label', name: 'status_label'},
-
                 {data: 'action', name: 'action', orderable: false, searchable: false}
             ]
         });
 
-        // --- კურიერის მართვა (Sale) ---
+        // =====================
+        // Select2 — customer
+        // =====================
+        $('#customer_id_sale').select2({
+            dropdownParent: $('#modal-sale'),
+            placeholder: '-- Choose Customer --',
+            allowClear: true
+        });
+
+        // customer info ჩვენება — მხოლოდ ერთხელ
+        $('#customer_id_sale').on('change', function() {
+            var selected = $(this).find('option:selected');
+
+            if (!selected.val()) {
+                $('#customer_info_fields').hide();
+                return;
+            }
+
+            $('#customer_address').text((selected.data('city') || '') + ' - ' + (selected.data('address') || ''));
+            $('#customer_tel').text(selected.data('tel') || '');
+            $('#customer_alt_tel').text(selected.data('alt') || '');
+            $('#customer_comment').text(selected.data('comment') || '');
+            $('#customer_info_fields').show();
+        });
+
+        // =====================
+        // კურიერი
+        // =====================
         function updateCourierPrices() {
             let localPriceFromDb = parseFloat($('#db_tbilisi_price').val()) || 0;
-
             if ($('#is_local_courier').is(':checked')) {
                 $('#courier_price_tbilisi').val(localPriceFromDb);
             } else {
@@ -70,7 +100,9 @@
 
         $(document).on('change', '#is_local_courier', updateCourierPrices);
 
-        // --- ჯამური გამოთვლა (Sale) ---
+        // =====================
+        // ჯამური გამოთვლა
+        // =====================
         function calculateSaleSummary() {
             var priceGe = parseFloat($('#price_georgia_sale').val()) || 0;
             var discount = parseFloat($('#discount_sale').val()) || 0;
@@ -82,11 +114,11 @@
 
             var totalToPay = priceGe - discount;
 
-            var paid = (parseFloat($('#modal-sale input[name="paid_tbc"]').val()) || 0) + 
-                       (parseFloat($('#modal-sale input[name="paid_bog"]').val()) || 0) + 
-                       (parseFloat($('#modal-sale input[name="paid_lib"]').val()) || 0) + 
+            var paid = (parseFloat($('#modal-sale input[name="paid_tbc"]').val()) || 0) +
+                       (parseFloat($('#modal-sale input[name="paid_bog"]').val()) || 0) +
+                       (parseFloat($('#modal-sale input[name="paid_lib"]').val()) || 0) +
                        (parseFloat($('#modal-sale input[name="paid_cash"]').val()) || 0);
-            
+
             var diff = paid - totalToPay;
             var summary = $('#sale_summary_text');
 
@@ -103,154 +135,225 @@
 
         $(document).on('input', '#modal-sale input[name^="paid_"], #price_georgia_sale, #discount_sale', calculateSaleSummary);
 
-        // --- Sale ფორმის მართვა ---
+        // =====================
+        // Add Sale
+        // =====================
         function addSaleForm() {
             save_method = "add";
-            $('input[name=_method]').val('POST');
-            $('#modal-sale').modal('show');
+           $('#form-sale-content input[name=_method]').val('POST'); // შეიცვალა
             $('#form-sale-content')[0].reset();
-            $('#product_image_preview').hide(); // სურათის დამალვა
             $('#modal-sale .modal-title').text('Add New Sale');
             $('#sale_summary_text').text('შეიყვანეთ მონაცემები').css('color', 'black');
-
-            let intlPrice = parseFloat($('#db_intl_price').val()) || 30;
-            $('#courier_price_international').val(intlPrice);
-
-            updateCourierPrices(); 
+            $('#product_id_sale').val('').trigger('change');
+            $('#size_sale').empty().append('<option value="">-- Size --</option>');
+            $('#target_image').hide();
+            $('#no_image_text').show();
+            $('#customer_id_sale').val('').trigger('change');
+            $('#customer_info_fields').hide();
+            updateCourierPrices();
+            $('#modal-sale').modal('show');
         }
 
+        // =====================
+        // Edit Sale
+        // =====================
         function editForm(id) {
             save_method = 'edit';
-            $('input[name=_method]').val('PATCH');
-            
+            $('#form-sale-content input[name=_method]').val('PATCH'); // შეიცვალა
+
             $.ajax({
                 url: "{{ url('productsOut') }}/" + id + "/edit",
                 type: "GET",
                 dataType: "JSON",
                 success: function(data) {
-                    $('#modal-sale').modal('show');
+                    $('#form-sale-content')[0].reset();
+                    $('#size_sale').empty().append('<option value="">-- Size --</option>');
                     $('#modal-sale .modal-title').text('Edit Sale');
-                    
                     $('#modal-sale input[name="id"]').val(data.id);
-                    $('#product_id_sale').val(data.product_id).trigger('change');
+
+                    $('#customer_id_sale').val(data.customer_id).trigger('change');
+
                     $('#price_georgia_sale').val(data.price_georgia);
+                    $('#price_georgia_text').text(data.price_georgia);
+                    $('#price_usa_sale').val(data.price_usa);
+                    $('#price_usa_text').text(data.price_usa);
+$('#is_local_courier').prop('checked', data.courier_servise_local >0);
+
+// comment
+$('#form-sale-content textarea[name="comment"]').val(data.comment || '');
+                    let productSelect = $('#product_id_sale');
+                    productSelect.one('productLoaded', function() {
+                        $('#size_sale').val(data.product_size);
+                    });
+                    productSelect.val(data.product_id).trigger('change');
+
                     $('#discount_sale').val(data.discount || 0);
-                    
-                    $('#courier_price_international').val(data.courier_price_international);
-                    $('#is_local_courier').prop('checked', data.courier_price_tbilisi > 0);
-                    
-                    $('#modal-sale input[name="paid_tbc"]').val(data.paid_tbc);
-                    $('#modal-sale input[name="paid_bog"]').val(data.paid_bog);
-                    $('#modal-sale input[name="paid_lib"]').val(data.paid_lib);
-                    $('#modal-sale input[name="paid_cash"]').val(data.paid_cash);
-                    $('#product_id_sale').val(data.product_id).trigger('change');
-                    updateCourierPrices();
+$('#modal-sale input[name="paid_tbc"]').val(data.paid_tbc);
+$('#modal-sale input[name="paid_bog"]').val(data.paid_bog);
+$('#modal-sale input[name="paid_lib"]').val(data.paid_lib);
+$('#modal-sale input[name="paid_cash"]').val(data.paid_cash);
+$('#is_local_courier').prop('checked', data.courier_price_tbilisi > 0); // ერთხელ
+$('#form-sale-content textarea[name="comment"]').val(data.comment || ''); // ერთხელ
+updateCourierPrices();
+$('#modal-sale').modal('show');
                 }
             });
         }
 
-      $(document).on('change', '#product_id_sale', function () {
+        // =====================
+        // Product change
+        // =====================
+        $(document).on('change', '#product_id_sale', function() {
+            const selected = $(this).find('option:selected');
 
-    const selected = $(this).find('option:selected');
+            let priceGe = selected.data('price-ge') || 0;
+            let priceUs = selected.data('price-us') || 0;
 
-    // --- ფასები ---
-    $('#price_georgia_sale').val(selected.data('price-ge') || '');
-    $('#price_usa_sale').val(selected.data('price-us') || '');
+            $('#price_georgia_sale').val(priceGe);
+            $('#price_georgia_text').text(priceGe);
+            $('#price_usa_sale').val(priceUs);
+            $('#price_usa_text').text(priceUs);
 
-    // --- სურათი (ახალი UI-სთვის) ---
-    const imageUrl = selected.data('image');
-    const targetImg = $('#target_image');
-    const noImageText = $('#no_image_text');
-
-    if (imageUrl && imageUrl !== 'undefined' && $(this).val() !== '') {
-        targetImg
-            .attr('src', imageUrl)
-            .fadeIn(200);
-
-        noImageText.hide();
-    } else {
-        targetImg.hide().attr('src', '');
-        noImageText.show();
-    }
-
-    // --- ზომები ---
-    const sizesRaw = selected.data('sizes');
-    const sizeSelect = $('#size_sale');
-
-    sizeSelect.empty();
-
-    if (sizesRaw && sizesRaw.toString().trim() !== '') {
-
-        sizeSelect.append('<option value="">-- Select Size --</option>');
-
-        sizesRaw.toString().split(',').forEach(function (size) {
-            let s = size.trim();
-            if (s !== '') {
-                sizeSelect.append(`<option value="${s}">${s}</option>`);
+            const imageUrl = selected.data('image');
+            if (imageUrl) {
+                $('#target_image').attr('src', imageUrl).show();
+                $('#no_image_text').hide();
+            } else {
+                $('#target_image').hide();
+                $('#no_image_text').show();
             }
-        });
 
-        sizeSelect.prop('required', true);
+            const sizesRaw = selected.data('sizes');
+            const sizeSelect = $('#size_sale');
+            sizeSelect.empty();
 
-    } else {
-        sizeSelect.append('<option value="">-- No Size --</option>');
-        sizeSelect.prop('required', false);
-    }
-
-    // --- summary recalculation ---
-    calculateSaleSummary();
-});
-        $(document).on('submit', '.modal form', function (e) {
-            if (!e.isDefaultPrevented()){
-                e.preventDefault();
-                var form = $(this);
-                var modal = form.closest('.modal');
-                var id = form.find('input[name="id"]').val();
-                var url = (save_method == 'add') ? "{{ url('productsOut') }}" : "{{ url('productsOut') }}/" + id;
-
-                $.ajax({
-                    url : url,
-                    type : "POST",
-                    data: new FormData(this),
-                    contentType: false,
-                    processData: false,
-                    success : function(data) {
-                        modal.modal('hide');
-                        table.ajax.reload();
-                        swal("წარმატება!", data.message, "success");
-                    },
-                    error : function(data) {
-                // თუ ბექენდმა დააბრუნა 422 შეცდომა (ჩვენი ვალიდაცია)
-                if (data.status === 422) {
-                    var response = JSON.parse(data.responseText);
-                    swal("შეცდომა", response.message, "error");
-                } else {
-                    swal("შეცდომა", "მონაცემები ვერ შეინახა", "error");
-                }
-            }
+            if (sizesRaw && sizesRaw.toString().trim() !== '') {
+                sizeSelect.append('<option value="">-- Select Size --</option>');
+                sizesRaw.toString().split(',').forEach(function(size) {
+                    let s = size.trim();
+                    if (s !== '') sizeSelect.append(`<option value="${s}">${s}</option>`);
                 });
-                return false;
+                sizeSelect.prop('required', true);
+            } else {
+                sizeSelect.append('<option value="">-- No Size --</option>');
+                sizeSelect.prop('required', false);
             }
+
+            calculateSaleSummary();
+            $(this).trigger('productLoaded');
         });
 
-        function deleteData(id){
+        // =====================
+        // Sale Form Submit
+        // =====================
+        $(document).on('submit', '#form-sale-content', function(e) {
+            e.preventDefault();
+            var form = $(this);
+            var id = form.find('input[name="id"]').val();
+            var url = (save_method == 'add') ? "{{ url('productsOut') }}" : "{{ url('productsOut') }}/" + id;
+
+            $.ajax({
+                url: url,
+                type: "POST",
+                data: new FormData(this),
+                contentType: false,
+                processData: false,
+                success: function(data) {
+                    $('#modal-sale').modal('hide');
+                    table.ajax.reload();
+                    swal("წარმატება!", data.message, "success");
+                },
+                error: function(xhr) {
+                    if (xhr.status === 422) {
+                        var response = JSON.parse(xhr.responseText);
+                        swal("შეცდომა", response.message, "error");
+                    } else {
+                        swal("შეცდომა", "მონაცემები ვერ შეინახა", "error");
+                    }
+                }
+            });
+        });
+
+        // =====================
+        // Customer Form Submit — მხოლოდ ერთხელ
+        // =====================
+        $(document).on('submit', '#form-item', function(e) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+
+            $.ajax({
+                url: "{{ url('customers') }}",
+                type: "POST",
+                data: $(this).serialize(),
+                success: function(data) {
+                    $('#modal-form').modal('hide');
+
+                    var newOption = new Option(
+                        data.name + ' (' + data.tel + ')',
+                        data.id,
+                        true,
+                        true
+                    );
+                    $(newOption).data('address', data.address || '');
+                    $(newOption).data('city',    data.city_name || '');
+                    $(newOption).data('tel',     data.tel || '');
+                    $(newOption).data('alt',     data.alternative_tel || '');
+                    $(newOption).data('comment', data.comment || '');
+
+                    $('#customer_id_sale').append(newOption).trigger('change');
+                    $('#form-item')[0].reset();
+                },
+                error: function(xhr) {
+                    if (xhr.status === 422) {
+                        var errors = xhr.responseJSON.errors;
+                        var msg = Object.values(errors).flat().join('\n');
+                        swal("შეცდომა", msg, "error");
+                    } else {
+                        swal("შეცდომა", "ვერ შეინახა", "error");
+                    }
+                }
+            });
+        });
+
+        // =====================
+        // Delete
+        // =====================
+        function deleteData(id) {
             var csrf_token = $('meta[name="csrf-token"]').attr('content');
             swal({
                 title: 'დარწმუნებული ხართ?',
                 type: 'warning',
                 showCancelButton: true,
                 confirmButtonText: 'დიახ, წაშალე!'
-            }).then(function () {
+            }).then(function() {
                 $.ajax({
-                    url : "{{ url('productsOut') }}/" + id,
-                    type : "POST",
-                    data : {'_method' : 'DELETE', '_token' : csrf_token},
-                    success : function(data) {
+                    url: "{{ url('productsOut') }}/" + id,
+                    type: "POST",
+                    data: {'_method': 'DELETE', '_token': csrf_token},
+                    success: function(data) {
                         table.ajax.reload();
                         swal("წაშლილია!", data.message, "success");
                     }
                 });
             });
         }
+
+        // =====================
+        // Customer Create Modal
+        // =====================
+        function openCustomerCreate() {
+            $('#modal-sale').modal('hide');
+            setTimeout(function() {
+                $('#modal-form').modal('show');
+            }, 400);
+        }
+
+        // modal-form დაიხურა → sale გახსნა
+        $('#modal-form').on('hidden.bs.modal', function() {
+            if ($('#modal-sale').length && (save_method === 'add' || save_method === undefined)) {
+                $('#modal-sale').modal('show');
+            }
+        });
+
     </script>
 @endsection
