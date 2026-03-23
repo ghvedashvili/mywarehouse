@@ -133,13 +133,18 @@ $('#filter_category, #filter_status, #filter_stock').change(function(){
 });
 
     function addForm() {
-        save_method = "add";
-        $('input[name=_method]').val('POST');
-        $('#modal-form').modal('show');
-        $('#modal-form form')[0].reset();
-        $('.modal-title').text('Add Products');
-        $('#image-preview').empty(); 
-    }
+    save_method = "add";
+    $('input[name=_method]').val('POST');
+    $('#modal-form').modal('show');
+    $('#modal-form form')[0].reset();
+    $('.modal-title').text('Add Products');
+    $('#image-preview').html('<span class="text-muted">No Preview</span>');
+    
+    // sizes კონტეინერის გასუფთავება
+    $('#size-checkboxes').empty().append(
+        '<span class="text-muted" style="font-size:12px; color:#aaa;">Choose a category first</span>'
+    );
+}
 
     function editForm(id) {
     save_method = 'edit';
@@ -253,15 +258,16 @@ $('#filter_category, #filter_status, #filter_stock').change(function(){
         });
     });
 
-    function filterSizes(selectedSizes = []) {
+   {{-- ეს ჩაანაცვლე index.blade.php-ში არსებული filterSizes() ფუნქცია --}}
+function filterSizes(selectedSizes = []) {
     var categoryId = $('#category_id').val();
     var container = $('#size-checkboxes');
-    var group = $('#sizes-group');
 
-    container.empty(); // ჯერ ვასუფთავებთ კონტეინერს
+    // ვასუფთავებთ
+    container.empty();
 
     if (!categoryId) {
-        group.hide();
+        container.append('<span class="text-muted" style="font-size:12px; color:#aaa;">Choose a category first</span>');
         return;
     }
 
@@ -272,20 +278,16 @@ $('#filter_category, #filter_status, #filter_stock').change(function(){
         success: function(data) {
             if (data.length > 0) {
                 data.forEach(function(size) {
-                    // ვამოწმებთ არის თუ არა ეს ზომა არჩეულების მასივში
-                    // ვიყენებთ trim()-ს იმ შემთხვევისთვის თუ ბაზაში ზედმეტი დაშორებებია
                     var isChecked = selectedSizes.includes(size.name.trim()) ? 'checked' : '';
-                    
                     var checkbox = `
-                        <label style="font-weight: normal; margin-right: 15px; cursor: pointer;">
-                            <input type="checkbox" name="sizes[]" value="${size.name}" ${isChecked} class="size-checkbox"> 
+                        <label style="font-weight:normal; margin:0; cursor:pointer; font-size:13px; white-space:nowrap;">
+                            <input type="checkbox" name="sizes[]" value="${size.name}" ${isChecked} class="size-checkbox">
                             ${size.name}
                         </label>`;
                     container.append(checkbox);
                 });
-                group.show();
             } else {
-                group.hide();
+                container.append('<span class="text-muted" style="font-size:12px; color:#aaa;">No sizes for this category</span>');
             }
         },
         error: function() {
