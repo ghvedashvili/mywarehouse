@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App\Models\Category;
@@ -17,116 +16,80 @@ class CategoryController extends Controller
         $this->middleware('role:admin,staff');
     }
 
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
         return view('categories.index');
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
-{
-    // 1. ვალიდაცია
-    $this->validate($request, [
-        'name' => 'required|string|min:2|unique:categories,name',
-        'sizes' => 'nullable|string' // ზომები სავალდებულო არაა, მაგრამ თუ არის - ტექსტია
-    ]);
+    {
+        $this->validate($request, [
+            'name'  => 'required|string|min:2|unique:categories,name',
+            'sizes' => 'nullable|string'
+        ]);
 
-    // 2. ვინახავთ კატეგორიას
-    $category = Category::create($request->all());
-
-    // 3. თუ მომხმარებელმა ზომები მიუთითა
-    if ($request->sizes) {
-        // ტექსტს (მაგ: "S, M, L") ვშლით მძიმეებით მასივად ["S", " M", " L"]
-        $sizesArray = explode(',', $request->sizes);
-
-        foreach ($sizesArray as $sizeName) {
-            $trimmedSize = trim($sizeName); // ვაშორებთ ზედმეტ სფეისებს (" M" -> "M")
-            
-            if ($trimmedSize != "") {
-                // ვიყენებთ მოდელებს შორის კავშირს ჩასაწერად
-                $category->sizes()->create([
-                    'name' => $trimmedSize
-                ]);
-            }
+        // ზომებს ვასუფთავებთ — "S , M,  L" -> "S,M,L"
+        $sizes = null;
+        if ($request->sizes) {
+            $sizes = implode(',', array_filter(array_map('trim', explode(',', $request->sizes))));
         }
+
+        Category::create([
+    'name'    => $request->name,
+    'sizes'   => $sizes,
+    'user_id' => Auth::id(), // ავტომატურად ჩაიწერება მიმდინარე მომხმარებელი
+]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Category Created Successfully'
+        ]);
     }
 
-    return response()->json([
-        'success' => true,
-        'message' => 'Category and Sizes Created Successfully'
-    ]);
-}
-
-    /**
-     * Show the form for editing the specified resource.
-     */
     public function edit($id)
-{
-    // ვიღებთ კატეგორიას თავისი ზომებით
-    $category = Category::with('sizes')->findOrFail($id);
-    
-    // ზომების მასივს ვაქცევთ მძიმით გამოყოფილ ტექსტად (მაგ: "S, M, L")
-    $category->sizes_list = $category->sizes->pluck('name')->implode(', ');
-
-    return response()->json($category);
-}
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, $id)
-{
-    $this->validate($request, [
-        'name' => 'required|string|min:2|unique:categories,name,' . $id,
-        'sizes' => 'nullable|string'
-    ]);
-
-    $category = Category::findOrFail($id);
-    $category->update($request->all());
-
-    // 1. ვშლით ძველ ზომებს, რომ ახლებით ჩავანაცვლოთ
-    $category->sizes()->delete();
-
-    // 2. ვამატებთ ახალ ზომებს (თუ შეყვანილია)
-    if ($request->sizes) {
-        $sizesArray = explode(',', $request->sizes);
-        foreach ($sizesArray as $sizeName) {
-            $trimmedSize = trim($sizeName);
-            if ($trimmedSize != "") {
-                $category->sizes()->create([
-                    'name' => $trimmedSize
-                ]);
-            }
-        }
+    {
+        $category = Category::findOrFail($id);
+        // sizes უკვე სტრიქონია — პირდაპირ ვაბრუნებთ
+        return response()->json($category);
     }
 
-    return response()->json([
-        'success' => true,
-        'message' => 'Category Updated Successfully'
-    ]);
-}
+    public function update(Request $request, $id)
+    {
+        $this->validate($request, [
+            'name'  => 'required|string|min:2|unique:categories,name,' . $id,
+            'sizes' => 'nullable|string'
+        ]);
 
-    /**
-     * Remove the specified resource from storage.
-     */
+        $sizes = null;
+        if ($request->sizes) {
+            $sizes = implode(',', array_filter(array_map('trim', explode(',', $request->sizes))));
+        }
+
+        $category = Category::findOrFail($id);
+        $category->update([
+            'name'  => $request->name,
+            'sizes' => $sizes,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Category Updated Successfully'
+        ]);
+    }
+
     public function destroy($id)
     {
         if (!Auth::check()) {
-        return response()->json(['message' => 'ავტორიზაცია საჭიროა'], 401);
-    }
+            return response()->json(['message' => 'ავტორიზაცია საჭიროა'], 401);
+        }
 
-    // ვამოწმებთ როლს (დააკვირდი, ბაზაში 'admin' წერია თუ 'Admin' - დიდ ასოს აქვს მნიშვნელობა!)
-    if (Auth::user()->role != 'admin') {
-        return response()->json([
-            'success' => false,
-            'message' => 'ამ ქმედების უფლება მხოლოდ ადმინისტრატორს აქვს!'
-        ], 403);
-    }
+        if (Auth::user()->role != 'admin') {
+            return response()->json([
+                'success' => false,
+                'message' => 'ამ ქმედების უფლება მხოლოდ ადმინისტრატორს აქვს!'
+            ], 403);
+        }
+
         Category::destroy($id);
 
         return response()->json([
@@ -135,31 +98,32 @@ class CategoryController extends Controller
         ]);
     }
 
-    /**
-     * Yajra DataTables API
-     */
-    public function apiCategories()
-    {
-        $categories = Category::all();
+   public function apiCategories()
+{
+    $categories = Category::all();
 
-        return DataTables::of($categories)
-            ->addColumn('action', function($category) {
-                // ვამოწმებთ, არის თუ არა მომხმარებელი ადმინი
-                if (auth()->user()->role === 'admin') {
-                    return '<a onclick="editForm('. $category->id .')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i> Edit</a> ' .
-                        '<a onclick="deleteData('. $category->id .')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i> Delete</a>';
-                }
-                
-                // თუ არ არის ადმინი, ვაბრუნებთ ცარიელ მნიშვნელობას
-                return '';
-            })
-            ->rawColumns(['action'])
-            ->make(true);
-    }
+    return DataTables::of($categories)
+        ->addColumn('sizes_display', function($category) {
+            if (!$category->sizes) {
+                return '<span class="text-muted">-</span>';
+            }
+            $html = '';
+            foreach (explode(',', $category->sizes) as $size) {
+                $html .= '<span class="label label-info" style="margin-right:3px;">' . e(trim($size)) . '</span>';
+            }
+            return $html;
+        })
+        ->addColumn('action', function($category) {
+            if (auth()->user()->role === 'admin') {
+                return '<a onclick="editForm('. $category->id .')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i> Edit</a> ' .
+                       '<a onclick="deleteData('. $category->id .')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i> Delete</a>';
+            }
+            return '';
+        })
+        ->rawColumns(['sizes_display', 'action'])
+        ->make(true);
+}
 
-    /**
-     * Export to PDF
-     */
     public function exportCategoriesAll()
     {
         $categories = Category::all();
@@ -167,9 +131,6 @@ class CategoryController extends Controller
         return $pdf->download('categories.pdf');
     }
 
-    /**
-     * Export to Excel
-     */
     public function exportExcel()
     {
         return (new ExportCategories())->download('categories.xlsx');

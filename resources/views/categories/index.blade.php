@@ -26,15 +26,16 @@
         <!-- /.box-header -->
         <div class="box-body">
             <table id="categories-table" class="table table-bordered table-hover table-striped">
-                <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Action</th>
-                </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+    <thead>
+    <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Sizes</th>
+        <th>Action</th>
+    </tr>
+    </thead>
+    <tbody></tbody>
+</table>
         </div>
         <!-- /.box-body -->
     </div><!-- Log on to codeastro.com for more projects! -->
@@ -69,15 +70,16 @@
    <script type="text/javascript">
     // ინიციალიზაცია ხდება ერთხელ
     var table = $('#categories-table').DataTable({
-        processing: true,
-        serverSide: true,
-        ajax: "{{ route('api.categories') }}",
-        columns: [
-            {data: 'id', name: 'id'},
-            {data: 'name', name: 'name'},
-            {data: 'action', name: 'action', orderable: false, searchable: false}
-        ]
-    });
+    processing: true,
+    serverSide: true,
+    ajax: "{{ route('api.categories') }}",
+    columns: [
+        {data: 'id',            name: 'id'},
+        {data: 'name',          name: 'name'},
+        {data: 'sizes_display', name: 'sizes_display', orderable: false, searchable: false},
+        {data: 'action',        name: 'action',        orderable: false, searchable: false}
+    ]
+});
 
     function addForm() {
         save_method = "add";
@@ -102,7 +104,7 @@
             $('#id').val(data.id);
             $('#name').val(data.name);
             // აი ეს ხაზი დაამატე:
-            $('#sizes').val(data.sizes_list); 
+            $('#sizes').val(data.sizes);
         },
         error : function() {
             alert("Nothing Data");

@@ -12,16 +12,16 @@ class CreateCategoriesTable extends Migration
      * @return void
      */
     public function up()
-    {
-        Schema::create('categories', function (Blueprint $table) {
- 
-        
-            $table->increments('id');
-            $table->string('name');
-   
-            $table->timestamps();
-        });
-    }
+{
+    Schema::create('categories', function (Blueprint $table) {
+        $table->increments('id');
+        $table->unsignedInteger('user_id')->nullable(); // ვინ შექმნა
+        $table->string('name');
+        $table->string('sizes')->nullable();
+        $table->timestamps();
+    });
+}
+
 
     /**
      * Reverse the migrations.

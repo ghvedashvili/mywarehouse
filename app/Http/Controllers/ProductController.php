@@ -240,9 +240,22 @@ class ProductController extends Controller
         ->make(true);
 }
 
-    public function getSizes($category_id)
+// ახალი — categories.sizes სტრიქონს ანაწევრებს
+public function getSizes($category_id)
 {
-    $sizes = \App\Models\Size::where('category_id', $category_id)->get();
+    $category = \App\Models\Category::findOrFail($category_id);
+
+    if (!$category->sizes) {
+        return response()->json([]);
+    }
+
+    // "S,M,L" -> [["name":"S"], ["name":"M"], ["name":"L"]]
+    // ვინარჩუნებთ იგივე სტრუქტურას რომ JS არ შეიცვალოს
+    $sizes = collect(explode(',', $category->sizes))
+        ->map(fn($s) => ['name' => trim($s)])
+        ->filter(fn($s) => $s['name'] !== '')
+        ->values();
+
     return response()->json($sizes);
 }
 }
