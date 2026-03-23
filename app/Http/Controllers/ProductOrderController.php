@@ -96,7 +96,9 @@ $data['courier_price_tbilisi'] = $request->has('courier_servise_local') ? ($cour
     {
         $order = Product_Order::findOrFail($id);
         $data = $request->all();
-        
+        if (auth()->user()->role !== 'admin') {
+        unset($data['status_id']);
+    }
         $courier = Courier::first();
         $data['courier_price_international'] = $courier->international_price ?? 30;
 $data['courier_servise_local'] = $request->has('courier_servise_local') ? 1 : 0;
@@ -129,10 +131,15 @@ $data['courier_price_tbilisi'] = $data['courier_servise_local'] ? ($courier->tbi
             return "<b>GE:</b> {$item->price_georgia} ₾<br> <b>US:</b> {$item->price_usa} $";
         })
         ->addColumn('status_label', function ($item) {
-            $color = $item->status->color ?? 'default';
-            $name = $item->status->name ?? 'Pending';
-            return '<span class="label label-'.$color.'">'.$name.'</span>';
-        })
+    $color = $item->status->color ?? 'default';
+    $name = $item->status->name ?? 'Pending';
+    return '<span class="label label-'.$color.'" 
+                style="cursor:pointer; font-size:12px; padding:4px 8px;" 
+                onclick="openStatusModal('.$item->id.', '.$item->status_id.')" 
+                title="შეცვალე სტატუსი">
+                '.$name.' <i class="fa fa-pencil" style="margin-left:4px;font-size:10px;opacity:0.7;"></i>
+            </span>';
+})
         ->addColumn('action', function ($item) {
             // ლინკი უნდა იყოს აქ, რომ თითოეული პროდუქტის ID სწორად ჩაჯდეს
             $exportPdfUrl = route('exportPDF.productOrder', ['id' => $item->id]);
@@ -152,7 +159,13 @@ $data['courier_price_tbilisi'] = $data['courier_servise_local'] ? ($courier->tbi
         $pdf = Pdf::loadView('product_Order.productOrderAllPDF', compact('product_Order'));
         return $pdf->download('all_orders.pdf');
     }
-
+public function updateStatus(Request $request, $id)
+{
+    $order = Product_Order::findOrFail($id);
+    $order->update(['status_id' => $request->status_id]);
+    
+    return response()->json(['success' => true, 'message' => 'სტატუსი განახლდა']);
+}
     public function exportProductOrder($id)
     {
         $product_order = Product_Order::with(['product', 'customer', 'status'])->findOrFail($id);

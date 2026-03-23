@@ -158,13 +158,62 @@
                     </div>
 
                 </div>
-
+@if(auth()->user()->role === 'admin')
+<div class="form-group" id="status_field_wrapper">
+    <label>სტატუსი</label>
+    <select name="status_id" id="status_id_sale" class="form-control">
+        @foreach($statuses as $status)
+            <option value="{{ $status->id }}">{{ $status->name }}</option>
+        @endforeach
+    </select>
+</div>
+@endif
                 <div class="modal-footer">
                     <button type="submit" class="btn btn-success">💾 Save</button>
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
                 </div>
 
             </form>
+        </div>
+    </div>
+</div>
+
+
+
+
+<!-- Status Quick-Change Modal -->
+<div class="modal fade" id="modal-status" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-sm" style="margin-top: 150px;" role="document">
+        <div class="modal-content" style="border-radius: 8px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+            <div class="modal-header" style="background: #2c3e50; border-radius: 8px 8px 0 0; padding: 12px 16px;">
+                <button type="button" class="close" data-dismiss="modal" style="color:#fff; opacity:0.8; font-size:18px;">
+                    <span>&times;</span>
+                </button>
+                <h4 class="modal-title" style="color:#fff; font-size:14px; font-weight:600;">
+                    <i class="fa fa-tag"></i> სტატუსის შეცვლა
+                </h4>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <input type="hidden" id="status_order_id">
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label style="font-size:12px; color:#666; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
+                        აირჩიე სტატუსი
+                    </label>
+                    <select id="quick_status_select" class="form-control" style="border-radius:6px; height:38px; font-size:13px;">
+                        @foreach($statuses as $status)
+                            <option value="{{ $status->id }}" data-color="{{ $status->color }}">
+                                {{ $status->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer" style="border-top: 1px solid #f0f0f0; padding: 12px 16px; border-radius: 0 0 8px 8px;">
+                <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">გაუქმება</button>
+                <button type="button" class="btn btn-success btn-sm" onclick="saveQuickStatus()" style="min-width:80px;">
+                    <i class="fa fa-check"></i> შენახვა
+                </button>
+            </div>
         </div>
     </div>
 </div>

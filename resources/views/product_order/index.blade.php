@@ -170,7 +170,7 @@
                     $('#size_sale').empty().append('<option value="">-- Size --</option>');
                     $('#modal-sale .modal-title').text('Edit Sale');
                     $('#modal-sale input[name="id"]').val(data.id);
-
+$('#status_id_sale').val(data.status_id);
                     $('#customer_id_sale').val(data.customer_id).trigger('change');
 
                     $('#price_georgia_sale').val(data.price_georgia);
@@ -354,6 +354,48 @@ $('#modal-sale').modal('show');
                 $('#modal-sale').modal('show');
             }
         });
+// =====================
+// Quick Status Change
+// =====================
+function openStatusModal(orderId, currentStatusId) {
+    $('#status_order_id').val(orderId);
+    $('#quick_status_select').val(currentStatusId);
+    $('#modal-status').modal('show');
+}
 
+function saveQuickStatus() {
+    var id       = $('#status_order_id').val();
+    var statusId = $('#quick_status_select').val();
+    var csrf     = $('meta[name="csrf-token"]').attr('content');
+
+    $.ajax({
+        url: "{{ url('productsOut') }}/" + id + "/status",
+        type: "POST",
+        data: {
+            _method:   'PATCH',
+            _token:    csrf,
+            status_id: statusId
+        },
+        success: function(data) {
+            $('#modal-status').modal('hide');
+            table.ajax.reload(null, false); // false = პაგინაცია არ ბრუნდება
+            // პატარა toast შეტყობინება სwal-ის ნაცვლად
+            var toast = $('<div>')
+                .text('✓ სტატუსი განახლდა')
+                .css({
+                    position: 'fixed', bottom: '20px', right: '20px',
+                    background: '#27ae60', color: '#fff',
+                    padding: '10px 20px', borderRadius: '6px',
+                    fontSize: '13px', fontWeight: '600',
+                    zIndex: 9999, boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+                })
+                .appendTo('body');
+            setTimeout(function() { toast.fadeOut(300, function() { $(this).remove(); }); }, 2000);
+        },
+        error: function() {
+            swal("შეცდომა", "სტატუსი ვერ შეიცვალა", "error");
+        }
+    });
+}
     </script>
 @endsection

@@ -85,3 +85,5 @@ Route::middleware(['auth'])->group(function () {
 
 Route::get('/get-sizes/{category_id}', [ProductController::class, 'getSizes']);
     });
+
+    Route::patch('productsOut/{id}/status', [ProductOrderController::class, 'updateStatus'])->name('productsOut.updateStatus');
