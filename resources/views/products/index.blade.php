@@ -293,6 +293,56 @@ $('#filter_category, #filter_status, #filter_stock').change(function(){
         }
     });
 }
+
+$(document).ready(function() {
+    // 1. პროდუქტის არჩევისას ფასების შევსება
+    $('#product_id').on('change', function() {
+        var productId = $(this).val();
+        if (productId) {
+            $.ajax({
+                url: "{{ url('products') }}/" + productId + "/edit", // ვიყენებთ არსებულ edit მეთოდს
+                type: "GET",
+                dataType: "JSON",
+                success: function(data) {
+                    // ვავსებთ ფასებს (დარწმუნდით, რომ ბაზაში ამ სვეტებს ასე ჰქვია)
+                    $('#price_usa').val(data.price_usa || 0);
+                    $('#price_georgia').val(data.price_georgia || 0);
+                    calculateBalance(); // გადავთვალოთ ბალანსი
+                }
+            });
+        }
+    });
+
+    // 2. ბალანსის დათვლის ფუნქცია
+    function calculateBalance() {
+        var totalPrice = parseFloat($('#price_georgia').val()) || 0;
+        
+        var tbc = parseFloat($('#paid_tbc').val()) || 0;
+        var bog = parseFloat($('#paid_bog').val()) || 0;
+        var lib = parseFloat($('#paid_lib').val()) || 0;
+        var cash = parseFloat($('#paid_cash').val()) || 0;
+
+        var paidTotal = tbc + bog + lib + cash;
+        var balance = totalPrice - paidTotal;
+
+        // გამოჩენა და ფერის შეცვლა
+        var balanceDisplay = $('#balance_display');
+        balanceDisplay.text(balance.toFixed(2));
+
+        if (balance > 0) {
+            balanceDisplay.css('color', 'red'); // თუ დასამატებელია თანხა
+        } else if (balance < 0) {
+            balanceDisplay.css('color', 'blue'); // თუ ზედმეტია გადახდილი
+        } else {
+            balanceDisplay.css('color', 'green'); // თუ ნულია
+        }
+    }
+
+    // მოვუსმინოთ ყველა ციფრული ველის ცვლილებას
+    $('#price_georgia, #paid_tbc, #paid_bog, #paid_lib, #paid_cash').on('input', function() {
+        calculateBalance();
+    });
+});
 </script>
 
 @endsection

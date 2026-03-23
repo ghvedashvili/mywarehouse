@@ -2,209 +2,159 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Category;
 use App\Models\Customer;
-use App\Exports\ExportProdukOrder;
+use App\Models\OrderStatus;
 use App\Models\Product;
 use App\Models\Product_Order;
+use App\Exports\ExportProdukOrder;
 use Illuminate\Http\Request;
 use Yajra\DataTables\DataTables;
 use Barryvdh\DomPDF\Facade\Pdf;
-
 
 class ProductOrderController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('role:admin,staff');
+        $this->middleware('auth');
     }
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
+
     public function index()
     {
-        $products = Product::orderBy('name','ASC')
-            ->get()
-            ->pluck('name','id');
+        $products = Product::orderBy('name','ASC')->pluck('name','id');
+    
+    // ეს გვჭირდება JavaScript-ისთვის, რომ ფასები ამოიღოს
+    $all_products = Product::where('product_status', 1)->get();
+    
+    $customers = Customer::orderBy('name','ASC')->pluck('name','id');
+    $statuses = OrderStatus::all(); 
 
-        $customers = Customer::orderBy('name','ASC')
-            ->get()
-            ->pluck('name','id');
-
-        $invoice_data = Product_Order::all();
-        return view('product_Order.index', compact('products','customers', 'invoice_data'));
+    return view('product_Order.index', compact('products', 'customers', 'statuses', 'all_products'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
     public function store(Request $request)
 {
     $this->validate($request, [
-        'product_id'  => 'required',
-        'customer_id' => 'required',
-        'qty'         => 'required|numeric',
-        // 'date'     => 'required', // თუ თარიღი არ გჭირდება ბაზაში, ესეც არ გინდა
+        'product_id'   => 'required',
+        'customer_id'  => 'required',
+        'status_id'    => 'required',
+        // 'product_size' => 'required', // სურვილისამებრ, თუ ზომა სავალდებულოა
     ]);
+$product = Product::findOrFail($request->product_id);
 
-    // 1. მხოლოდ მონაცემების შენახვა Product_Order ცხრილში
-    $input = $request->all();
-    
-    // თუ ბაზაში მაინც გაქვს 'tanggal' სვეტი, დატოვე ეს ხაზი:
-    // $input['tanggal'] = $request->date; 
+    // 2. შევამოწმოთ სტატუსი
+    if ($product->product_status != 1) {
+        // ვაბრუნებთ შეცდომას JSON ფორმატში, რომელსაც Ajax დაიჭერს
+        return response()->json([
+            'success' => false,
+            'message' => 'პროდუქტი არაა აქტიური, განაახლეთ გვერდი!'
+        ], 422); // 422 არის Unprocessable Entity
+    }
 
-    \App\Models\Product_Order::create($input);
+    // თუ სტატუსი 1-ია, ვაგრძელებთ ჩვეულებრივად...
+    $data = $request->all();
+ 
 
-    /* წაშალე ან დააკომენტარე ქვემოთა ნაწილი, 
-       რადგან ის იწვევს შეცდომას:
-    
-    $product = \App\Models\Product::findOrFail($request->product_id);
-    $product->qty -= $request->qty; 
-    $product->update(); 
-    */
+    // 1. ვამატებთ სისტემაში შესული მომხმარებლის ID-ს
+    $data['user_id'] = auth()->id();
+
+    // 2. კურიერის ლოგიკა: ვიღებთ რიცხვებს (decimal), თუ არ არის - ვწერთ 0-ს
+    $data['courier_price_international'] = $request->courier_price_international ?: 0;
+    $table_courier_tbilisi = $request->courier_price_tbilisi ?: 0;
+    $data['courier_price_tbilisi'] = $table_courier_tbilisi;
+    $data['courier_price_region'] = $request->courier_price_region ?: 0;
+
+    // 3. ფასდაკლება და სხვა ველები
+    $data['discount'] = $request->discount ?: 0;
+    $data['product_size'] = $request->product_size; // Blade-დან წამოსული ზომა
+
+    // 4. გადახდები (უცვლელია, უბრალოდ ვამოწმებთ რომ null არ იყოს)
+    $data['paid_tbc']  = $request->paid_tbc ?: 0;
+    $data['paid_bog']  = $request->paid_bog ?: 0;
+    $data['paid_lib']  = $request->paid_lib ?: 0;
+    $data['paid_cash'] = $request->paid_cash ?: 0;
+
+    // 5. შენახვა (დარწმუნდი, რომ მოდელის სახელი Product_Order სწორია)
+    Product_Order::create($data);
 
     return response()->json([
-        'success' => true,
+        'success' => true, 
         'message' => 'Order Created Successfully'
     ]);
 }
 
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function show($id)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
     public function edit($id)
     {
-        $product_Order = Product_Order::find($id);
-        return $product_Order;
+        $product_Order = Product_Order::findOrFail($id);
+        return response()->json($product_Order);
     }
 
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
     public function update(Request $request, $id)
-{
-    $this->validate($request, [
-        'product_id'  => 'required',
-        'customer_id' => 'required',
-        'qty'         => 'required'
-        // 'tanggal'  => 'required' // თუ ბაზაში არ გაქვს, დატოვე დაკომენტარებული
-    ]);
+    {
+        $order = Product_Order::findOrFail($id);
+        $data = $request->all();
+        
+        $data['courier_servise_international'] = $request->has('courier_servise_international') ? 1 : 0;
+        $data['courier_servise_local'] = $request->has('courier_servise_local') ? 1 : 0;
 
-    // 1. ვპოულობთ ჩანაწერს product_Order ცხრილში
-    $product_Order = Product_Order::findOrFail($id);
-    
-    // 2. ვანახლებთ მხოლოდ ამ ჩანაწერს
-    $product_Order->update($request->all());
+        $order->update($data);
 
-    /* წაშალე ეს ბლოკი სრულად, რადგან სწორედ ეს იწვევს შეცდომას:
-       
-       $product = Product::findOrFail($request->product_id);
-       $product->qty -= $request->qty;
-       $product->update(); 
-    */
+        return response()->json(['success' => true, 'message' => 'Order Updated Successfully']);
+    }
 
-    return response()->json([
-        'success' => true,
-        'message' => 'Product Out Updated Successfully'
-    ]);
-}
-
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
     public function destroy($id)
     {
         Product_Order::destroy($id);
-
-        return response()->json([
-            'success'    => true,
-            'message'    => 'Products Delete Deleted'
-        ]);
+        return response()->json(['success' => true, 'message' => 'Order Deleted Successfully']);
     }
-
-
 
     public function apiProductsOut()
 {
-    // წამოვიღოთ მონაცემები პროდუქტთან და კლიენტთან ერთად
-    $productOrder = \App\Models\Product_Order::with(['product', 'customer'])->get();
+    $productOrder = Product_Order::with(['product', 'customer', 'status'])->get();
 
-    $data = $productOrder->map(function ($item) {
-        $exportPdfUrl = route('exportPDF.productOrder', ['id' => $item->id]);
-        return [
-            'id'             => $item->id,
-            // დარწმუნდი, რომ ბაზაში სვეტს ჰქვია 'name' ან 'nama'
-            'products_name'  => $item->product->name ?? $item->product->nama ?? 'N/A',
-            'customer_name'  => $item->customer->name ?? $item->customer->nama ?? 'N/A',
-            'qty'            => $item->qty,
-            'tanggal'        => $item->tanggal,
-            'action'         => '
-                <a onclick="editForm('. $item->id .')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i> Edit</a> ' .
-                '<a onclick="deleteData('. $item->id .')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i> Delete</a>'.
-        '<a href="'. $exportPdfUrl .'" class="btn btn-info btn-xs"><i class="fa fa-file-pdf-o"></i> Export Invoice</a>'
-                ];
-    });
-
-    // ვაბრუნებთ სტანდარტულ JSON-ს, რომელსაც DataTable მარტივად წაიკითხავს
-    return response()->json(['data' => $data]);
+    return Datatables::of($productOrder)
+        ->addColumn('products_name', function ($item) {
+            return $item->product->name ?? 'N/A';
+        })
+        ->addColumn('customer_name', function ($item) {
+            return $item->customer->name ?? 'N/A';
+        })
+        ->addColumn('prices', function ($item) {
+            return "<b>GE:</b> {$item->price_georgia} ₾<br> <b>US:</b> {$item->price_usa} $";
+        })
+        ->addColumn('status_label', function ($item) {
+            $color = $item->status->color ?? 'default';
+            $name = $item->status->name ?? 'Pending';
+            return '<span class="label label-'.$color.'">'.$name.'</span>';
+        })
+        ->addColumn('action', function ($item) {
+            // ლინკი უნდა იყოს აქ, რომ თითოეული პროდუქტის ID სწორად ჩაჯდეს
+            $exportPdfUrl = route('exportPDF.productOrder', ['id' => $item->id]);
+            
+            return '<center>'.
+                '<a onclick="editForm('. $item->id .')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a> ' .
+                '<a onclick="deleteData('. $item->id .')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a> ' .
+                '<a href="'. $exportPdfUrl .'" target="_blank" class="btn btn-info btn-xs" title="PDF Invoice"><i class="fa fa-file-pdf-o"></i></a>'.
+                '</center>';
+        })
+        ->rawColumns(['prices', 'status_label', 'action'])
+        ->make(true);
 }
-
     public function exportProductOrderAll()
     {
-        $product_Order = Product_Order::all();
-        $pdf = PDF::loadView('product_Order.productOrderAllPDF',compact('product_Order'));
-        return $pdf->download('product_out.pdf');
+        $product_Order = Product_Order::with(['product', 'customer', 'status'])->get();
+        $pdf = Pdf::loadView('product_Order.productOrderAllPDF', compact('product_Order'));
+        return $pdf->download('all_orders.pdf');
     }
 
     public function exportProductOrder($id)
-{
-    // ვიყენებთ პატარა o-ს ცვლადის სახელში
-    $product_order = Product_Order::with(['product', 'customer'])->findOrFail($id);
-    
-    // გადაეცი ზუსტად ეს სახელი
-    $pdf = PDF::loadView('product_order.productOrderPDF', compact('product_order'));
-    
-    return $pdf->download($product_order->id.'_invoice.pdf');
-}
+    {
+        $product_order = Product_Order::with(['product', 'customer', 'status'])->findOrFail($id);
+        $pdf = Pdf::loadView('product_Order.productOrderPDF', compact('product_order'));
+        return $pdf->download($id.'_invoice.pdf');
+    }
 
     public function exportExcel()
     {
-        return (new ExportProdukOrder)->download('product_Order.xlsx');
+        return (new ExportProdukOrder)->download('orders.xlsx');
     }
 }

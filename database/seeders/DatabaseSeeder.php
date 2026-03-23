@@ -31,9 +31,21 @@ class DatabaseSeeder extends Seeder
             ],
         ]);
 
+        DB::table('couriers')->insert([
+            [
+                'name'                  => 'Standard Shipping',
+                'international_price'   => 30.00,
+                'tbilisi_price'         => 6.00,
+                'region_price'          => 15.00,
+                'created_at'            => now(),
+                'updated_at'            => now(),
+            ]
+        ]);
+        
         // გამოიძახე CitySeeder აქ
         $this->call([
             CitySeeder::class,
+            CustomerSeeder::class,
         ]);
     }
 }
