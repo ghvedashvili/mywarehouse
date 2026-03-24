@@ -118,8 +118,7 @@ $data['courier_price_tbilisi'] = $data['courier_servise_local'] ? ($courier->tbi
 
     public function apiProductsOut()
 {
-    $productOrder = Product_Order::with(['product', 'customer', 'status'])->get();
-
+    $productOrder = Product_Order::with(['product', 'customer', 'orderStatus'])->get();
     return Datatables::of($productOrder)
         ->addColumn('products_name', function ($item) {
             return $item->product->name ?? 'N/A';
@@ -130,16 +129,16 @@ $data['courier_price_tbilisi'] = $data['courier_servise_local'] ? ($courier->tbi
         ->addColumn('prices', function ($item) {
             return "<b>GE:</b> {$item->price_georgia} ₾<br> <b>US:</b> {$item->price_usa} $";
         })
-        ->addColumn('status_label', function ($item) {
-    $color = $item->status->color ?? 'default';
-    $name = $item->status->name ?? 'Pending';
-    return '<span class="label label-'.$color.'" 
-                style="cursor:pointer; font-size:12px; padding:4px 8px;" 
-                onclick="openStatusModal('.$item->id.', '.$item->status_id.')" 
-                title="შეცვალე სტატუსი">
-                '.$name.' <i class="fa fa-pencil" style="margin-left:4px;font-size:10px;opacity:0.7;"></i>
-            </span>';
-})
+       ->addColumn('status_label', function ($item) {
+            $color = $item->orderStatus->color ?? 'default';
+            $name  = $item->orderStatus->name  ?? 'Pending';
+            return '<span class="label label-'.$color.'" 
+                        style="cursor:pointer; font-size:12px; padding:4px 8px;" 
+                        onclick="openStatusModal('.$item->id.', '.$item->status_id.')" 
+                        title="შეცვალე სტატუსი">
+                        '.$name.' <i class="fa fa-pencil" style="margin-left:4px;font-size:10px;opacity:0.7;"></i>
+                    </span>';
+        })
         ->addColumn('action', function ($item) {
             // ლინკი უნდა იყოს აქ, რომ თითოეული პროდუქტის ID სწორად ჩაჯდეს
             $exportPdfUrl = route('exportPDF.productOrder', ['id' => $item->id]);
@@ -155,7 +154,7 @@ $data['courier_price_tbilisi'] = $data['courier_servise_local'] ? ($courier->tbi
 }
     public function exportProductOrderAll()
     {
-        $product_Order = Product_Order::with(['product', 'customer', 'status'])->get();
+        $product_Order = Product_Order::with(['product', 'customer', 'orderStatus'])->get();
         $pdf = Pdf::loadView('product_Order.productOrderAllPDF', compact('product_Order'));
         return $pdf->download('all_orders.pdf');
     }
@@ -168,12 +167,16 @@ public function updateStatus(Request $request, $id)
 }
     public function exportProductOrder($id)
 {
-    $product_order = Product_Order::with(['product', 'customer', 'status'])->findOrFail($id);
+    $product_order = Product_Order::with([
+    'product' => fn($q) => $q->withoutGlobalScope('active'),
+    'customer.city',
+    'orderStatus'
+])->findOrFail($id);
     
     // პროდუქტის სურათის base64-ად გადაყვანა
     $imageBase64 = null;
     if ($product_order->product->image) {
-        $imagePath = public_path($product_order->product->image);
+       $imagePath = public_path(ltrim($product_order->product->image, '/'));
         if (file_exists($imagePath)) {
             $imageData = file_get_contents($imagePath);
             $mimeType = mime_content_type($imagePath);
@@ -192,28 +195,48 @@ public function updateStatus(Request $request, $id)
     public function exportFilteredOrders(Request $request)
 {
     $ids = $request->input('ids', []);
-    
-    if (empty($ids)) {
-        abort(400, 'No orders selected');
-    }
+    if (empty($ids)) { abort(400, 'No orders selected'); }
 
-    $product_Order = Product_Order::with(['product', 'customer.city', 'status'])
-    ->whereIn('id', $ids)
-    ->get();
-// dd($product_Order->first()->customer->city);
-    // თითოეული პროდუქტის სურათი base64-ად
-    $product_Order->transform(function ($order) {
+    // ვიღებთ ორდერებს და პროდუქტებს ყველანაირი სკოუპის გარეშე
+    $product_Order = Product_Order::withoutGlobalScope('active')
+        ->with([
+            'product' => fn($q) => $q->withoutGlobalScope('active'),
+            'customer.city',
+            'orderStatus'
+        ])
+        ->whereIn('id', $ids)
+        ->get();
+
+    foreach ($product_Order as $order) {
         $order->imageBase64 = null;
+
+        // თუ პროდუქტი არსებობს (თუნდაც წაშლილი)
         if ($order->product && $order->product->image) {
-            $imagePath = public_path($order->product->image);
-            if (file_exists($imagePath)) {
-                $imageData = file_get_contents($imagePath);
-                $mimeType = mime_content_type($imagePath);
-                $order->imageBase64 = 'data:' . $mimeType . ';base64,' . base64_encode($imageData);
-            }
+            
+            // 1. ვასუფთავებთ გზას: ვაშორებთ ზედმეტ სლეშებს და 'public'-ს თუ წერია
+            $imageField = ltrim($order->product->image, '/');
+            
+            // 2. ვცდით სხვადასხვა გზას ფაილის მოსაძებნად
+            $pathsToTry = [
+                public_path($imageField),
+                base_path('public/' . $imageField),
+                // ზოგჯერ ბაზაში წერია 'upload/products/...' და public_path ამატებს კიდევ ერთ public-ს
+            ];
+
+            $debugLog = [];
+foreach ($pathsToTry as $path) {
+    $debugLog[] = $path . ' → ' . (file_exists($path) ? 'EXISTS' : 'NOT FOUND');
+    if (file_exists($path) && !is_dir($path)) {
+        $imageData = file_get_contents($path);
+        $mimeType = mime_content_type($path);
+        $order->imageBase64 = 'data:' . $mimeType . ';base64,' . base64_encode($imageData);
+        break;
+    }
+}
+\Log::info('Image paths for order ' . $order->id . ': ', $debugLog);
+\Log::info('Image field value: ' . ($order->product->image ?? 'NULL'));
         }
-        return $order;
-    });
+    }
 
     $pdf = Pdf::loadView('product_Order.productOrderFilteredPDF', compact('product_Order'));
     return $pdf->download('filtered_orders.pdf');

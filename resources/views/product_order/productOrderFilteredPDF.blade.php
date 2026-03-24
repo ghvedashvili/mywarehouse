@@ -116,8 +116,8 @@
             <div class="order-customer" style="font-weight:400; font-size:11px;">{{ $product_order->customer->tel }}</div>
            <div class="order-customer">{{ $product_order->customer->address }}</div>
              <div class="order-customer" style="font-weight:400; font-size:11px;">{{ $product_order->customer->city->name ?? '' }}</div>  {{-- ეს დაამატე --}}
-            @if($product_order->status)
-                <div class="order-status">{{ $product_order->status->name }}</div>
+           @if($product_order->orderStatus)
+    <div class="order-status">{{ $product_order->orderStatus->name }}</div>
             @endif
         </div>
 

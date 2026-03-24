@@ -150,9 +150,9 @@ class ProductController extends Controller
     {
         $product = Product::findOrFail($id);
 
-        if ($product->image && file_exists(public_path($product->image))) {
-            unlink(public_path($product->image));
-        }
+        // if ($product->image && file_exists(public_path($product->image))) {
+        //     unlink(public_path($product->image));
+        // }
 
         Product::destroy($id);
 

@@ -6,28 +6,19 @@ use Illuminate\Database\Migrations\Migration;
 
 class CreateCategoriesTable extends Migration
 {
-    /**
-     * Run the migrations.
-     *
-     * @return void
-     */
     public function up()
-{
-    Schema::create('categories', function (Blueprint $table) {
-        $table->increments('id');
-        $table->unsignedInteger('user_id')->nullable(); // ვინ შექმნა
-        $table->string('name');
-        $table->string('sizes')->nullable();
-        $table->timestamps();
-    });
-}
+    {
+        Schema::create('categories', function (Blueprint $table) {
+            $table->increments('id');
+            $table->enum('status', ['active', 'deleted'])->default('active');
+            $table->unsignedInteger('user_id')->nullable();
+            $table->string('name');
+            $table->string('sizes')->nullable();
+            $table->string('color')->nullable();
+            $table->timestamps();
+        });
+    }
 
-
-    /**
-     * Reverse the migrations.
-     *
-     * @return void
-     */
     public function down()
     {
         Schema::dropIfExists('categories');
