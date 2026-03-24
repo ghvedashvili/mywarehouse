@@ -8,13 +8,18 @@
 
 @section('content')
     <div class="box box-success">
+ @if(auth()->user()->role == 'admin')
 
         <div class="box-header">
             <h3 class="box-title">List of Products</h3>
 
             <a onclick="addForm()" class="btn btn-success pull-right" style="margin-top: -8px;"><i class="fa fa-plus"></i> Add Products</a>
+        <a onclick="toggleDeleted()" id="btn-deleted" class="btn btn-danger pull-right" style="margin-top:-8px; margin-right:5px;">
+    <i class="fa fa-trash"></i> Deleted Products
+</a>
         </div>
 
+@endif
 
         <!-- /.box-header -->
         <div class="box-body">
@@ -47,20 +52,22 @@
 </div>
             <table id="products-table" class="table table-bordered table-hover table-striped">
                 <thead>
-                <tr>
-                    <th>ID</th>
-        <th>Code</th>
-        <th>Name</th>
-        <th>Price geo</th>
-        <th>Price usa</th>
-        <th>Sizes</th>
-        <th>Image</th>
-        <th>Status</th>
-        <th>Stock</th>
-        <th>Category</th>
-        <th>Actions</th>
-                </tr>
-                </thead>
+<tr>
+    <th>Code</th>
+    <th>Image</th>
+    <th>Name</th>
+    <th>Category</th>
+    <th>Sizes</th>
+    <th>Price GEO</th>
+   @if(auth()->user()->role == 'admin')
+<th>Price USA</th>
+@endif
+    <th>Status / Stock</th>
+    @if(auth()->user()->role == 'admin')
+<th>Actions</th>
+@endif
+</tr>
+</thead>
                 <tbody></tbody>
             </table>
         </div>
@@ -96,35 +103,42 @@
 
    <script type="text/javascript">
     // DataTable-ის ინიციალიზაცია
-   var table = $('#products-table').DataTable({
+   var isAdmin = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
+
+var columns = [
+    {data: 'product_code', name: 'product_code'},
+    {data: 'show_photo', name: 'show_photo', orderable: false, searchable: false},
+    {data: 'name', name: 'name'},
+    {data: 'category_name', name: 'category_name'},
+    {data: 'format_sizes', name: 'format_sizes', orderable: false},
+    {data: 'price_geo', name: 'price_geo'},
+];
+
+if (isAdmin) {
+    columns.push({data: 'price_usa', name: 'price_usa'});
+}
+
+columns.push({data: 'status_stock', name: 'status_stock', orderable: false, searchable: false});
+
+if (isAdmin) {
+    columns.push({data: 'action', name: 'action', orderable: false, searchable: false});
+}
+
+var table = $('#products-table').DataTable({
     processing: true,
     serverSide: true,
-    lengthMenu: [
-        [10, 25, 50, 100, -1], // რეალური მნიშვნელობები (-1 ნიშნავს ყველას)
-        [10, 25, 50, 100, "All"] // რას დაწერს მომხმარებლისთვის დროპდაუნში
-    ],
-    pageLength: 10, // სტანდარტულად რამდენი გამოჩნდეს ჩატვირთვისას
+    lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
+    pageLength: 10,
     ajax: {
         url: "{{ route('api.products') }}",
         data: function (d) {
             d.category_id = $('#filter_category').val();
             d.product_status = $('#filter_status').val();
             d.in_warehouse = $('#filter_stock').val();
+            d.is_admin = isAdmin ? 1 : 0;
         }
     },
-    columns: [
-        {data: 'id', name: 'id'},
-        {data: 'product_code', name: 'product_code'},
-        {data: 'name', name: 'name'},
-        {data: 'price_geo', name: 'price_geo'},
-        {data: 'price_usa', name: 'price_usa'},
-        {data: 'format_sizes', name: 'format_sizes', orderable: false},
-        {data: 'show_photo', name: 'show_photo', orderable: false, searchable: false},
-        {data: 'status_label', name: 'status_label'},
-        {data: 'warehouse_label', name: 'warehouse_label'},
-        {data: 'category_name', name: 'category_name'},
-        {data: 'action', name: 'action', orderable: false, searchable: false}
-    ]
+    columns: columns
 });
 
 // ფილტრების შეცვლისას ცხრილის ავტომატური განახლება
@@ -356,6 +370,44 @@ $(document).on('click', '.img-zoom-trigger', function() {
 $(document).on('keydown', function(e) {
     if (e.key === 'Escape') $('#img-lightbox').modal('hide');
 });
+
+var showingDeleted = false;
+
+function toggleDeleted() {
+    showingDeleted = !showingDeleted;
+    if (showingDeleted) {
+        $('#btn-deleted').html('<i class="fa fa-list"></i> Active Products').removeClass('btn-danger').addClass('btn-success');
+        table.ajax.url("{{ route('api.deleted-products') }}").load();
+    } else {
+        $('#btn-deleted').html('<i class="fa fa-trash"></i> Deleted Products').removeClass('btn-success').addClass('btn-danger');
+        table.ajax.url("{{ route('api.products') }}").load();
+    }
+}
+
+function restoreData(id) {
+    var csrf_token = $('meta[name="csrf-token"]').attr('content');
+    swal({
+        title: 'Restore Product?',
+        text: 'პროდუქტი დაბრუნდება Active სტატუსით',
+        type: 'info',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, restore it!'
+    }).then(function () {
+        $.ajax({
+            url: "{{ url('products') }}/" + id + "/restore",
+            type: "POST",
+            data: {'_token': csrf_token},
+            success: function(data) {
+                table.ajax.reload();
+                swal("Restored!", data.message, "success");
+            },
+            error: function() {
+                swal("Oops...", "Something went wrong!", "error");
+            }
+        });
+    });
+}
 </script>
 
 @endsection

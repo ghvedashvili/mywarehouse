@@ -147,20 +147,67 @@ class ProductController extends Controller
      * Remove the specified resource from storage.
      */
     public function destroy($id)
-    {
-        $product = Product::findOrFail($id);
+{
+    $product = Product::findOrFail($id);
+    $product->delete(); // იძახებს Model-ის override delete()-ს → status='deleted'
 
-        // if ($product->image && file_exists(public_path($product->image))) {
-        //     unlink(public_path($product->image));
-        // }
+    return response()->json([
+        'success' => true,
+        'message' => 'Product Deleted Successfully'
+    ]);
+}
 
-        Product::destroy($id);
+public function restore($id)
+{
+    $product = Product::withoutGlobalScope('active')
+    ->where('status', 'deleted')
+    ->findOrFail($id);
+    $product->update([
+        'status' => 'active',
+        'product_status' => 1
+    ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Product Deleted Successfully'
-        ]);
-    }
+    return response()->json([
+        'success' => true,
+        'message' => 'Product Restored Successfully'
+    ]);
+}
+
+public function apiDeletedProducts(Request $request)
+{
+   $products = Product::withoutGlobalScope('active')
+    ->where('status', 'deleted')
+    ->with('category')
+    ->select('products.*');
+
+    return \DataTables::of($products->get())
+        ->addColumn('category_name', function ($product) {
+            return $product->category ? $product->category->name : '<span class="label label-default">N/A</span>';
+        })
+        ->addColumn('show_photo', function ($product) {
+            if (!$product->image) return '<span class="label label-default">No Image</span>';
+            return '<img src="'.url($product->image).'" class="img-thumbnail img-zoom-trigger" style="width:50px; height:50px; object-fit:cover; cursor:pointer;">';
+        })
+        ->addColumn('format_sizes', function ($product) {
+            if (!$product->sizes) return '<span class="text-muted">-</span>';
+            $html = '';
+            foreach (explode(',', $product->sizes) as $size) {
+                $html .= '<span class="label label-info" style="margin-right:2px;">' . e(trim($size)) . '</span>';
+            }
+            return $html;
+        })
+        ->addColumn('status_stock', function ($product) {
+            return '<span class="label label-danger">Deleted</span>';
+        })
+        ->addColumn('action', function ($product) {
+            return '<center>
+                <a onclick="restoreData(' . $product->id . ')" class="btn btn-success btn-xs">
+                    <i class="glyphicon glyphicon-refresh"></i> Restore
+                </a></center>';
+        })
+        ->rawColumns(['category_name', 'show_photo', 'status_stock', 'format_sizes', 'action'])
+        ->make(true);
+}
 
     /**
      * Yajra DataTables API
@@ -204,19 +251,17 @@ class ProductController extends Controller
                      style="width:50px; height:50px; object-fit:cover; cursor:pointer;">';
         })
         // სტატუსის Badge (Active/Inactive)
-        ->addColumn('status_label', function ($product) {
-            if ($product->product_status == 1) {
-                return '<span class="label label-success">Active</span>';
-            }
-            return '<span class="label label-danger">Inactive</span>';
-        })
-        // საწყობის Badge (In Stock/Out of Stock)
-        ->addColumn('warehouse_label', function ($product) {
-            if ($product->in_warehouse == 1) {
-                return '<span class="label label-primary">In Stock</span>';
-            }
-            return '<span class="label label-warning">Out of Stock</span>';
-        })
+        ->addColumn('status_stock', function ($product) {
+    $status = $product->product_status == 1
+        ? '<span class="label label-success">Active</span>'
+        : '<span class="label label-danger">Inactive</span>';
+
+    $stock = $product->in_warehouse == 1
+        ? '<span class="label label-primary">In Stock</span>'
+        : '<span class="label label-warning">Out of Stock</span>';
+
+    return $status . ' ' . $stock;
+})
         // ზომების ფორმატირება (თითოეული ზომა ცალკე Badge-ად)
         ->addColumn('format_sizes', function ($product) {
             if (!$product->sizes) {
@@ -231,13 +276,14 @@ class ProductController extends Controller
         })
         // მოქმედების ღილაკები
         ->addColumn('action', function ($product) {
-            return '<center>'.
-                   '<a onclick="editForm(' . $product->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="glyphicon glyphicon-edit"></i> Edit</a> ' .
-                   '<a onclick="deleteData(' . $product->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="glyphicon glyphicon-trash"></i> Delete</a>'.
-                   '</center>';
-        })
+    if (auth()->user()->role !== 'admin') return '';
+    return '<center>'.
+           '<a onclick="editForm(' . $product->id . ')" class="btn btn-primary btn-xs"><i class="glyphicon glyphicon-edit"></i> Edit</a> ' .
+           '<a onclick="deleteData(' . $product->id . ')" class="btn btn-danger btn-xs"><i class="glyphicon glyphicon-trash"></i> Delete</a>'.
+           '</center>';
+})
         // მივუთითებთ რომელ სვეტებშია HTML კოდი
-        ->rawColumns(['category_name', 'show_photo', 'status_label', 'warehouse_label', 'format_sizes', 'action'])
+        ->rawColumns(['category_name', 'show_photo', 'status_stock', 'format_sizes', 'action'])
         ->make(true);
 }
 

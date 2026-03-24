@@ -233,8 +233,7 @@ foreach ($pathsToTry as $path) {
         break;
     }
 }
-\Log::info('Image paths for order ' . $order->id . ': ', $debugLog);
-\Log::info('Image field value: ' . ($order->product->image ?? 'NULL'));
+
         }
     }
 

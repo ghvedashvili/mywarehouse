@@ -73,6 +73,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/exportProductOrder/{id}', [ProductOrderController::class, 'exportProductOrder'])->name('exportPDF.productOrder');
 Route::post('exportPDF/productOrder/filtered', [ProductOrderController::class, 'exportFilteredOrders'])
     ->name('exportPDF.productOrderFiltered');
+Route::get('api/deleted-products', [ProductController::class, 'apiDeletedProducts'])->name('api.deleted-products');
+Route::post('products/{id}/restore', [ProductController::class, 'restore'])->name('products.restore');
+
+
     // Products In (Masuk)
     Route::resource('productsIn', ProductMasukController::class);
     Route::get('/apiProductsIn', [ProductMasukController::class, 'apiProductsIn'])->name('api.productsIn');
