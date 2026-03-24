@@ -1,163 +1,290 @@
-<!doctype html>
-<html>
-    <link href="//netdna.bootstrapcdn.com/bootstrap/3.1.0/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
-    <script src="//netdna.bootstrapcdn.com/bootstrap/3.1.0/js/bootstrap.min.js"></script>
-    <script src="//code.jquery.com/jquery-1.11.1.min.js"></script>
+<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Invoice</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice #{{ $product_order->id }}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: #f5f5f0;
+            color: #1a1a1a;
+            padding: 40px 20px;
+        }
+
+        .page {
+            max-width: 760px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.08);
+        }
+
+        /* ── Header ── */
+        .header {
+            padding: 40px 48px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 1px solid #ebebeb;
+        }
+
+        .logo-area img {
+            height: 52px;
+            width: auto;
+        }
+
+        .invoice-meta {
+            text-align: right;
+        }
+
+        .invoice-meta .label {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+
+        .invoice-meta p {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.7;
+        }
+
+        .invoice-meta span {
+            color: #1a1a1a;
+            font-weight: 500;
+        }
+
+        /* ── Company info ── */
+        .company-section {
+            padding: 32px 48px;
+            border-bottom: 1px solid #ebebeb;
+        }
+
+        .company-name {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 10px;
+            color: #1a1a1a;
+        }
+
+        .company-section p {
+            font-size: 13px;
+            color: #555;
+            line-height: 1.8;
+        }
+
+        /* ── Details grid ── */
+        .details-section {
+            padding: 32px 48px;
+            border-bottom: 1px solid #ebebeb;
+        }
+
+        .section-title {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: #999;
+            margin-bottom: 20px;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px 40px;
+        }
+
+        .detail-item .detail-label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            color: #aaa;
+            margin-bottom: 4px;
+        }
+
+        .detail-item .detail-value {
+            font-size: 14px;
+            font-weight: 500;
+            color: #1a1a1a;
+        }
+
+        /* ── Product table ── */
+        .table-section {
+            padding: 0 48px 32px;
+        }
+
+        .product-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .product-table thead tr {
+            border-bottom: 2px solid #1a1a1a;
+        }
+
+        .product-table thead th {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: #999;
+            padding: 0 0 12px;
+            text-align: left;
+        }
+
+        .product-table thead th:last-child {
+            text-align: right;
+        }
+
+        .product-table tbody tr {
+            border-bottom: 1px solid #ebebeb;
+        }
+
+        .product-table tbody td {
+            padding: 16px 0;
+            font-size: 14px;
+            color: #1a1a1a;
+            vertical-align: middle;
+        }
+
+        .product-table tbody td:last-child {
+            text-align: right;
+            font-weight: 600;
+        }
+
+        .product-img {
+            width: 44px;
+            height: 44px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid #ebebeb;
+            vertical-align: middle;
+            margin-right: 12px;
+        }
+
+        .product-name {
+            font-weight: 500;
+        }
+
+        /* ── Footer ── */
+        .footer {
+            padding: 28px 48px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fafaf8;
+            border-top: 1px solid #ebebeb;
+        }
+
+        .footer .thank-you {
+            font-size: 13px;
+            color: #888;
+        }
+
+        .footer .brand {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1a1a1a;
+            letter-spacing: 0.5px;
+        }
+
+        /* ── Print ── */
+        @media print {
+            body { background: white; padding: 0; }
+            .page { box-shadow: none; border-radius: 0; }
+        }
+    </style>
 </head>
-
-<style>
-    #table-data {
-        border-collapse: collapse;
-        padding: 3px;
-    }
-
-    #table-data td, #table-data th {
-        border: 1px solid black;
-    }
-</style>
-
 <body>
-<div class="invoice-box">
-    <!-- <table cellpadding="0" cellspacing="0">
-        <tr class="top">
-            <td colspan="2">
-                <table>
-                    <tr>
-                        <td class="title">
-                            <img src="https://www.sparksuite.com/images/logo.png" style="width:100%; max-width:300px;">
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table> -->
+<div class="page">
 
+    <!-- Header -->
+    <div class="header">
+        <div class="logo-area">
+            {{-- Replace with your logo --}}
+            <img src="https://via.placeholder.com/120x52/e85d26/ffffff?text=LOGO" alt="Logo">
+        </div>
+        <div class="invoice-meta">
+            <div class="label">Invoice</div>
+            <p>Invoice Number: <span>#{{ $product_order->id }}</span></p>
+            <p>Date: <span>{{ $product_order->tanggal }}</span></p>
+        </div>
+    </div>
 
-        <table border="0" id="table-data" width="100%">
-            <tr>
-                <td width="70px"><b>Invoice</b></td>
-                <td width="">: ##{{ $product_order->id }}</td>
-                <td width="30px"><b>Created</b></td>
-                <td>: {{ $product_order->tanggal }}</td>
-            </tr>
+    <!-- Company / Billed To -->
+    <div class="company-section">
+        <div class="company-name">{{ $product_order->customer->name }}</div>
+        <p>{{ $product_order->customer->tel }}</p>
+        <p>{{ $product_order->customer->alternative_tel }}</p>
+        <p>{{ $product_order->customer->email }}</p>
+    </div>
 
-            <tr>
-                <td><b>Contact</b></td>
-                <td>: {{ $product_order->customer->tel }}</td>
-                <td><b>Address</b></td>
-                <td>: {{ $product_order->customer->alternative_tel }}</td>
-            </tr>
+    <!-- Order Details -->
+    <div class="details-section">
+        <div class="section-title">Order Details</div>
+        <div class="details-grid">
+            <div class="detail-item">
+                <div class="detail-label">Product</div>
+                <div class="detail-value">{{ $product_order->product->name }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">Quantity</div>
+                <div class="detail-value">{{ $product_order->tel }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">Customer</div>
+                <div class="detail-value">{{ $product_order->customer->name }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">Invoice Date</div>
+                <div class="detail-value">{{ $product_order->tanggal }}</div>
+            </div>
+        </div>
+    </div>
 
-            <tr>
-                <td><b>Customer</b></td>
-                <td>: {{ $product_order->customer->name }}</td>
-                <td><b>Email</b></td>
-                <td>: {{ $product_order->customer->email }}</td>
-            </tr>
-
-            <tr>
-                <td><b>Product</b></td>
-                <td >: {{ $product_order->product->name }}</td>
-                <td><b>Quantity</b></td>
-                <td >: {{ $product_order->tel }}</td>
-            </tr>
-@if($imageBase64)
-<tr>
-    <td><b>Product Image</b></td>
-    <td colspan="3">
-        <img src="{{ $imageBase64 }}" style="width:150px; height:auto;">
-    </td>
-</tr>
-@endif
+    <!-- Product Table -->
+    <div class="table-section">
+        <table class="product-table">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Qty</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        @if($imageBase64)
+                            <img src="{{ $imageBase64 }}" class="product-img" alt="Product">
+                        @endif
+                        <span class="product-name">{{ $product_order->product->name }}</span>
+                    </td>
+                    <td>{{ $product_order->tel }}</td>
+                </tr>
+            </tbody>
         </table>
+    </div>
 
-        {{--<hr  size="2px" color="black" align="left" width="45%">--}}
+    <!-- Footer -->
+    <div class="footer">
+        <span class="thank-you">Thank you for your order.</span>
+        <span class="brand">I M S</span>
+    </div>
 
-
-        <table border="0" width="80%">
-            <tr align="right">
-                <td>Best Regard</td>
-            </tr>
-        </table>
-
-    <!-- <table border="0" width="80%">
-        <tr align="right">
-            <td><img src="https://upload.wikimedia.org/wikipedia/en/f/f4/Timothy_Spall_Signature.png" width="100px" height="100px"></td>
-        </tr>
-
-    </table> -->
-        <table border="0" width="80%">
-            <tr align="right">
-                <td>I M S</td>
-            </tr>
-        </table>
 </div>
-
-
-
-
-
-
-<!-- New Invoice Starts Here -->
-<!-- <div class="container">
-    <div class="row">
-        <div class="col-xs-12">
-    		<div class="invoice-title">
-    			<h2>Invoice</h2><h3 class="pull-right">Order # {{ $product_order->id }}</h3>
-    		</div>
-    		<hr>
-    		<div class="row">
-    			<div class="col-xs-6">
-    				<address>
-    				<strong>Billed To:</strong><br>
-                    {{ $product_order->customer->nama }}<br>
-                    {{ $product_order->customer->alamat }}<br>
-                    {{ $product_order->customer->email }}<br>
-                    {{ $product_order->customer->telepon }}
-    				</address>
-    			</div>
-    			<div class="col-xs-6 text-right">
-    				<address>
-    					<strong>Order Date:</strong><br>
-    					{{ $product_order->tanggal }}<br><br>
-    				</address>
-    			</div>
-    		</div>
-    	</div>
-    </div>
-    
-    <div class="row">
-    	<div class="col-md-12">
-    		<div class="panel panel-default">
-    			<div class="panel-heading">
-    				<h3 class="panel-title"><strong>Order Summary</strong></h3>
-    			</div>
-    			<div class="panel-body">
-    				<div class="table-responsive">
-    					<table class="table table-bordered table-condensed">
-    						<thead>
-                                <tr>
-        							<td><strong>Product Name</strong></td>
-        							<td class="text-center"><strong>Total Quantity</strong></td>
-                                </tr>
-    						</thead>
-    						<tbody>
-    							<tr>
-    								<td>{{ $product_order->product->nama }}</td>
-    								<td class="text-center">{{ $product_order->qty }}</td>
-    							</tr>
-    							
-    						</tbody>
-    					</table>
-    				</div>
-    			</div>
-    		</div>
-    	</div>
-    </div>
-</div> -->
-
-
 </body>
+</html>

@@ -11,6 +11,9 @@
             <h3 class="box-title">Outgoing Products</h3>
             <div class="pull-right">
                 <a onclick="addSaleForm()" class="btn btn-success"><i class="fa fa-plus"></i> Add New Sale</a>
+                <a onclick="exportFilteredPDF()" class="btn btn-warning">
+    <i class="fa fa-file-pdf-o"></i> Export Filtered PDF
+</a>
                 <a href="{{ route('exportPDF.productOrderAll') }}" class="btn btn-danger">Export PDF</a>
             </div>
         </div>
@@ -398,6 +401,29 @@ function saveQuickStatus() {
             swal("შეცდომა", "სტატუსი ვერ შეიცვალა", "error");
         }
     });
+}
+
+function exportFilteredPDF() {
+    // DataTable-ის ამჟამად ხილული რიგებიდან ID-ების აღება
+    var ids = [];
+    table.rows({ search: 'applied' }).data().each(function(row) {
+        ids.push(row.id);
+    });
+
+    if (ids.length === 0) {
+        swal("ინფო", "გაფილტრული ორდერი არ მოიძებნა", "info");
+        return;
+    }
+
+    // POST ფორმით გაგზავნა (GET-ზე URL ძალიან გრძელი შეიძლება გახდეს)
+    var form = $('<form method="POST" action="{{ route('exportPDF.productOrderFiltered') }}" target="_blank">');
+    form.append('<input type="hidden" name="_token" value="{{ csrf_token() }}">');
+    ids.forEach(function(id) {
+        form.append('<input type="hidden" name="ids[]" value="' + id + '">');
+    });
+    $('body').append(form);
+    form.submit();
+    form.remove();
 }
     </script>
 @endsection

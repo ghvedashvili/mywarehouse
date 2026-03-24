@@ -189,4 +189,33 @@ public function updateStatus(Request $request, $id)
     {
         return (new ExportProdukOrder)->download('orders.xlsx');
     }
+    public function exportFilteredOrders(Request $request)
+{
+    $ids = $request->input('ids', []);
+    
+    if (empty($ids)) {
+        abort(400, 'No orders selected');
+    }
+
+    $product_Order = Product_Order::with(['product', 'customer.city', 'status'])
+    ->whereIn('id', $ids)
+    ->get();
+// dd($product_Order->first()->customer->city);
+    // თითოეული პროდუქტის სურათი base64-ად
+    $product_Order->transform(function ($order) {
+        $order->imageBase64 = null;
+        if ($order->product && $order->product->image) {
+            $imagePath = public_path($order->product->image);
+            if (file_exists($imagePath)) {
+                $imageData = file_get_contents($imagePath);
+                $mimeType = mime_content_type($imagePath);
+                $order->imageBase64 = 'data:' . $mimeType . ';base64,' . base64_encode($imageData);
+            }
+        }
+        return $order;
+    });
+
+    $pdf = Pdf::loadView('product_Order.productOrderFilteredPDF', compact('product_Order'));
+    return $pdf->download('filtered_orders.pdf');
+}
 }

@@ -71,7 +71,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/exportProductOrderAll', [ProductOrderController::class, 'exportProductOrderAll'])->name('exportPDF.productOrderAll');
     Route::get('/exportProductOrderAllExcel', [ProductOrderController::class, 'exportExcel'])->name('exportExcel.productOrderAll');
     Route::get('/exportProductOrder/{id}', [ProductOrderController::class, 'exportProductOrder'])->name('exportPDF.productOrder');
-
+Route::post('exportPDF/productOrder/filtered', [ProductOrderController::class, 'exportFilteredOrders'])
+    ->name('exportPDF.productOrderFiltered');
     // Products In (Masuk)
     Route::resource('productsIn', ProductMasukController::class);
     Route::get('/apiProductsIn', [ProductMasukController::class, 'apiProductsIn'])->name('api.productsIn');
