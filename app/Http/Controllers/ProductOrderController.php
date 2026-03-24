@@ -118,38 +118,88 @@ $data['courier_price_tbilisi'] = $data['courier_servise_local'] ? ($courier->tbi
 
     public function apiProductsOut()
 {
-    $productOrder = Product_Order::with(['product', 'customer', 'orderStatus'])->get();
+    $isAdmin = auth()->user()->role === 'admin';
+
+    $productOrder = Product_Order::with(['product', 'customer.city', 'orderStatus'])->get();
+
     return Datatables::of($productOrder)
+        ->addColumn('order_id', function ($item) {
+            return '#' . $item->id;
+        })
+        ->addColumn('show_photo', function ($item) {
+            if (!$item->product || !$item->product->image) {
+                return '<span class="label label-default">No Image</span>';
+            }
+            return '<img src="' . url($item->product->image) . '" 
+                        class="img-thumbnail img-zoom-trigger"
+                        style="width:50px; height:50px; object-fit:cover; cursor:pointer;">';
+        })
         ->addColumn('products_name', function ($item) {
             return $item->product->name ?? 'N/A';
+        })
+        ->addColumn('product_code', function ($item) {
+            return $item->product->product_code ?? '-';
+        })
+        ->editColumn('created_at', function($item){
+            return $item->created_at->format('Y-m-d H:i:s');
+        })
+        ->addColumn('product_size', function ($item) {
+            return $item->product_size
+                ? '<span class="label label-info">' . e($item->product_size) . '</span>'
+                : '<span class="text-muted">-</span>';
         })
         ->addColumn('customer_name', function ($item) {
             return $item->customer->name ?? 'N/A';
         })
-        ->addColumn('prices', function ($item) {
-            return "<b>GE:</b> {$item->price_georgia} ₾<br> <b>US:</b> {$item->price_usa} $";
+        ->addColumn('prices', function ($item) use ($isAdmin) {
+            $geo = '<b>GE:</b> ' . $item->price_georgia . ' ₾';
+            $usa = $isAdmin ? '<br><b>US:</b> ' . $item->price_usa . ' $' : '';
+            return $geo . $usa;
         })
-       ->addColumn('status_label', function ($item) {
+        ->addColumn('customer_contact', function ($item) {
+            $customer = $item->customer;
+            if (!$customer) return '<span class="text-muted">-</span>';
+
+            $city    = $customer->city->name ?? '-';
+            $address = $customer->address ?? '-';
+            $tel     = $customer->tel ?? '-';
+            $alt     = $customer->alternative_tel ?? '';
+
+            $html  = '<small>';
+            $html .= '<i class="fa fa-map-marker"></i> ' . e($city) . ', ' . e($address) . '<br>';
+            $html .= '<i class="fa fa-phone"></i> ' . e($tel);
+            if ($alt) $html .= ' / ' . e($alt);
+            $html .= '</small>';
+            return $html;
+        })
+        ->addColumn('status_label', function ($item) use ($isAdmin) {
             $color = $item->orderStatus->color ?? 'default';
             $name  = $item->orderStatus->name  ?? 'Pending';
-            return '<span class="label label-'.$color.'" 
-                        style="cursor:pointer; font-size:12px; padding:4px 8px;" 
-                        onclick="openStatusModal('.$item->id.', '.$item->status_id.')" 
-                        title="შეცვალე სტატუსი">
-                        '.$name.' <i class="fa fa-pencil" style="margin-left:4px;font-size:10px;opacity:0.7;"></i>
+
+            if ($isAdmin) {
+                return '<span class="label label-' . $color . '" 
+                            style="cursor:pointer; font-size:12px; padding:4px 8px;" 
+                            onclick="openStatusModal(' . $item->id . ', ' . $item->status_id . ')" 
+                            title="შეცვალე სტატუსი">
+                            ' . $name . ' <i class="fa fa-pencil" style="margin-left:4px;font-size:10px;opacity:0.7;"></i>
+                        </span>';
+            }
+
+            return '<span class="label label-' . $color . '" 
+                        style="font-size:12px; padding:4px 8px;">
+                        ' . $name . '
                     </span>';
         })
-        ->addColumn('action', function ($item) {
-            // ლინკი უნდა იყოს აქ, რომ თითოეული პროდუქტის ID სწორად ჩაჯდეს
+        ->addColumn('action', function ($item) use ($isAdmin) {
+            if (!$isAdmin) return '';
             $exportPdfUrl = route('exportPDF.productOrder', ['id' => $item->id]);
-            
-            return '<center>'.
-                '<a onclick="editForm('. $item->id .')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a> ' .
-                '<a onclick="deleteData('. $item->id .')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a> ' .
-                '<a href="'. $exportPdfUrl .'" target="_blank" class="btn btn-info btn-xs" title="PDF Invoice"><i class="fa fa-file-pdf-o"></i></a>'.
+            return '<center>' .
+                '<a onclick="editForm(' . $item->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a> ' .
+                '<a onclick="deleteData(' . $item->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a> ' .
+                '<a href="' . $exportPdfUrl . '" target="_blank" class="btn btn-info btn-xs" title="PDF"><i class="fa fa-file-pdf-o"></i></a>' .
                 '</center>';
         })
-        ->rawColumns(['prices', 'status_label', 'action'])
+        ->rawColumns(['show_photo', 'product_size', 'prices', 'customer_contact', 'status_label', 'action'])
         ->make(true);
 }
     public function exportProductOrderAll()

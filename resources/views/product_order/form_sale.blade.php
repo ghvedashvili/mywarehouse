@@ -4,234 +4,161 @@
 
 <div class="modal fade" id="modal-sale" tabindex="-1" role="dialog" data-backdrop="static">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content border-0 shadow">
-
-            <form id="form-sale-content" method="post">
+        <div class="modal-content" style="border-radius: 10px;">
+            <form id="form-sale-content" method="post" class="form-horizontal" enctype="multipart/form-data">
                 {{ csrf_field() }} {{ method_field('POST') }}
 
-                <input type="hidden" name="id"         id="id">
+                <input type="hidden" name="id" id="id">
                 <input type="hidden" name="order_type" value="sale">
-                <input type="hidden" name="status_id"  value="1">
-                <input type="hidden" name="courier_id" value="1">
+                {{-- დამალული input-ები JS-ისთვის --}}
+                <input type="hidden" name="price_georgia" id="price_georgia_sale">
+                <input type="hidden" name="price_usa" id="price_usa_sale">
+                <input type="hidden" id="courier_price_tbilisi" name="courier_price_tbilisi" value="0">
+                <input type="hidden" id="db_tbilisi_price" value="{{ $courier->tbilisi_price ?? 6 }}">
 
-                {{-- HEADER --}}
-                <div class="modal-header py-2 px-3 bg-primary text-white">
-                    <h6 class="modal-title mb-0">🛒 Add Sale</h6>
-                    <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+                <div class="modal-header bg-gray-light">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    <h4 class="modal-title" style="font-weight: bold;">🛒 Add New Sale</h4>
                 </div>
 
-                <div class="modal-body p-3">
-
-                    {{-- ══════════════════════════════════
-                         PRODUCT BLOCK
-                    ══════════════════════════════════ --}}
-                    <div class="card border-0 shadow-sm mb-3">
-                        <div class="card-header bg-light py-1 px-3 border-bottom">
-                            <small class="font-weight-bold text-uppercase text-muted">📦 Product</small>
-                        </div>
-                        <div class="card-body p-2">
-                            <div class="form-row align-items-end">
-
-                                <div class="col">
-                                    <label class="mb-1 small text-muted">Product</label>
-                                    <select name="product_id" id="product_id_sale" class="form-control form-control-sm">
-                                        <option value="">— Product —</option>
-                                        @foreach($all_products as $product)
-                                            <option value="{{ $product->id }}"
-                                                data-price-ge="{{ $product->price_geo }}"
-                                                data-price-us="{{ $product->price_usa }}"
-                                                data-sizes="{{ $product->sizes }}"
-                                                data-image="{{ asset(ltrim($product->image, '/')) }}">
-                                                {{ $product->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-
-                                <div class="col-auto" style="min-width:90px">
-                                    <label class="mb-1 small text-muted">Size</label>
-                                    <select name="product_size" id="size_sale" class="form-control form-control-sm">
-                                        <option value="">— Size —</option>
-                                    </select>
-                                </div>
-
-                                <div class="col-auto" style="min-width:75px">
-                                    <label class="mb-1 small text-muted">₾ Price</label>
-                                    <p id="price_georgia_text" class="form-control form-control-sm text-center mb-0 font-weight-bold bg-white">0</p>
-                                    <input type="hidden" name="price_georgia" id="price_georgia_sale">
-                                </div>
-
-                                <div class="col-auto">
-                                    <div class="border rounded d-flex align-items-center justify-content-center bg-white"
-                                         style="width:56px;height:48px;overflow:hidden;">
-                                        <img id="target_image" class="img-fluid" style="display:none;max-height:46px;">
-                                        <small id="no_image_text" class="text-muted" style="font-size:9px;">No img</small>
+                <div class="modal-body" style="padding: 20px 25px;">
+                    <div class="row">
+                        <div class="col-md-8">
+                            
+                            {{-- 1. PRODUCT, SIZE & PRICES ROW --}}
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label style="font-weight: 600;">1. Product</label>
+                                        <select name="product_id" id="product_id_sale" class="form-control select2" style="width: 100%;" required>
+                                            <option value="">— Choose Product —</option>
+                                            @foreach($all_products as $product)
+                                                <option value="{{ $product->id }}"
+                                                    data-price-ge="{{ $product->price_geo }}"
+                                                    data-price-us="{{ $product->price_usa }}"
+                                                    data-sizes="{{ $product->sizes }}"
+                                                    data-image="{{ asset(ltrim($product->image, '/')) }}">
+                                                    {{ $product->name }}
+                                                </option>
+                                            @endforeach
+                                        </select>
                                     </div>
                                 </div>
-
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- ══════════════════════════════════
-                         CUSTOMER BLOCK
-                    ══════════════════════════════════ --}}
-                    <div class="card border-0 shadow-sm mb-3">
-                        <div class="card-header bg-light py-1 px-3 border-bottom d-flex align-items-center justify-content-between">
-                            <small class="font-weight-bold text-uppercase text-muted">👤 Customer</small>
-                            <button type="button" class="btn btn-link btn-sm p-0 text-primary" style="font-size:12px;" onclick="openCustomerCreate()">+ Add New</button>
-                        </div>
-                        <div class="card-body p-2">
-
-                            <select name="customer_id" id="customer_id_sale" class="form-control form-control-sm mb-2" style="width:100%">
-                                <option value="">— Choose Customer —</option>
-                                @foreach($customers as $customer)
-                                    <option value="{{ $customer->id }}"
-                                        data-address="{{ $customer->address }}"
-                                        data-city="{{ $customer->city->name ?? '' }}"
-                                        data-tel="{{ $customer->tel }}"
-                                        data-alt="{{ $customer->alternative_tel }}"
-                                        data-comment="{{ $customer->comment }}">
-                                        {{ $customer->name }} ({{ $customer->tel }})
-                                    </option>
-                                @endforeach
-                            </select>
-
-                            <div id="customer_info_fields" style="display:none;">
-                                <div class="d-flex flex-wrap" style="gap:4px;">
-                                    <span class="badge badge-secondary" style="font-size:11px;font-weight:400;">
-                                        📍 <span id="customer_address"></span>
-                                    </span>
-                                    <span class="badge badge-secondary" style="font-size:11px;font-weight:400;">
-                                        📞 <span id="customer_tel"></span>
-                                    </span>
-                                    <span class="badge badge-secondary" style="font-size:11px;font-weight:400;">
-                                        📱 <span id="customer_alt_tel"></span>
-                                    </span>
-                                    <span class="badge badge-secondary" style="font-size:11px;font-weight:400;">
-                                        📝 <span id="customer_comment"></span>
-                                    </span>
+                                <div class="col-md-2">
+                                    <div class="form-group">
+                                        <label style="font-weight: 600;">Size</label>
+                                        <select name="product_size" id="size_sale" class="form-control" required>
+                                            <option value="">Size</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-2 text-center">
+                                    <label style="font-weight: 600;">Price (₾)</label>
+                                    <div id="price_georgia_text" class="form-control" style="background:#f9f9f9; font-weight:bold; color:#00a65a; font-size:14px; padding: 6px 2px;">0</div>
+                                </div>
+                                <div class="col-md-2 text-center">
+                                    <label style="font-weight: 600;">Price ($)</label>
+                                    <div id="price_usa_text" class="form-control" style="background:#f9f9f9; font-weight:bold; color:#357ca5; font-size:14px; padding: 6px 2px;">0</div>
                                 </div>
                             </div>
 
-                        </div>
-                    </div>
+                            {{-- 2. CUSTOMER --}}
+                            <div class="form-group" style="margin-top: 10px;">
+                                <label style="font-weight: 600;">2. Customer 
+                                    <button type="button" class="btn btn-link btn-xs pull-right" data-toggle="modal" data-target="#modal-form">+ Add New</button>
+                                </label>
+                                <select name="customer_id" id="customer_id_sale" class="form-control select2" style="width: 100%;" required>
+                                    <option value="">— Choose Customer —</option>
+                                    @foreach($customers as $customer)
+                                        <option value="{{ $customer->id }}"
+                                            data-address="{{ $customer->address }}"
+                                            data-city-id="{{ $customer->city_id }}" 
+                                            data-city="{{ $customer->city->name ?? '' }}"
+                                            data-tel="{{ $customer->tel }}"
+                                            data-alt="{{ $customer->alternative_tel }}"
+                                            data-comment="{{ $customer->comment }}">
+                                            {{ $customer->name }} ({{ $customer->tel }})
+                                        </option>
+                                    @endforeach
+                                </select>
 
-                    {{-- ══════════════════════════════════
-                         FINANCE BLOCK  (admin only)
-                    ══════════════════════════════════ --}}
-                    @if($isAdmin)
-                    <div class="card border-0 shadow-sm mb-3">
-                        <div class="card-header bg-light py-1 px-3 border-bottom">
-                            <small class="font-weight-bold text-uppercase text-muted">💳 Finance</small>
-                        </div>
-                        <div class="card-body p-2">
-
-                            {{-- $ Price / Discount / Status — one row --}}
-                            <div class="form-row align-items-end mb-2">
-                                <div class="col">
-                                    <label class="mb-1 small text-muted">$ Price</label>
-                                    <p id="price_usa_text" class="form-control form-control-sm text-center mb-0 font-weight-bold bg-white">0</p>
-                                    <input type="hidden" name="price_usa" id="price_usa_sale">
-                                </div>
-                                <div class="col">
-                                    <label class="mb-1 small text-muted">Discount</label>
-                                    <input type="number" name="discount" id="discount_sale" class="form-control form-control-sm" value="0">
-                                </div>
-                                <div class="col-md-5">
-                                    <label class="mb-1 small text-muted">სტატუსი</label>
-                                    <select name="status_id" id="status_id_sale" class="form-control form-control-sm">
-                                        @foreach($statuses as $status)
-                                            <option value="{{ $status->id }}">{{ $status->name }}</option>
-                                        @endforeach
-                                    </select>
+                                <div id="customer_info_fields" style="display:none; margin-top: 10px; background: #fdfdfd; border: 1px solid #eee; padding: 8px; border-radius: 5px;">
+                                    <div style="font-size: 12px; line-height: 1.6;">
+                                        <div>📍 <span id="customer_address" style="font-weight:600;"></span></div>
+                                        <div style="display:inline-block; margin-right:15px;">📞 <span id="customer_tel"></span></div>
+                                        <div style="display:inline-block;">📱 <span id="customer_alt_tel"></span></div>
+                                        <div style="color: #777; border-top: 1px solid #eee; margin-top: 5px; padding-top: 3px;">
+                                            📝 <span id="customer_comment"></span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            {{-- Bank payments — one row --}}
-                            <div class="input-group input-group-sm">
-                                <div class="input-group-prepend"><span class="input-group-text">TBC</span></div>
-                                <input type="number" name="paid_tbc" class="form-control" placeholder="0">
-                                <div class="input-group-prepend"><span class="input-group-text">BOG</span></div>
-                                <input type="number" name="paid_bog" class="form-control" placeholder="0">
-                                <div class="input-group-prepend"><span class="input-group-text">Lib</span></div>
-                                <input type="number" name="paid_lib" class="form-control" placeholder="0">
-                                <div class="input-group-prepend"><span class="input-group-text">Cash</span></div>
-                                <input type="number" name="paid_cash" class="form-control" placeholder="0">
+                            {{-- 3. FINANCE --}}
+                            @if($isAdmin)
+                            <div class="well well-sm" style="background: #f4f4f4; border: 1px solid #ddd; padding: 10px; margin-top: 15px;">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label class="small" style="font-weight:600;">Discount</label>
+                                        <input type="number" name="discount" id="discount_sale" class="form-control input-sm" value="0">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="small" style="font-weight:600;">Status</label>
+                                        <select name="status_id" id="status_id_sale" class="form-control input-sm">
+                                            @foreach($statuses as $status)
+                                                <option value="{{ $status->id }}">{{ $status->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="input-group input-group-sm" style="margin-top:10px;">
+                                    <span class="input-group-addon">TBC</span>
+                                    <input type="number" name="paid_tbc" class="form-control" placeholder="0" step="0.01">
+                                    <span class="input-group-addon">BOG</span>
+                                    <input type="number" name="paid_bog" class="form-control" placeholder="0" step="0.01">
+                                    <span class="input-group-addon">Lib</span>
+                                    <input type="number" name="paid_lib" class="form-control" placeholder="0" step="0.01">
+                                    <span class="input-group-addon">Cash</span>
+                                    <input type="number" name="paid_cash" class="form-control" placeholder="0" step="0.01">
+                                </div>
+                                <div style="margin: 10px 0; min-height: 40px;">
+                                    <small style="display:block; color:#777;">Summary:</small>
+                                    <strong id="sale_summary_text" style="font-size: 13px;">შეიყვანეთ მონაცემები</strong>
+                                </div>
+                            </div>
+                            @endif
+                        </div>
+
+                        {{-- RIGHT SIDE: IMAGE & COURIER --}}
+                        <div class="col-md-4 text-center" style="border-left: 1px solid #eee;">
+                            <label style="font-weight: bold; display: block; margin-bottom: 10px;">Preview</label>
+                            <div style="width: 100%; height: 160px; border: 2px dashed #ddd; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: #fff; overflow: hidden; margin-bottom: 15px;">
+                                <img id="target_image" class="img-responsive" style="display:none; max-height: 155px;">
+                                <span id="no_image_text" class="text-muted italic">No Image</span>
                             </div>
 
-                        </div>
-                    </div>
-                    @endif
-
-                    {{-- ══════════════════════════════════
-                         DELIVERY & NOTES
-                    ══════════════════════════════════ --}}
-                    <div class="card border-0 shadow-sm mb-2">
-                        <div class="card-header bg-light py-1 px-3 border-bottom">
-                            <small class="font-weight-bold text-uppercase text-muted">🚚 Delivery & Notes</small>
-                        </div>
-                        <div class="card-body p-2">
-
-                            <div class="d-flex align-items-center justify-content-between mb-2">
-                                <div class="form-check mb-0">
-                                    <input type="checkbox" id="is_local_courier" name="courier_servise_local" value="1" class="form-check-input">
-                                    <label class="form-check-label small" for="is_local_courier">
-                                        Tbilisi Courier <span class="text-muted">(+{{ $courier->tbilisi_price ?? 6 }} ₾)</span>
+                            <div class="well well-sm text-left" style="background:#fff; border:1px solid #eee; padding:10px;">
+                                <div class="checkbox" style="margin-top:0;">
+                                    <label style="font-weight: 600; color: #357ca5; font-size:13px;">
+                                        <input type="checkbox" name="courier_servise_local" id="is_local_courier" value="1"> 
+                                        Tbilisi (+{{ $courier->tbilisi_price ?? 6 }} ₾)
                                     </label>
                                 </div>
-                                <small>Status: <strong id="sale_summary_text" class="text-warning">Waiting...</strong></small>
+                                
+                                <textarea name="comment" class="form-control" rows="3" placeholder="Notes..." style="font-size:12px;"></textarea>
                             </div>
-
-                            <textarea name="comment" class="form-control form-control-sm" rows="2" placeholder="Comment..."></textarea>
-
                         </div>
                     </div>
-
                 </div>
 
-                <div class="modal-footer py-2 px-3">
-                    <button type="submit" class="btn btn-sm btn-success px-4">💾 Save</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-dismiss="modal">Close</button>
+                <div class="modal-footer bg-gray-light">
+                    <button type="button" class="btn btn-default btn-flat pull-left" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success btn-flat" style="padding: 6px 40px; font-weight: bold;">💾 Save Sale</button>
                 </div>
-
             </form>
         </div>
     </div>
 </div>
-
-
-{{-- STATUS QUICK-CHANGE MODAL --}}
-<div class="modal fade" id="modal-status" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-sm" style="margin-top:160px;">
-        <div class="modal-content border-0 shadow">
-
-            <div class="modal-header bg-dark text-white py-2 px-3">
-                <h6 class="modal-title mb-0"><i class="fa fa-tag mr-1"></i> სტატუსის შეცვლა</h6>
-                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
-            </div>
-
-            <div class="modal-body py-3 px-3">
-                <input type="hidden" id="status_order_id">
-                <label class="small text-muted mb-1">აირჩიე სტატუსი</label>
-                <select id="quick_status_select" class="form-control form-control-sm">
-                    @foreach($statuses as $status)
-                        <option value="{{ $status->id }}" data-color="{{ $status->color }}">
-                            {{ $status->name }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-
-            <div class="modal-footer py-2 px-3">
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-dismiss="modal">გაუქმება</button>
-                <button type="button" class="btn btn-success btn-sm px-3" onclick="saveQuickStatus()">
-                    <i class="fa fa-check mr-1"></i>შენახვა
-                </button>
-            </div>
-
-        </div>
-    </div>
-</div>
-
 @include('customers.form')

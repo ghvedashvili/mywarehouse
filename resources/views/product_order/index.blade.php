@@ -20,20 +20,64 @@
         <div class="box-body">
             <table id="products-out-table" class="table table-bordered table-striped">
                 <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Product</th>
-                        <th>Customer</th>
-                        <th>Prices (GE/US)</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
+    <tr>
+        <th>Status</th>
+        <!-- <th>Code</th> -->
+         <th>Date</th>
+        <th>Picture</th>
+        <th>Product</th>
+        <th>Product Code</th>
+        <th>Size</th>
+        <th>Customer</th>
+        <th>Prices</th>
+        <th>Contact</th>
+        @if(auth()->user()->role == 'admin')
+        <th>Actions</th>
+        @endif
+    </tr>
+</thead>
                 <tbody></tbody>
             </table>
         </div>
     </div>
+<div class="modal fade" id="modal-status" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-sm"> <div class="modal-content" style="border-radius: 8px;">
+            <div class="modal-header bg-gray">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title">Change Status</h4>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="status_order_id">
+                <div class="form-group">
+                    <label>Select New Status</label>
+                    <select id="quick_status_select" class="form-control">
+                        @foreach($statuses as $status)
+                            <option value="{{ $status->id }}">{{ $status->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default pull-left" data-dismiss="modal">Close</button>
+                <button type="button" onclick="saveQuickStatus()" class="btn btn-primary">Update Status</button>
+            </div>
+        </div>
+    </div>
+</div>
 
+<div class="modal fade" id="modal-image-preview" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" style="text-align: center; margin-top: 50px;">
+        <div class="modal-content" style="background: transparent; border: none; box-shadow: none;">
+            <div class="modal-body" style="position: relative; padding: 0;">
+                <button type="button" class="close" data-dismiss="modal" 
+                        style="color: #fff; opacity: 1; font-size: 45px; position: absolute; top: -45px; right: 0;">&times;</button>
+                <img id="preview-img-full" src="" 
+                     style="max-width: 100%; max-height: 85vh; border: 3px solid #fff; border-radius: 4px; box-shadow: 0 0 30px rgba(0,0,0,0.6);">
+            </div>
+        </div>
+    </div>
+</div>
     @include('product_Order.form_sale')
 @endsection
 
@@ -49,19 +93,44 @@
         // DataTable
         // =====================
         var save_method;
-        var table = $('#products-out-table').DataTable({
-            processing: true,
-            serverSide: true,
-            ajax: "{{ route('api.productsOut') }}",
-            columns: [
-                {data: 'id', name: 'id'},
-                {data: 'products_name', name: 'products_name'},
-                {data: 'customer_name', name: 'customer_name'},
-                {data: 'prices', name: 'prices'},
-                {data: 'status_label', name: 'status_label'},
-                {data: 'action', name: 'action', orderable: false, searchable: false}
-            ]
-        });
+        var isAdmin = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
+
+var columns = [
+    {data: 'status_label',    name: 'status_label',    orderable: false, searchable: false},
+    // {data: 'order_id',        name: 'order_id'},
+    {
+        data: 'created_at', 
+        name: 'created_at',
+        render: function(data, type, row) {
+            if (data) {
+                let date = new Date(data);
+                let day = ("0" + date.getDate()).slice(-2);
+                let month = ("0" + (date.getMonth() + 1)).slice(-2);
+                let year = date.getFullYear();
+                return day + '.' + month + '.' + year; // ფორმატი: 24.03.2026
+            }
+            return '';
+        }
+    },
+    {data: 'show_photo',      name: 'show_photo',      orderable: false, searchable: false},
+    {data: 'products_name',   name: 'products_name'},
+    {data: 'product_code',    name: 'product_code'},
+    {data: 'product_size',    name: 'product_size'},
+    {data: 'customer_name',   name: 'customer_name'},
+    {data: 'prices',          name: 'prices',          orderable: false, searchable: false},
+    {data: 'customer_contact',name: 'customer_contact',orderable: false, searchable: false},
+];
+
+if (isAdmin) {
+    columns.push({data: 'action', name: 'action', orderable: false, searchable: false});
+}
+
+var table = $('#products-out-table').DataTable({
+    processing: true,
+    serverSide: true,
+    ajax: "{{ route('api.productsOut') }}",
+    columns: columns
+});
 
         // =====================
         // Select2 — customer
@@ -86,6 +155,13 @@
             $('#customer_alt_tel').text(selected.data('alt') || '');
             $('#customer_comment').text(selected.data('comment') || '');
             $('#customer_info_fields').show();
+
+            var cityId = parseInt(selected.data('city-id'));
+    if (cityId === 1) {
+        $('#is_local_courier').prop('checked', true).trigger('change');
+    } else {
+        $('#is_local_courier').prop('checked', false).trigger('change');
+    }
         });
 
         // =====================
@@ -366,7 +442,32 @@ function openStatusModal(orderId, currentStatusId) {
     $('#status_order_id').val(orderId);
     $('#quick_status_select').val(currentStatusId);
     $('#modal-status').modal('show');
+
+    
 }
+// ==========================================
+// სურათის გადიდების (Lightbox) ლოგიკა
+// ==========================================
+$(document).on('click', '.img-zoom-trigger', function() {
+    // 1. ავიღოთ სურათის მისამართი (src)
+    var imgSrc = $(this).attr('src');
+    
+    // 2. შევამოწმოთ, რომ სურათი ნამდვილად არსებობს და არ არის "no-image" placeholder
+    if (!imgSrc || imgSrc.includes('no-image') || imgSrc.includes('placeholder')) {
+        return; 
+    }
+
+    // 3. ჩავსვათ მისამართი მოდალის სურათში
+    $('#preview-img-full').attr('src', imgSrc);
+
+    // 4. გავხსნათ მოდალი
+    $('#modal-image-preview').modal('show');
+});
+
+// სურვილისამებრ: მოდალის დახურვისას სურათის გასუფთავება (მხოლოდ ვიზუალური სისუფთავისთვის)
+$('#modal-image-preview').on('hidden.bs.modal', function () {
+    $('#preview-img-full').attr('src', '');
+});
 
 function saveQuickStatus() {
     var id       = $('#status_order_id').val();
