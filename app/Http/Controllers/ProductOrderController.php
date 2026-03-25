@@ -116,11 +116,18 @@ $data['courier_price_tbilisi'] = $data['courier_servise_local'] ? ($courier->tbi
         return response()->json(['success' => true, 'message' => 'Order Deleted Successfully']);
     }
 
-    public function apiProductsOut()
+    public function apiProductsOut(Request $request)
 {
-    $isAdmin = auth()->user()->role === 'admin';
+   $isAdmin = auth()->user()->role === 'admin';
 
-    $productOrder = Product_Order::with(['product', 'customer.city', 'orderStatus'])->get();
+    $query = Product_Order::with(['product', 'customer.city', 'orderStatus']);
+
+    // დავალიანების ფილტრი
+    if ($request->debt_only == 1) {
+        $query->whereRaw('(price_georgia - IFNULL(discount,0)) > (IFNULL(paid_tbc,0) + IFNULL(paid_bog,0) + IFNULL(paid_lib,0) + IFNULL(paid_cash,0))');
+    }
+
+    $productOrder = $query->get();
 
     return Datatables::of($productOrder)
         ->addColumn('order_id', function ($item) {
@@ -156,6 +163,26 @@ $data['courier_price_tbilisi'] = $data['courier_servise_local'] ? ($courier->tbi
             $usa = $isAdmin ? '<br><b>US:</b> ' . $item->price_usa . ' $' : '';
             return $geo . $usa;
         })
+        ->addColumn('payment', function ($item) {
+    $geo  = $item->price_georgia - ($item->discount ?? 0);
+    $paid = ($item->paid_tbc ?? 0) + ($item->paid_bog ?? 0) + 
+            ($item->paid_lib ?? 0) + ($item->paid_cash ?? 0);
+    $diff = $geo - $paid;
+
+    if ($diff > 0.01) {
+        return '<span style="color:red; font-weight:bold;">
+                    <i class="fa fa-exclamation-circle"></i> დავალიანება: ' . number_format($diff, 2) . ' ₾
+                </span>';
+    } elseif ($diff < -0.01) {
+        return '<span style="color:green; font-weight:bold;">
+                    <i class="fa fa-plus-circle"></i> ზედმეტი: ' . number_format(abs($diff), 2) . ' ₾
+                </span>';
+    } else {
+        return '<span style="color:green;">
+                    <i class="fa fa-check-circle"></i> გადახდილია
+                </span>';
+    }
+})
         ->addColumn('customer_contact', function ($item) {
             $customer = $item->customer;
             if (!$customer) return '<span class="text-muted">-</span>';
@@ -199,7 +226,7 @@ $data['courier_price_tbilisi'] = $data['courier_servise_local'] ? ($courier->tbi
                 '<a href="' . $exportPdfUrl . '" target="_blank" class="btn btn-info btn-xs" title="PDF"><i class="fa fa-file-pdf-o"></i></a>' .
                 '</center>';
         })
-        ->rawColumns(['show_photo', 'product_size', 'prices', 'customer_contact', 'status_label', 'action'])
+        ->rawColumns(['show_photo', 'product_size', 'prices', 'payment', 'customer_contact', 'status_label', 'action'])
         ->make(true);
 }
     public function exportProductOrderAll()

@@ -17,6 +17,24 @@
                 <a href="{{ route('exportPDF.productOrderAll') }}" class="btn btn-danger">Export PDF</a>
             </div>
         </div>
+        <div class="box-header">
+    <div style="display:inline-flex; align-items:center; gap:8px; margin-left:10px; vertical-align:middle;">
+    <label for="toggle-deleted" style="font-size:13px; color:#666; margin:0; cursor:pointer;">დავალანება</label>
+    <label style="position:relative; display:inline-block; width:42px; height:24px; margin:0; cursor:pointer;">
+        <input type="checkbox" id="toggle-deleted" style="opacity:0; width:0; height:0;">
+        <span id="toggle-track" style="
+            position:absolute; top:0; left:0; right:0; bottom:0;
+            background:#ccc; border-radius:24px; transition:.3s;
+        "></span>
+        <span id="toggle-thumb" style="
+            position:absolute; height:18px; width:18px;
+            left:3px; bottom:3px; background:white;
+            border-radius:50%; transition:.3s;
+            box-shadow:0 1px 3px rgba(0,0,0,0.3);
+        "></span>
+    </label>
+</div>
+</div>
         <div class="box-body">
             <table id="products-out-table" class="table table-bordered table-striped">
                 <thead>
@@ -30,6 +48,7 @@
         <th>Size</th>
         <th>Customer</th>
         <th>Prices</th>
+        <th>Payment</th>
         <th>Contact</th>
         @if(auth()->user()->role == 'admin')
         <th>Actions</th>
@@ -118,6 +137,7 @@ var columns = [
     {data: 'product_size',    name: 'product_size'},
     {data: 'customer_name',   name: 'customer_name'},
     {data: 'prices',          name: 'prices',          orderable: false, searchable: false},
+    {data: 'payment', name: 'payment', orderable: false, searchable: false},
     {data: 'customer_contact',name: 'customer_contact',orderable: false, searchable: false},
 ];
 
@@ -129,9 +149,26 @@ var table = $('#products-out-table').DataTable({
     processing: true,
     serverSide: true,
     ajax: "{{ route('api.productsOut') }}",
-    columns: columns
+    columns: columns,
+    rowCallback: function(row, data) {
+        var geo  = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
+        var paid = parseFloat(data.paid_tbc || 0) + parseFloat(data.paid_bog || 0) +
+                   parseFloat(data.paid_lib || 0) + parseFloat(data.paid_cash || 0);
+        
+        if ((geo - paid) > 0.01) {
+            $(row).css('background-color', '#f2dede');
+        } else {
+            $(row).css('background-color', '');
+        }
+    }
 });
-
+$('#filter-debt').on('change', function() {
+    if ($(this).is(':checked')) {
+        table.ajax.url("{{ route('api.productsOut') }}?debt_only=1").load();
+    } else {
+        table.ajax.url("{{ route('api.productsOut') }}").load();
+    }
+});
         // =====================
         // Select2 — customer
         // =====================
@@ -527,5 +564,17 @@ function exportFilteredPDF() {
     form.submit();
     form.remove();
 }
+
+$('#toggle-deleted').on('change', function() {
+    if ($(this).is(':checked')) {
+        $('#toggle-track').css('background', '#e74c3c');
+        $('#toggle-thumb').css('transform', 'translateX(18px)');
+        table.ajax.url("{{ route('api.productsOut') }}?debt_only=1").load();
+    } else {
+        $('#toggle-track').css('background', '#ccc');
+        $('#toggle-thumb').css('transform', 'translateX(0)');
+        table.ajax.url("{{ route('api.productsOut') }}").load();
+    }
+});
     </script>
 @endsection

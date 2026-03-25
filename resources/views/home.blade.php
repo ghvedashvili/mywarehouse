@@ -4,151 +4,97 @@
 @endsection
 
 @section('content')
-<!-- Small boxes (Stat box) -->
 <div class="row">
-    <!-- Log on to codeastro.com for more projects! -->
+ 
     <div class="col-lg-3 col-xs-6">
-        <!-- small box -->
-        <div class="small-box bg-aqua">
-            <div class="inner">
- 
-             <h3>{{ \App\Models\User::count() }}</h3>
- 
-               
-   
-
-                <p>System Users</p>
+        <a href="/user" style="color:inherit; text-decoration:none;">
+            <div class="small-box bg-aqua">
+                <div class="inner">
+                    <h3>{{ \App\Models\User::count() }}</h3>
+                    <p>System Users</p>
+                </div>
+                <div class="icon"><i class="fa fa-user-secret"></i></div>
             </div>
-            <div class="icon">
-                <i class="fa fa-user-secret"></i>
-            </div>
-            <a href="/user" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        </div>
+        </a>
     </div>
-    <!-- ./col -->
+ 
     <div class="col-lg-3 col-xs-6">
-        <!-- small box -->
-        <div class="small-box bg-green">
-            <div class="inner">
- 
-                <h3>{{ \App\Models\User::count() }}<sup style="font-size: 20px"></sup></h3>
- 
-               
-   
-
-                <p>Category</p>
+        <a href="{{ route('categories.index') }}" style="color:inherit; text-decoration:none;">
+            <div class="small-box bg-green">
+                <div class="inner">
+                    <h3>{{ \App\Models\Category::count() }}</h3>
+                    <p>Category</p>
+                </div>
+                <div class="icon"><i class="fa fa-list"></i></div>
             </div>
-            <div class="icon">
-                <i class="fa fa-list"></i>
-            </div>
-            <a href="{{ route('categories.index') }}" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        </div>
+        </a>
     </div>
-    <!-- ./col -->
+ 
     <div class="col-lg-3 col-xs-6">
-        <!-- small box -->
-        <div class="small-box bg-yellow">
-            <div class="inner">
- 
-                <h3>{{ \App\Models\Product::count() }}</h3>
- 
-               
-   
-                <p>Product</p>
+        <a href="{{ route('products.index') }}" style="color:inherit; text-decoration:none;">
+            <div class="small-box bg-yellow">
+                <div class="inner">
+                    <h3>{{ \App\Models\Product::count() }}</h3>
+                    <p>Product</p>
+                </div>
+                <div class="icon"><i class="fa fa-cubes"></i></div>
             </div>
-            <div class="icon">
-                <i class="fa fa-cubes"></i>
-            </div>
-            <a href="{{ route('products.index') }}" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        </div>
+        </a>
     </div>
-    <!-- ./col -->
+ 
     <div class="col-lg-3 col-xs-6">
-        <!-- small box -->
-        <div class="small-box bg-red">
-            <div class="inner">
- 
-                <h3>{{ \App\Models\Customer::count() }}</h3>
- 
-                
-   
-
-                <p>Customer</p>
+        <a href="{{ route('customers.index') }}" style="color:inherit; text-decoration:none;">
+            <div class="small-box bg-red">
+                <div class="inner">
+                    <h3>{{ \App\Models\Customer::count() }}</h3>
+                    <p>Customer</p>
+                </div>
+                <div class="icon"><i class="fa fa-users"></i></div>
             </div>
-            <div class="icon">
-                <i class="fa fa-users"></i>
-            </div>
-            <a href="{{ route('customers.index') }}" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        </div>
+        </a>
     </div>
-    <!-- ./col -->
+ 
 </div>
-<!-- Log on to codeastro.com for more projects! -->
-
-
+ 
 <div class="row">
-    
-    <!-- ./col -->
+ 
     <div class="col-lg-3 col-xs-6">
-        <!-- small box -->
-        <div class="small-box bg-purple">
-            <div class="inner">
- 
-                <h3>{{ \App\Models\Supplier::count() }}<sup style="font-size: 20px"></sup></h3>
- 
-               
-   
-
-                <p>Supplier</p>
+        <a href="{{ route('suppliers.index') }}" style="color:inherit; text-decoration:none;">
+            <div class="small-box bg-purple">
+                <div class="inner">
+                    <h3>{{ \App\Models\Supplier::count() }}</h3>
+                    <p>Supplier</p>
+                </div>
+                <div class="icon"><i class="fa fa-signal"></i></div>
             </div>
-            <div class="icon">
-                <i class="fa fa-signal"></i>
-            </div>
-            <a href="{{ route('suppliers.index') }}" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        </div>
+        </a>
     </div>
-    <!-- ./col -->
+ 
     <div class="col-lg-3 col-xs-6">
-        <!-- small box -->
-        <div class="small-box bg-maroon">
-            <div class="inner">
- 
-                <h3>{{ \App\Models\Product_Masuk::count() }}</h3>
- 
-                
-   
-
-                <p>Total Purchase</p>
+        <a href="{{ route('productsIn.index') }}" style="color:inherit; text-decoration:none;">
+            <div class="small-box bg-maroon">
+                <div class="inner">
+                    <h3>{{ \App\Models\Product_Masuk::count() }}</h3>
+                    <p>Total Purchase</p>
+                </div>
+                <div class="icon"><i class="fa fa-cart-plus"></i></div>
             </div>
-            <div class="icon">
-                <i class="fa fa-cart-plus"></i>
-            </div>
-            <a href="{{ route('productsIn.index') }}" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        </div>
+        </a>
     </div>
-    <!-- ./col -->
+ 
     <div class="col-lg-3 col-xs-6">
-        <!-- small box -->
-        <div class="small-box bg-primary">
-            <div class="inner">
- 
-               <h3>{{ \App\Models\Product_Order::count() }}</h3>
- 
-                
-   
-
-                <p>Total Outgoing</p>
+        <a href="{{ route('productsOut.index') }}" style="color:inherit; text-decoration:none;">
+            <div class="small-box bg-primary">
+                <div class="inner">
+                    <h3>{{ \App\Models\Product_Order::count() }}</h3>
+                    <p>Total Outgoing</p>
+                </div>
+                <div class="icon"><i class="fa fa-minus"></i></div>
             </div>
-            <div class="icon">
-                <i class="fa fa-minus"></i>
-            </div>
-            <a href="{{ route('productsOut.index') }}" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        </div>
+        </a>
     </div>
-    <!-- ./col -->
-    <div id="container" class=" col-xs-6"></div>
-</div><!-- Log on to codeastro.com for more projects! -->
-
+ 
+</div>
 @endsection
 
 @section('top')
