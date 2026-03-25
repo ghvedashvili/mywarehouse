@@ -51,6 +51,8 @@ $courier = Courier::first(); // ეს დაამატე
         ], 422);
     }
 
+    
+
     $data = $request->all();
     $user = auth()->user();
 
@@ -120,13 +122,23 @@ $data['courier_price_tbilisi'] = $data['courier_servise_local'] ? ($courier->tbi
 {
    $isAdmin = auth()->user()->role === 'admin';
 
-    $query = Product_Order::with(['product', 'customer.city', 'orderStatus']);
+   $query = Product_Order::withoutGlobalScope('active')
+        ->with(['product', 'customer.city', 'orderStatus']);
 
     // დავალიანების ფილტრი
     if ($request->debt_only == 1) {
         $query->whereRaw('(price_georgia - IFNULL(discount,0)) > (IFNULL(paid_tbc,0) + IFNULL(paid_bog,0) + IFNULL(paid_lib,0) + IFNULL(paid_cash,0))');
     }
-
+if ($request->has('statuses')) {
+    $statuses = $request->input('statuses');
+    $query->whereIn('status_id', $statuses);
+}
+if ($request->get('show_deleted') == 1) {
+        $query->where('status', 'deleted');
+    } else {
+        // თუ სვიჩერი გამორთულია, აჩვენოს მხოლოდ აქტიურები
+        $query->where('status', 'active');
+    }
     $productOrder = $query->get();
 
     return Datatables::of($productOrder)
@@ -218,14 +230,23 @@ $data['courier_price_tbilisi'] = $data['courier_servise_local'] ? ($courier->tbi
                     </span>';
         })
         ->addColumn('action', function ($item) use ($isAdmin) {
-            if (!$isAdmin) return '';
-            $exportPdfUrl = route('exportPDF.productOrder', ['id' => $item->id]);
-            return '<center>' .
-                '<a onclick="editForm(' . $item->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a> ' .
-                '<a onclick="deleteData(' . $item->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a> ' .
-                '<a href="' . $exportPdfUrl . '" target="_blank" class="btn btn-info btn-xs" title="PDF"><i class="fa fa-file-pdf-o"></i></a>' .
-                '</center>';
-        })
+    if (!$isAdmin) return '';
+    
+    // თუ სტატუსი არის 'deleted', ვაჩვენებთ მხოლოდ აღდგენის ღილაკს
+    if ($item->status === 'deleted') {
+        return '<center>' .
+            '<a onclick="restoreData(' . $item->id . ')" class="btn btn-success btn-xs" title="Restore"><i class="fa fa-refresh"></i> აღდგენა</a>' .
+            '</center>';
+    }
+
+    // სხვა შემთხვევაში (აქტიური ორდერებისთვის) რჩება ძველი ღილაკები
+    $exportPdfUrl = route('exportPDF.productOrder', ['id' => $item->id]);
+    return '<center>' .
+        '<a onclick="editForm(' . $item->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a> ' .
+        '<a onclick="deleteData(' . $item->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a> ' .
+        '<a href="' . $exportPdfUrl . '" target="_blank" class="btn btn-info btn-xs" title="PDF"><i class="fa fa-file-pdf-o"></i></a>' .
+        '</center>';
+})
         ->rawColumns(['show_photo', 'product_size', 'prices', 'payment', 'customer_contact', 'status_label', 'action'])
         ->make(true);
 }
@@ -241,6 +262,18 @@ public function updateStatus(Request $request, $id)
     $order->update(['status_id' => $request->status_id]);
     
     return response()->json(['success' => true, 'message' => 'სტატუსი განახლდა']);
+}
+// ProductOrderController.php
+
+public function restore($id)
+{
+    $order = Product_Order::withoutGlobalScope('active')->findOrFail($id);
+    $order->update(['status' => 'active']);
+
+    return response()->json([
+        'success' => true, 
+        'message' => 'ორდერი წარმატებით აღდგა'
+    ]);
 }
     public function exportProductOrder($id)
 {

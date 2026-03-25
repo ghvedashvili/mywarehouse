@@ -8,18 +8,27 @@
 @section('content')
     <div class="box box-success">
         <div class="box-header">
-            <h3 class="box-title">Outgoing Products</h3>
-            <div class="pull-right">
-                <a onclick="addSaleForm()" class="btn btn-success"><i class="fa fa-plus"></i> Add New Sale</a>
-                <a onclick="exportFilteredPDF()" class="btn btn-warning">
-    <i class="fa fa-file-pdf-o"></i> Export Filtered PDF
-</a>
-                <a href="{{ route('exportPDF.productOrderAll') }}" class="btn btn-danger">Export PDF</a>
-            </div>
+    <h3 class="box-title">Outgoing Products</h3>
+    <div class="pull-right" style="display:flex; align-items:center; gap:12px;">
+
+        {{-- Deleted სვიჩერი --}}
+        <div style="display:inline-flex; align-items:center; gap:8px; vertical-align:middle;">
+            <label for="toggle-show-deleted" style="font-size:13px; color:#666; margin:0; cursor:pointer;">წაშლილი</label>
+            <label style="position:relative; display:inline-block; width:42px; height:24px; margin:0; cursor:pointer;">
+                <input type="checkbox" id="toggle-show-deleted" style="opacity:0; width:0; height:0;">
+                <span id="toggle-track-deleted" style="position:absolute; top:0; left:0; right:0; bottom:0; background:#ccc; border-radius:24px; transition:.3s;"></span>
+                <span id="toggle-thumb-deleted" style="position:absolute; height:18px; width:18px; left:3px; bottom:3px; background:white; border-radius:50%; transition:.3s; box-shadow:0 1px 3px rgba(0,0,0,0.3);"></span>
+            </label>
         </div>
-        <div class="box-header">
+
+        <a onclick="addSaleForm()" class="btn btn-success"><i class="fa fa-plus"></i> Add New Sale</a>
+        <a onclick="exportFilteredPDF()" class="btn btn-warning"><i class="fa fa-file-pdf-o"></i> Export Filtered PDF</a>
+        <a href="{{ route('exportPDF.productOrderAll') }}" class="btn btn-danger">Export PDF</a>
+    </div>
+</div>
+        <!-- <div class="box-header">
     <div style="display:inline-flex; align-items:center; gap:8px; margin-left:10px; vertical-align:middle;">
-    <label for="toggle-deleted" style="font-size:13px; color:#666; margin:0; cursor:pointer;">დავალანება</label>
+    <label for="toggle-deleted" style="font-size:13px; color:#666; margin:0; cursor:pointer;">დავალიანება</label>
     <label style="position:relative; display:inline-block; width:42px; height:24px; margin:0; cursor:pointer;">
         <input type="checkbox" id="toggle-deleted" style="opacity:0; width:0; height:0;">
         <span id="toggle-track" style="
@@ -34,7 +43,7 @@
         "></span>
     </label>
 </div>
-</div>
+</div> -->
         <div class="box-body">
             <table id="products-out-table" class="table table-bordered table-striped">
                 <thead>
@@ -138,7 +147,7 @@ var columns = [
     {data: 'customer_name',   name: 'customer_name'},
     {data: 'prices',          name: 'prices',          orderable: false, searchable: false},
     {data: 'payment', name: 'payment', orderable: false, searchable: false},
-    {data: 'customer_contact',name: 'customer_contact',orderable: false, searchable: false},
+    {data: 'customer_contact',name: 'customer_contact',orderable: false, searchable: true},
 ];
 
 if (isAdmin) {
@@ -154,21 +163,54 @@ var table = $('#products-out-table').DataTable({
         var geo  = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
         var paid = parseFloat(data.paid_tbc || 0) + parseFloat(data.paid_bog || 0) +
                    parseFloat(data.paid_lib || 0) + parseFloat(data.paid_cash || 0);
-        
         if ((geo - paid) > 0.01) {
             $(row).css('background-color', '#f2dede');
         } else {
             $(row).css('background-color', '');
         }
-    }
+    },
+    initComplete: function() {
+    var switchHtml = `
+        <div style="display:inline-flex; align-items:center; gap:8px; margin-left:15px; vertical-align:middle;">
+            <label for="toggle-deleted" style="font-size:13px; color:#666; margin:0; cursor:pointer;">დავალიანება</label>
+            <label style="position:relative; display:inline-block; width:42px; height:24px; margin:0; cursor:pointer;">
+                <input type="checkbox" id="toggle-deleted" style="opacity:0; width:0; height:0;">
+                <span id="toggle-track" style="position:absolute; top:0; left:0; right:0; bottom:0; background:#ccc; border-radius:24px; transition:.3s;"></span>
+                <span id="toggle-thumb" style="position:absolute; height:18px; width:18px; left:3px; bottom:3px; background:white; border-radius:50%; transition:.3s; box-shadow:0 1px 3px rgba(0,0,0,0.3);"></span>
+            </label>
+        </div>
+
+        <div style="display:inline-flex; align-items:center; gap:6px; margin-left:15px; vertical-align:middle; position:relative;">
+            <label style="font-size:13px; color:#666; margin:0;">სტატუსი:</label>
+            <div id="status-filter-wrapper" style="position:relative;">
+                <button id="status-filter-btn" type="button" style="
+                    font-size:13px; padding:3px 10px; border:1px solid #ccc;
+                    border-radius:4px; background:#fff; cursor:pointer; min-width:130px; text-align:left;">
+                    ყველა სტატუსი <span style="float:right;">▾</span>
+                </button>
+                <div id="status-filter-dropdown" style="
+                    display:none; position:absolute; top:100%; left:0; z-index:9999;
+                    background:#fff; border:1px solid #ccc; border-radius:4px;
+                    box-shadow:0 4px 12px rgba(0,0,0,0.15); min-width:180px; padding:6px 0;">
+                    @foreach($statuses as $status)
+                    <label style="display:flex; align-items:center; gap:8px; padding:5px 12px; cursor:pointer; font-size:13px; font-weight:normal; margin:0;">
+                        <input type="checkbox" class="status-filter-check" value="{{ $status->id }}"> {{ $status->name }}
+                    </label>
+                    @endforeach
+                </div>
+            </div>
+        </div>`;
+
+    $('#products-out-table_length').append(switchHtml);
+}
 });
-$('#filter-debt').on('change', function() {
-    if ($(this).is(':checked')) {
-        table.ajax.url("{{ route('api.productsOut') }}?debt_only=1").load();
-    } else {
-        table.ajax.url("{{ route('api.productsOut') }}").load();
-    }
-});
+// $('#filter-debt').on('change', function() {
+//     if ($(this).is(':checked')) {
+//         table.ajax.url("{{ route('api.productsOut') }}?debt_only=1").load();
+//     } else {
+//         table.ajax.url("{{ route('api.productsOut') }}").load();
+//     }
+// });
         // =====================
         // Select2 — customer
         // =====================
@@ -565,16 +607,93 @@ function exportFilteredPDF() {
     form.remove();
 }
 
-$('#toggle-deleted').on('change', function() {
+$(document).on('change', '#toggle-deleted', function() {
     if ($(this).is(':checked')) {
         $('#toggle-track').css('background', '#e74c3c');
         $('#toggle-thumb').css('transform', 'translateX(18px)');
-        table.ajax.url("{{ route('api.productsOut') }}?debt_only=1").load();
     } else {
         $('#toggle-track').css('background', '#ccc');
         $('#toggle-thumb').css('transform', 'translateX(0)');
-        table.ajax.url("{{ route('api.productsOut') }}").load();
+    }
+    reloadTableWithFilters();
+});
+
+
+// სტატუს ფილტრის dropdown გახსნა/დახურვა
+$(document).on('click', '#status-filter-btn', function(e) {
+    e.stopPropagation();
+    $('#status-filter-dropdown').toggle();
+});
+
+$(document).on('click', function(e) {
+    if (!$(e.target).closest('#status-filter-wrapper').length) {
+        $('#status-filter-dropdown').hide();
     }
 });
+
+// სტატუსების მიხედვით ფილტრაცია
+$(document).on('change', '.status-filter-check', function() {
+    var selected = [];
+    $('.status-filter-check:checked').each(function() {
+        selected.push($(this).val());
+    });
+
+    if (selected.length === 0) {
+        $('#status-filter-btn').html('ყველა სტატუსი <span style="float:right;">▾</span>');
+    } else {
+        $('#status-filter-btn').html(selected.length + ' მონიშნული <span style="float:right;">▾</span>');
+    }
+
+    reloadTableWithFilters(); // ← ეს იყო პრობლემა, ძველი კოდი პირდაპირ URL-ს ადგენდა
+});
+
+$(document).on('change', '#toggle-show-deleted', function() {
+    if ($(this).is(':checked')) {
+        $('#toggle-track-deleted').css('background', '#e74c3c');
+        $('#toggle-thumb-deleted').css('transform', 'translateX(18px)');
+    } else {
+        $('#toggle-track-deleted').css('background', '#ccc');
+        $('#toggle-thumb-deleted').css('transform', 'translateX(0)');
+    }
+    reloadTableWithFilters();
+});
+function reloadTableWithFilters() {
+    var params = [];
+    if ($('#toggle-deleted').is(':checked'))      params.push('debt_only=1');
+    if ($('#toggle-show-deleted').is(':checked')) params.push('show_deleted=1');
+
+    var selected = [];
+    $('.status-filter-check:checked').each(function() { selected.push($(this).val()); });
+    if (selected.length) params.push('statuses[]=' + selected.join('&statuses[]='));
+
+    table.ajax.url("{{ route('api.productsOut') }}?" + params.join('&')).load();
+}
+
+// index.blade.php - სკრიპტების ბოლოს
+
+function restoreData(id) {
+    var csrf_token = $('meta[name="csrf-token"]').attr('content');
+    
+    swal({
+        title: 'ნამდვილად გსურთ აღდგენა?',
+        type: 'info',
+        showCancelButton: true,
+        confirmButtonText: 'დიახ, აღადგინე!',
+        cancelButtonText: 'გაუქმება'
+    }).then(function() {
+        $.ajax({
+            url: "{{ url('productsOut') }}/" + id + "/restore",
+            type: "POST",
+            data: {'_token': csrf_token},
+            success: function(data) {
+                table.ajax.reload(null, false); // ცხრილის განახლება პაგინაციის შენარჩუნებით
+                swal("აღდგენილია!", data.message, "success");
+            },
+            error: function() {
+                swal("შეცდომა", "აღდგენა ვერ მოხერხდა", "error");
+            }
+        });
+    });
+}
     </script>
 @endsection
