@@ -98,7 +98,7 @@ class CategoryController extends Controller
         ]);
     }
 
-   public function apiCategories()
+  public function apiCategories()
 {
     $categories = Category::all();
 
@@ -113,6 +113,9 @@ class CategoryController extends Controller
             }
             return $html;
         })
+        ->addColumn('status_display', function($category) {
+            return '<span class="label label-success">active</span>';
+        })
         ->addColumn('action', function($category) {
             if (auth()->user()->role === 'admin') {
                 return '<a onclick="editForm('. $category->id .')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i> Edit</a> ' .
@@ -120,7 +123,7 @@ class CategoryController extends Controller
             }
             return '';
         })
-        ->rawColumns(['sizes_display', 'action'])
+        ->rawColumns(['sizes_display', 'status_display', 'action'])
         ->make(true);
 }
 
@@ -135,4 +138,47 @@ class CategoryController extends Controller
     {
         return (new ExportCategories())->download('categories.xlsx');
     }
+
+    public function apiDeletedCategories()
+{
+    $categories = Category::withoutGlobalScope('active')
+        ->where('status', 'deleted')
+        ->get();
+
+    return DataTables::of($categories)
+        ->addColumn('sizes_display', function($category) {
+            if (!$category->sizes) {
+                return '<span class="text-muted">-</span>';
+            }
+            $html = '';
+            foreach (explode(',', $category->sizes) as $size) {
+                $html .= '<span class="label label-default" style="margin-right:3px;">' . e(trim($size)) . '</span>';
+            }
+            return $html;
+        })
+        ->addColumn('status_display', function($category) {
+            return '<span class="label label-danger">deleted</span>';
+        })
+        ->addColumn('action', function($category) {
+            if (auth()->user()->role === 'admin') {
+                return '<a onclick="restoreData('. $category->id .')" class="btn btn-warning btn-xs"><i class="fa fa-undo"></i> Restore</a>';
+            }
+            return '';
+        })
+        ->rawColumns(['sizes_display', 'status_display', 'action'])
+        ->make(true);
+}
+
+public function restore($id)
+{
+    if (auth()->user()->role !== 'admin') {
+        return response()->json(['success' => false, 'message' => 'უფლება არ გაქვს'], 403);
+    }
+
+    $category = Category::withoutGlobalScope('active')->findOrFail($id);
+    $category->status = 'active';
+    $category->save();
+
+    return response()->json(['success' => true, 'message' => 'Category Restored Successfully']);
+}
 }

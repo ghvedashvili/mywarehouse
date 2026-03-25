@@ -35,10 +35,18 @@ Route::get('dashboard', function () {
 Route::middleware(['auth'])->group(function () {
     
     // Categories
-    Route::resource('categories', CategoryController::class);
+    //Route::resource('categories', CategoryController::class);
     Route::get('/apiCategories', [CategoryController::class, 'apiCategories'])->name('api.categories');
     Route::get('/exportCategoriesAll', [CategoryController::class, 'exportCategoriesAll'])->name('exportPDF.categoriesAll');
     Route::get('/exportCategoriesAllExcel', [CategoryController::class, 'exportExcel'])->name('exportExcel.categoriesAll');
+// ეს ზემოთ უნდა იყოს
+Route::get('categories/deleted-api', [CategoryController::class, 'apiDeletedCategories'])->name('api.categories.deleted');
+Route::patch('categories/{id}/restore', [CategoryController::class, 'restore'])->name('categories.restore');
+
+// შემდეგ resource
+Route::resource('categories', CategoryController::class);
+
+
 
     // Customers
     Route::resource('customers', CustomerController::class);

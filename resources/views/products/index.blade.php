@@ -3,21 +3,73 @@
 
 @section('top')
     <!-- DataTables -->
-    <link rel="stylesheet" href="{{ asset('assets/bower_components/datatables.net-bs/css/dataTables.bootstrap.min.css') }}">
-@endsection
+     
+<style>
+.switch-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: -2px;
+}
+.switch-wrapper label {
+    font-size: 13px;
+    color: #666;
+    margin: 0;
+    cursor: pointer;
+}
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 46px;
+    height: 24px;
+    margin: 0;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #ccc;
+    border-radius: 24px;
+    transition: .3s;
+}
+.switch-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: .3s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.switch input:checked + .switch-slider { background-color: #e74c3c; }
+.switch input:checked + .switch-slider:before { transform: translateX(22px); }
+</style>
+
+    @endsection
 
 @section('content')
     <div class="box box-success">
  @if(auth()->user()->role == 'admin')
 
         <div class="box-header">
-            <h3 class="box-title">List of Products</h3>
+    <h3 class="box-title">List of Products</h3>
 
-            <a onclick="addForm()" class="btn btn-success pull-right" style="margin-top: -8px;"><i class="fa fa-plus"></i> Add Products</a>
-        <a onclick="toggleDeleted()" id="btn-deleted" class="btn btn-danger pull-right" style="margin-top:-8px; margin-right:5px;">
-    <i class="fa fa-trash"></i> Deleted Products
-</a>
-        </div>
+    <a onclick="addForm()" class="btn btn-success pull-right" style="margin-top:-8px;">
+        <i class="fa fa-plus"></i> Add Products
+    </a>
+
+    <div class="pull-right switch-wrapper" style="margin-right:10px;">
+    <label for="toggle-deleted">Deleted</label>
+    <label class="switch">
+        <input type="checkbox" id="toggle-deleted">
+        <span class="switch-slider"></span>
+    </label>
+</div>
+</div>
 
 @endif
 
@@ -130,7 +182,7 @@ var table = $('#products-table').DataTable({
     lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
     pageLength: 10,
     ajax: {
-        url: "{{ route('api.products') }}",
+        url: "{{ route('api.products') }}", // active products პირველი
         data: function (d) {
             d.category_id = $('#filter_category').val();
             d.product_status = $('#filter_status').val();
@@ -371,18 +423,18 @@ $(document).on('keydown', function(e) {
     if (e.key === 'Escape') $('#img-lightbox').modal('hide');
 });
 
-var showingDeleted = false;
+var showingDeleted = false; // იტვირთება deleted-ით დასაწყისში
 
-function toggleDeleted() {
-    showingDeleted = !showingDeleted;
-    if (showingDeleted) {
-        $('#btn-deleted').html('<i class="fa fa-list"></i> Active Products').removeClass('btn-danger').addClass('btn-success');
-        table.ajax.url("{{ route('api.deleted-products') }}").load();
-    } else {
-        $('#btn-deleted').html('<i class="fa fa-trash"></i> Deleted Products').removeClass('btn-success').addClass('btn-danger');
-        table.ajax.url("{{ route('api.products') }}").load();
-    }
-}
+$(function() {
+    $('#toggle-deleted').on('change', function() {
+        showingDeleted = $(this).is(':checked');
+        if (showingDeleted) {
+            table.ajax.url("{{ route('api.deleted-products') }}").load();
+        } else {
+            table.ajax.url("{{ route('api.products') }}").load();
+        }
+    });
+});
 
 function restoreData(id) {
     var csrf_token = $('meta[name="csrf-token"]').attr('content');
@@ -409,5 +461,5 @@ function restoreData(id) {
     });
 }
 </script>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-toggle/2.2.2/js/bootstrap-toggle.min.js"></script>
 @endsection
