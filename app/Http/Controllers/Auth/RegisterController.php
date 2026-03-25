@@ -11,32 +11,15 @@ use Illuminate\Support\Facades\Validator;
 
 class RegisterController extends Controller
 {
-    /*
-    |--------------------------------------------------------------------------
-    | Register Controller
-    |--------------------------------------------------------------------------
-    |
-    | მხოლოდ admin და staff-ს შეუძლია ახალი იუზერის დამატება.
-    | რეგისტრაციის შემდეგ ახალი იუზერით არ ხდება ავტო-ლოგინი.
-    |
-    */
-
     use RegistersUsers;
 
-    /**
-     * Where to redirect users after registration.
-     * (გამოიყენება მხოლოდ თუ registered() არ არის override-ული)
-     */
     protected $redirectTo = '/user';
 
     public function __construct()
     {
-        $this->middleware('role:admin,staff');
+        $this->middleware('role:admin');
     }
 
-    /**
-     * Validator for incoming registration request.
-     */
     protected function validator(array $data)
     {
         return Validator::make($data, [
@@ -46,9 +29,6 @@ class RegisterController extends Controller
         ]);
     }
 
-    /**
-     * Create a new user instance after a valid registration.
-     */
     protected function create(array $data)
     {
         return User::create([
@@ -59,12 +39,15 @@ class RegisterController extends Controller
     }
 
     /**
-     * Override: რეგისტრაციის შემდეგ ახალი იუზერით არ ვლოგინდებით.
-     * trait-ის სტანდარტული registered() მეთოდი guard()->login($user) ს იძახებს —
-     * აქ მას ვაუქმებთ და უბრალოდ /user-ზე გადავდივართ.
+     * trait-ის register() მეთოდის სრული override —
+     * ახალი იუზერით ლოგინი არ ხდება, guard()->login() არ იძახება.
      */
-    protected function registered(Request $request, $user)
+    public function register(Request $request)
     {
+        $this->validator($request->all())->validate();
+
+        $user = $this->create($request->all());
+
         return redirect($this->redirectTo)
             ->with('success', 'იუზერი "' . $user->name . '" წარმატებით დაემატა!');
     }

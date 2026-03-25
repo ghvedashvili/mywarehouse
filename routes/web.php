@@ -97,10 +97,12 @@ Route::post('products/{id}/restore', [ProductController::class, 'restore'])->nam
 Route::post('/user/change-password', [UserController::class, 'changePassword'])->name('user.change-password');
     Route::resource('user', UserController::class);
     Route::get('/apiUser', [UserController::class, 'apiUsers'])->name('api.users');
-
+Route::post('/user/{id}/role', [UserController::class, 'updateRole'])->name('user.updateRole');
 
 
 Route::get('/get-sizes/{category_id}', [ProductController::class, 'getSizes']);
-    });
+   
+
+});
 
     Route::patch('productsOut/{id}/status', [ProductOrderController::class, 'updateStatus'])->name('productsOut.updateStatus');

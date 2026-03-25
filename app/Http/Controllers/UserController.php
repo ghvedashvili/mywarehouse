@@ -12,26 +12,30 @@ class UserController extends Controller
 {
     public function __construct()
     {
-        // index, apiUsers, changePasswordForm, changePassword — ყველა auth-ულ იუზერს
-        // create/store/edit/update/destroy — მხოლოდ admin და staff-ს
         $this->middleware('auth');
+
+        // მხოლოდ admin — წაშლა და როლის შეცვლა
+       $this->middleware('role:admin')->only([
+    'index',
+    'destroy',
+    'updateRole',
+]);
+
+        // admin და staff — დანარჩენი CRUD (index, store, edit, update)
         $this->middleware('role:admin,staff')->except([
             'changePasswordForm',
             'changePassword',
+            'destroy',
+            'updateRole',
         ]);
     }
-
-    // ─── CRUD ────────────────────────────────────────────────────────────────
 
     public function index()
     {
         return view('user.index');
     }
 
-    public function create()
-    {
-        //
-    }
+    public function create() {}
 
     public function store(Request $request)
     {
@@ -42,16 +46,10 @@ class UserController extends Controller
 
         User::create($request->all());
 
-        return response()->json([
-            'success' => true,
-            'message' => 'User Created',
-        ]);
+        return response()->json(['success' => true, 'message' => 'User Created']);
     }
 
-    public function show($id)
-    {
-        //
-    }
+    public function show($id) {}
 
     public function edit($id)
     {
@@ -68,15 +66,11 @@ class UserController extends Controller
         $user = User::findOrFail($id);
         $user->update($request->only('name', 'email'));
 
-        return response()->json([
-            'success' => true,
-            'message' => 'User Updated',
-        ]);
+        return response()->json(['success' => true, 'message' => 'User Updated']);
     }
 
     public function destroy($id)
     {
-        // საკუთარი თავის წაშლა არ შეიძლება
         if (Auth::id() == $id) {
             return response()->json([
                 'success' => false,
@@ -86,63 +80,87 @@ class UserController extends Controller
 
         User::destroy($id);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'User Deleted',
-        ]);
+        return response()->json(['success' => true, 'message' => 'User Deleted']);
     }
 
     public function apiUsers()
     {
-        $users = User::all();
+        $users      = User::all();
+        $isAdmin    = Auth::user()->role === 'admin';
 
         return DataTables::of($users)
-            ->addColumn('action', function ($user) {
-                return '<a onclick="editForm(' . $user->id . ')" class="btn btn-primary btn-xs">
+            ->addColumn('action', function ($user) use ($isAdmin) {
+                $btn = '<a onclick="editForm(' . $user->id . ')" class="btn btn-primary btn-xs">
                             <i class="glyphicon glyphicon-edit"></i> Edit
-                        </a> ' .
-                       '<a onclick="deleteData(' . $user->id . ')" class="btn btn-danger btn-xs">
-                            <i class="glyphicon glyphicon-trash"></i> Delete
-                        </a>';
+                        </a> ';
+
+                if ($isAdmin) {
+                    $btn .= '<a onclick="deleteData(' . $user->id . ')" class="btn btn-danger btn-xs">
+                                <i class="glyphicon glyphicon-trash"></i> Delete
+                             </a>';
+                }
+
+                return $btn;
             })
-            ->rawColumns(['action'])
+            ->addColumn('role', function ($user) use ($isAdmin) {
+                $badge  = $user->role === 'admin' ? 'danger' : 'primary';
+                $click  = $isAdmin ? 'onclick="changeRole(' . $user->id . ', \'' . $user->role . '\')"' : '';
+                $cursor = $isAdmin ? 'cursor:pointer;' : 'cursor:default;';
+                $title  = $isAdmin ? 'title="კლიკი როლის შესაცვლელად"' : '';
+
+                return '<span ' . $click . ' ' . $title . '
+                            class="badge badge-' . $badge . '"
+                            style="font-size:12px; padding:5px 10px; ' . $cursor . '">
+                            ' . strtoupper($user->role) . '
+                        </span>';
+            })
+            ->rawColumns(['action', 'role'])
             ->make(true);
     }
 
-    // ─── PASSWORD CHANGE (ყველა auth-ული იუზერისთვის) ────────────────────────
+    public function updateRole(Request $request, $id)
+    {
+        $request->validate([
+            'role' => 'required|in:admin,staff',
+        ]);
 
-    /**
-     * პაროლის შეცვლის ფორმა.
-     * Route: GET /user/change-password
-     */
+        if (Auth::id() == $id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'საკუთარი როლის შეცვლა არ შეიძლება.',
+            ], 403);
+        }
+
+        $user = User::findOrFail($id);
+        $user->update(['role' => $request->role]);
+
+        return response()->json([
+            'success' => true,
+            'message' => '"' . $user->name . '"-ის როლი შეიცვალა: ' . strtoupper($request->role),
+        ]);
+    }
+
     public function changePasswordForm()
     {
         return view('user.change_password');
     }
 
-    /**
-     * პაროლის შეცვლა.
-     * Route: POST /user/change-password
-     */
     public function changePassword(Request $request)
     {
         $request->validate([
-            'current_password'      => ['required'],
-            'password'              => ['required', 'string', 'min:6', 'confirmed'],
+            'current_password' => ['required'],
+            'password'         => ['required', 'string', 'min:6', 'confirmed'],
         ]);
 
         $user = Auth::user();
 
-        // მიმდინარე პაროლის შემოწმება
         if (!Hash::check($request->current_password, $user->password)) {
             return back()
                 ->withErrors(['current_password' => 'მიმდინარე პაროლი არასწორია.'])
                 ->withInput();
         }
 
-        $user->update([
-            'password' => Hash::make($request->password),
-        ]);
+        $user->update(['password' => Hash::make($request->password)]);
 
         return back()->with('success', 'პაროლი წარმატებით შეიცვალა!');
     }

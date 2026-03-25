@@ -1,28 +1,25 @@
 @extends('layouts.master')
 
-
 @section('top')
-    <!-- DataTables -->
     <link rel="stylesheet" href="{{ asset('assets/bower_components/datatables.net-bs/css/dataTables.bootstrap.min.css') }}">
 @endsection
 
 @section('content')
 
-    <div class="box box-success">
+<div class="box box-success">
+    <div class="box-header">
+        <h3 class="box-title">List of System Users</h3>
+    </div>
 
-        <div class="box-header">
-            <h3 class="box-title">List of System Users</h3>
-        </div>
+    @if(Auth::user()->role === 'admin')
+    <div class="box-header">
+        <a href="/register" class="btn btn-success"><i class="fa fa-plus"></i> Add User</a>
+    </div>
+    @endif
 
-        <div class="box-header">
-            <a href="/register" class="btn btn-success" ><i class="fa fa-plus"></i> Add User</a>
-        </div>
-
-
-        <!-- /.box-header -->
-        <div class="box-body">
-            <table id="user-table" class="table table-bordered table-hover table-striped">
-                <thead>
+    <div class="box-body">
+        <table id="user-table" class="table table-bordered table-hover table-striped">
+            <thead>
                 <tr>
                     <th>ID</th>
                     <th>Name</th>
@@ -30,100 +27,85 @@
                     <th>Role</th>
                     <th>Actions</th>
                 </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-        <!-- /.box-body -->
+            </thead>
+            <tbody></tbody>
+        </table>
     </div>
+</div>
 
-    @include('suppliers.form')
+{{-- Role Change Modal — მხოლოდ admin-ს უჩანს --}}
+@if(Auth::user()->role === 'admin')
+<div class="modal fade" id="role-modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-sm" role="document">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#f4f4f4;">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title"><i class="fa fa-user-circle"></i> როლის შეცვლა</h4>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <p style="margin-bottom:15px; color:#666;">აირჩიე ახალი როლი:</p>
+                <input type="hidden" id="role-user-id">
+                <div style="display:flex; gap:10px;">
+                    <button onclick="submitRole('admin')" class="btn btn-danger btn-block">
+                        <i class="fa fa-shield"></i> ADMIN
+                    </button>
+                    <button onclick="submitRole('staff')" class="btn btn-primary btn-block">
+                        <i class="fa fa-user"></i> STAFF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
 @endsection
 
 @section('bot')
+    <script src="{{ asset('assets/bower_components/datatables.net/js/jquery.dataTables.min.js') }}"></script>
+    <script src="{{ asset('assets/bower_components/datatables.net-bs/js/dataTables.bootstrap.min.js') }}"></script>
 
-    <!-- DataTables -->
-    <script src=" {{ asset('assets/bower_components/datatables.net/js/jquery.dataTables.min.js') }} "></script>
-    <script src="{{ asset('assets/bower_components/datatables.net-bs/js/dataTables.bootstrap.min.js') }} "></script>
-
-    {{-- Validator --}}
-    <script src="{{ asset('assets/validator/validator.min.js') }}"></script>
-
-    {{--<script>--}}
-    {{--$(function () {--}}
-    {{--$('#items-table').DataTable()--}}
-    {{--$('#example2').DataTable({--}}
-    {{--'paging'      : true,--}}
-    {{--'lengthChange': false,--}}
-    {{--'searching'   : false,--}}
-    {{--'ordering'    : true,--}}
-    {{--'info'        : true,--}}
-    {{--'autoWidth'   : false--}}
-    {{--})--}}
-    {{--})--}}
-    {{--</script>--}}
-
-    <script type="text/javascript">
+    <script>
         var table = $('#user-table').DataTable({
             processing: true,
             serverSide: true,
             ajax: "{{ route('api.users') }}",
             columns: [
-                {data: 'id', name: 'id'},
-                {data: 'name', name: 'name'},
-                {data: 'email', name: 'email'},
-                {data: 'role', name: 'role'},
+                {data: 'id',     name: 'id'},
+                {data: 'name',   name: 'name'},
+                {data: 'email',  name: 'email'},
+                {data: 'role',   name: 'role',   orderable: false},
                 {data: 'action', name: 'action', orderable: false, searchable: false}
             ]
         });
-        function addForm() {
-    save_method = "add";
-    $('input[name=_method]').val('POST');
-    $('#modal-form').modal('show');
-    $('#modal-form form')[0].reset();
-    $('.modal-title').text('Add Products');
-    $('#image-preview').empty(); // გასუფთავება ახლის დამატებისას
-}
 
-function editForm(id) {
-    save_method = 'edit';
-    $('input[name=_method]').val('PATCH');
-    $('#modal-form form')[0].reset();
-    $('#image-preview').empty(); // წინა სურათის ნარჩენების წაშლა
-
-    $.ajax({
-        url: "{{ url('products') }}" + '/' + id + "/edit",
-        type: "GET",
-        dataType: "JSON",
-        success: function(data) {
-            $('#modal-form').modal('show');
-            $('.modal-title').text('Edit Products');
-
-            $('#id').val(data.id);
-            $('#name').val(data.name);
-            $('#harga').val(data.harga);
-            $('#qty').val(data.qty);
-            
-            // კატეგორიის ავტომატური არჩევა
-            $('#category_id').val(data.category_id);
-
-            // სურათის ჩვენება, თუ ის არსებობს
-            if (data.image) {
-                var imageUrl = "{{ url('') }}" + data.image;
-                $('#image-preview').html(
-                    '<label>Current Image:</label><br>' +
-                    '<img src="' + imageUrl + '" class="img-thumbnail" style="width:120px; height:120px; object-fit:cover;">'
-                );
-            }
-        },
-        error : function() {
-            swal("Error", "Could not fetch data", "error");
+        function changeRole(id, currentRole) {
+            $('#role-user-id').val(id);
+            $('#role-modal').modal('show');
         }
-    });
-}
 
-        function deleteData(id){
-            var csrf_token = $('meta[name="csrf-token"]').attr('content');
+        function submitRole(newRole) {
+            var id   = $('#role-user-id').val();
+            var csrf = $('meta[name="csrf-token"]').attr('content');
+
+            $.ajax({
+                url:  '/user/' + id + '/role',
+                type: 'POST',
+                data: { role: newRole, _token: csrf },
+                success: function(data) {
+                    $('#role-modal').modal('hide');
+                    table.ajax.reload();
+                    swal({ title: 'Success!', text: data.message, type: 'success', timer: 1500 });
+                },
+                error: function(xhr) {
+                    $('#role-modal').modal('hide');
+                    swal({ title: 'Oops...', text: xhr.responseJSON.message, type: 'error', timer: 2000 });
+                }
+            });
+        }
+
+        function deleteData(id) {
+            var csrf = $('meta[name="csrf-token"]').attr('content');
             swal({
                 title: 'Are you sure?',
                 text: "You won't be able to revert this!",
@@ -132,70 +114,33 @@ function editForm(id) {
                 cancelButtonColor: '#d33',
                 confirmButtonColor: '#3085d6',
                 confirmButtonText: 'Yes, delete it!'
-            }).then(function () {
+            }).then(function() {
                 $.ajax({
-                    url : "{{ url('users') }}" + '/' + id,
-                    type : "POST",
-                    data : {'_method' : 'DELETE', '_token' : csrf_token},
-                    success : function(data) {
+                    url:  "{{ url('user') }}" + '/' + id,
+                    type: 'POST',
+                    data: { _method: 'DELETE', _token: csrf },
+                    success: function(data) {
                         table.ajax.reload();
-                        swal({
-                            title: 'Success!',
-                            text: data.message,
-                            type: 'success',
-                            timer: '1500'
-                        })
+                        swal({ title: 'Deleted!', text: data.message, type: 'success', timer: 1500 });
                     },
-                    error : function () {
-                        swal({
-                            title: 'Oops...',
-                            text: data.message,
-                            type: 'error',
-                            timer: '1500'
-                        })
+                    error: function(xhr) {
+                        swal({ title: 'Oops...', text: xhr.responseJSON.message, type: 'error', timer: 2000 });
                     }
                 });
             });
         }
-
-        $(function(){
-            $('#modal-form form').validator().on('submit', function (e) {
-                if (!e.isDefaultPrevented()){
-                    var id = $('#id').val();
-                    if (save_method == 'add') url = "{{ url('suppliers') }}";
-                    else url = "{{ url('suppliers') . '/' }}" + id;
-
-                    $.ajax({
-                        url : url,
-                        type : "POST",
-                        //hanya untuk input data tanpa dokumen
-//                      data : $('#modal-form form').serialize(),
-                        data: new FormData($("#modal-form form")[0]),
-                        contentType: false,
-                        processData: false,
-                        success : function(data) {
-                            $('#modal-form').modal('hide');
-                            table.ajax.reload();
-                            swal({
-                                title: 'Success!',
-                                text: data.message,
-                                type: 'success',
-                                timer: '1500'
-                            })
-                        },
-                        error : function(data){
-                            swal({
-                                title: 'Oops...',
-                                text: data.message,
-                                type: 'error',
-                                timer: '1500'
-                            })
-                        }
-                    });
-                    return false;
-                }
-            });
-        });
     </script>
-
+    @if(session('success'))
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        swal({
+            title: 'წარმატება!',
+            text: '{{ session('success') }}',
+            type: 'success',
+            timer: 2000,
+            showConfirmButton: false
+        });
+    });
+</script>
+@endif
 @endsection
