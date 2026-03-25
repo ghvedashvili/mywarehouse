@@ -375,6 +375,7 @@ $('#modal-sale').modal('show');
                     );
                     $(newOption).data('address', data.address || '');
                     $(newOption).data('city',    data.city_name || '');
+                   $(newOption).data('city-id', data.city_id || 0);
                     $(newOption).data('tel',     data.tel || '');
                     $(newOption).data('alt',     data.alternative_tel || '');
                     $(newOption).data('comment', data.comment || '');

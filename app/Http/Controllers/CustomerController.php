@@ -51,6 +51,7 @@ class CustomerController extends Controller
         'name'            => $customer->name,
         'tel'             => $customer->tel,
         'address'         => $customer->address,
+         'city_id'         => $customer->city_id,
         'city_name'       => $customer->city->name ?? '',
         'alternative_tel' => $customer->alternative_tel,
         'comment'         => $customer->comment,
