@@ -7,6 +7,7 @@
 @endsection
 
 @section('content')
+
     <div class="box box-success">
 
         <div class="box-header">

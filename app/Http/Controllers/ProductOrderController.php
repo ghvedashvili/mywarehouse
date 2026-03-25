@@ -39,7 +39,7 @@ $courier = Courier::first(); // ეს დაამატე
     $this->validate($request, [
         'product_id'   => 'required',
         'customer_id'  => 'required',
-        'status_id'    => 'required',
+        // 'status_id'    => 'required',
     ]);
 
     $product = Product::findOrFail($request->product_id);

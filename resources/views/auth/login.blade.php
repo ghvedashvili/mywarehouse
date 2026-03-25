@@ -18,6 +18,7 @@
     <!-- GOOGLE FONTS -->
     <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600,700" rel="stylesheet">
     <!-- ICONS -->
+     <link rel="icon" type="image/png" href="{{ asset('upload/favicon.png') }}">
     <!-- <link rel="apple-touch-icon" sizes="76x76" href="{{asset('assets/img/apple-icon.png')}}">
     <link rel="icon" type="image/png" sizes="96x96" href="{{asset('assets/img/favicon.png')}}"> -->
 </head>
@@ -64,20 +65,42 @@
                                     </label>
                                 </div>
                                 <button type="submit" class="btn btn-success btn-lg btn-block">LOGIN</button>
-                                <!-- <div class="bottom">
+                                <div class="bottom">
                                     @if (Route::has('password.request'))
                                     <span class="helper-text"><i class="fa fa-lock"></i> <a href="{{ route('password.request') }}">Forgot password?</a></span>
                                     @endif
-                                </div> -->
+                                </div>
                             </form>
                         </div>
                     </div>
-                    <div class="right">
-                        <div class="overlay"></div>
-                        <div class="content text">
-                            <h1 class="heading">Inventory Management System</h1>
-                        </div>
-                    </div>
+                    <div class="right" style="position:relative; overflow:hidden; padding:0;">
+    <img 
+        src="{{ asset('upload/products/originalslogo.jpg') }}" 
+        alt="IMS"
+        style="
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            object-position: center;
+        "
+    >
+    <div style="
+        position: absolute;
+        bottom: 0; left: 0; right: 10px;
+       
+        padding: 30px 25px 25px;
+    ">
+        <footer class="main-footer">
+        <!-- To the right -->
+        <div class="pull-right hidden-xs">
+            © Developed by Ghvedashvili
+        </div>
+        <!-- Default to the left -->
+               
+    </footer>
+    </div>
+</div>
                     <div class="clearfix"></div>
                 </div>
             </div>

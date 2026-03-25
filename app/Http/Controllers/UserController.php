@@ -2,151 +2,148 @@
 
 namespace App\Http\Controllers;
 
-use App\Exports\ExportSuppliers;
-use App\Imports\SuppliersImport;
 use App\Models\User;
-use Excel;
 use Illuminate\Http\Request;
-use PDF;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Yajra\DataTables\DataTables;
 
-class UserController extends Controller {
-	public function __construct() {
-		$this->middleware('role:admin,staff');
-	}
-	/**
-	 * Display a listing of the resource.
-	 *
-	 * @return \Illuminate\Http\Response
-	 */
-	public function index() {
-		$users = User::all();
-		return view('user.index');
-	}
+class UserController extends Controller
+{
+    public function __construct()
+    {
+        // index, apiUsers, changePasswordForm, changePassword — ყველა auth-ულ იუზერს
+        // create/store/edit/update/destroy — მხოლოდ admin და staff-ს
+        $this->middleware('auth');
+        $this->middleware('role:admin,staff')->except([
+            'changePasswordForm',
+            'changePassword',
+        ]);
+    }
 
-	/**
-	 * Show the form for creating a new resource.
-	 *
-	 * @return \Illuminate\Http\Response
-	 */
-	public function create() {
-		//
-	}
+    // ─── CRUD ────────────────────────────────────────────────────────────────
 
-	/**
-	 * Store a newly created resource in storage.
-	 *
-	 * @param  \Illuminate\Http\Request  $request
-	 * @return \Illuminate\Http\Response
-	 */
-	public function store(Request $request) {
-		$this->validate($request, [
-			'name' => 'required',
-			'email' => 'required|unique:suppliers',
-		]);
+    public function index()
+    {
+        return view('user.index');
+    }
 
-		User::create($request->all());
+    public function create()
+    {
+        //
+    }
 
-		return response()->json([
-			'success' => true,
-			'message' => 'Suppliers Created',
-		]);
+    public function store(Request $request)
+    {
+        $this->validate($request, [
+            'name'  => 'required',
+            'email' => 'required|unique:users',
+        ]);
 
-	}
+        User::create($request->all());
 
-	/**
-	 * Display the specified resource.
-	 *
-	 * @param  int  $id
-	 * @return \Illuminate\Http\Response
-	 */
-	public function show($id) {
-		//
-	}
+        return response()->json([
+            'success' => true,
+            'message' => 'User Created',
+        ]);
+    }
 
-	/**
-	 * Show the form for editing the specified resource.
-	 *
-	 * @param  int  $id
-	 * @return \Illuminate\Http\Response
-	 */
-	public function edit($id) {
-		$users = User::find($id);
-		return $users;
-	}
+    public function show($id)
+    {
+        //
+    }
 
-	/**
-	 * Update the specified resource in storage.
-	 *
-	 * @param  \Illuminate\Http\Request  $request
-	 * @param  int  $id
-	 * @return \Illuminate\Http\Response
-	 */
-	public function update(Request $request, $id) {
-		$this->validate($request, [
-			'name' => 'required|string|min:2',
-			'email' => 'required|string|email|max:255|unique:suppliers',
-		]);
+    public function edit($id)
+    {
+        return User::find($id);
+    }
 
-		$users = User::findOrFail($id);
+    public function update(Request $request, $id)
+    {
+        $this->validate($request, [
+            'name'  => 'required|string|min:2',
+            'email' => 'required|string|email|max:255|unique:users,email,' . $id,
+        ]);
 
-		$users->update($request->all());
+        $user = User::findOrFail($id);
+        $user->update($request->only('name', 'email'));
 
-		return response()->json([
-			'success' => true,
-			'message' => 'users Updated',
-		]);
-	}
+        return response()->json([
+            'success' => true,
+            'message' => 'User Updated',
+        ]);
+    }
 
-	/**
-	 * Remove the specified resource from storage.
-	 *
-	 * @param  int  $id
-	 * @return \Illuminate\Http\Response
-	 */
-	public function destroy($id) {
-		User::destroy($id);
+    public function destroy($id)
+    {
+        // საკუთარი თავის წაშლა არ შეიძლება
+        if (Auth::id() == $id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot delete your own account',
+            ], 403);
+        }
 
-		return response()->json([
-			'success' => true,
-			'message' => 'User Delete',
-		]);
-	}
+        User::destroy($id);
 
-	public function apiUsers() {
-		$users = User::all();
+        return response()->json([
+            'success' => true,
+            'message' => 'User Deleted',
+        ]);
+    }
 
-		return Datatables::of($users)
-			->addColumn('action', function ($users) {
-				return '<a onclick="editForm(' . $users->id . ')" class="btn btn-primary btn-xs"><i class="glyphicon glyphicon-edit"></i> Edit</a> ' .
-				'<a onclick="deleteData(' . $users->id . ')" class="btn btn-danger btn-xs"><i class="glyphicon glyphicon-trash"></i> Delete</a>';
-			})
-			->rawColumns(['action'])->make(true);
-	}
+    public function apiUsers()
+    {
+        $users = User::all();
 
-	public function ImportExcel(Request $request) {
-		//Validasi
-		$this->validate($request, [
-			'file' => 'required|mimes:xls,xlsx',
-		]);
+        return DataTables::of($users)
+            ->addColumn('action', function ($user) {
+                return '<a onclick="editForm(' . $user->id . ')" class="btn btn-primary btn-xs">
+                            <i class="glyphicon glyphicon-edit"></i> Edit
+                        </a> ' .
+                       '<a onclick="deleteData(' . $user->id . ')" class="btn btn-danger btn-xs">
+                            <i class="glyphicon glyphicon-trash"></i> Delete
+                        </a>';
+            })
+            ->rawColumns(['action'])
+            ->make(true);
+    }
 
-		if ($request->hasFile('file')) {
-			//UPLOAD FILE
-			$file = $request->file('file'); //GET FILE
-			Excel::import(new SuppliersImport, $file); //IMPORT FILE
-			return redirect()->back()->with(['success' => 'Upload file data suppliers !']);
-		}
+    // ─── PASSWORD CHANGE (ყველა auth-ული იუზერისთვის) ────────────────────────
 
-		return redirect()->back()->with(['error' => 'Please choose file before!']);
-	}
+    /**
+     * პაროლის შეცვლის ფორმა.
+     * Route: GET /user/change-password
+     */
+    public function changePasswordForm()
+    {
+        return view('user.change_password');
+    }
 
-	public function exportSuppliersAll() {
-		$suppliers = Supplier::all();
-		$pdf = PDF::loadView('suppliers.SuppliersAllPDF', compact('suppliers'));
-		return $pdf->download('suppliers.pdf');
-	}
+    /**
+     * პაროლის შეცვლა.
+     * Route: POST /user/change-password
+     */
+    public function changePassword(Request $request)
+    {
+        $request->validate([
+            'current_password'      => ['required'],
+            'password'              => ['required', 'string', 'min:6', 'confirmed'],
+        ]);
 
-	public function exportExcel() {
-		return (new ExportSuppliers)->download('suppliers.xlsx');
-	}
+        $user = Auth::user();
+
+        // მიმდინარე პაროლის შემოწმება
+        if (!Hash::check($request->current_password, $user->password)) {
+            return back()
+                ->withErrors(['current_password' => 'მიმდინარე პაროლი არასწორია.'])
+                ->withInput();
+        }
+
+        $user->update([
+            'password' => Hash::make($request->password),
+        ]);
+
+        return back()->with('success', 'პაროლი წარმატებით შეიცვალა!');
+    }
 }

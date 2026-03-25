@@ -93,8 +93,12 @@ Route::post('products/{id}/restore', [ProductController::class, 'restore'])->nam
     Route::get('/exportProductMasuk/{id}', [ProductMasukController::class, 'exportProductMasuk'])->name('exportPDF.productMasuk');
 
     // Users
+    Route::get('/user/change-password', [UserController::class, 'changePasswordForm'])->name('user.change-password');
+Route::post('/user/change-password', [UserController::class, 'changePassword'])->name('user.change-password');
     Route::resource('user', UserController::class);
     Route::get('/apiUser', [UserController::class, 'apiUsers'])->name('api.users');
+
+
 
 Route::get('/get-sizes/{category_id}', [ProductController::class, 'getSizes']);
     });
