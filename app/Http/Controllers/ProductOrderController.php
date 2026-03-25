@@ -277,37 +277,67 @@ public function restore($id)
 }
     public function exportProductOrder($id)
 {
-    $product_order = Product_Order::with([
-    'product' => fn($q) => $q->withoutGlobalScope('active'),
-    'customer.city',
-    'orderStatus'
-])->findOrFail($id);
-    
-    // პროდუქტის სურათის base64-ად გადაყვანა
-    $imageBase64 = null;
-    if ($product_order->product->image) {
-       $imagePath = public_path(ltrim($product_order->product->image, '/'));
-        if (file_exists($imagePath)) {
-            $imageData = file_get_contents($imagePath);
-            $mimeType = mime_content_type($imagePath);
-            $imageBase64 = 'data:' . $mimeType . ';base64,' . base64_encode($imageData);
+    // 1. მოგვაქვს კონკრეტული ორდერი საჭირო კავშირებით
+    $order = Product_Order::withoutGlobalScope('active')
+        ->with([
+            'product' => fn($q) => $q->withoutGlobalScope('active'),
+            'customer.city',
+            'orderStatus'
+        ])
+        ->findOrFail($id);
+
+    // 2. ლოგოს მომზადება (Base64)
+    $logoBase64 = null;
+    $logoPath = public_path('assets/img/logo.png');
+    if (file_exists($logoPath)) {
+        $logoData = file_get_contents($logoPath);
+        $mimeType = mime_content_type($logoPath);
+        $logoBase64 = 'data:' . $mimeType . ';base64,' . base64_encode($logoData);
+    }
+
+    // 3. პროდუქტის სურათის მომზადება (Base64)
+    $order->imageBase64 = null;
+    if ($order->product && $order->product->image) {
+        $imageField = ltrim($order->product->image, '/');
+        $fullPath = public_path($imageField);
+        if (file_exists($fullPath) && !is_dir($fullPath)) {
+            $order->imageBase64 = 'data:' . mime_content_type($fullPath) . ';base64,' . base64_encode(file_get_contents($fullPath));
         }
     }
-    
-    $pdf = Pdf::loadView('product_Order.productOrderPDF', compact('product_order', 'imageBase64'));
-    return $pdf->download($id.'_invoice.pdf');
+
+    // 4. კრიტიკული მომენტი: ერთ ორდერს ვაქცევთ კოლექციად (მასივად)
+    // რადგან productOrderFilteredPDF ფაილში გიწერიათ @foreach($product_Order as $product_order)
+    $product_Order = collect([$order]);
+
+    // 5. PDF-ის გენერაცია იგივე ბლეიდით
+    $pdf = Pdf::loadView('product_Order.productOrderFilteredPDF', compact('product_Order', 'logoBase64'))
+        ->setPaper('a4')
+        ->setOptions([
+            'defaultFont' => 'dejavu sans', // ქართული შრიფტისთვის
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled' => true
+        ]);
+
+    return $pdf->download('Invoice_#' . $id . '.pdf');
 }
 
     public function exportExcel()
     {
         return (new ExportProdukOrder)->download('orders.xlsx');
     }
-    public function exportFilteredOrders(Request $request)
+public function exportFilteredOrders(Request $request)
 {
-    $ids = $request->input('ids', []);
-    if (empty($ids)) { abort(400, 'No orders selected'); }
 
-    // ვიღებთ ორდერებს და პროდუქტებს ყველანაირი სკოუპის გარეშე
+$path = public_path('assets/img/logo.png');
+    
+    // ეს კოდი გააჩერებს ყველაფერს და ეკრანზე დაგიწერთ სიმართლეს:
+    
+    $ids = $request->input('ids', []);
+    if (empty($ids)) {
+        abort(400, 'No orders selected');
+    }
+
+    // ვიღებთ ორდერებს
     $product_Order = Product_Order::withoutGlobalScope('active')
         ->with([
             'product' => fn($q) => $q->withoutGlobalScope('active'),
@@ -317,37 +347,49 @@ public function restore($id)
         ->whereIn('id', $ids)
         ->get();
 
+    // ლოგოს Base64-ად გადაყვანა (მთავარი ლოგო)
+    $logoPath = public_path('assets/img/logo.png');
+    $logoBase64 = null;
+    
+    if (file_exists($logoPath)) {
+        $logoData = file_get_contents($logoPath);
+        $mimeType = mime_content_type($logoPath);
+        $logoBase64 = 'data:' . $mimeType . ';base64,' . base64_encode($logoData);
+    } else {
+        // თუ ფაილი არ არსებობს, ჩავწეროთ ლოგში, რომ ვიცოდეთ
+        \Log::error('Logo not found at: ' . $logoPath);
+    }
+
+    // პროდუქტების სურათების Base64-ად გადაყვანა
     foreach ($product_Order as $order) {
         $order->imageBase64 = null;
-
-        // თუ პროდუქტი არსებობს (თუნდაც წაშლილი)
         if ($order->product && $order->product->image) {
-            
-            // 1. ვასუფთავებთ გზას: ვაშორებთ ზედმეტ სლეშებს და 'public'-ს თუ წერია
             $imageField = ltrim($order->product->image, '/');
-            
-            // 2. ვცდით სხვადასხვა გზას ფაილის მოსაძებნად
             $pathsToTry = [
                 public_path($imageField),
                 base_path('public/' . $imageField),
-                // ზოგჯერ ბაზაში წერია 'upload/products/...' და public_path ამატებს კიდევ ერთ public-ს
             ];
 
-            $debugLog = [];
-foreach ($pathsToTry as $path) {
-    $debugLog[] = $path . ' → ' . (file_exists($path) ? 'EXISTS' : 'NOT FOUND');
-    if (file_exists($path) && !is_dir($path)) {
-        $imageData = file_get_contents($path);
-        $mimeType = mime_content_type($path);
-        $order->imageBase64 = 'data:' . $mimeType . ';base64,' . base64_encode($imageData);
-        break;
-    }
-}
-
+            foreach ($pathsToTry as $path) {
+                if (file_exists($path) && !is_dir($path)) {
+                    $imageData = file_get_contents($path);
+                    $mimeType = mime_content_type($path);
+                    $order->imageBase64 = 'data:' . $mimeType . ';base64,' . base64_encode($imageData);
+                    break;
+                }
+            }
         }
     }
 
-    $pdf = Pdf::loadView('product_Order.productOrderFilteredPDF', compact('product_Order'));
+    // აუცილებელია გადავცეთ logoBase64 compact-ში
+    $pdf = Pdf::loadView('product_Order.productOrderFilteredPDF', compact('product_Order', 'logoBase64'))
+        ->setPaper('a4')
+        ->setOptions([
+            'defaultFont' => 'dejavu sans', // ქართული შრიფტისთვის
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled' => true
+        ]);
+
     return $pdf->download('filtered_orders.pdf');
 }
 }

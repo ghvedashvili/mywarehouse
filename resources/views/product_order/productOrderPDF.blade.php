@@ -1,23 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ka">
 <head>
     <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invoice #{{ $product_order->id }}</title>
+    <title>ინვოისი #{{ $product_order->id }}</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap');
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'DM Sans', sans-serif;
-            background: #f5f5f0;
-            color: #1a1a1a;
-            padding: 40px 20px;
+        /* ქართული სიმბოლოებისთვის აუცილებელია DejaVu Sans */
+        body { 
+            font-family: 'DejaVu Sans', sans-serif; 
+            background: #f4f6f8; 
+            margin: 0; 
+            padding: 20px; 
+            font-size: 12px;
         }
 
         .page {
@@ -31,257 +26,168 @@
 
         /* ── Header ── */
         .header {
-            padding: 40px 48px 32px;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
+            padding: 40px 48px;
             border-bottom: 1px solid #ebebeb;
+            overflow: hidden;
         }
 
-        .logo-area img {
-            height: 52px;
-            width: auto;
-        }
-
-        .invoice-meta {
-            text-align: right;
-        }
+        .logo-area { float: left; }
+        .invoice-meta { float: right; text-align: right; }
 
         .invoice-meta .label {
             font-size: 22px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
+            font-weight: bold;
             color: #1a1a1a;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
         }
 
-        .invoice-meta p {
-            font-size: 13px;
-            color: #666;
-            line-height: 1.7;
-        }
-
-        .invoice-meta span {
-            color: #1a1a1a;
-            font-weight: 500;
-        }
-
-        /* ── Company info ── */
-        .company-section {
-            padding: 32px 48px;
+        /* ── Sections ── */
+        .section {
+            padding: 30px 48px;
             border-bottom: 1px solid #ebebeb;
         }
 
         .company-name {
-            font-size: 24px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-            margin-bottom: 10px;
+            font-size: 20px;
+            font-weight: bold;
             color: #1a1a1a;
-        }
-
-        .company-section p {
-            font-size: 13px;
-            color: #555;
-            line-height: 1.8;
-        }
-
-        /* ── Details grid ── */
-        .details-section {
-            padding: 32px 48px;
-            border-bottom: 1px solid #ebebeb;
+            margin-bottom: 10px;
         }
 
         .section-title {
             font-size: 11px;
-            font-weight: 600;
-            letter-spacing: 1.2px;
+            font-weight: bold;
             text-transform: uppercase;
             color: #999;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
+            letter-spacing: 1px;
         }
 
-        .details-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px 40px;
+        /* ── Grid ── */
+        .details-table {
+            width: 100%;
+            margin-bottom: 10px;
         }
 
-        .detail-item .detail-label {
-            font-size: 11px;
-            font-weight: 600;
-            letter-spacing: 0.8px;
-            text-transform: uppercase;
-            color: #aaa;
-            margin-bottom: 4px;
+        .details-table td {
+            width: 50%;
+            vertical-align: top;
+            padding-bottom: 15px;
         }
 
-        .detail-item .detail-value {
-            font-size: 14px;
-            font-weight: 500;
-            color: #1a1a1a;
-        }
+        .detail-label { font-size: 10px; color: #aaa; text-transform: uppercase; }
+        .detail-value { font-size: 13px; color: #1a1a1a; font-weight: bold; }
 
-        /* ── Product table ── */
-        .table-section {
-            padding: 0 48px 32px;
-        }
-
+        /* ── Product Table ── */
         .product-table {
             width: 100%;
             border-collapse: collapse;
+            margin-top: 10px;
         }
 
-        .product-table thead tr {
-            border-bottom: 2px solid #1a1a1a;
-        }
-
-        .product-table thead th {
-            font-size: 11px;
-            font-weight: 600;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            color: #999;
-            padding: 0 0 12px;
+        .product-table th {
             text-align: left;
+            font-size: 11px;
+            color: #999;
+            border-bottom: 2px solid #1a1a1a;
+            padding-bottom: 10px;
         }
 
-        .product-table thead th:last-child {
-            text-align: right;
-        }
-
-        .product-table tbody tr {
+        .product-table td {
+            padding: 15px 0;
             border-bottom: 1px solid #ebebeb;
-        }
-
-        .product-table tbody td {
-            padding: 16px 0;
-            font-size: 14px;
-            color: #1a1a1a;
             vertical-align: middle;
-        }
-
-        .product-table tbody td:last-child {
-            text-align: right;
-            font-weight: 600;
         }
 
         .product-img {
-            width: 44px;
-            height: 44px;
-            object-fit: cover;
-            border-radius: 6px;
-            border: 1px solid #ebebeb;
-            vertical-align: middle;
-            margin-right: 12px;
-        }
-
-        .product-name {
-            font-weight: 500;
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            margin-right: 10px;
         }
 
         /* ── Footer ── */
         .footer {
-            padding: 28px 48px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            padding: 20px 48px;
             background: #fafaf8;
-            border-top: 1px solid #ebebeb;
+            overflow: hidden;
         }
 
-        .footer .thank-you {
-            font-size: 13px;
-            color: #888;
-        }
+        .thank-you { float: left; color: #888; }
+        .brand { float: right; font-weight: bold; color: #1a1a1a; }
 
-        .footer .brand {
-            font-size: 13px;
-            font-weight: 600;
-            color: #1a1a1a;
-            letter-spacing: 0.5px;
-        }
-
-        /* ── Print ── */
-        @media print {
-            body { background: white; padding: 0; }
-            .page { box-shadow: none; border-radius: 0; }
+        .clearfix::after {
+            content: "";
+            clear: both;
+            display: table;
         }
     </style>
 </head>
 <body>
 <div class="page">
 
-    <!-- Header -->
-    <div class="header">
+    <div class="header clearfix">
         <div class="logo-area">
-            {{-- Replace with your logo --}}
-            <img src="https://via.placeholder.com/120x52/e85d26/ffffff?text=LOGO" alt="Logo">
+            <img src="https://via.placeholder.com/120x50/e85d26/ffffff?text=LOGO" alt="Logo">
         </div>
         <div class="invoice-meta">
-            <div class="label">Invoice</div>
-            <p>Invoice Number: <span>#{{ $product_order->id }}</span></p>
-            <p>Date: <span>{{ $product_order->tanggal }}</span></p>
+            <div class="label">ინვოისი</div>
+            <p>ნომერი: <span>#{{ $product_order->id }}</span></p>
+            <p>თარიღი: <span>{{ $product_order->tanggal }}</span></p>
         </div>
     </div>
 
-    <!-- Company / Billed To -->
-    <div class="company-section">
+    <div class="section">
+        <div class="section-title">მყიდველი</div>
         <div class="company-name">{{ $product_order->customer->name }}</div>
-        <p>{{ $product_order->customer->tel }}</p>
-        <p>{{ $product_order->customer->alternative_tel }}</p>
-        <p>{{ $product_order->customer->email }}</p>
+        <p>ტელ: {{ $product_order->customer->tel }}</p>
+        @if($product_order->customer->email)
+            <p>ელ-ფოსტა: {{ $product_order->customer->email }}</p>
+        @endif
     </div>
 
-    <!-- Order Details -->
-    <div class="details-section">
-        <div class="section-title">Order Details</div>
-        <div class="details-grid">
-            <div class="detail-item">
-                <div class="detail-label">Product</div>
-                <div class="detail-value">{{ $product_order->product->name }}</div>
-            </div>
-            <div class="detail-item">
-                <div class="detail-label">Quantity</div>
-                <div class="detail-value">{{ $product_order->tel }}</div>
-            </div>
-            <div class="detail-item">
-                <div class="detail-label">Customer</div>
-                <div class="detail-value">{{ $product_order->customer->name }}</div>
-            </div>
-            <div class="detail-item">
-                <div class="detail-label">Invoice Date</div>
-                <div class="detail-value">{{ $product_order->tanggal }}</div>
-            </div>
-        </div>
+    <div class="section">
+        <div class="section-title">შეკვეთის დეტალები</div>
+        <table class="details-table">
+            <tr>
+                <td>
+                    <div class="detail-label">პროდუქტი</div>
+                    <div class="detail-value">{{ $product_order->product->name }}</div>
+                </td>
+                <td>
+                    <div class="detail-label">რაოდენობა</div>
+                    <div class="detail-value">{{ $product_order->tel }} ცალი</div>
+                </td>
+            </tr>
+        </table>
     </div>
 
-    <!-- Product Table -->
-    <div class="table-section">
+    <div class="section" style="border-bottom: none;">
         <table class="product-table">
             <thead>
                 <tr>
-                    <th>Item</th>
-                    <th>Qty</th>
+                    <th>დასახელება</th>
+                    <th style="text-align: right;">რაოდენობა</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
                     <td>
-                        @if($imageBase64)
-                            <img src="{{ $imageBase64 }}" class="product-img" alt="Product">
+                        @if(isset($imageBase64) && $imageBase64)
+                            <img src="{{ $imageBase64 }}" class="product-img" style="float: left;">
                         @endif
-                        <span class="product-name">{{ $product_order->product->name }}</span>
+                        <div style="padding-top: 10px;">{{ $product_order->product->name }}</div>
                     </td>
-                    <td>{{ $product_order->tel }}</td>
+                    <td style="text-align: right; font-weight: bold;">
+                        {{ $product_order->tel }}
+                    </td>
                 </tr>
             </tbody>
         </table>
     </div>
 
-    <!-- Footer -->
-    <div class="footer">
-        <span class="thank-you">Thank you for your order.</span>
+    <div class="footer clearfix">
+        <span class="thank-you">გმადლობთ შენაძენისთვის!</span>
         <span class="brand">I M S</span>
     </div>
 
