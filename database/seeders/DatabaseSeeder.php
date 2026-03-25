@@ -8,44 +8,47 @@ use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // მომხმარებლების შევსება
+        // 1. მომხმარებლები (Users)
         DB::table('users')->insert([
             [
-                'name'          => 'Admin',
-                'email'         => 'admin@mail.com',
-                'password'      => Hash::make('codeastro.com'),
-                'created_at'    => now(),
-                'role'          => 'admin'
-            ],
-            [
-                'name'          => 'Staff',
-                'email'         => 'staff@mail.com',
-                'password'      => Hash::make('codeastro.com'),
-                'created_at'    => now(),
-                'role'          => 'staff'
-            ],
-        ]);
-
-        DB::table('couriers')->insert([
-            [
-                'name'                  => 'Standard Shipping',
-                'international_price'   => 30.00,
-                'tbilisi_price'         => 6.00,
-                'region_price'          => 15.00,
-                'created_at'            => now(),
-                'updated_at'            => now(),
+                'name'     => 'Admin',
+                'email'    => 'admin@mail.com',
+                'password' => Hash::make('admin'), // ან შენი სასურველი პაროლი
+                'role'     => 'admin',
+                'created_at' => now()
             ]
         ]);
-        
-        // გამოიძახე CitySeeder აქ
+
+        // 2. კურიერები (Couriers)
+        DB::table('couriers')->insert([
+            [
+                'name' => 'Standard Shipping',
+                'international_price' => 30.00,
+                'tbilisi_price' => 6.00,
+                'region_price' => 15.00,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]
+        ]);
+
+        // 3. დამოუკიდებელი ცხრილების შევსება
         $this->call([
-            CitySeeder::class,
-            CustomerSeeder::class,
+            CitySeeder::class,         // ქალაქები
+            OrderStatusSeeder::class,  // სტატუსები
+            CategorySeeder::class,     // კატეგორიები
+        ]);
+
+        // 4. დამოკიდებული ცხრილების შევსება
+        $this->call([
+            CustomerSeeder::class,     // დამოკიდებულია City-ზე
+            ProductSeeder::class,      // დამოკიდებულია Category-ზე
+        ]);
+
+        // 5. შეკვეთები (დამოკიდებულია ყველაფერზე)
+        $this->call([
+            ProductOrderSeeder::class,
         ]);
     }
 }
