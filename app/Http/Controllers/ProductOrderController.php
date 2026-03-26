@@ -12,6 +12,8 @@ use App\Exports\ExportProdukOrder;
 use Illuminate\Http\Request;
 use Yajra\DataTables\DataTables;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Mail\Message;
 
 class ProductOrderController extends Controller
 {
@@ -210,8 +212,7 @@ if ($request->get('show_deleted') == 1) {
             if ($alt) $html .= ' / ' . e($alt);
             $html .= '</small>';
             return $html;
-        })
-        ->addColumn('status_label', function ($item) use ($isAdmin) {
+        }) ->addColumn('status_label', function ($item) use ($isAdmin) {
             $color = $item->orderStatus->color ?? 'default';
             $name  = $item->orderStatus->name  ?? 'Pending';
 
@@ -229,22 +230,24 @@ if ($request->get('show_deleted') == 1) {
                         ' . $name . '
                     </span>';
         })
-        ->addColumn('action', function ($item) use ($isAdmin) {
+       ->addColumn('action', function ($item) use ($isAdmin) {
     if (!$isAdmin) return '';
     
-    // თუ სტატუსი არის 'deleted', ვაჩვენებთ მხოლოდ აღდგენის ღილაკს
     if ($item->status === 'deleted') {
         return '<center>' .
             '<a onclick="restoreData(' . $item->id . ')" class="btn btn-success btn-xs" title="Restore"><i class="fa fa-refresh"></i> აღდგენა</a>' .
             '</center>';
     }
 
-    // სხვა შემთხვევაში (აქტიური ორდერებისთვის) რჩება ძველი ღილაკები
     $exportPdfUrl = route('exportPDF.productOrder', ['id' => $item->id]);
+    $email = e($item->customer->email ?? '');
+    $customerId = $item->customer_id;
+    
     return '<center>' .
         '<a onclick="editForm(' . $item->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a> ' .
         '<a onclick="deleteData(' . $item->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a> ' .
-        '<a href="' . $exportPdfUrl . '" target="_blank" class="btn btn-info btn-xs" title="PDF"><i class="fa fa-file-pdf-o"></i></a>' .
+        '<a href="' . $exportPdfUrl . '" target="_blank" class="btn btn-info btn-xs" title="PDF"><i class="fa fa-file-pdf-o"></i></a> ' .
+        '<a onclick="openMailModal(' . $item->id . ', ' . $customerId . ', \'' . $email . '\')" class="btn btn-default btn-xs" title="Mail"><i class="fa fa-envelope"></i></a>' .
         '</center>';
 })
         ->rawColumns(['show_photo', 'product_size', 'prices', 'payment', 'customer_contact', 'status_label', 'action'])
@@ -391,5 +394,74 @@ $path = public_path('assets/img/logo.png');
         ]);
 
     return $pdf->download('filtered_orders.pdf');
+}
+public function sendMail(Request $request, $id)
+{
+    $request->validate([
+        'email'   => 'required|email',
+        'subject' => 'required|string|max:255',
+        'body'    => 'nullable|string',
+    ]);
+
+    // ორდერის ჩატვირთვა
+    $order = Product_Order::withoutGlobalScope('active')
+        ->with([
+            'product'      => fn($q) => $q->withoutGlobalScope('active'),
+            'customer.city',
+            'orderStatus'
+        ])
+        ->findOrFail($id);
+
+    // ლოგო Base64
+    $logoBase64 = null;
+    $logoPath   = public_path('assets/img/logo.png');
+    if (file_exists($logoPath)) {
+        $logoBase64 = 'data:' . mime_content_type($logoPath) . ';base64,' . base64_encode(file_get_contents($logoPath));
+    }
+
+    // პროდუქტის სურათი Base64
+    $order->imageBase64 = null;
+    if ($order->product && $order->product->image) {
+        $imgPath = public_path(ltrim($order->product->image, '/'));
+        if (file_exists($imgPath) && !is_dir($imgPath)) {
+            $order->imageBase64 = 'data:' . mime_content_type($imgPath) . ';base64,' . base64_encode(file_get_contents($imgPath));
+        }
+    }
+
+    // იგივე blade რომელიც filtered PDF-ისთვის გამოიყენება
+    $product_Order = collect([$order]);
+
+    $pdf = Pdf::loadView('product_Order.productOrderFilteredPDF', compact('product_Order', 'logoBase64'))
+        ->setPaper('a4')
+        ->setOptions([
+            'defaultFont'        => 'dejavu sans',
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled'    => true,
+        ]);
+
+    $pdfContent = $pdf->output();
+
+    // მეილის გაგზავნა PDF attachment-ით
+    $subject = $request->subject;
+    $body    = $request->body ?? '';
+
+    Mail::send([], [], function (Message $msg) use ($request, $pdfContent, $subject, $body, $id) {
+    $msg->to($request->email)
+        ->subject($subject)
+        ->text($body ?: 'გთხოვთ იხილოთ თანდართული invoice.')
+        ->attachData($pdfContent, 'Invoice_#' . $id . '.pdf', [
+            'mime' => 'application/pdf',
+        ]);
+});
+
+    // email-ის შენახვა კლიენტზე
+    if ($request->save_email == 1 && $request->customer_id) {
+        $customer = Customer::find($request->customer_id);
+        if ($customer) {
+            $customer->update(['email' => $request->email]);
+        }
+    }
+
+    return response()->json(['success' => true, 'message' => 'მეილი გაიგზავნა']);
 }
 }

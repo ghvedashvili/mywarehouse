@@ -84,7 +84,7 @@ Route::post('exportPDF/productOrder/filtered', [ProductOrderController::class, '
 Route::get('api/deleted-products', [ProductController::class, 'apiDeletedProducts'])->name('api.deleted-products');
 Route::post('products/{id}/restore', [ProductController::class, 'restore'])->name('products.restore');
 Route::post('productsOut/{id}/restore', [ProductOrderController::class, 'restore'])->name('productsOut.restore');
-
+Route::post('productsOut/{id}/sendMail', [ProductOrderController::class, 'sendMail']);
     // Products In (Masuk)
     Route::resource('productsIn', ProductMasukController::class);
     Route::get('/apiProductsIn', [ProductMasukController::class, 'apiProductsIn'])->name('api.productsIn');

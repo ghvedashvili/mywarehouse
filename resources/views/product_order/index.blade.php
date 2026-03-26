@@ -106,6 +106,46 @@
         </div>
     </div>
 </div>
+<div class="modal fade" id="modal-mail" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content" style="border-radius:8px;">
+            <div class="modal-header bg-gray">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title"><i class="fa fa-envelope"></i> მეილის გაგზავნა</h4>
+            </div>
+           <div class="modal-body">
+    <input type="hidden" id="mail_order_id">
+    <input type="hidden" id="mail_customer_id">
+    <input type="hidden" id="mail_original_email">
+
+    <div class="form-group">
+        <label>Email მისამართი</label>
+        <input type="email" id="mail_email_input" class="form-control" placeholder="example@gmail.com">
+    </div>
+    <div class="form-group">
+        <label>სათაური</label>
+        <input type="text" id="mail_subject" class="form-control" value="თქვენი შეკვეთის ინფორმაცია">
+    </div>
+    <div class="form-group">
+        <label>შეტყობინება <small class="text-muted">(სურვილისამებრ)</small></label>
+        <textarea id="mail_body" class="form-control" rows="3" placeholder="დამატებითი შეტყობინება..."></textarea>
+    </div>
+
+    {{-- PDF preview hint --}}
+    <div style="background:#f9f9f9; border:1px solid #e0e0e0; border-radius:6px; padding:10px 12px; font-size:12px; color:#666;">
+        <i class="fa fa-file-pdf-o" style="color:#c0392b;"></i>
+        შეკვეთის <strong>Invoice PDF</strong> ავტომატურად დაემატება attachment-ად
+    </div>
+</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default pull-left" data-dismiss="modal">გაუქმება</button>
+                <button type="button" onclick="sendMail()" class="btn btn-success">
+                    <i class="fa fa-paper-plane"></i> გაგზავნა
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
     @include('product_Order.form_sale')
 @endsection
 
@@ -693,6 +733,86 @@ function restoreData(id) {
                 swal("შეცდომა", "აღდგენა ვერ მოხერხდა", "error");
             }
         });
+    });
+}
+// =====================
+// Mail Modal
+// =====================
+function openMailModal(orderId, customerId, email) {
+    $('#mail_order_id').val(orderId);
+    $('#mail_customer_id').val(customerId);
+    $('#mail_original_email').val(email);
+    $('#mail_email_input').val(email);
+    $('#mail_subject').val('თქვენი შეკვეთის ინფორმაცია #' + orderId);
+    $('#mail_body').val('');
+    $('#modal-mail').modal('show');
+}
+
+function sendMail() {
+    var orderId    = $('#mail_order_id').val();
+    var customerId = $('#mail_customer_id').val();
+    var email      = $('#mail_email_input').val().trim();
+    var origEmail  = $('#mail_original_email').val().trim();
+    var subject    = $('#mail_subject').val().trim();
+    var body       = $('#mail_body').val().trim();
+
+    if (!email) {
+        swal("შეცდომა", "გთხოვთ შეიყვანოთ email მისამართი", "error");
+        return;
+    }
+
+    // email შეიცვალა? → შენახვის კითხვა
+    if (email !== origEmail) {
+        swal({
+            title: 'შევინახო მეილი?',
+            text: 'email "' + email + '" შეინახოს ამ კლიენტისთვის?',
+            type: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'დიახ, შევინახო',
+            cancelButtonText: 'მხოლოდ გავგზავნო'
+        }).then(function(result) {
+            doSendMail(orderId, customerId, email, subject, body, result.value === true);
+        });
+    } else {
+        doSendMail(orderId, customerId, email, subject, body, false);
+    }
+}
+
+function doSendMail(orderId, customerId, email, subject, body, saveEmail) {
+    var csrf = $('meta[name="csrf-token"]').attr('content');
+
+    $.ajax({
+        url: "{{ url('productsOut') }}/" + orderId + "/sendMail",
+        type: "POST",
+        data: {
+            _token:     csrf,
+            email:      email,
+            subject:    subject,
+            body:       body,
+            save_email: saveEmail ? 1 : 0,
+            customer_id: customerId
+        },
+        success: function(data) {
+            $('#modal-mail').modal('hide');
+            if (saveEmail) {
+                $('#mail_original_email').val(email);
+                table.ajax.reload(null, false);
+            }
+            var toast = $('<div>')
+                .text('✓ მეილი გაიგზავნა')
+                .css({
+                    position:'fixed', bottom:'20px', right:'20px',
+                    background:'#27ae60', color:'#fff',
+                    padding:'10px 20px', borderRadius:'6px',
+                    fontSize:'13px', fontWeight:'600',
+                    zIndex:9999, boxShadow:'0 4px 15px rgba(0,0,0,0.2)'
+                }).appendTo('body');
+            setTimeout(function() { toast.fadeOut(300, function(){ $(this).remove(); }); }, 2500);
+        },
+        error: function(xhr) {
+            var msg = xhr.responseJSON ? xhr.responseJSON.message : 'მეილი ვერ გაიგზავნა';
+            swal("შეცდომა", msg, "error");
+        }
     });
 }
     </script>
