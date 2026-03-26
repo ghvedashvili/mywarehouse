@@ -137,9 +137,10 @@
 </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-default pull-left" data-dismiss="modal">გაუქმება</button>
-                <button type="button" onclick="sendMail()" class="btn btn-success">
-                    <i class="fa fa-paper-plane"></i> გაგზავნა
-                </button>
+              <button type="button" id="btn-send-mail" onclick="sendMail()" class="btn btn-success">
+    <i class="fa fa-paper-plane"></i> გაგზავნა
+</button>
+               
             </div>
         </div>
     </div>
@@ -740,7 +741,18 @@ function openMailModal(orderId, customerId, email) {
     $('#mail_body').val('');
     $('#modal-mail').modal('show');
 }
-
+// real-time შემოწმება
+$(document).on('input', '#mail_email_input', function() {
+    var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    var val = $(this).val().trim();
+    if (val === '' || emailRegex.test(val)) {
+        $(this).css('border-color', '');
+        $('#btn-send-mail').prop('disabled', false);
+    } else {
+        $(this).css('border-color', 'red');
+        $('#btn-send-mail').prop('disabled', true);
+    }
+});
 function sendMail() {
     var orderId    = $('#mail_order_id').val();
     var customerId = $('#mail_customer_id').val();
@@ -749,12 +761,21 @@ function sendMail() {
     var subject    = $('#mail_subject').val().trim();
     var body       = $('#mail_body').val().trim();
 
+    // ფორმატის შემოწმება
+    var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email) {
+        $('#mail_email_input').css('border-color', 'red');
         swal("შეცდომა", "გთხოვთ შეიყვანოთ email მისამართი", "error");
         return;
     }
+    if (!emailRegex.test(email)) {
+        $('#mail_email_input').css('border-color', 'red');
+        swal("შეცდომა", "email მისამართის ფორმატი არასწორია", "error");
+        return;
+    }
 
-    // email შეიცვალა? → შენახვის კითხვა
+    $('#mail_email_input').css('border-color', '');
+
     if (email !== origEmail) {
         swal({
             title: 'შევინახო მეილი?',
@@ -773,40 +794,53 @@ function sendMail() {
 
 function doSendMail(orderId, customerId, email, subject, body, saveEmail) {
     var csrf = $('meta[name="csrf-token"]').attr('content');
+    var btn  = $('#btn-send-mail');
 
-    $.ajax({
-        url: "{{ url('productsOut') }}/" + orderId + "/sendMail",
-        type: "POST",
-        data: {
-            _token:     csrf,
-            email:      email,
-            subject:    subject,
-            body:       body,
-            save_email: saveEmail ? 1 : 0,
-            customer_id: customerId
-        },
-        success: function(data) {
-            $('#modal-mail').modal('hide');
-            if (saveEmail) {
-                $('#mail_original_email').val(email);
-                table.ajax.reload(null, false);
+    // პატარა delay რომ browser-მა მოასწროს render
+    btn.prop('disabled', true)
+       .html('<i class="fa fa-spinner fa-spin"></i> იგზავნება...');
+
+    setTimeout(function() {
+        $.ajax({
+            url: "{{ url('productsOut') }}/" + orderId + "/sendMail",
+            type: "POST",
+            data: {
+                _token:      csrf,
+                email:       email,
+                subject:     subject,
+                body:        body,
+                save_email:  saveEmail ? 1 : 0,
+                customer_id: customerId
+            },
+            success: function(data) {
+                btn.prop('disabled', false)
+                   .html('<i class="fa fa-paper-plane"></i> გაგზავნა');
+
+                $('#modal-mail').modal('hide');
+                if (saveEmail) {
+                    $('#mail_original_email').val(email);
+                    table.ajax.reload(null, false);
+                }
+                var toast = $('<div>')
+                    .text('✓ მეილი გაიგზავნა')
+                    .css({
+                        position:'fixed', bottom:'20px', right:'20px',
+                        background:'#27ae60', color:'#fff',
+                        padding:'10px 20px', borderRadius:'6px',
+                        fontSize:'13px', fontWeight:'600',
+                        zIndex:9999, boxShadow:'0 4px 15px rgba(0,0,0,0.2)'
+                    }).appendTo('body');
+                setTimeout(function() { toast.fadeOut(300, function(){ $(this).remove(); }); }, 2500);
+            },
+            error: function(xhr) {
+                btn.prop('disabled', false)
+                   .html('<i class="fa fa-paper-plane"></i> გაგზავნა');
+
+                var msg = xhr.responseJSON ? xhr.responseJSON.message : 'მეილი ვერ გაიგზავნა';
+                swal("შეცდომა", msg, "error");
             }
-            var toast = $('<div>')
-                .text('✓ მეილი გაიგზავნა')
-                .css({
-                    position:'fixed', bottom:'20px', right:'20px',
-                    background:'#27ae60', color:'#fff',
-                    padding:'10px 20px', borderRadius:'6px',
-                    fontSize:'13px', fontWeight:'600',
-                    zIndex:9999, boxShadow:'0 4px 15px rgba(0,0,0,0.2)'
-                }).appendTo('body');
-            setTimeout(function() { toast.fadeOut(300, function(){ $(this).remove(); }); }, 2500);
-        },
-        error: function(xhr) {
-            var msg = xhr.responseJSON ? xhr.responseJSON.message : 'მეილი ვერ გაიგზავნა';
-            swal("შეცდომა", msg, "error");
-        }
-    });
+        });
+    }, 50); // 50ms საკმარისია render-ისთვის
 }
     </script>
 @endsection

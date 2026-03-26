@@ -153,7 +153,7 @@ if ($request->get('show_deleted') == 1) {
             }
             return '<img src="' . url($item->product->image) . '" 
                         class="img-thumbnail img-zoom-trigger"
-                        style="width:50px; height:50px; object-fit:cover; cursor:pointer;">';
+                        style="width:60px; height:60px; object-fit:cover; cursor:pointer;">';
         })
         ->addColumn('product_info', function ($item) {
     $name = $item->product->name ?? 'N/A';

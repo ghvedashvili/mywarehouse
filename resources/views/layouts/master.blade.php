@@ -33,7 +33,7 @@
     <link rel="stylesheet"
           href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600,700,300italic,400italic,600italic">
 </head>
-<body class="hold-transition skin-green sidebar-mini">
+<body class="hold-transition skin-green sidebar-mini sidebar-collapse">
 <div class="wrapper">
 
     <!-- Main Header -->
@@ -42,9 +42,9 @@
         <!-- Logo -->
         <a href="index2.html" class="logo">
             <!-- mini logo for sidebar mini 50x50 pixels -->
-            <span class="logo-mini"><b>ORI</b></span>
+            <span class="logo-mini"><b>100%</b></span>
             <!-- logo for regular state and mobile devices -->
-            <span class="logo-lg"><b>ORIGINALS</b></span>
+            <span class="logo-lg"><b>ORIGINAL 100%</b></span>
         </a>
 
         <!-- Header Navbar -->
