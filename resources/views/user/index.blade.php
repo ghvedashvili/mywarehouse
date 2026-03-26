@@ -57,8 +57,46 @@
         </div>
     </div>
 </div>
-@endif
 
+
+
+
+@endif
+{{-- Edit User Modal --}}
+@if(Auth::user()->role === 'admin')
+<div class="modal fade" id="edit-user-modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#f4f4f4;">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title"><i class="fa fa-user-edit"></i> მომხმარებლის რედაქტირება</h4>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit_user_id">
+                <div class="form-group">
+                    <label>სახელი</label>
+                    <input type="text" id="edit_user_name" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="edit_user_email" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>როლი</label>
+                    <select id="edit_user_role" class="form-control">
+                        <option value="admin">Admin</option>
+                        <option value="staff">Staff</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default pull-left" data-dismiss="modal">გაუქმება</button>
+                <button type="button" onclick="submitEdit()" class="btn btn-success">შენახვა</button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
 @endsection
 
 @section('bot')
@@ -129,7 +167,47 @@
                 });
             });
         }
+        function editForm(id) {
+    $.ajax({
+        url: "{{ url('user') }}/" + id + "/edit",
+        type: "GET",
+        success: function(data) {
+            $('#edit_user_id').val(data.id);
+            $('#edit_user_name').val(data.name);
+            $('#edit_user_email').val(data.email);
+            $('#edit-user-modal').modal('show');
+        },
+        error: function() {
+            swal("შეცდომა", "მონაცემები ვერ ჩაიტვირთა", "error");
+        }
+    });
+}
+
+function submitEdit() {
+    var id   = $('#edit_user_id').val();
+    var csrf = $('meta[name="csrf-token"]').attr('content');
+
+    $.ajax({
+        url: "{{ url('user') }}/" + id,
+        type: "POST",
+        data: {
+            _method: 'PATCH',
+            _token:  csrf,
+            name:    $('#edit_user_name').val().trim(),
+            email:   $('#edit_user_email').val().trim()
+        },
+        success: function(data) {
+            $('#edit-user-modal').modal('hide');
+            table.ajax.reload();
+            swal({ title: 'წარმატება!', text: data.message, type: 'success', timer: 1500 });
+        },
+        error: function(xhr) {
+            swal("შეცდომა", xhr.responseJSON.message || "ვერ შეინახა", "error");
+        }
+    });
+}
     </script>
+    
     @if(session('success'))
 <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -141,6 +219,7 @@
             showConfirmButton: false
         });
     });
+    
 </script>
 @endif
 @endsection
