@@ -28,7 +28,7 @@
 
         /* ── ჰედერი ── */
         .top-header {
-            padding: 20px 40px;
+            padding: 20px 0px;
             display: table;
             width: 100%;
             border-bottom: 2px solid #e85d26;
@@ -69,19 +69,19 @@
         .order-item {
             display: table;
             width: 100%;
-            padding: 20px 40px;
+            padding: 20px 20px;
             border-bottom: 1px solid #eee;
         }
 
         .order-image {
             display: table-cell;
-            width: 90px;
+            width: 120px;
             vertical-align: top;
         }
 
         .order-image img {
-            width: 80px;
-            height: 80px;
+            width: 110px;
+            height: 110px;
             object-fit: cover;
             border-radius: 8px;
             border: 1px solid #eee;
@@ -116,7 +116,7 @@
             display: table-cell;
             text-align: right;
             vertical-align: top;
-            width: 160px;
+            width: 200px;
         }
 
         .order-meta .order-id {
@@ -183,7 +183,7 @@
             @endif
         </div>
     </div>
-
+  <!-- dd {{$product_Order }} -->
     @foreach($product_Order as $product_order)
     <div class="order-item">
 
@@ -211,12 +211,13 @@
         </div>
 
         <div class="order-meta">
-            <div class="order-id">#{{ $product_order->id }}</div>
+           
             <div class="order-customer">{{ $product_order->customer->name }}</div>
-            <div class="order-customer" style="font-weight:400; font-size:11px;">{{ $product_order->customer->tel }}</div>
+            <div class="order-customer" style="font-weight:400; font-size:11px;">{{ $product_order->customer->tel }} / {{ $product_order->customer->alternative_tel ?? '' }}</div>
            <!-- <div class="order-customer">{{ $product_order->customer->address }}</div> -->
              <div class="order-customer" style="font-weight:400; font-size:11px;">{{ $product_order->customer->city->name ?? '' }}, {{ $product_order->customer->address }}</div>
-           <!-- @if($product_order->orderStatus)
+            <div class="order-id">#{{ $product_order->id }}</div>
+            <!-- @if($product_order->orderStatus)
     <div class="order-status">{{ $product_order->orderStatus->name }}</div>
             @endif -->
         </div>
