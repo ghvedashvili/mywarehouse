@@ -155,20 +155,21 @@ if ($request->get('show_deleted') == 1) {
                         class="img-thumbnail img-zoom-trigger"
                         style="width:50px; height:50px; object-fit:cover; cursor:pointer;">';
         })
-        ->addColumn('products_name', function ($item) {
-            return $item->product->name ?? 'N/A';
-        })
-        ->addColumn('product_code', function ($item) {
-            return $item->product->product_code ?? '-';
-        })
+        ->addColumn('product_info', function ($item) {
+    $name = $item->product->name ?? 'N/A';
+    $code = $item->product->product_code ?? '-';
+    $size = $item->product_size
+        ? '<span class="label label-info">' . e($item->product_size) . '</span>'
+        : '<span class="text-muted">-</span>';
+
+    return '<div>' . e($name) . '</div>
+            <div><small class="text-muted">' . e($code) . '</small></div>
+            <div>' . $size . '</div>';
+})
         ->editColumn('created_at', function($item){
             return $item->created_at->format('Y-m-d H:i:s');
         })
-        ->addColumn('product_size', function ($item) {
-            return $item->product_size
-                ? '<span class="label label-info">' . e($item->product_size) . '</span>'
-                : '<span class="text-muted">-</span>';
-        })
+        
         ->addColumn('customer_name', function ($item) {
             return $item->customer->name ?? 'N/A';
         })
@@ -185,11 +186,11 @@ if ($request->get('show_deleted') == 1) {
 
     if ($diff > 0.01) {
         return '<span style="color:red; font-weight:bold;">
-                    <i class="fa fa-exclamation-circle"></i> დავალიანება: ' . number_format($diff, 2) . ' ₾
+                    <i class="fa fa-exclamation-circle"></i> -' . number_format($diff, 2) . ' ₾
                 </span>';
     } elseif ($diff < -0.01) {
         return '<span style="color:green; font-weight:bold;">
-                    <i class="fa fa-plus-circle"></i> ზედმეტი: ' . number_format(abs($diff), 2) . ' ₾
+                    <i class="fa fa-plus-circle"></i> + ' . number_format(abs($diff), 2) . ' ₾
                 </span>';
     } else {
         return '<span style="color:green;">
@@ -250,7 +251,7 @@ if ($request->get('show_deleted') == 1) {
         '<a onclick="openMailModal(' . $item->id . ', ' . $customerId . ', \'' . $email . '\')" class="btn btn-default btn-xs" title="Mail"><i class="fa fa-envelope"></i></a>' .
         '</center>';
 })
-        ->rawColumns(['show_photo', 'product_size', 'prices', 'payment', 'customer_contact', 'status_label', 'action'])
+        ->rawColumns(['show_photo', 'product_info', 'prices', 'payment', 'customer_contact', 'status_label', 'action'])
         ->make(true);
 }
     public function exportProductOrderAll()

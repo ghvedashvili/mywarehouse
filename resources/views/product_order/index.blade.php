@@ -46,15 +46,13 @@
 </div> -->
         <div class="box-body">
             <table id="products-out-table" class="table table-bordered table-striped">
-                <thead>
-    <tr>
+                <thead class="fs-1">
+    <tr >
         <th>Status</th>
         <!-- <th>Code</th> -->
          <th>Date</th>
         <th>Picture</th>
-        <th>Product</th>
-        <th>Product Code</th>
-        <th>Size</th>
+         <th>Product</th>
         <th>Customer</th>
         <th>Prices</th>
         <th>Payment</th>
@@ -164,30 +162,25 @@
         var isAdmin = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
 
 var columns = [
-    {data: 'status_label',    name: 'status_label',    orderable: false, searchable: false},
-    // {data: 'order_id',        name: 'order_id'},
-    {
-        data: 'created_at', 
-        name: 'created_at',
+    {data: 'status_label',  name: 'status_label',  orderable: false, searchable: false},
+    {data: 'created_at',    name: 'created_at',
         render: function(data, type, row) {
             if (data) {
                 let date = new Date(data);
-                let day = ("0" + date.getDate()).slice(-2);
+                let day   = ("0" + date.getDate()).slice(-2);
                 let month = ("0" + (date.getMonth() + 1)).slice(-2);
-                let year = date.getFullYear();
-                return day + '.' + month + '.' + year; // ფორმატი: 24.03.2026
+                let year  = date.getFullYear();
+                return day + '.' + month + '.' + year;
             }
             return '';
         }
     },
-    {data: 'show_photo',      name: 'show_photo',      orderable: false, searchable: false},
-    {data: 'products_name',   name: 'products_name'},
-    {data: 'product_code',    name: 'product_code'},
-    {data: 'product_size',    name: 'product_size'},
-    {data: 'customer_name',   name: 'customer_name'},
-    {data: 'prices',          name: 'prices',          orderable: false, searchable: false},
-    {data: 'payment', name: 'payment', orderable: false, searchable: false},
-    {data: 'customer_contact',name: 'customer_contact',orderable: false, searchable: true},
+    {data: 'show_photo',    name: 'show_photo',    orderable: false, searchable: false},
+    {data: 'product_info',  name: 'product_info',  orderable: false, searchable: false},
+    {data: 'customer_name', name: 'customer_name'},
+    {data: 'prices',        name: 'prices',        orderable: false, searchable: false},
+    {data: 'payment',       name: 'payment',       orderable: false, searchable: false},
+    {data: 'customer_contact', name: 'customer_contact', orderable: false, searchable: true},
 ];
 
 if (isAdmin) {
