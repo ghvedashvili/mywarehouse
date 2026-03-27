@@ -205,8 +205,8 @@ function restoreData(id) {
                 swal({
                     title: 'შეცდომა!',
                     text: response.message ? response.message : 'რაღაც შეცდომა მოხდა!',
-                    type: 'error',
-                    timer: '3000'
+                    type: 'error'
+                    // timer: '3000'
                 });
             }
             });

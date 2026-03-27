@@ -82,25 +82,38 @@ class CategoryController extends Controller
     }
 
     public function destroy($id)
-    {
-        if (!Auth::check()) {
-            return response()->json(['message' => 'ავტორიზაცია საჭიროა'], 401);
-        }
-
-        if (Auth::user()->role != 'admin') {
-            return response()->json([
-                'success' => false,
-                'message' => 'ამ ქმედების უფლება მხოლოდ ადმინისტრატორს აქვს!'
-            ], 403);
-        }
-
-        Category::destroy($id);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Category Deleted Successfully'
-        ]);
+{
+    if (!Auth::check()) {
+        return response()->json(['message' => 'ავტორიზაცია საჭიროა'], 401);
     }
+
+    if (Auth::user()->role != 'admin') {
+        return response()->json([
+            'success' => false,
+            'message' => 'ამ ქმედების უფლება მხოლოდ ადმინისტრატორს აქვს!'
+        ], 403);
+    }
+
+    // ვამოწმებთ აქვს თუ არა active პროდუქტები ამ კატეგორიაში
+    $products = \App\Models\Product::where('category_id', $id)
+        ->select('name', 'product_code')
+        ->get();
+
+    if ($products->isNotEmpty()) {
+        $list = $products->map(fn($p) => $p->name . ' (' . $p->product_code . ')')->join(', ');
+        return response()->json([
+            'success' => false,
+            'message' => 'კატეგორია გამოიყენება შემდეგ პროდუქტებში (გთხოვთ ჯერ ამ პროდუქტებში შეცვალოთ კატეგორია): ' . $list
+        ], 422);
+    }
+
+    Category::destroy($id);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Category Deleted Successfully'
+    ]);
+}
 
   public function apiCategories()
 {
