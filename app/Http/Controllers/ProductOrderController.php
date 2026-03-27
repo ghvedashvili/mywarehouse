@@ -189,7 +189,8 @@ if ($courierType === 'tbilisi') {
    $isAdmin = auth()->user()->role === 'admin';
 
    $query = Product_Order::withoutGlobalScope('active')
-        ->with(['product', 'customer.city', 'orderStatus']);
+        ->with(['product', 'customer.city', 'orderStatus'])
+        ->latest();
 
     // დავალიანების ფილტრი
     if ($request->debt_only == 1) {

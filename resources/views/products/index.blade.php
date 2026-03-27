@@ -224,7 +224,13 @@ $('#filter_category, #filter_status, #filter_stock').change(function(){
         dataType: "JSON",
         success: function(data) {
             $('#modal-form').modal('show');
-            $('.modal-title').text('Edit Product');
+
+            // თუ product_status == 0, სათაურში ვამატებთ (Inactive) ეტიკეტს
+            if (data.product_status == 0) {
+                $('.modal-title').html('Edit Product <span class="label label-danger" style="font-size:13px; vertical-align:middle;">(Inactive)</span>');
+            } else {
+                $('.modal-title').text('Edit Product');
+            }
 
             // ძირითადი ინპუტების შევსება
             $('#id').val(data.id);
@@ -292,8 +298,19 @@ $('#filter_category, #filter_status, #filter_stock').change(function(){
                     table.ajax.reload();
                     swal("Success!", data.message, "success");
                 },
-                error: function() {
-                    swal("Oops...", "Something went wrong!", "error");
+                error: function(xhr) {
+                    var data = xhr.responseJSON;
+                    if (data && data.cant_delete) {
+                        table.ajax.reload();
+                        swal({
+                            title: 'წაშლა შეუძლებელია!',
+                            text: data.message,
+                            type: 'warning',
+                            confirmButtonText: 'გასაგებია'
+                        });
+                    } else {
+                        swal("Oops...", "Something went wrong!", "error");
+                    }
                 }
             });
         });

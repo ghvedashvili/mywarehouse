@@ -149,6 +149,23 @@ class ProductController extends Controller
     public function destroy($id)
 {
     $product = Product::findOrFail($id);
+
+    // შევამოწმოთ — გამოიყენება თუ არა ეს პროდუქტი რომელიმე ორდერში
+    $usedInOrders = \App\Models\Product_Order::withoutGlobalScope('active')
+        ->where('product_id', $id)
+        ->exists();
+
+    if ($usedInOrders) {
+        // წაშლა შეუძლებელია, მხოლოდ Inactive-ად ვნიშნავთ
+        $product->update(['product_status' => 0]);
+
+        return response()->json([
+            'success' => false,
+            'cant_delete' => true,
+            'message' => 'პროდუქტი გამოიყენება ორდერ(ებ)ში და ვერ წაიშლება. პროდუქტი Inactive-ად დაინიშნა.'
+        ], 422);
+    }
+
     $product->delete(); // იძახებს Model-ის override delete()-ს → status='deleted'
 
     return response()->json([

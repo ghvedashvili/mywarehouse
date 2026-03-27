@@ -193,6 +193,7 @@ var table = $('#products-out-table').DataTable({
     serverSide: true,
     ajax: "{{ route('api.productsOut') }}",
     columns: columns,
+    order: [[1, 'desc']],
     rowCallback: function(row, data) {
         var geo  = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
         var paid = parseFloat(data.paid_tbc || 0) + parseFloat(data.paid_bog || 0) +
@@ -340,7 +341,10 @@ var table = $('#products-out-table').DataTable({
         // =====================
         // Edit Sale
         // =====================
-      function editForm(id) {
+     // =====================
+// Edit Sale
+// =====================
+function editForm(id) {
     save_method = 'edit';
     $('#form-sale-content input[name=_method]').val('PATCH');
 
@@ -370,42 +374,52 @@ var table = $('#products-out-table').DataTable({
             $('#discount_sale').val(data.discount || 0);
 
             // 5. კურიერის მონიშვნის გამართული ლოგიკა
-            // ჯერ მოვხსნათ ყველას მონიშვნა
             $('input[name="courier_type"]').prop('checked', false);
-
-            // მნიშვნელოვანი: ვამოწმებთ courier_servise_local ველს
             var courierVal = data.courier_servise_local;
-            
-            // თუ ბაზაში ეს ველი ცარიელია, ვცადოთ ფასებით გამოცნობა (უსაფრთხოებისთვის)
             if (!courierVal || courierVal === 'none') {
                 if (parseFloat(data.courier_price_tbilisi) > 0) courierVal = 'tbilisi';
                 else if (parseFloat(data.courier_price_region) > 0) courierVal = 'region';
                 else if (parseFloat(data.courier_price_village) > 0) courierVal = 'village';
                 else courierVal = 'none';
             }
-
-            // ვპოულობთ რადიოს value-ს მიხედვით და ვნიშნავთ
             var $radio = $('input[name="courier_type"][value="' + courierVal + '"]');
-            if ($radio.length > 0) {
-                $radio.prop('checked', true);
-            } else {
-                $('#courier_none').prop('checked', true);
-            }
-
-            // აუცილებელია ამის გამოძახება, რომ სხვა ფუნქციებმა დაინახონ ცვლილება
+            if ($radio.length > 0) $radio.prop('checked', true);
+            else $('#courier_none').prop('checked', true);
             $('input[name="courier_type"]:checked').trigger('change');
 
             // 6. სხვა მონაცემები
             $('#form-sale-content textarea[name="comment"]').val(data.comment || '');
-            
+
             // 7. პროდუქტის სინქრონიზაცია
-            let productSelect = $('#product_id_sale');
-            productSelect.val(data.product_id).trigger('change');
-            
+            var productSelect = $('#product_id_sale');
+            var cp = data.current_product;
+
+            // თუ inactive პროდუქტია — დროებით ვამატებთ dropdown-ში (Inactive) ეტიკეტით
+            if (cp && cp.product_status == 0) {
+                // ძველი temp option-ის გასუფთავება (თუ სხვა edit-ი გახსნეს)
+                productSelect.find('option[data-inactive="1"]').remove();
+
+                var inactiveOption = new Option(
+                    cp.name + ' (Inactive)',
+                    cp.id,
+                    true,
+                    true
+                );
+                $(inactiveOption)
+                    .attr('data-inactive', '1')
+                    .attr('data-price-ge', cp.price_geo)
+                    .attr('data-price-us', cp.price_usa)
+                    .attr('data-sizes',    cp.sizes || '')
+                    .attr('data-image',    cp.image || '');
+
+                productSelect.append(inactiveOption).trigger('change');
+            } else {
+                productSelect.val(data.product_id).trigger('change');
+            }
+
             productSelect.one('productLoaded', function() {
                 $('#size_sale').val(data.product_size);
-                // ბოლოს გადავითვალოთ ყველაფერი
-                calculateSaleSummary(); 
+                calculateSaleSummary();
             });
 
             $('#modal-sale').modal('show');
