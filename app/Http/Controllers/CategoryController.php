@@ -25,7 +25,8 @@ class CategoryController extends Controller
     {
         $this->validate($request, [
             'name'  => 'required|string|min:2|unique:categories,name',
-            'sizes' => 'nullable|string'
+            'sizes' => 'nullable|string',
+            'international_courier_price' => 'nullable|numeric'
         ]);
 
         // ზომებს ვასუფთავებთ — "S , M,  L" -> "S,M,L"
@@ -34,10 +35,11 @@ class CategoryController extends Controller
             $sizes = implode(',', array_filter(array_map('trim', explode(',', $request->sizes))));
         }
 
-        Category::create([
+       Category::create([
     'name'    => $request->name,
     'sizes'   => $sizes,
-    'user_id' => Auth::id(), // ავტომატურად ჩაიწერება მიმდინარე მომხმარებელი
+    'user_id' => Auth::id(),
+    'international_courier_price' => $request->international_courier_price
 ]);
 
         return response()->json([
@@ -55,10 +57,11 @@ class CategoryController extends Controller
 
     public function update(Request $request, $id)
     {
-        $this->validate($request, [
-            'name'  => 'required|string|min:2|unique:categories,name,' . $id,
-            'sizes' => 'nullable|string'
-        ]);
+       $this->validate($request, [
+    'name'  => 'required|string|min:2|unique:categories,name,' . $id,
+    'sizes' => 'nullable|string',
+    'international_courier_price' => 'nullable|numeric'
+]);
 
         $sizes = null;
         if ($request->sizes) {
@@ -67,9 +70,10 @@ class CategoryController extends Controller
 
         $category = Category::findOrFail($id);
         $category->update([
-            'name'  => $request->name,
-            'sizes' => $sizes,
-        ]);
+    'name'  => $request->name,
+    'sizes' => $sizes,
+    'international_courier_price' => $request->international_courier_price
+]);
 
         return response()->json([
             'success' => true,
@@ -113,6 +117,11 @@ class CategoryController extends Controller
             }
             return $html;
         })
+        ->addColumn('international_courier_price', function($category) {
+            return $category->international_courier_price
+                ? number_format($category->international_courier_price, 2) . ' ₾'
+                : '<span class="text-muted">-</span>';
+        })
         ->addColumn('status_display', function($category) {
             return '<span class="label label-success">active</span>';
         })
@@ -123,7 +132,7 @@ class CategoryController extends Controller
             }
             return '';
         })
-        ->rawColumns(['sizes_display', 'status_display', 'action'])
+        ->rawColumns(['sizes_display', 'status_display', 'action', 'international_courier_price'])
         ->make(true);
 }
 

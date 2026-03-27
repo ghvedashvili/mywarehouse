@@ -13,7 +13,7 @@ class ProductOrderSeeder extends Seeder
             DB::table('product_Order')->insert([
                 'product_id'    => rand(1, 10), // გვაქვს 10 პროდუქტი
                 'customer_id'   => rand(1, 10), // გვაქვს 10 კლიენტი
-                'status_id'     => rand(1, 10), // გვაქვს 10 სტატუსი
+                'status_id'     => rand(1, 6), // გვაქვს 10 სტატუსი
                 'user_id'       => 1,           // Admin მომხმარებელი
                 'courier_id'    => 1,           // Standard Shipping კურიერი
                 

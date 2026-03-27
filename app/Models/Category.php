@@ -6,7 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class Category extends Model
 {
-    protected $fillable = ['name', 'sizes', 'user_id', 'color', 'status'];
+    protected $fillable = [
+    'name',
+    'sizes',
+    'user_id',
+    'color',
+    'status',
+    'international_courier_price' 
+];
 
     protected static function booted()
     {

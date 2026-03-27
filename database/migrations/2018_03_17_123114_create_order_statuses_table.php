@@ -20,10 +20,12 @@ return new class extends Migration
 
     // საწყისი მონაცემები, რომ ცარიელი არ იყოს
     DB::table('order_statuses')->insert([
-        ['name' => 'Pending', 'color' => 'warning'],
-        ['name' => 'Paid & Ready', 'color' => 'success'],
-        ['name' => 'Sent to Courier', 'color' => 'info'],
-        ['name' => 'Cancelled', 'color' => 'danger'],
+        ['name' => 'ახალი', 'color' => 'warning'],
+        ['name' => 'გზაში', 'color' => 'primary'],
+        ['name' => 'საწყობში', 'color' => 'secondary'],
+        ['name' => 'კურიერთან', 'color' => 'success'],
+        ['name' => 'დასრულებული', 'color' => 'dark'],
+        ['name' => 'გაუქმებული', 'color' => 'danger'],
     ]);
 }
 

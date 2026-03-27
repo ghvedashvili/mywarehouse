@@ -47,7 +47,9 @@
     <th>ID</th>
     <th>Name</th>
     <th>Sizes</th>
+    <th>Courier Price</th>
     <th>Status</th>
+    
     <th>Actions</th>
 </tr>
 </thead>
@@ -95,7 +97,9 @@ var table = $('#categories-table').DataTable({
         {data: 'id',             name: 'id'},
         {data: 'name',           name: 'name'},
         {data: 'sizes_display',  name: 'sizes_display',  orderable: false, searchable: false},
+        {data: 'international_courier_price', name: 'international_courier_price'},
         {data: 'status_display', name: 'status_display', orderable: false, searchable: false, visible: false},
+        
         {data: 'action',         name: 'action',         orderable: false, searchable: false}
     ]
 });
@@ -162,6 +166,7 @@ function restoreData(id) {
             $('#name').val(data.name);
             // აი ეს ხაზი დაამატე:
             $('#sizes').val(data.sizes);
+            $('#international_courier_price').val(data.international_courier_price);
         },
         error : function() {
             alert("Nothing Data");

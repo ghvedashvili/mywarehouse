@@ -27,7 +27,12 @@ class ProductOrderController extends Controller
         $products = Product::orderBy('name','ASC')->pluck('name','id');
     
     // ეს გვჭირდება JavaScript-ისთვის, რომ ფასები ამოიღოს
-    $all_products = Product::where('product_status', 1)->get();
+   $all_products = Product::all()->map(function ($p) {
+    if ($p->product_status == 0) {
+        $p->name .= ' (Inactive)';
+    }
+    return $p;
+});
       $cities = City::all(); // ეს დაამატე
     $customers = Customer::with('city')->get();
     $statuses = OrderStatus::all(); 
@@ -44,7 +49,9 @@ $courier = Courier::first(); // ეს დაამატე
         // 'status_id'    => 'required',
     ]);
 
-    $product = Product::findOrFail($request->product_id);
+    $product = Product::with('category')->findOrFail($request->product_id);
+
+
 
     if ($product->product_status != 1) {
         return response()->json([
@@ -79,7 +86,11 @@ $courier = Courier::first(); // ეს დაამატე
     $data['paid_lib'] = $data['paid_lib'] ?? 0;
     $data['paid_cash'] = $data['paid_cash'] ?? 0;
 $courier = Courier::first();
-$data['courier_price_international'] = $courier->international_price ?? 30;
+// ❗ category price
+$categoryPrice = $product->category->international_courier_price ?? null;
+
+$data['courier_price_international'] = $categoryPrice ?? 31;
+// $data['courier_price_international'] = $courier->international_price ?? 30;
 $data['courier_servise_local'] = $request->has('courier_servise_local') ? 1 : 0;
 $data['courier_price_tbilisi'] = $request->has('courier_servise_local') ? ($courier->tbilisi_price ?? 6) : 0;
     Product_Order::create($data);
@@ -103,8 +114,17 @@ $data['courier_price_tbilisi'] = $request->has('courier_servise_local') ? ($cour
         if (auth()->user()->role !== 'admin') {
         unset($data['status_id']);
     }
+
+    // საკითხავია ორდერიც ცვლილებისას კატეგორიის ჩამოტანის ფასი შეანოწნოს თავიდან და განაახლოს?
         $courier = Courier::first();
-        $data['courier_price_international'] = $courier->international_price ?? 30;
+//         $productId = $request->product_id ?? $order->product_id;
+
+// $product = Product::with('category')->findOrFail($productId);
+
+// $categoryPrice = $product->category->international_courier_price ?? null;
+
+// $data['courier_price_international'] = $categoryPrice ?? 30;
+// $data['courier_price_international'] = $courier->international_price ?? 30;
 $data['courier_servise_local'] = $request->has('courier_servise_local') ? 1 : 0;
 $data['courier_price_tbilisi'] = $data['courier_servise_local'] ? ($courier->tbilisi_price ?? 6) : 0;
 

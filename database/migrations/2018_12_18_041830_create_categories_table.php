@@ -15,6 +15,7 @@ class CreateCategoriesTable extends Migration
             $table->string('name');
             $table->string('sizes')->nullable();
             $table->string('color')->nullable();
+            $table->decimal('international_courier_price', 8, 2)->nullable();
             $table->timestamps();
         });
     }

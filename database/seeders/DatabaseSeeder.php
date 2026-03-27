@@ -36,7 +36,7 @@ class DatabaseSeeder extends Seeder
         // 3. დამოუკიდებელი ცხრილების შევსება
         $this->call([
             CitySeeder::class,         // ქალაქები
-            OrderStatusSeeder::class,  // სტატუსები
+          //  OrderStatusSeeder::class,  // სტატუსები
             CategorySeeder::class,     // კატეგორიები
         ]);
 

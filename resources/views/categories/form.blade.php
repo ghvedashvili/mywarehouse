@@ -27,6 +27,10 @@
             <p class="help-block">ჩაწერეთ ზომები და გამოყავით მძიმეებით.</p>
         </div>
                     </div>
+                    <div class="form-group">
+    <label>International Courier Price</label>
+    <input type="number" step="0.01" class="form-control" id="international_courier_price" name="international_courier_price" placeholder="მაგ: 20.50">
+</div>
                     <!-- /.box-body -->
 
                 </div><!-- Log on to codeastro.com for more projects! -->
