@@ -26,7 +26,7 @@ class CategoryController extends Controller
         $this->validate($request, [
             'name'  => 'required|string|min:2|unique:categories,name',
             'sizes' => 'nullable|string',
-            'international_courier_price' => 'nullable|numeric'
+            'international_courier_price' => 'required|numeric' 
         ]);
 
         // ზომებს ვასუფთავებთ — "S , M,  L" -> "S,M,L"
@@ -60,7 +60,7 @@ class CategoryController extends Controller
        $this->validate($request, [
     'name'  => 'required|string|min:2|unique:categories,name,' . $id,
     'sizes' => 'nullable|string',
-    'international_courier_price' => 'nullable|numeric'
+    'international_courier_price' => 'required|numeric' 
 ]);
 
         $sizes = null;
