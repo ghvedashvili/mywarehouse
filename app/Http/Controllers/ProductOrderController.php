@@ -23,23 +23,19 @@ class ProductOrderController extends Controller
     }
 
     public function index()
-    {
-        $products = Product::orderBy('name','ASC')->pluck('name','id');
-    
-    // ეს გვჭირდება JavaScript-ისთვის, რომ ფასები ამოიღოს
-   $all_products = Product::all()->map(function ($p) {
-    if ($p->product_status == 0) {
-        $p->name .= ' (Inactive)';
-    }
-    return $p;
-});
-      $cities = City::all(); // ეს დაამატე
+{
+    $products = Product::orderBy('name','ASC')->pluck('name','id');
+
+    // მხოლოდ active პროდუქტები — Global Scope ისედაც ფილტრავს
+    $all_products = Product::where('product_status', 1)->get();
+
+    $cities = City::all();
     $customers = Customer::with('city')->get();
     $statuses = OrderStatus::all(); 
-$courier = Courier::first(); // ეს დაამატე
+    $courier = Courier::first();
 
     return view('product_Order.index', compact('products', 'customers', 'statuses', 'all_products', 'cities', 'courier'));
-    }
+}
 
     public function store(Request $request)
 {
@@ -102,10 +98,26 @@ $data['courier_price_tbilisi'] = $request->has('courier_servise_local') ? ($cour
 }
 
     public function edit($id)
-    {
-        $product_Order = Product_Order::findOrFail($id);
-        return response()->json($product_Order);
-    }
+{
+    $product_Order = Product_Order::findOrFail($id);
+
+    // inactive პროდუქტი withoutGlobalScope-ით
+    $product = Product::withoutGlobalScope('active')
+        ->find($product_Order->product_id);
+
+    // JS-ს გადავცეთ პროდუქტის მონაცემები (inactive-ც)
+    $product_Order->current_product = $product ? [
+        'id'            => $product->id,
+        'name'          => $product->name,
+        'price_geo'     => $product->price_geo,
+        'price_usa'     => $product->price_usa,
+        'sizes'         => $product->sizes,
+        'image'         => $product->image ? url($product->image) : null,
+        'product_status'=> $product->product_status,
+    ] : null;
+
+    return response()->json($product_Order);
+}
 
     public function update(Request $request, $id)
     {

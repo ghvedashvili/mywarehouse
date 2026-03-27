@@ -349,48 +349,71 @@ var table = $('#products-out-table').DataTable({
         // =====================
         // Edit Sale
         // =====================
-        function editForm(id) {
-            save_method = 'edit';
-            $('#form-sale-content input[name=_method]').val('PATCH'); // შეიცვალა
+       function editForm(id) {
+    save_method = 'edit';
+    $('#form-sale-content input[name=_method]').val('PATCH');
 
-            $.ajax({
-                url: "{{ url('productsOut') }}/" + id + "/edit",
-                type: "GET",
-                dataType: "JSON",
-                success: function(data) {
-                    $('#form-sale-content')[0].reset();
-                    $('#size_sale').empty().append('<option value="">-- Size --</option>');
-                    $('#modal-sale .modal-title').text('Edit Sale');
-                    $('#modal-sale input[name="id"]').val(data.id);
-$('#status_id_sale').val(data.status_id);
-                    $('#customer_id_sale').val(data.customer_id).trigger('change');
+    $.ajax({
+        url: "{{ url('productsOut') }}/" + id + "/edit",
+        type: "GET",
+        dataType: "JSON",
+        success: function(data) {
+            $('#form-sale-content')[0].reset();
+            $('#size_sale').empty().append('<option value="">-- Size --</option>');
+            $('#modal-sale .modal-title').text('Edit Sale');
+            $('#modal-sale input[name="id"]').val(data.id);
+            $('#status_id_sale').val(data.status_id);
+            $('#customer_id_sale').val(data.customer_id).trigger('change');
 
-                    $('#price_georgia_sale').val(data.price_georgia);
-                    $('#price_georgia_text').text(data.price_georgia);
-                    $('#price_usa_sale').val(data.price_usa);
-                    $('#price_usa_text').text(data.price_usa);
-$('#is_local_courier').prop('checked', data.courier_servise_local >0);
+            $('#price_georgia_sale').val(data.price_georgia);
+            $('#price_georgia_text').text(data.price_georgia);
+            $('#price_usa_sale').val(data.price_usa);
+            $('#price_usa_text').text(data.price_usa);
+            $('#is_local_courier').prop('checked', data.courier_price_tbilisi > 0);
+            $('#form-sale-content textarea[name="comment"]').val(data.comment || '');
 
-// comment
-$('#form-sale-content textarea[name="comment"]').val(data.comment || '');
-                    let productSelect = $('#product_id_sale');
-                    productSelect.one('productLoaded', function() {
-                        $('#size_sale').val(data.product_size);
-                    });
-                    productSelect.val(data.product_id).trigger('change');
+            // ===== Inactive პროდუქტის დამატება dropdown-ში =====
+            let productSelect = $('#product_id_sale');
+            let existingOption = productSelect.find('option[value="' + data.product_id + '"]');
 
-                    $('#discount_sale').val(data.discount || 0);
-$('#modal-sale input[name="paid_tbc"]').val(data.paid_tbc);
-$('#modal-sale input[name="paid_bog"]').val(data.paid_bog);
-$('#modal-sale input[name="paid_lib"]').val(data.paid_lib);
-$('#modal-sale input[name="paid_cash"]').val(data.paid_cash);
-$('#is_local_courier').prop('checked', data.courier_price_tbilisi > 0); // ერთხელ
-$('#form-sale-content textarea[name="comment"]').val(data.comment || ''); // ერთხელ
-updateCourierPrices();
-$('#modal-sale').modal('show');
+            if (existingOption.length === 0 && data.current_product) {
+                // inactive პროდუქტი dropdown-ში არ არის — დავამატოთ მხოლოდ ამ edit-ისთვის
+                let cp = data.current_product;
+                let tempOption = new Option(
+                    cp.name + ' ⚠ (Inactive)',
+                    cp.id,
+                    false,
+                    false
+                );
+                $(tempOption).attr('data-price-ge', cp.price_geo || 0);
+                $(tempOption).attr('data-price-us', cp.price_usa || 0);
+                $(tempOption).attr('data-sizes', cp.sizes || '');
+                $(tempOption).attr('data-image', cp.image || '');
+                $(tempOption).attr('data-inactive', '1'); // მარკერი რომ ეს temp option-ია
+                productSelect.append(tempOption);
+
+                // Select2 განახლება
+                if ($.fn.select2 && productSelect.hasClass('select2-hidden-accessible')) {
+                    productSelect.trigger('change.select2');
                 }
+            }
+            // ========================
+
+            productSelect.one('productLoaded', function() {
+                $('#size_sale').val(data.product_size);
             });
+            productSelect.val(data.product_id).trigger('change');
+
+            $('#discount_sale').val(data.discount || 0);
+            $('#modal-sale input[name="paid_tbc"]').val(data.paid_tbc);
+            $('#modal-sale input[name="paid_bog"]').val(data.paid_bog);
+            $('#modal-sale input[name="paid_lib"]').val(data.paid_lib);
+            $('#modal-sale input[name="paid_cash"]').val(data.paid_cash);
+            updateCourierPrices();
+            $('#modal-sale').modal('show');
         }
+    });
+}
 
         // =====================
         // Product change
@@ -547,6 +570,13 @@ $('#modal-sale').modal('show');
         setTimeout(function() {
             $('#modal-sale').modal('show');
         }, 400);
+    }
+});
+// ახალი — modal-sale დაიხურა → inactive temp option გასუფთავება
+$('#modal-sale').on('hidden.bs.modal', function() {
+    $('#product_id_sale option[data-inactive="1"]').remove();
+    if ($.fn.select2 && $('#product_id_sale').hasClass('select2-hidden-accessible')) {
+        $('#product_id_sale').trigger('change.select2');
     }
 });
 // =====================
