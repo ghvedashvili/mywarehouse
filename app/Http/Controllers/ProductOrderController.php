@@ -81,14 +81,28 @@ class ProductOrderController extends Controller
     $data['paid_bog'] = $data['paid_bog'] ?? 0;
     $data['paid_lib'] = $data['paid_lib'] ?? 0;
     $data['paid_cash'] = $data['paid_cash'] ?? 0;
+// ახალი კოდი (store-ში):
 $courier = Courier::first();
-// ❗ category price
-$categoryPrice = $product->category->international_courier_price ?? null;
 
-$data['courier_price_international'] = $categoryPrice ?? 31;
-// $data['courier_price_international'] = $courier->international_price ?? 30;
-$data['courier_servise_local'] = $request->has('courier_servise_local') ? 1 : 0;
-$data['courier_price_tbilisi'] = $request->has('courier_servise_local') ? ($courier->tbilisi_price ?? 6) : 0;
+// international ყოველთვის
+$categoryPrice = $product->category->international_courier_price ?? null;
+$data['courier_price_international'] = $categoryPrice ?? ($courier->international_price ?? 30);
+
+// სამივე 0-ზე დააყენე, შემდეგ მონიშნული შეავსე
+$data['courier_price_tbilisi'] = 0;
+$data['courier_price_region']  = 0;
+$data['courier_price_village'] = 0;
+
+$courierType = $request->courier_type ?? 'none';
+$data['courier_servise_local'] = $courierType;
+
+if ($courierType === 'tbilisi') {
+    $data['courier_price_tbilisi'] = $courier->tbilisi_price ?? 6;
+} elseif ($courierType === 'region') {
+    $data['courier_price_region'] = $courier->region_price ?? 9;
+} elseif ($courierType === 'village') {
+    $data['courier_price_village'] = $courier->village_price ?? 13;
+}
     Product_Order::create($data);
 
     return response()->json([
@@ -120,31 +134,49 @@ $data['courier_price_tbilisi'] = $request->has('courier_servise_local') ? ($cour
 }
 
     public function update(Request $request, $id)
-    {
-        $order = Product_Order::findOrFail($id);
-        $data = $request->all();
-        if (auth()->user()->role !== 'admin') {
+{
+    $order = Product_Order::findOrFail($id);
+    $data = $request->all();
+
+    if (auth()->user()->role !== 'admin') {
         unset($data['status_id']);
     }
 
-    // საკითხავია ორდერიც ცვლილებისას კატეგორიის ჩამოტანის ფასი შეანოწნოს თავიდან და განაახლოს?
-        $courier = Courier::first();
-//         $productId = $request->product_id ?? $order->product_id;
+    // ❗ ბანკების დაზღვევა Null-ისგან (რომ SQL Error არ ამოაგდოს)
+    $data['paid_tbc']  = $request->paid_tbc ?? 0;
+    $data['paid_bog']  = $request->paid_bog ?? 0;
+    $data['paid_lib']  = $request->paid_lib ?? 0;
+    $data['paid_cash'] = $request->paid_cash ?? 0;
+    $data['discount']  = $request->discount ?? 0;
 
-// $product = Product::with('category')->findOrFail($productId);
+    $courier = Courier::first();
+    $productId = $request->product_id ?? $order->product_id;
+    $product = Product::with('category')->findOrFail($productId);
 
-// $categoryPrice = $product->category->international_courier_price ?? null;
+    // international ფასი
+    $categoryPrice = $product->category->international_courier_price ?? null;
+    $data['courier_price_international'] = $categoryPrice ?? ($courier->international_price ?? 30);
 
-// $data['courier_price_international'] = $categoryPrice ?? 30;
-// $data['courier_price_international'] = $courier->international_price ?? 30;
-$data['courier_servise_local'] = $request->has('courier_servise_local') ? 1 : 0;
-$data['courier_price_tbilisi'] = $data['courier_servise_local'] ? ($courier->tbilisi_price ?? 6) : 0;
+    // კურიერის ფასების განულება და ხელახლა მინიჭება
+    $data['courier_price_tbilisi'] = 0;
+    $data['courier_price_region']  = 0;
+    $data['courier_price_village'] = 0;
 
+    $courierType = $request->courier_type ?? 'none';
+    $data['courier_servise_local'] = $courierType; // ეს ველი ინახავს "tbilisi", "region" და ა.შ.
 
-        $order->update($data);
-
-        return response()->json(['success' => true, 'message' => 'Order Updated Successfully']);
+    if ($courierType === 'tbilisi') {
+        $data['courier_price_tbilisi'] = $courier->tbilisi_price ?? 6;
+    } elseif ($courierType === 'region') {
+        $data['courier_price_region'] = $courier->region_price ?? 9;
+    } elseif ($courierType === 'village') {
+        $data['courier_price_village'] = $courier->village_price ?? 13;
     }
+
+    $order->update($data);
+
+    return response()->json(['success' => true, 'message' => 'Order Updated Successfully']);
+}
 
     public function destroy($id)
     {

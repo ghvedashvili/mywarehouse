@@ -271,26 +271,17 @@ var table = $('#products-out-table').DataTable({
 
             var cityId = parseInt(selected.data('city-id'));
     if (cityId === 1) {
-        $('#is_local_courier').prop('checked', true).trigger('change');
+        $('input[name="courier_type"][value="tbilisi"]').prop('checked', true);
     } else {
-        $('#is_local_courier').prop('checked', false).trigger('change');
+        $('input[name="courier_type"][value="none"]').prop('checked', true);
     }
         });
 
         // =====================
-        // კურიერი
+        // კურიერი — radio buttons
         // =====================
-        function updateCourierPrices() {
-            let localPriceFromDb = parseFloat($('#db_tbilisi_price').val()) || 0;
-            if ($('#is_local_courier').is(':checked')) {
-                $('#courier_price_tbilisi').val(localPriceFromDb);
-            } else {
-                $('#courier_price_tbilisi').val(0);
-            }
-            calculateSaleSummary();
-        }
-
-        $(document).on('change', '#is_local_courier', updateCourierPrices);
+        // courier_type radio-ს ცვლილება არ საჭიროებს დამატებით ლოგიკას —
+        // მნიშვნელობა პირდაპირ იგზავნება სერვერზე name="courier_type"-ით
 
         // =====================
         // ჯამური გამოთვლა
@@ -342,14 +333,14 @@ var table = $('#products-out-table').DataTable({
             $('#no_image_text').show();
             $('#customer_id_sale').val('').trigger('change');
             $('#customer_info_fields').hide();
-            updateCourierPrices();
+            $('input[name="courier_type"][value="none"]').prop('checked', true);
             $('#modal-sale').modal('show');
         }
 
         // =====================
         // Edit Sale
         // =====================
-       function editForm(id) {
+      function editForm(id) {
     save_method = 'edit';
     $('#form-sale-content input[name=_method]').val('PATCH');
 
@@ -358,58 +349,65 @@ var table = $('#products-out-table').DataTable({
         type: "GET",
         dataType: "JSON",
         success: function(data) {
+            // 1. ჯერ ფორმის სრული გასუფთავება
             $('#form-sale-content')[0].reset();
-            $('#size_sale').empty().append('<option value="">-- Size --</option>');
             $('#modal-sale .modal-title').text('Edit Sale');
+            
+            // 2. ID და დამალული ფასები
             $('#modal-sale input[name="id"]').val(data.id);
-            $('#status_id_sale').val(data.status_id);
-            $('#customer_id_sale').val(data.customer_id).trigger('change');
-
             $('#price_georgia_sale').val(data.price_georgia);
-            $('#price_georgia_text').text(data.price_georgia);
             $('#price_usa_sale').val(data.price_usa);
-            $('#price_usa_text').text(data.price_usa);
-            $('#is_local_courier').prop('checked', data.courier_price_tbilisi > 0);
-            $('#form-sale-content textarea[name="comment"]').val(data.comment || '');
 
-            // ===== Inactive პროდუქტის დამატება dropdown-ში =====
-            let productSelect = $('#product_id_sale');
-            let existingOption = productSelect.find('option[value="' + data.product_id + '"]');
+            // 3. Dropdown-ები
+            $('#customer_id_sale').val(data.customer_id).trigger('change');
+            $('#status_id_sale').val(data.status_id);
 
-            if (existingOption.length === 0 && data.current_product) {
-                // inactive პროდუქტი dropdown-ში არ არის — დავამატოთ მხოლოდ ამ edit-ისთვის
-                let cp = data.current_product;
-                let tempOption = new Option(
-                    cp.name + ' ⚠ (Inactive)',
-                    cp.id,
-                    false,
-                    false
-                );
-                $(tempOption).attr('data-price-ge', cp.price_geo || 0);
-                $(tempOption).attr('data-price-us', cp.price_usa || 0);
-                $(tempOption).attr('data-sizes', cp.sizes || '');
-                $(tempOption).attr('data-image', cp.image || '');
-                $(tempOption).attr('data-inactive', '1'); // მარკერი რომ ეს temp option-ია
-                productSelect.append(tempOption);
+            // 4. ბანკების და ფასდაკლების შევსება
+            $('#modal-sale input[name="paid_tbc"]').val(data.paid_tbc || 0);
+            $('#modal-sale input[name="paid_bog"]').val(data.paid_bog || 0);
+            $('#modal-sale input[name="paid_lib"]').val(data.paid_lib || 0);
+            $('#modal-sale input[name="paid_cash"]').val(data.paid_cash || 0);
+            $('#discount_sale').val(data.discount || 0);
 
-                // Select2 განახლება
-                if ($.fn.select2 && productSelect.hasClass('select2-hidden-accessible')) {
-                    productSelect.trigger('change.select2');
-                }
+            // 5. კურიერის მონიშვნის გამართული ლოგიკა
+            // ჯერ მოვხსნათ ყველას მონიშვნა
+            $('input[name="courier_type"]').prop('checked', false);
+
+            // მნიშვნელოვანი: ვამოწმებთ courier_servise_local ველს
+            var courierVal = data.courier_servise_local;
+            
+            // თუ ბაზაში ეს ველი ცარიელია, ვცადოთ ფასებით გამოცნობა (უსაფრთხოებისთვის)
+            if (!courierVal || courierVal === 'none') {
+                if (parseFloat(data.courier_price_tbilisi) > 0) courierVal = 'tbilisi';
+                else if (parseFloat(data.courier_price_region) > 0) courierVal = 'region';
+                else if (parseFloat(data.courier_price_village) > 0) courierVal = 'village';
+                else courierVal = 'none';
             }
-            // ========================
 
+            // ვპოულობთ რადიოს value-ს მიხედვით და ვნიშნავთ
+            var $radio = $('input[name="courier_type"][value="' + courierVal + '"]');
+            if ($radio.length > 0) {
+                $radio.prop('checked', true);
+            } else {
+                $('#courier_none').prop('checked', true);
+            }
+
+            // აუცილებელია ამის გამოძახება, რომ სხვა ფუნქციებმა დაინახონ ცვლილება
+            $('input[name="courier_type"]:checked').trigger('change');
+
+            // 6. სხვა მონაცემები
+            $('#form-sale-content textarea[name="comment"]').val(data.comment || '');
+            
+            // 7. პროდუქტის სინქრონიზაცია
+            let productSelect = $('#product_id_sale');
+            productSelect.val(data.product_id).trigger('change');
+            
             productSelect.one('productLoaded', function() {
                 $('#size_sale').val(data.product_size);
+                // ბოლოს გადავითვალოთ ყველაფერი
+                calculateSaleSummary(); 
             });
-            productSelect.val(data.product_id).trigger('change');
 
-            $('#discount_sale').val(data.discount || 0);
-            $('#modal-sale input[name="paid_tbc"]').val(data.paid_tbc);
-            $('#modal-sale input[name="paid_bog"]').val(data.paid_bog);
-            $('#modal-sale input[name="paid_lib"]').val(data.paid_lib);
-            $('#modal-sale input[name="paid_cash"]').val(data.paid_cash);
-            updateCourierPrices();
             $('#modal-sale').modal('show');
         }
     });

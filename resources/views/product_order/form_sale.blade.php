@@ -140,12 +140,27 @@
                             </div>
 
                             <div class="well well-sm text-left" style="background:#fff; border:1px solid #eee; padding:10px;">
-                                <div class="checkbox" style="margin-top:0;">
-                                    <label style="font-weight: 600; color: #357ca5; font-size:13px;">
-                                        <input type="checkbox" name="courier_servise_local" id="is_local_courier" value="1"> 
-                                        Tbilisi (+{{ $courier->tbilisi_price ?? 6 }} ₾)
-                                    </label>
-                                </div>
+                                <!-- ახალი -->
+<div style="margin-top:0;">
+    <label style="font-weight: 600; display:block; margin-bottom:6px; font-size:13px;">🚚 Courier</label>
+    
+    <label style="display:block; font-size:13px; margin-bottom:4px; cursor:pointer;">
+        <input type="radio" name="courier_type" id="courier_tbilisi" value="tbilisi"> 
+        Tbilisi (+{{ $courier->tbilisi_price ?? 6 }} ₾)
+    </label>
+    <label style="display:block; font-size:13px; margin-bottom:4px; cursor:pointer;">
+        <input type="radio" name="courier_type" id="courier_region" value="region"> 
+        Region (+{{ $courier->region_price ?? 9 }} ₾)
+    </label>
+    <label style="display:block; font-size:13px; margin-bottom:4px; cursor:pointer;">
+        <input type="radio" name="courier_type" id="courier_village" value="village"> 
+        Village (+{{ $courier->village_price ?? 13 }} ₾)
+    </label>
+    <label style="display:block; font-size:13px; color:#999; cursor:pointer;">
+        <input type="radio" name="courier_type" id="courier_none" value="none" checked> 
+        არ გამოიყენება
+    </label>
+</div>
                                 
                                 <textarea name="comment" class="form-control" rows="3" placeholder="Notes..." style="font-size:12px;"></textarea>
                             </div>

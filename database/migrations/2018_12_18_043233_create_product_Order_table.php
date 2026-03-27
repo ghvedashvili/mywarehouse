@@ -24,6 +24,7 @@ class CreateProductOrderTable extends Migration
             $table->decimal('courier_price_international', 10, 2)->default(0);
             $table->decimal('courier_price_tbilisi', 10, 2)->default(0);
             $table->decimal('courier_price_region', 10, 2)->default(0);
+            $table->decimal('courier_price_village', 10, 2)->default(0);
 
             $table->decimal('price_usa', 10, 2)->default(0);
             $table->decimal('price_georgia', 10, 2)->default(0);

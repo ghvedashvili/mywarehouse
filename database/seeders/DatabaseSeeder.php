@@ -27,7 +27,8 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Standard Shipping',
                 'international_price' => 30.00,
                 'tbilisi_price' => 6.00,
-                'region_price' => 15.00,
+                'region_price' => 9.00,
+                'village_price' => 13.00,
                 'created_at' => now(),
                 'updated_at' => now()
             ]

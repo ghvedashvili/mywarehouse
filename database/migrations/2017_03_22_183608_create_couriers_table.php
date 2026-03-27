@@ -18,7 +18,8 @@ return new class extends Migration
         // ტარიფები სხვადასხვა მიმართულებისთვის
         $table->decimal('international_price', 10, 2)->default(30.00);
         $table->decimal('tbilisi_price', 10, 2)->default(6.00);
-        $table->decimal('region_price', 10, 2)->default(15.00);
+        $table->decimal('region_price', 10, 2)->default(9.00);
+        $table->decimal('village_price', 10, 2)->default(13.00);
         
         $table->timestamps();
     });
