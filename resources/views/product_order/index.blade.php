@@ -24,6 +24,9 @@
         <a onclick="addSaleForm()" class="btn btn-success"><i class="fa fa-plus"></i> Add New Sale</a>
         <a onclick="exportFilteredPDF()" class="btn btn-warning"><i class="fa fa-file-pdf-o"></i> Export Filtered PDF</a>
         <a href="{{ route('exportPDF.productOrderAll') }}" class="btn btn-danger">Export PDF</a>
+    <a onclick="mergeSelected()" class="btn btn-info" id="btn-merge" style="display:none;">
+    <i class="fa fa-link"></i> გაერთიანება
+</a>
     </div>
 </div>
         <!-- <div class="box-header">
@@ -47,12 +50,13 @@
         <div class="box-body">
             <table id="products-out-table" class="table table-bordered table-striped">
                 <thead class="fs-1">
-    <tr >
+    <tr>
+        <th><input type="checkbox" id="check-all" title="ყველას მონიშვნა"></th>
+        <th></th>  {{-- expand ღილაკი --}}
         <th>Status</th>
-        <!-- <th>Code</th> -->
-         <th>Date</th>
+        <th>Date</th>
         <th>Picture</th>
-         <th>Product</th>
+        <th>Product</th>
         <th>Customer</th>
         <th>Prices</th>
         <th>Payment</th>
@@ -189,30 +193,53 @@
         var isAdmin = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
 
 var columns = [
-    {data: 'status_label',  name: 'status_label',  orderable: false, searchable: false},
-    {data: 'created_at',    name: 'created_at',
-        render: function(data, type, row) {
-            if (data) {
-                let date = new Date(data);
-                let day   = ("0" + date.getDate()).slice(-2);
-                let month = ("0" + (date.getMonth() + 1)).slice(-2);
-                let year  = date.getFullYear();
-                return day + '.' + month + '.' + year;
+    {
+        data: null,
+        orderable: false,
+        searchable: false,
+        render: function(data) {
+            // გაერთიანებული შვილები ვერ ირჩევა
+            if (data.merged_id && !data.is_primary) return '';
+            return '<input type="checkbox" class="row-check" data-id="' + data.id + '" data-status="' + data.status_id + '">';
+        }
+    },
+    {
+        data: null,
+        orderable: false,
+        searchable: false,
+        render: function(data) {
+            if (data.is_primary) {
+                return '<button class="btn btn-xs btn-default expand-btn" data-id="' + data.id + '" data-children=\'' + data.children_json + '\'>' +
+                       '<i class="fa fa-chevron-right"></i></button>';
             }
             return '';
         }
     },
-    {data: 'show_photo',    name: 'show_photo',    orderable: false, searchable: false},
-    {data: 'product_info',  name: 'product_info',  orderable: false, searchable: false},
-    {data: 'customer_name', name: 'customer_name'},
-    {data: 'prices',        name: 'prices',        orderable: false, searchable: false},
-    {data: 'payment',       name: 'payment',       orderable: false, searchable: false},
+    {data: 'status_label',     name: 'status_label',     orderable: false, searchable: false},
+    {data: 'created_at',       name: 'created_at',
+        render: function(data) {
+            if (data) {
+                let d = new Date(data);
+                return ("0"+d.getDate()).slice(-2) + '.' + ("0"+(d.getMonth()+1)).slice(-2) + '.' + d.getFullYear();
+            }
+            return '';
+        }
+    },
+    {data: 'show_photo',       name: 'show_photo',       orderable: false, searchable: false},
+    {data: 'product_info',     name: 'product_info',     orderable: false, searchable: false},
+    {data: 'customer_name',    name: 'customer_name'},
+    {data: 'prices',           name: 'prices',           orderable: false, searchable: false},
+    {data: 'payment',          name: 'payment',          orderable: false, searchable: false},
     {data: 'customer_contact', name: 'customer_contact', orderable: false, searchable: true},
 ];
 
 if (isAdmin) {
     columns.push({data: 'action', name: 'action', orderable: false, searchable: false});
 }
+
+// if (isAdmin) {
+//     columns.push({data: 'action', name: 'action', orderable: false, searchable: false});
+// }
 
 var table = $('#products-out-table').DataTable({
     processing: true,
@@ -937,6 +964,214 @@ function showStatusLog(orderId) {
         });
 
         $('#status-log-body').html(html);
+    });
+}
+
+// =====================
+// Checkbox — ყველას მონიშვნა
+// =====================
+$(document).on('change', '#check-all', function() {
+    $('.row-check').prop('checked', $(this).is(':checked'));
+    toggleMergeBtn();
+});
+
+$(document).on('change', '.row-check', function() {
+    toggleMergeBtn();
+});
+
+function toggleMergeBtn() {
+    var checked = $('.row-check:checked');
+    var count   = checked.length;
+
+    if (count >= 2) {
+        // ყველა მონიშნული status_id=3 უნდა იყოს
+        var allStatus3 = true;
+        checked.each(function() {
+            if ($(this).data('status') != 3) allStatus3 = false;
+        });
+        $('#btn-merge').toggle(allStatus3);
+    } else {
+        $('#btn-merge').hide();
+    }
+}
+
+// =====================
+// Merge — გაერთიანება
+// =====================
+function mergeSelected() {
+    var ids = [];
+    $('.row-check:checked').each(function() {
+        ids.push($(this).data('id'));
+    });
+
+    if (ids.length < 2) {
+        swal("ინფო", "მინიმუმ 2 ორდერი აირჩიე", "info");
+        return;
+    }
+
+    swal({
+        title: 'გაერთიანება?',
+        text: ids.length + ' ორდერი გაერთიანდება. პირველი (#' + ids[0] + ') იქნება მთავარი.',
+        type: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'დიახ, გავაერთიანო',
+        cancelButtonText: 'გაუქმება'
+    }).then(function() {
+        // ✅ SweetAlert v1-ში .then() პირდაპირ იძახება დადასტურებისას
+        // result.value შემოწმება არ არის საჭირო
+        $.ajax({
+            url: "{{ url('productsOut/merge') }}",
+            type: "POST",
+            data: {
+                _token: $('meta[name="csrf-token"]').attr('content'),
+                ids:    ids
+            },
+            success: function(data) {
+                table.ajax.reload(null, false);
+                $('#btn-merge').hide();
+                $('#check-all').prop('checked', false);
+                swal("წარმატება!", data.message, "success");
+            },
+            error: function(xhr) {
+                swal("შეცდომა", xhr.responseJSON ? xhr.responseJSON.message : "ვერ გაერთიანდა", "error");
+            }
+        });
+    });
+}
+
+// =====================
+// Unmerge — გაყოფა
+// =====================
+function unmergeOrder(id) {
+    swal({
+        title: 'გაყოფა?',
+        text: 'გაერთიანება გაუქმდება და ყველა ორდერი დამოუკიდებელი გახდება.',
+        type: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'დიახ',
+        cancelButtonText: 'გაუქმება'
+    }).then(function() {
+        $.ajax({
+            url: "{{ url('productsOut') }}/" + id + "/unmerge",
+            type: "POST",
+            data: { _token: $('meta[name="csrf-token"]').attr('content') },
+            success: function(data) {
+                table.ajax.reload(null, false);
+                swal("წარმატება!", data.message, "success");
+            },
+            error: function(xhr) {
+                swal("შეცდომა", xhr.responseJSON ? xhr.responseJSON.message : "ვერ გაიყო", "error");
+            }
+        });
+    });
+}
+
+// =====================
+// Expand / Collapse — შვილების გაშლა
+// =====================
+$(document).on('click', '.expand-btn', function() {
+    var btn       = $(this);
+    var parentId  = btn.data('id');
+    var children  = btn.data('children');
+    var icon      = btn.find('i');
+    var parentRow = btn.closest('tr');
+
+    if (btn.hasClass('expanded')) {
+        btn.removeClass('expanded');
+        icon.removeClass('fa-chevron-down').addClass('fa-chevron-right');
+        $('tr.child-row-' + parentId).remove();
+        return;
+    }
+
+    btn.addClass('expanded');
+    icon.removeClass('fa-chevron-right').addClass('fa-chevron-down');
+
+    if (!children || children.length === 0) return;
+
+    children.forEach(function(child) {
+        var img = child.product_image
+            ? '<img src="' + child.product_image + '" style="width:45px;height:45px;object-fit:cover;border-radius:3px;">'
+            : '<span class="label label-default">No Img</span>';
+
+        var statusBadge = '<span class="label label-' + child.status_color + '">' + child.status_name + '</span>';
+        if (isAdmin) {
+            statusBadge += ' <span class="label label-default" style="cursor:pointer;" onclick="openStatusModal(' + child.id + ',' + child.status_id + ')"><i class="fa fa-pencil"></i></span>';
+        }
+
+        // prices
+        var prices = '<b>GE:</b> ' + child.price_georgia + ' ₾';
+        if (isAdmin) prices += '<br><b>US:</b> ' + child.price_usa + ' $';
+
+        // payment
+        var payment = '<span style="color:' + child.payment_color + '; font-weight:bold;">' + child.payment + '</span>';
+
+        // contact
+        var contact = '<small>' +
+            '<i class="fa fa-map-marker"></i> ' + child.customer_city + ', ' + child.customer_address + '<br>' +
+            '<i class="fa fa-phone"></i> ' + child.customer_tel +
+            (child.customer_alt ? ' / ' + child.customer_alt : '') +
+            '</small>';
+
+        // actions
+        var actions = isAdmin
+            ? '<a onclick="showStatusLog(' + child.id + ')" class="btn btn-warning btn-xs"><i class="fa fa-history"></i></a> '
+            : '';
+
+        var row = '<tr class="child-row-' + parentId + '" style="background:#fffde7;">' +
+            '<td></td>' +
+            '<td style="padding-left:20px;"><i class="fa fa-level-up fa-rotate-90" style="color:#aaa;"></i></td>' +
+            '<td>' + statusBadge + '</td>' +
+            '<td>' + child.created_at + '</td>' +
+            '<td>' + img + '</td>' +
+            '<td><div>' + child.product_name + '</div>' +
+                '<small class="text-muted">' + child.product_code + '</small>' +
+                (child.product_size ? ' <span class="label label-info">' + child.product_size + '</span>' : '') +
+            '</td>' +
+            '<td>' + child.customer_name + '</td>' +
+            '<td>' + prices + '</td>' +
+            '<td>' + payment + '</td>' +
+            '<td>' + contact + '</td>' +
+            (isAdmin ? '<td>' + actions + '</td>' : '') +
+        '</tr>';
+
+        parentRow.after(row);
+    });
+});
+
+// table reload-ისას გაშლილი სტრიქონები გაქრება — ეს ნორმალურია
+table.on('draw', function() {
+    $('#check-all').prop('checked', false);
+    $('#btn-merge').hide();
+});
+
+// =====================
+// Merge სტატუს განახლება (primary → ყველა შვილი id=4)
+// =====================
+function mergeUpdateStatus(primaryId, mergedId) {
+    swal({
+        title: 'კურიერთან გაგზავნა?',
+        text: 'ყველა დაჯგუფებული ორდერი გადავა "კურიერთან" სტატუსში.',
+        type: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'დიახ',
+        cancelButtonText: 'გაუქმება'
+    }).then(function() {
+        $.ajax({
+            url: "{{ url('productsOut/mergeStatus') }}",
+            type: "POST",
+            data: {
+                _token:    $('meta[name="csrf-token"]').attr('content'),
+                merged_id: mergedId,
+                status_id: 4
+            },
+            success: function(data) {
+                table.ajax.reload(null, false);
+                swal("წარმატება!", data.message, "success");
+            },
+            error: function(xhr) {
+                swal("შეცდომა", xhr.responseJSON ? xhr.responseJSON.message : "შეცდომა", "error");
+            }
+        });
     });
 }
     </script>

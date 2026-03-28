@@ -185,34 +185,98 @@ if ($courierType === 'tbilisi') {
         return response()->json(['success' => true, 'message' => 'Order Deleted Successfully']);
     }
 
-    public function apiProductsOut(Request $request)
+   public function apiProductsOut(Request $request)
 {
-   $isAdmin = auth()->user()->role === 'admin';
+    $isAdmin = auth()->user()->role === 'admin';
 
-   $query = Product_Order::withoutGlobalScope('active')
+    $query = Product_Order::withoutGlobalScope('active')
         ->with(['product', 'customer.city', 'orderStatus'])
+        ->where(function($q) {
+            // მხოლოდ primary-ები და დამოუკიდებლები
+            $q->where('is_primary', 1)
+              ->orWhereNull('merged_id');
+        })
         ->latest();
 
-    // დავალიანების ფილტრი
     if ($request->debt_only == 1) {
         $query->whereRaw('(price_georgia - IFNULL(discount,0)) > (IFNULL(paid_tbc,0) + IFNULL(paid_bog,0) + IFNULL(paid_lib,0) + IFNULL(paid_cash,0))');
     }
-if ($request->has('statuses')) {
-    $statuses = $request->input('statuses');
-    $query->whereIn('status_id', $statuses);
-}
-if ($request->get('show_deleted') == 1) {
+
+    if ($request->has('statuses')) {
+        $query->whereIn('status_id', $request->input('statuses'));
+    }
+
+    if ($request->get('show_deleted') == 1) {
         $query->where('status', 'deleted');
     } else {
-        // თუ სვიჩერი გამორთულია, აჩვენოს მხოლოდ აქტიურები
         $query->where('status', 'active');
     }
+
     $productOrder = $query->get();
+
+    // თითოეულ primary-ს შვილები მივუერთოთ
+    foreach ($productOrder as $order) {
+        if ($order->is_primary) {
+            $order->children = Product_Order::withoutGlobalScope('active')
+                ->with(['product', 'customer.city', 'orderStatus'])
+                ->where('merged_id', $order->merged_id)
+                ->where('is_primary', 0)
+                ->get();
+        } else {
+            $order->children = collect();
+        }
+    }
 
     return Datatables::of($productOrder)
         ->addColumn('order_id', function ($item) {
-            return '#' . $item->id;
+            $badge = '';
+            if ($item->is_primary) {
+                $count = $item->children->count() + 1;
+                $badge = ' <span class="label label-warning">' . $count . ' ამანათი</span>';
+            }
+            return '#' . $item->id . $badge;
         })
+        ->addColumn('children_json', function ($item) {
+    return htmlspecialchars($item->children->map(function($child) {
+        // payment გამოთვლა
+        $geo  = $child->price_georgia - ($child->discount ?? 0);
+        $paid = ($child->paid_tbc ?? 0) + ($child->paid_bog ?? 0) +
+                ($child->paid_lib ?? 0) + ($child->paid_cash ?? 0);
+        $diff = $geo - $paid;
+
+        if ($diff > 0.01) {
+            $payment = '-' . number_format($diff, 2) . ' ₾';
+            $paymentColor = 'red';
+        } elseif ($diff < -0.01) {
+            $payment = '+' . number_format(abs($diff), 2) . ' ₾';
+            $paymentColor = 'green';
+        } else {
+            $payment = 'გადახდილია';
+            $paymentColor = 'green';
+        }
+
+        return [
+            'id'            => $child->id,
+            'product_name'  => $child->product->name ?? 'N/A',
+            'product_code'  => $child->product->product_code ?? '-',
+            'product_size'  => $child->product_size ?? '',
+            'product_image' => $child->product && $child->product->image ? url($child->product->image) : null,
+            'price_georgia' => $child->price_georgia,
+            'price_usa'     => $child->price_usa,
+            'status_name'   => $child->orderStatus->name ?? '-',
+            'status_color'  => $child->orderStatus->color ?? 'default',
+            'status_id'     => $child->status_id,
+            'customer_name' => $child->customer->name ?? '-',
+            'customer_city' => $child->customer->city->name ?? '-',
+            'customer_address' => $child->customer->address ?? '-',
+            'customer_tel'  => $child->customer->tel ?? '-',
+            'customer_alt'  => $child->customer->alternative_tel ?? '',
+            'created_at'    => $child->created_at ? $child->created_at->format('d.m.Y') : '-',
+            'payment'       => $payment,
+            'payment_color' => $paymentColor,
+        ];
+    })->toJson(), ENT_QUOTES, 'UTF-8');
+})
         ->addColumn('show_photo', function ($item) {
             if (!$item->product || !$item->product->image) {
                 return '<span class="label label-default">No Image</span>';
@@ -222,20 +286,19 @@ if ($request->get('show_deleted') == 1) {
                         style="width:60px; height:60px; object-fit:cover; cursor:pointer;">';
         })
         ->addColumn('product_info', function ($item) {
-    $name = $item->product->name ?? 'N/A';
-    $code = $item->product->product_code ?? '-';
-    $size = $item->product_size
-        ? '<span class="label label-info">' . e($item->product_size) . '</span>'
-        : '<span class="text-muted">-</span>';
+            $name = $item->product->name ?? 'N/A';
+            $code = $item->product->product_code ?? '-';
+            $size = $item->product_size
+                ? '<span class="label label-info">' . e($item->product_size) . '</span>'
+                : '<span class="text-muted">-</span>';
 
-    return '<div>' . e($name) . '</div>
-            <div><small class="text-muted">' . e($code) . '</small></div>
-            <div>' . $size . '</div>';
-})
-        ->editColumn('created_at', function($item){
+            return '<div>' . e($name) . '</div>
+                    <div><small class="text-muted">' . e($code) . '</small></div>
+                    <div>' . $size . '</div>';
+        })
+        ->editColumn('created_at', function($item) {
             return $item->created_at->format('Y-m-d H:i:s');
         })
-        
         ->addColumn('customer_name', function ($item) {
             return $item->customer->name ?? 'N/A';
         })
@@ -245,25 +308,25 @@ if ($request->get('show_deleted') == 1) {
             return $geo . $usa;
         })
         ->addColumn('payment', function ($item) {
-    $geo  = $item->price_georgia - ($item->discount ?? 0);
-    $paid = ($item->paid_tbc ?? 0) + ($item->paid_bog ?? 0) + 
-            ($item->paid_lib ?? 0) + ($item->paid_cash ?? 0);
-    $diff = $geo - $paid;
+            $geo  = $item->price_georgia - ($item->discount ?? 0);
+            $paid = ($item->paid_tbc ?? 0) + ($item->paid_bog ?? 0) +
+                    ($item->paid_lib ?? 0) + ($item->paid_cash ?? 0);
+            $diff = $geo - $paid;
 
-    if ($diff > 0.01) {
-        return '<span style="color:red; font-weight:bold;">
-                    <i class="fa fa-exclamation-circle"></i> -' . number_format($diff, 2) . ' ₾
-                </span>';
-    } elseif ($diff < -0.01) {
-        return '<span style="color:green; font-weight:bold;">
-                    <i class="fa fa-plus-circle"></i> + ' . number_format(abs($diff), 2) . ' ₾
-                </span>';
-    } else {
-        return '<span style="color:green;">
-                    <i class="fa fa-check-circle"></i> გადახდილია
-                </span>';
-    }
-})
+            if ($diff > 0.01) {
+                return '<span style="color:red; font-weight:bold;">
+                            <i class="fa fa-exclamation-circle"></i> -' . number_format($diff, 2) . ' ₾
+                        </span>';
+            } elseif ($diff < -0.01) {
+                return '<span style="color:green; font-weight:bold;">
+                            <i class="fa fa-plus-circle"></i> + ' . number_format(abs($diff), 2) . ' ₾
+                        </span>';
+            } else {
+                return '<span style="color:green;">
+                            <i class="fa fa-check-circle"></i> გადახდილია
+                        </span>';
+            }
+        })
         ->addColumn('customer_contact', function ($item) {
             $customer = $item->customer;
             if (!$customer) return '<span class="text-muted">-</span>';
@@ -279,11 +342,28 @@ if ($request->get('show_deleted') == 1) {
             if ($alt) $html .= ' / ' . e($alt);
             $html .= '</small>';
             return $html;
-        }) ->addColumn('status_label', function ($item) use ($isAdmin) {
+        })
+        ->addColumn('status_label', function ($item) use ($isAdmin) {
             $color = $item->orderStatus->color ?? 'default';
             $name  = $item->orderStatus->name  ?? 'Pending';
 
             if ($isAdmin) {
+                // primary-ს სპეციალური სტატუს ღილაკი
+                if ($item->is_primary) {
+                    $allChildrenStatus3 = $item->children->every(fn($c) => $c->status_id == 3);
+                    $disabled = $allChildrenStatus3 ? '' : 'disabled title="ყველა შვილი უნდა იყოს საწყობში"';
+                    return '<span class="label label-' . $color . '" 
+                                style="font-size:12px; padding:4px 8px;">
+                                ' . $name . '
+                            </span><br>
+                            <button class="btn btn-xs btn-success mt-1 ' . ($allChildrenStatus3 ? '' : 'disabled') . '" 
+                                ' . $disabled . '
+                                onclick="mergeUpdateStatus(' . $item->id . ', ' . $item->merged_id . ')"
+                                style="margin-top:3px;">
+                                <i class="fa fa-truck"></i> კურიერთან
+                            </button>';
+                }
+
                 return '<span class="label label-' . $color . '" 
                             style="cursor:pointer; font-size:12px; padding:4px 8px;" 
                             onclick="openStatusModal(' . $item->id . ', ' . $item->status_id . ')" 
@@ -297,9 +377,9 @@ if ($request->get('show_deleted') == 1) {
                         ' . $name . '
                     </span>';
         })
-       ->addColumn('action', function ($item) use ($isAdmin) {
+        ->addColumn('action', function ($item) use ($isAdmin) {
     if (!$isAdmin) return '';
-    
+
     if ($item->status === 'deleted') {
         return '<center>' .
             '<a onclick="restoreData(' . $item->id . ')" class="btn btn-success btn-xs" title="Restore"><i class="fa fa-refresh"></i> აღდგენა</a>' .
@@ -307,18 +387,28 @@ if ($request->get('show_deleted') == 1) {
     }
 
     $exportPdfUrl = route('exportPDF.productOrder', ['id' => $item->id]);
-    $email = e($item->customer->email ?? '');
+    $email      = e($item->customer->email ?? '');
     $customerId = $item->customer_id;
-    
+
+    // ✅ primary-ზე edit/delete არ გამოჩნდეს
+    if ($item->is_primary) {
+        return '<center>' .
+            '<a href="' . $exportPdfUrl . '" target="_blank" class="btn btn-info btn-xs" title="PDF"><i class="fa fa-file-pdf-o"></i></a> ' .
+            '<a onclick="openMailModal(' . $item->id . ', ' . $customerId . ', \'' . $email . '\')" class="btn btn-default btn-xs" title="Mail"><i class="fa fa-envelope"></i></a> ' .
+            '<a onclick="showStatusLog(' . $item->id . ')" class="btn btn-warning btn-xs" title="ისტორია"><i class="fa fa-history"></i></a> ' .
+            '<a onclick="unmergeOrder(' . $item->id . ')" class="btn btn-default btn-xs" title="გაყოფა"><i class="fa fa-unlink"></i></a>' .
+            '</center>';
+    }
+
     return '<center>' .
         '<a onclick="editForm(' . $item->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a> ' .
         '<a onclick="deleteData(' . $item->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a> ' .
         '<a href="' . $exportPdfUrl . '" target="_blank" class="btn btn-info btn-xs" title="PDF"><i class="fa fa-file-pdf-o"></i></a> ' .
-        '<a onclick="openMailModal(' . $item->id . ', ' . $customerId . ', \'' . $email . '\')" class="btn btn-default btn-xs" title="Mail"><i class="fa fa-envelope"></i></a>' .
-        '<a onclick="showStatusLog(' . $item->id . ')" class="btn btn-warning btn-xs" title="ისტორია"><i class="fa fa-history"></i></a> ' .
+        '<a onclick="openMailModal(' . $item->id . ', ' . $customerId . ', \'' . $email . '\')" class="btn btn-default btn-xs" title="Mail"><i class="fa fa-envelope"></i></a> ' .
+        '<a onclick="showStatusLog(' . $item->id . ')" class="btn btn-warning btn-xs" title="ისტორია"><i class="fa fa-history"></i></a>' .
         '</center>';
 })
-        ->rawColumns(['show_photo', 'product_info', 'prices', 'payment', 'customer_contact', 'status_label', 'action'])
+        ->rawColumns(['order_id', 'children_json', 'show_photo', 'product_info', 'prices', 'payment', 'customer_contact', 'status_label', 'action'])
         ->make(true);
 }
     public function exportProductOrderAll()
@@ -359,45 +449,20 @@ public function restore($id)
 }
     public function exportProductOrder($id)
 {
-    // 1. მოგვაქვს კონკრეტული ორდერი საჭირო კავშირებით
-    $order = Product_Order::withoutGlobalScope('active')
-        ->with([
-            'product' => fn($q) => $q->withoutGlobalScope('active'),
-            'customer.city',
-            'orderStatus'
-        ])
-        ->findOrFail($id);
+    $product_Order = $this->buildOrderCollection($id);
 
-    // 2. ლოგოს მომზადება (Base64)
     $logoBase64 = null;
-    $logoPath = public_path('assets/img/logo.png');
+    $logoPath   = public_path('assets/img/logo.png');
     if (file_exists($logoPath)) {
-        $logoData = file_get_contents($logoPath);
-        $mimeType = mime_content_type($logoPath);
-        $logoBase64 = 'data:' . $mimeType . ';base64,' . base64_encode($logoData);
+        $logoBase64 = 'data:' . mime_content_type($logoPath) . ';base64,' . base64_encode(file_get_contents($logoPath));
     }
 
-    // 3. პროდუქტის სურათის მომზადება (Base64)
-    $order->imageBase64 = null;
-    if ($order->product && $order->product->image) {
-        $imageField = ltrim($order->product->image, '/');
-        $fullPath = public_path($imageField);
-        if (file_exists($fullPath) && !is_dir($fullPath)) {
-            $order->imageBase64 = 'data:' . mime_content_type($fullPath) . ';base64,' . base64_encode(file_get_contents($fullPath));
-        }
-    }
-
-    // 4. კრიტიკული მომენტი: ერთ ორდერს ვაქცევთ კოლექციად (მასივად)
-    // რადგან productOrderFilteredPDF ფაილში გიწერიათ @foreach($product_Order as $product_order)
-    $product_Order = collect([$order]);
-
-    // 5. PDF-ის გენერაცია იგივე ბლეიდით
     $pdf = Pdf::loadView('product_Order.productOrderFilteredPDF', compact('product_Order', 'logoBase64'))
         ->setPaper('a4')
         ->setOptions([
-            'defaultFont' => 'dejavu sans', // ქართული შრიფტისთვის
+            'defaultFont'          => 'dejavu sans',
             'isHtml5ParserEnabled' => true,
-            'isRemoteEnabled' => true
+            'isRemoteEnabled'      => true,
         ]);
 
     return $pdf->download('Invoice_#' . $id . '.pdf');
@@ -482,58 +547,35 @@ public function sendMail(Request $request, $id)
         'body'    => 'nullable|string',
     ]);
 
-    // ორდერის ჩატვირთვა
-    $order = Product_Order::withoutGlobalScope('active')
-        ->with([
-            'product'      => fn($q) => $q->withoutGlobalScope('active'),
-            'customer.city',
-            'orderStatus'
-        ])
-        ->findOrFail($id);
+    $product_Order = $this->buildOrderCollection($id);
 
-    // ლოგო Base64
     $logoBase64 = null;
     $logoPath   = public_path('assets/img/logo.png');
     if (file_exists($logoPath)) {
         $logoBase64 = 'data:' . mime_content_type($logoPath) . ';base64,' . base64_encode(file_get_contents($logoPath));
     }
 
-    // პროდუქტის სურათი Base64
-    $order->imageBase64 = null;
-    if ($order->product && $order->product->image) {
-        $imgPath = public_path(ltrim($order->product->image, '/'));
-        if (file_exists($imgPath) && !is_dir($imgPath)) {
-            $order->imageBase64 = 'data:' . mime_content_type($imgPath) . ';base64,' . base64_encode(file_get_contents($imgPath));
-        }
-    }
-
-    // იგივე blade რომელიც filtered PDF-ისთვის გამოიყენება
-    $product_Order = collect([$order]);
-
     $pdf = Pdf::loadView('product_Order.productOrderFilteredPDF', compact('product_Order', 'logoBase64'))
         ->setPaper('a4')
         ->setOptions([
-            'defaultFont'        => 'dejavu sans',
+            'defaultFont'          => 'dejavu sans',
             'isHtml5ParserEnabled' => true,
-            'isRemoteEnabled'    => true,
+            'isRemoteEnabled'      => true,
         ]);
 
     $pdfContent = $pdf->output();
-
-    // მეილის გაგზავნა PDF attachment-ით
-    $subject = $request->subject;
-    $body    = $request->body ?? '';
+    $subject    = $request->subject;
+    $body       = $request->body ?? '';
 
     Mail::send([], [], function (Message $msg) use ($request, $pdfContent, $subject, $body, $id) {
-    $msg->to($request->email)
-        ->subject($subject)
-        ->text($body ?: 'გთხოვთ იხილოთ თანდართული invoice.')
-        ->attachData($pdfContent, 'Invoice_#' . $id . '.pdf', [
-            'mime' => 'application/pdf',
-        ]);
-});
+        $msg->to($request->email)
+            ->subject($subject)
+            ->text($body ?: 'გთხოვთ იხილოთ თანდართული invoice.')
+            ->attachData($pdfContent, 'Invoice_#' . $id . '.pdf', [
+                'mime' => 'application/pdf',
+            ]);
+    });
 
-    // email-ის შენახვა კლიენტზე
     if ($request->save_email == 1 && $request->customer_id) {
         $customer = Customer::find($request->customer_id);
         if ($customer) {
@@ -543,7 +585,6 @@ public function sendMail(Request $request, $id)
 
     return response()->json(['success' => true, 'message' => 'მეილი გაიგზავნა']);
 }
-
 public function statusLog($id)
 {
     $logs = StatusChangeLog::with(['fromStatus', 'toStatus', 'user'])
@@ -553,4 +594,189 @@ public function statusLog($id)
 
     return response()->json($logs);
 }
+
+public function mergeOrders(Request $request)
+{
+    $ids = $request->input('ids', []);
+
+    if (count($ids) < 2) {
+        return response()->json(['success' => false, 'message' => 'მინიმუმ 2 ორდერი აირჩიე']);
+    }
+
+    $orders = Product_Order::whereIn('id', $ids)->get();
+    $allStatus3 = $orders->every(fn($o) => $o->status_id == 3);
+
+    if (!$allStatus3) {
+        return response()->json(['success' => false, 'message' => 'ყველა ორდერი უნდა იყოს "საწყობში" სტატუსში']);
+    }
+
+    // ყოველი ორდერის კურიერის ტიპი
+    // ტიპი = tbilisi/region/village/none
+    $getType = function($order) {
+        if ($order->courier_price_tbilisi > 0) return 'tbilisi';
+        if ($order->courier_price_region  > 0) return 'region';
+        if ($order->courier_price_village > 0) return 'village';
+        return 'none';
+    };
+
+    $types = $orders->map($getType)->unique()->values();
+
+    // თუ სხვადასხვა ტიპები აქვთ (none არ ითვლება კონფლიქტად)
+    $realTypes = $types->filter(fn($t) => $t !== 'none')->unique();
+
+    if ($realTypes->count() > 1) {
+        return response()->json([
+            'success' => false,
+            'message' => 'სხვადასხვა ტიპის კურიერი — გაერთიანება შეუძლებელია (მაგ. თბილისი + რეგიონი)'
+        ]);
+    }
+
+    $primaryId = $ids[0];
+    $primary   = $orders->firstWhere('id', $primaryId);
+    $childIds  = array_values(array_filter($ids, fn($id) => $id != $primaryId));
+
+    // კურიერის ტიპი და მაქსიმალური თანხა
+    $courierType   = $realTypes->first() ?? 'none';
+    $maxTbilisi    = $orders->max('courier_price_tbilisi');
+    $maxRegion     = $orders->max('courier_price_region');
+    $maxVillage    = $orders->max('courier_price_village');
+
+    // შვილები — ადგილობრივი კურიერი ნულდება, international რჩება თავისი
+    Product_Order::whereIn('id', $childIds)->update([
+        'merged_id'             => $primaryId,
+        'is_primary'            => 0,
+        'courier_price_tbilisi' => 0,
+        'courier_price_region'  => 0,
+        'courier_price_village' => 0,
+        // courier_price_international — არ ვეხებით
+    ]);
+
+    // primary — მაქსიმალური ადგილობრივი კურიერი + international თავისი
+    Product_Order::where('id', $primaryId)->update([
+        'merged_id'             => $primaryId,
+        'is_primary'            => 1,
+        'courier_price_tbilisi' => $courierType === 'tbilisi' ? $maxTbilisi : 0,
+        'courier_price_region'  => $courierType === 'region'  ? $maxRegion  : 0,
+        'courier_price_village' => $courierType === 'village' ? $maxVillage : 0,
+        // courier_price_international — არ ვეხებით
+    ]);
+
+    return response()->json(['success' => true, 'message' => 'ორდერები გაერთიანდა']);
+}
+
+public function unmergeOrder($id)
+{
+    $order = Product_Order::findOrFail($id);
+    $mergedId = $order->merged_id;
+
+    if (!$mergedId) {
+        return response()->json(['success' => false, 'message' => 'ეს ორდერი გაერთიანებული არ არის']);
+    }
+
+    $primary = Product_Order::where('merged_id', $mergedId)
+        ->where('is_primary', 1)
+        ->first();
+
+    if (!$primary) {
+        return response()->json(['success' => false, 'message' => 'მთავარი ორდერი ვერ მოიძებნა']);
+    }
+
+    $tbilisi = $primary->courier_price_tbilisi;
+    $region  = $primary->courier_price_region;
+    $village = $primary->courier_price_village;
+
+    // ყველა ორდერი (primary + შვილები)
+    $allOrders = Product_Order::where('merged_id', $mergedId)->get();
+
+    \DB::table('product_Order')
+        ->where('merged_id', $mergedId)
+        ->update([
+            'merged_id'             => null,
+            'is_primary'            => 0,
+            'status_id'             => 3,
+            'courier_price_tbilisi' => $tbilisi,
+            'courier_price_region'  => $region,
+            'courier_price_village' => $village,
+        ]);
+
+    // ✅ სტატუსის ლოგი — თითოეულ ორდერზე
+    foreach ($allOrders as $o) {
+        if ($o->status_id != 3) { // თუ სტატუსი უკვე 3 არ არის
+            StatusChangeLog::create([
+                'order_id'       => $o->id,
+                'user_id'        => auth()->id(),
+                'status_id_from' => $o->status_id,
+                'status_id_to'   => 3,
+                'changed_at'     => now(),
+            ]);
+        }
+    }
+
+    return response()->json(['success' => true, 'message' => 'გაერთიანება გაუქმდა']);
+}
+
+public function mergeUpdateStatus(Request $request)
+{
+    $mergedId = $request->merged_id;
+    $statusId = $request->status_id; // = 4
+
+    $orders = Product_Order::where('merged_id', $mergedId)->get();
+
+    foreach ($orders as $order) {
+        $oldStatusId = $order->status_id;
+        $order->update(['status_id' => $statusId]);
+
+        StatusChangeLog::create([
+            'order_id'       => $order->id,
+            'user_id'        => auth()->id(),
+            'status_id_from' => $oldStatusId,
+            'status_id_to'   => $statusId,
+            'changed_at'     => now(),
+        ]);
+    }
+
+    return response()->json(['success' => true, 'message' => 'ყველა ორდერი გადავიდა კურიერთან']);
+}
+
+private function buildOrderCollection($id)
+{
+    $order = Product_Order::withoutGlobalScope('active')
+        ->with([
+            'product'      => fn($q) => $q->withoutGlobalScope('active'),
+            'customer.city',
+            'orderStatus'
+        ])
+        ->findOrFail($id);
+
+    if ($order->is_primary) {
+        $children = Product_Order::withoutGlobalScope('active')
+            ->with([
+                'product'      => fn($q) => $q->withoutGlobalScope('active'),
+                'customer.city',
+                'orderStatus'
+            ])
+            ->where('merged_id', $order->merged_id)
+            ->where('is_primary', 0)
+            ->get();
+
+        // ✅ მშობელი პირველი, შვილები შემდეგ
+        $all = collect([$order])->merge($children);
+    } else {
+        $all = collect([$order]);
+    }
+
+    // Base64 სურათები
+    foreach ($all as $o) {
+        $o->imageBase64 = null;
+        if ($o->product && $o->product->image) {
+            $path = public_path(ltrim($o->product->image, '/'));
+            if (file_exists($path) && !is_dir($path)) {
+                $o->imageBase64 = 'data:' . mime_content_type($path) . ';base64,' . base64_encode(file_get_contents($path));
+            }
+        }
+    }
+
+    return $all;
+}
+
 }

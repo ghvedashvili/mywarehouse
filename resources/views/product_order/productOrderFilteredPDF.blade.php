@@ -4,7 +4,6 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <meta charset="utf-8">
     <style>
-        /* აუცილებელია ქართულისთვის და საერთო სტილისთვის */
         * {
             font-family: 'DejaVu Sans', sans-serif !important;
             margin: 0;
@@ -26,7 +25,10 @@
             overflow: hidden;
         }
 
-        /* ── ჰედერი ── */
+        .page-break {
+            page-break-after: always;
+        }
+
         .top-header {
             padding: 20px 0px;
             display: table;
@@ -54,18 +56,16 @@
             display: table-cell;
             text-align: right;
             vertical-align: middle;
-            width: 150px; /* ლოგოსთვის გამოყოფილი სივრცე */
+            width: 150px;
         }
 
-        /* სტილი ლოგოსთვის */
         .top-header-right img {
-            max-height: 100px; /* დაარეგულირეთ ზომა საჭიროებისამებრ */
+            max-height: 100px;
             width: auto;
             display: block;
-            margin-left: auto; /* მარჯვნივ გასასწორებლად */
+            margin-left: auto;
         }
 
-        /* ── ორდერი ── */
         .order-item {
             display: table;
             width: 100%;
@@ -132,19 +132,6 @@
             margin-bottom: 4px;
         }
 
-        .order-meta .order-price {
-            font-size: 15px;
-            font-weight: 700;
-            color: #e85d26;
-        }
-
-        .order-meta .order-status {
-            font-size: 11px;
-            color: #888;
-            margin-top: 4px;
-        }
-
-        /* ── ფუტერი ── */
         .bottom-footer {
             padding: 16px 40px;
             background: #fafafa;
@@ -155,10 +142,7 @@
             border-top: 1px solid #eee;
         }
 
-        .bottom-footer-left {
-            display: table-cell;
-        }
-
+        .bottom-footer-left  { display: table-cell; }
         .bottom-footer-right {
             display: table-cell;
             text-align: right;
@@ -168,68 +152,70 @@
     </style>
 </head>
 <body>
-<div class="page">
 
-    <div class="top-header">
-        <div class="top-header-left">
-            <h2>Order</h2>
-            <p>{{ now()->format('d M Y') }} &nbsp;·&nbsp; სულ: {{ $product_Order->count() }} პროდუქტი</p>
+@foreach($product_Order as $index => $product_order)
+
+    @if($index > 0)
+        <div class="page-break"></div>
+    @endif
+
+    <div class="page">
+
+        <div class="top-header">
+            <div class="top-header-left">
+                <h2>Order</h2>
+                <p>{{ now()->format('d M Y') }} &nbsp;·&nbsp; #{{ $product_order->id }}</p>
+            </div>
+            <div class="top-header-right">
+                @if(isset($logoBase64) && $logoBase64)
+                    <img src="{{ $logoBase64 }}" alt="Logo">
+                @endif
+            </div>
         </div>
-        <div class="top-header-right">
-            @if(isset($logoBase64) && $logoBase64)
-                <img src="{{ $logoBase64 }}" alt="Logo">
-            @else
-                <span style="font-size: 10px; color: red;">ლოგო ვერ მოიძებნა</span>
-            @endif
+
+        <div class="order-item">
+            <div class="order-image">
+                @if($product_order->imageBase64)
+                    <img src="{{ $product_order->imageBase64 }}" alt="Product">
+                @else
+                    <div class="no-image"></div>
+                @endif
+            </div>
+
+            <div class="order-info">
+                <h3>{{ $product_order->product->name }}</h3>
+                @if($product_order->product_size)
+                    <p><strong>ზომა:</strong> {{ $product_order->product_size }}</p>
+                @endif
+                @if($product_order->comment)
+                    <p><strong>კომენტარი:</strong> {{ $product_order->comment }}</p>
+                @endif
+                @if($product_order->discount > 0)
+                    <p style="color:#888;">ფასდაკლება: -{{ $product_order->discount }} ₾</p>
+                @endif
+                <p><strong>ღირებულება:</strong> {{ $product_order->price_georgia }} ₾</p>
+            </div>
+
+            <div class="order-meta">
+                <div class="order-customer">{{ $product_order->customer->name }}</div>
+                <div class="order-customer" style="font-weight:400; font-size:11px;">
+                    {{ $product_order->customer->tel }} / {{ $product_order->customer->alternative_tel ?? '' }}
+                </div>
+                <div class="order-customer" style="font-weight:400; font-size:11px;">
+                    {{ $product_order->customer->city->name ?? '' }}, {{ $product_order->customer->address }}
+                </div>
+                <div class="order-id">#{{ $product_order->id }}</div>
+            </div>
         </div>
+
+        <div class="bottom-footer">
+            <div class="bottom-footer-left">გმადლობთ შენაძენისთვის</div>
+            <div class="bottom-footer-right">Original 100% - ის გუნდი</div>
+        </div>
+
     </div>
-  <!-- dd {{$product_Order }} -->
-    @foreach($product_Order as $product_order)
-    <div class="order-item">
 
-        <div class="order-image">
-            @if($product_order->imageBase64)
-                <img src="{{ $product_order->imageBase64 }}" alt="Product">
-            @else
-                <div class="no-image"></div>
-            @endif
-        </div>
+@endforeach
 
-        <div class="order-info">
-            <h3>{{ $product_order->product->name }}</h3>
-            @if($product_order->product_size)
-                <p><strong>ზომა:</strong> {{ $product_order->product_size }}</p>
-            @endif
-            @if($product_order->comment)
-                <p><strong>კომენტარი:</strong> {{ $product_order->comment }}</p>
-            @endif
-            @if($product_order->discount > 0)
-                <p style="color:#888;">ფასდაკლება: -{{ $product_order->discount }} ₾</p>
-            @endif
-
-             <p><strong>ღირებულება:</strong> {{ $product_order->price_georgia }} ლარი</p>
-        </div>
-
-        <div class="order-meta">
-           
-            <div class="order-customer">{{ $product_order->customer->name }}</div>
-            <div class="order-customer" style="font-weight:400; font-size:11px;">{{ $product_order->customer->tel }} / {{ $product_order->customer->alternative_tel ?? '' }}</div>
-           <!-- <div class="order-customer">{{ $product_order->customer->address }}</div> -->
-             <div class="order-customer" style="font-weight:400; font-size:11px;">{{ $product_order->customer->city->name ?? '' }}, {{ $product_order->customer->address }}</div>
-            <div class="order-id">#{{ $product_order->id }}</div>
-            <!-- @if($product_order->orderStatus)
-    <div class="order-status">{{ $product_order->orderStatus->name }}</div>
-            @endif -->
-        </div>
-
-    </div>
-    @endforeach
-
-    <div class="bottom-footer">
-        <div class="bottom-footer-left">ნადლობა შენაძენისთვის</div>
-        <div class="bottom-footer-right">Original 100% - ის გუნდი</div>
-    </div>
-
-</div>
 </body>
 </html>

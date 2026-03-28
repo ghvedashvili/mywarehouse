@@ -12,6 +12,9 @@ class CreateProductOrderTable extends Migration
             $table->increments('id');
             $table->enum('status', ['active', 'deleted'])->default('active');
 
+            $table->unsignedInteger('merged_id')->nullable();
+            $table->boolean('is_primary')->default(0);
+
             $table->integer('product_id')->unsigned();
             $table->string('product_size')->nullable();
             $table->string('color')->nullable();
