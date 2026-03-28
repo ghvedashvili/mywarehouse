@@ -85,7 +85,9 @@ Route::get('api/deleted-products', [ProductController::class, 'apiDeletedProduct
 Route::post('products/{id}/restore', [ProductController::class, 'restore'])->name('products.restore');
 Route::post('productsOut/{id}/restore', [ProductOrderController::class, 'restore'])->name('productsOut.restore');
 Route::post('productsOut/{id}/sendMail', [ProductOrderController::class, 'sendMail']);
-    // Products In (Masuk)
+ Route::get('product-order/{id}/status-log', [ProductOrderController::class, 'statusLog'])->name('productOrder.statusLog');
+
+// Products In (Masuk)
     Route::resource('productsIn', ProductMasukController::class);
     Route::get('/apiProductsIn', [ProductMasukController::class, 'apiProductsIn'])->name('api.productsIn');
     Route::get('/exportProductMasukAll', [ProductMasukController::class, 'exportProductMasukAll'])->name('exportPDF.productMasukAll');

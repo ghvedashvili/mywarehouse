@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\City;
 use App\Models\Courier;
 use App\Models\Product_Order;
+use App\Models\StatusChangeLog;
 use App\Exports\ExportProdukOrder;
 use Illuminate\Http\Request;
 use Yajra\DataTables\DataTables;
@@ -314,6 +315,7 @@ if ($request->get('show_deleted') == 1) {
         '<a onclick="deleteData(' . $item->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a> ' .
         '<a href="' . $exportPdfUrl . '" target="_blank" class="btn btn-info btn-xs" title="PDF"><i class="fa fa-file-pdf-o"></i></a> ' .
         '<a onclick="openMailModal(' . $item->id . ', ' . $customerId . ', \'' . $email . '\')" class="btn btn-default btn-xs" title="Mail"><i class="fa fa-envelope"></i></a>' .
+        '<a onclick="showStatusLog(' . $item->id . ')" class="btn btn-warning btn-xs" title="ისტორია"><i class="fa fa-history"></i></a> ' .
         '</center>';
 })
         ->rawColumns(['show_photo', 'product_info', 'prices', 'payment', 'customer_contact', 'status_label', 'action'])
@@ -328,8 +330,19 @@ if ($request->get('show_deleted') == 1) {
 public function updateStatus(Request $request, $id)
 {
     $order = Product_Order::findOrFail($id);
+
+    $oldStatusId = $order->status_id; // ძველი სტატუსი შევინახოთ
+
     $order->update(['status_id' => $request->status_id]);
-    
+
+    StatusChangeLog::create([
+        'order_id'       => $order->id,
+        'user_id'        => auth()->id(),
+        'status_id_from' => $oldStatusId,
+        'status_id_to'   => $request->status_id,
+        'changed_at'     => now(),
+    ]);
+
     return response()->json(['success' => true, 'message' => 'სტატუსი განახლდა']);
 }
 // ProductOrderController.php
@@ -529,5 +542,15 @@ public function sendMail(Request $request, $id)
     }
 
     return response()->json(['success' => true, 'message' => 'მეილი გაიგზავნა']);
+}
+
+public function statusLog($id)
+{
+    $logs = StatusChangeLog::with(['fromStatus', 'toStatus', 'user'])
+        ->where('order_id', $id)
+        ->orderBy('changed_at', 'desc')
+        ->get();
+
+    return response()->json($logs);
 }
 }

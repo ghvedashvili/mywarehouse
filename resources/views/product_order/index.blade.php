@@ -145,6 +145,32 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="modal-status-log" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-gray">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title"><i class="fa fa-history"></i> სტატუსის ისტორია</h4>
+            </div>
+            <div class="modal-body">
+                <table class="table table-bordered table-striped">
+                    <thead>
+                        <tr>
+                            <th>თარიღი</th>
+                            <th>იყო</th>
+                            <th>გახდა</th>
+                            <th>შეცვალა</th>
+                        </tr>
+                    </thead>
+                    <tbody id="status-log-body">
+                        <tr><td colspan="4" class="text-center">იტვირთება...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
     @include('product_Order.form_sale')
 @endsection
 
@@ -883,6 +909,35 @@ function doSendMail(orderId, customerId, email, subject, body, saveEmail) {
             }
         });
     }, 50); // 50ms საკმარისია render-ისთვის
+}
+function showStatusLog(orderId) {
+    $('#status-log-body').html('<tr><td colspan="4" class="text-center">იტვირთება...</td></tr>');
+    $('#modal-status-log').modal('show');
+
+    $.get('/product-order/' + orderId + '/status-log', function(logs) {
+        if (logs.length === 0) {
+            $('#status-log-body').html('<tr><td colspan="4" class="text-center text-muted">ისტორია არ არის</td></tr>');
+            return;
+        }
+
+        let html = '';
+        logs.forEach(function(log) {
+            const from = log.from_status
+                ? '<span class="label label-' + log.from_status.color + '">' + log.from_status.name + '</span>'
+                : '<span class="text-muted">—</span>';
+
+            const to = '<span class="label label-' + log.to_status.color + '">' + log.to_status.name + '</span>';
+
+            html += `<tr>
+                <td>${log.changed_at}</td>
+                <td>${from}</td>
+                <td>${to}</td>
+                <td>${log.user ? log.user.name : '—'}</td>
+            </tr>`;
+        });
+
+        $('#status-log-body').html(html);
+    });
 }
     </script>
 @endsection
