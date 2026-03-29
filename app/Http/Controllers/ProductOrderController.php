@@ -610,8 +610,23 @@ public function mergeOrders(Request $request)
         return response()->json(['success' => false, 'message' => 'ყველა ორდერი უნდა იყოს "საწყობში" სტატუსში']);
     }
 
-    // ყოველი ორდერის კურიერის ტიპი
-    // ტიპი = tbilisi/region/village/none
+    // ✅ შევამოწმოთ არის თუ არა რამდენიმე primary
+    $primaries = $orders->where('is_primary', 1);
+    if ($primaries->count() > 1) {
+        return response()->json(['success' => false, 'message' => 'ორი გაერთიანებული ჯგუფის შერწყმა შეუძლებელია']);
+    }
+
+    // ✅ თუ ერთი primary არსებობს — ის რჩება primary-დ
+    // თუ არცერთი არ არის primary — პირველი ხდება primary
+    $existingPrimary = $primaries->first();
+    $primaryId = $existingPrimary ? $existingPrimary->id : $ids[0];
+
+    $allStatus3 = $orders->every(fn($o) => $o->status_id == 3);
+    if (!$allStatus3) {
+        return response()->json(['success' => false, 'message' => 'ყველა ორდერი უნდა იყოს "საწყობში" სტატუსში']);
+    }
+
+    // კურიერის ტიპის შემოწმება
     $getType = function($order) {
         if ($order->courier_price_tbilisi > 0) return 'tbilisi';
         if ($order->courier_price_region  > 0) return 'region';
@@ -619,46 +634,37 @@ public function mergeOrders(Request $request)
         return 'none';
     };
 
-    $types = $orders->map($getType)->unique()->values();
-
-    // თუ სხვადასხვა ტიპები აქვთ (none არ ითვლება კონფლიქტად)
-    $realTypes = $types->filter(fn($t) => $t !== 'none')->unique();
-
+    $realTypes = $orders->map($getType)->filter(fn($t) => $t !== 'none')->unique();
     if ($realTypes->count() > 1) {
         return response()->json([
             'success' => false,
-            'message' => 'სხვადასხვა ტიპის კურიერი — გაერთიანება შეუძლებელია (მაგ. თბილისი + რეგიონი)'
+            'message' => 'სხვადასხვა ტიპის კურიერი — გაერთიანება შეუძლებელია'
         ]);
     }
 
-    $primaryId = $ids[0];
-    $primary   = $orders->firstWhere('id', $primaryId);
-    $childIds  = array_values(array_filter($ids, fn($id) => $id != $primaryId));
+    $courierType = $realTypes->first() ?? 'none';
+    $maxTbilisi  = $orders->max('courier_price_tbilisi');
+    $maxRegion   = $orders->max('courier_price_region');
+    $maxVillage  = $orders->max('courier_price_village');
 
-    // კურიერის ტიპი და მაქსიმალური თანხა
-    $courierType   = $realTypes->first() ?? 'none';
-    $maxTbilisi    = $orders->max('courier_price_tbilisi');
-    $maxRegion     = $orders->max('courier_price_region');
-    $maxVillage    = $orders->max('courier_price_village');
+    $childIds = array_values(array_filter($ids, fn($id) => $id != $primaryId));
 
-    // შვილები — ადგილობრივი კურიერი ნულდება, international რჩება თავისი
+    // შვილები — კურიერი ნულდება
     Product_Order::whereIn('id', $childIds)->update([
         'merged_id'             => $primaryId,
         'is_primary'            => 0,
         'courier_price_tbilisi' => 0,
         'courier_price_region'  => 0,
         'courier_price_village' => 0,
-        // courier_price_international — არ ვეხებით
     ]);
 
-    // primary — მაქსიმალური ადგილობრივი კურიერი + international თავისი
+    // primary — მაქსიმალური კურიერი
     Product_Order::where('id', $primaryId)->update([
         'merged_id'             => $primaryId,
         'is_primary'            => 1,
         'courier_price_tbilisi' => $courierType === 'tbilisi' ? $maxTbilisi : 0,
         'courier_price_region'  => $courierType === 'region'  ? $maxRegion  : 0,
         'courier_price_village' => $courierType === 'village' ? $maxVillage : 0,
-        // courier_price_international — არ ვეხებით
     ]);
 
     return response()->json(['success' => true, 'message' => 'ორდერები გაერთიანდა']);
