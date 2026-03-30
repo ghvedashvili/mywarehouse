@@ -37,4 +37,10 @@ class Product extends Model
         //  return $this->belongsTo(Customer::class)->withoutGlobalScope('active');
         return $this->belongsTo(Category::class)->withoutGlobalScope('active');
     }
+
+    public function warehouseStock()
+{
+    // რადგან პროდუქტს ბევრი ზომა აქვს, ვიყენებთ hasMany-ს
+    return $this->hasMany(Warehouse::class, 'product_id');
+}
 }

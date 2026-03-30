@@ -18,6 +18,7 @@ class CreateProductOrderTable extends Migration
             $table->integer('product_id')->unsigned();
             $table->string('product_size')->nullable();
             $table->string('color')->nullable();
+            $table->integer('quantity')->default(1);
 
             $table->integer('customer_id')->unsigned();
             $table->integer('status_id')->unsigned()->default(1);
@@ -38,7 +39,7 @@ class CreateProductOrderTable extends Migration
             $table->decimal('paid_lib', 10, 2)->default(0);
             $table->decimal('paid_cash', 10, 2)->default(0);
 
-            $table->enum('order_type', ['sale', 'change'])->default('sale');
+            $table->enum('order_type', ['sale', 'change', 'purchase'])->default('sale');
             $table->text('comment')->nullable();
             $table->timestamps();
 

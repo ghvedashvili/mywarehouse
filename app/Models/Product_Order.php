@@ -9,7 +9,7 @@ class Product_Order extends Model
     protected $table = 'product_Order';
 
     protected $fillable = [
-        'product_id', 'product_size', 'color', 'customer_id', 'status_id', 'user_id',
+        'product_id', 'product_size', 'color', 'fillable', 'customer_id', 'status_id', 'user_id',
         'courier_id', 'courier_price_international', 'courier_price_tbilisi', 'courier_price_region',
         'price_usa', 'price_georgia', 'discount',
         'paid_tbc', 'paid_bog', 'paid_lib', 'paid_cash',
