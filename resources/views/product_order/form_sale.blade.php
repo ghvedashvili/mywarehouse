@@ -104,14 +104,7 @@
                                         <label class="small" style="font-weight:600;">Discount</label>
                                         <input type="number" name="discount" id="discount_sale" class="form-control input-sm" value="0">
                                     </div>
-                                    <div class="col-md-6">
-                                        <label class="small" style="font-weight:600;">Status</label>
-                                        <select name="status_id" id="status_id_sale" class="form-control input-sm">
-                                            @foreach($statuses as $status)
-                                                <option value="{{ $status->id }}">{{ $status->name }}</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
+                                    
                                 </div>
                                 <div class="input-group input-group-sm" style="margin-top:10px;">
                                     <span class="input-group-addon">TBC</span>

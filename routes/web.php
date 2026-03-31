@@ -13,7 +13,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductOrderController;
 use App\Http\Controllers\ProductMasukController;
 use App\Http\Controllers\UserController;
-
+use App\Http\Controllers\WarehouseController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -93,13 +93,16 @@ Route::post('productsOut/{id}/restore', [ProductOrderController::class, 'restore
 Route::post('productsOut/{id}/sendMail', [ProductOrderController::class, 'sendMail']);
  Route::get('product-order/{id}/status-log', [ProductOrderController::class, 'statusLog'])->name('productOrder.statusLog');
 
-// Products In (Masuk)
-    Route::resource('productsIn', ProductMasukController::class);
-    Route::get('/apiProductsIn', [ProductMasukController::class, 'apiProductsIn'])->name('api.productsIn');
-    Route::get('/exportProductMasukAll', [ProductMasukController::class, 'exportProductMasukAll'])->name('exportPDF.productMasukAll');
-    Route::get('/exportProductMasukAllExcel', [ProductMasukController::class, 'exportExcel'])->name('exportExcel.productMasukAll');
-    Route::get('/exportProductMasuk/{id}', [ProductMasukController::class, 'exportProductMasuk'])->name('exportPDF.productMasuk');
 
+// ════════════════════════════════════════════════════════
+ 
+// Warehouse (შეცვლის productsIn-ს)
+Route::get('/warehouse/stock-info', [WarehouseController::class, 'stockInfo'])->name('warehouse.stockInfo');
+Route::get('/warehouse/api-stock', [WarehouseController::class, 'apiStock'])->name('warehouse.apiStock');
+Route::get('/warehouse/api-purchases', [WarehouseController::class, 'apiPurchases'])->name('warehouse.apiPurchases');
+Route::post('/warehouse/{id}/receive', [WarehouseController::class, 'receiveStock'])->name('warehouse.receive');
+Route::resource('warehouse', WarehouseController::class);
+Route::post('warehouse/update-status/{id}', [WarehouseController::class, 'updateStatus']);
     // Users
     Route::get('/user/change-password', [UserController::class, 'changePasswordForm'])->name('user.change-password');
 Route::post('/user/change-password', [UserController::class, 'changePassword'])->name('user.change-password');

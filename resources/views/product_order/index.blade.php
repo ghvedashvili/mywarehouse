@@ -613,24 +613,28 @@ if (data.id && statusId > 1) {
         // Delete
         // =====================
         function deleteData(id) {
-            var csrf_token = $('meta[name="csrf-token"]').attr('content');
-            swal({
-                title: 'დარწმუნებული ხართ?',
-                type: 'warning',
-                showCancelButton: true,
-                confirmButtonText: 'დიახ, წაშალე!'
-            }).then(function() {
-                $.ajax({
-                    url: "{{ url('productsOut') }}/" + id,
-                    type: "POST",
-                    data: {'_method': 'DELETE', '_token': csrf_token},
-                    success: function(data) {
-                        table.ajax.reload();
-                        swal("წაშლილია!", data.message, "success");
-                    }
-                });
-            });
-        }
+    var csrf_token = $('meta[name="csrf-token"]').attr('content');
+    swal({
+        title: 'დარწმუნებული ხართ?',
+        type: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'დიახ, წაშალე!'
+    }).then(function() {
+        $.ajax({
+            url: "{{ url('productsOut') }}/" + id,
+            type: "POST",
+            data: {'_method': 'DELETE', '_token': csrf_token},
+            success: function(data) {
+                table.ajax.reload();
+                swal("წაშლილია!", data.message, "success");
+            },
+            error: function(xhr) {
+                var msg = xhr.responseJSON ? xhr.responseJSON.message : 'შეცდომა წაშლისას!';
+                swal("შეცდომა", msg, "error");
+            }
+        });
+    });
+}
 
         // =====================
         // Customer Create Modal

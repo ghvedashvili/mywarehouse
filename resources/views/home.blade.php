@@ -71,7 +71,7 @@
     </div>
  
     <div class="col-lg-3 col-xs-6">
-        <a href="{{ route('productsIn.index') }}" style="color:inherit; text-decoration:none;">
+        <a href="{{ route('warehouse.index') }}" style="color:inherit; text-decoration:none;">
             <div class="small-box bg-maroon">
                 <div class="inner">
                     <h3>{{ \App\Models\Product_Masuk::count() }}</h3>

@@ -38,17 +38,14 @@ class ProductOrderController extends Controller
     return view('product_Order.index', compact('products', 'customers', 'statuses', 'all_products', 'cities', 'courier'));
 }
 
-    public function store(Request $request)
+   public function store(Request $request)
 {
     $this->validate($request, [
-        'product_id'   => 'required',
-        'customer_id'  => 'required',
-        // 'status_id'    => 'required',
+        'product_id'  => 'required',
+        'customer_id' => 'required',
     ]);
 
     $product = Product::with('category')->findOrFail($request->product_id);
-
-
 
     if ($product->product_status != 1) {
         return response()->json([
@@ -57,59 +54,186 @@ class ProductOrderController extends Controller
         ], 422);
     }
 
-    
-
     $data = $request->all();
+    unset($data['status_id']); // form-ის status_id იგნორირება
     $user = auth()->user();
 
-    $data['user_id'] = $user->id;
-
-    // ❗ ყოველთვის სერვერიდან ავიღოთ ფასები
+    $data['user_id']       = $user->id;
     $data['price_georgia'] = $product->price_geo;
-    $data['price_usa'] = $product->price_usa;
+    $data['price_usa']     = $product->price_usa;
 
-    // ❗ STAFF შეზღუდვა
     if ($user->role === 'staff') {
-        $data['discount'] = 0;
-        $data['paid_tbc'] = 0;
-        $data['paid_bog'] = 0;
-        $data['paid_lib'] = 0;
+        $data['discount']  = 0;
+        $data['paid_tbc']  = 0;
+        $data['paid_bog']  = 0;
+        $data['paid_lib']  = 0;
     }
 
-    // default values
-    $data['discount'] = $data['discount'] ?? 0;
-    $data['paid_tbc'] = $data['paid_tbc'] ?? 0;
-    $data['paid_bog'] = $data['paid_bog'] ?? 0;
-    $data['paid_lib'] = $data['paid_lib'] ?? 0;
+    $data['discount']  = $data['discount']  ?? 0;
+    $data['paid_tbc']  = $data['paid_tbc']  ?? 0;
+    $data['paid_bog']  = $data['paid_bog']  ?? 0;
+    $data['paid_lib']  = $data['paid_lib']  ?? 0;
     $data['paid_cash'] = $data['paid_cash'] ?? 0;
-// ახალი კოდი (store-ში):
-$courier = Courier::first();
 
-// international ყოველთვის
-$categoryPrice = $product->category->international_courier_price ?? null;
-$data['courier_price_international'] = $categoryPrice ?? ($courier->international_price ?? 30);
+    $courier = Courier::first();
+    $categoryPrice = $product->category->international_courier_price ?? null;
+    $data['courier_price_international'] = $categoryPrice ?? ($courier->international_price ?? 30);
+    $data['courier_price_tbilisi'] = 0;
+    $data['courier_price_region']  = 0;
+    $data['courier_price_village'] = 0;
+    $courierType = $request->courier_type ?? 'none';
+    $data['courier_servise_local'] = $courierType;
+    if ($courierType === 'tbilisi') {
+        $data['courier_price_tbilisi'] = $courier->tbilisi_price ?? 6;
+    } elseif ($courierType === 'region') {
+        $data['courier_price_region'] = $courier->region_price ?? 9;
+    } elseif ($courierType === 'village') {
+        $data['courier_price_village'] = $courier->village_price ?? 13;
+    }
 
-// სამივე 0-ზე დააყენე, შემდეგ მონიშნული შეავსე
-$data['courier_price_tbilisi'] = 0;
-$data['courier_price_region']  = 0;
-$data['courier_price_village'] = 0;
+    // ─── Auto-status: stock მდგომარეობის მიხედვით ─────────────────
+    $stock = \App\Models\Warehouse::where('product_id', $data['product_id'])
+                                  ->where('size', $request->product_size)
+                                  ->first();
 
-$courierType = $request->courier_type ?? 'none';
-$data['courier_servise_local'] = $courierType;
+    $available = $stock
+        ? max(0, $stock->physical_qty + $stock->incoming_qty - $stock->reserved_qty)
+        : 0;
 
-if ($courierType === 'tbilisi') {
-    $data['courier_price_tbilisi'] = $courier->tbilisi_price ?? 6;
-} elseif ($courierType === 'region') {
-    $data['courier_price_region'] = $courier->region_price ?? 9;
-} elseif ($courierType === 'village') {
-    $data['courier_price_village'] = $courier->village_price ?? 13;
+    if ($available > 0 && $stock) {
+        if ($stock->physical_qty > 0) {
+            // physical-ში ნაშთი არის → sale საწყობში (incoming-ს მნიშვნელობა არ აქვს)
+            $data['status_id'] = 3;
+        } else {
+            // მხოლოდ incoming > 0 → purchase გზაშია → sale გზაში
+            $data['status_id'] = 2;
+        }
+        Product_Order::create($data);
+        $stock->increment('reserved_qty', 1);
+    } else {
+        // stock არ არის → status=1 მოლოდინში
+        $data['status_id'] = 1;
+        Product_Order::create($data);
+    }
+    // ──────────────────────────────────────────────────────────────
+
+    return response()->json(['success' => true, 'message' => 'Order Created Successfully']);
 }
-    Product_Order::create($data);
 
-    return response()->json([
-        'success' => true,
-        'message' => 'Order Created Successfully'
-    ]);
+public function update(Request $request, $id)
+{
+    try {
+        return \DB::transaction(function () use ($request, $id) {
+            $order       = Product_Order::findOrFail($id);
+            $oldStatusId = $order->status_id;
+            $oldQty      = $order->quantity;
+            $data        = $request->all();
+
+            // 1. პროდუქტი/ზომა არ იცვლება status != 1-ზე
+            if ($oldStatusId != 1) {
+                $pIdChanged   = $request->has('product_id')   && $request->product_id   != $order->product_id;
+                $sizeChanged  = $request->has('product_size') && $request->product_size != $order->product_size;
+                if ($pIdChanged || $sizeChanged) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'სტატუსის გამო პროდუქტის ან ზომის შეცვლა აკრძალულია!'
+                    ], 422);
+                }
+            }
+
+            // 2. სტატუსი მხოლოდ admin-ს შეუძლია შეცვალოს
+            if (auth()->user()->role !== 'admin') {
+                unset($data['status_id']);
+            }
+
+            // 3. საწყობის კორექტირება რაოდენობის შეცვლისას
+            if ($request->has('quantity') && $request->quantity != $oldQty) {
+                $stock = \App\Models\Warehouse::where('product_id', $order->product_id)
+                                              ->where('size', $order->product_size)
+                                              ->first();
+                if ($stock) {
+                    // sale/change — მხოლოდ reserved ეხება, incoming/physical არასდროს
+                    // purchase — incoming/physical ეხება (purchase update WarehouseController-შია)
+                    // აქ მხოლოდ sale/change მოდის, ამიტომ stock არ ვეხებით
+                }
+            }
+
+            // 4. ბანკები და კურიერი
+            $data['paid_tbc']  = $request->paid_tbc  ?? 0;
+            $data['paid_bog']  = $request->paid_bog  ?? 0;
+            $data['paid_lib']  = $request->paid_lib  ?? 0;
+            $data['paid_cash'] = $request->paid_cash ?? 0;
+            $data['discount']  = $request->discount  ?? 0;
+
+            $courier = \App\Models\Courier::first();
+            $product = \App\Models\Product::with('category')
+                ->findOrFail($request->product_id ?? $order->product_id);
+            $data['courier_price_international'] = $product->category->international_courier_price
+                ?? ($courier->international_price ?? 30);
+
+            $courierType = $request->courier_type ?? 'none';
+            $data['courier_servise_local'] = $courierType;
+            $data['courier_price_tbilisi'] = ($courierType === 'tbilisi') ? ($courier->tbilisi_price ?? 6)  : 0;
+            $data['courier_price_region']  = ($courierType === 'region')  ? ($courier->region_price  ?? 9)  : 0;
+            $data['courier_price_village'] = ($courierType === 'village') ? ($courier->village_price ?? 13) : 0;
+
+            // 5. მონაცემების განახლება
+            $order->update($data);
+
+            // 6. საწყობი — მხოლოდ purchase-ზე იძახება
+            // sale სტატუსი ავტომატურია (purchase-ზეა დამოკიდებული)
+            // ამიტომ handleStockChange sale-ზე არ გამოიძახება
+            if (!in_array($order->order_type, ['sale', 'change'])) {
+                $this->handleStockChange($order->id, $order->status_id, $oldStatusId);
+            }
+
+            return response()->json(['success' => true, 'message' => 'Order Updated Successfully']);
+        });
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+    }
+}
+
+public function handleStockChange($orderId, $newStatusId, $oldStatusParam = null)
+{
+    $order = Product_Order::findOrFail($orderId);
+    $oldStatusId = ($oldStatusParam !== null) ? $oldStatusParam : $order->status_id;
+
+    if ($oldStatusId == $newStatusId && $oldStatusParam !== null) return true;
+
+    $stock = \App\Models\Warehouse::firstOrCreate(
+        ['product_id' => $order->product_id, 'size' => $order->product_size],
+        ['physical_qty' => 0, 'incoming_qty' => 0, 'reserved_qty' => 0]
+    );
+
+    $qty = $order->quantity ?? 1;
+
+    // 1→2: მხოლოდ reserved +1 (incoming არ ეხება sale-ს)
+    if ($oldStatusId == 1 && $newStatusId == 2) {
+        $stock->increment('reserved_qty', 1);
+    }
+
+    // 2→3: არაფერი — syncSaleOrdersAfterPurchase მართავს
+    // 3→2: არაფერი — syncSaleOrdersAfterPurchase მართავს
+
+    // 3→4: კურიერთან გაგზავნა
+    if ($oldStatusId == 3 && $newStatusId == 4) {
+        $stock->decrement('physical_qty', $qty);
+        $stock->decrement('reserved_qty', $qty);
+    }
+
+    // 4→3: კურიერიდან დაბრუნება
+    if ($oldStatusId == 4 && $newStatusId == 3) {
+        $stock->increment('physical_qty', $qty);
+        $stock->increment('reserved_qty', $qty);
+    }
+
+    // 2→1: მხოლოდ reserved -1
+    if ($oldStatusId == 2 && $newStatusId == 1) {
+        $stock->decrement('reserved_qty', 1);
+    }
+
+    return $stock->save();
 }
 
     public function edit($id)
@@ -134,84 +258,31 @@ if ($courierType === 'tbilisi') {
     return response()->json($product_Order);
 }
 
-  public function update(Request $request, $id)
+  
+
+    public function destroy($id)
 {
-    try {
-        return \DB::transaction(function () use ($request, $id) {
-            $order = Product_Order::findOrFail($id);
-            $oldStatusId = $order->status_id;
-            $oldQty = $order->quantity;
-            $data = $request->all();
+    return \DB::transaction(function () use ($id) {
+        $order = Product_Order::findOrFail($id);
 
-            // 1. 🔒 ბლოკირება სტატუსის მიხედვით (თუ არ არის "ახალი")
-            if ($oldStatusId != 1) {
-                $pIdChanged = $request->has('product_id') && $request->product_id != $order->product_id;
-                $sizeChanged = $request->has('product_size') && $request->product_size != $order->product_size;
-
-                if ($pIdChanged || $sizeChanged) {
-                    return response()->json([
-                        'success' => false, 
-                        'message' => 'სტატუსის გამო პროდუქტის ან ზომის შეცვლა აკრძალულია!'
-                    ], 422);
-                }
-            }
-
-            // 2. ადმინის ფილტრი სტატუსზე
-            if (auth()->user()->role !== 'admin') {
-                unset($data['status_id']);
-            }
-
-            // 3. 📦 საწყობის ნაშთის კორექტირება რაოდენობის შეცვლისას
-            if ($request->has('quantity') && $request->quantity != $oldQty) {
+        // ─── stock rollback sale/change წაშლამდე ──────────────────
+        if (in_array($order->order_type, ['sale', 'change'])) {
+            if (in_array($order->status_id, [2, 3])) {
                 $stock = \App\Models\Warehouse::where('product_id', $order->product_id)
                                               ->where('size', $order->product_size)
                                               ->first();
                 if ($stock) {
-                    if ($oldStatusId == 2) $stock->decrement('incoming_qty', $oldQty);
-                    if ($oldStatusId == 3) $stock->decrement('physical_qty', $oldQty);
-                    if ($oldStatusId == 4) {
-                        $stock->increment('physical_qty', $oldQty);
-                        $stock->increment('reserved_qty', $oldQty);
-                    }
-                    $stock->save();
+                    $stock->decrement('reserved_qty', 1);
                 }
             }
+        }
+        // ──────────────────────────────────────────────────────────
 
-            // 4. ბანკების და კურიერის მონაცემები
-            $data['paid_tbc']  = $request->paid_tbc ?? 0;
-            $data['paid_bog']  = $request->paid_bog ?? 0;
-            $data['paid_lib']  = $request->paid_lib ?? 0;
-            $data['paid_cash'] = $request->paid_cash ?? 0;
-            $data['discount']  = $request->discount ?? 0;
+        $order->update(['status' => 'deleted']);
 
-            $courier = \App\Models\Courier::first();
-            $product = \App\Models\Product::with('category')->findOrFail($request->product_id ?? $order->product_id);
-            $data['courier_price_international'] = $product->category->international_courier_price ?? ($courier->international_price ?? 30);
-
-            $courierType = $request->courier_type ?? 'none';
-            $data['courier_servise_local'] = $courierType;
-            $data['courier_price_tbilisi'] = ($courierType === 'tbilisi') ? ($courier->tbilisi_price ?? 6) : 0;
-            $data['courier_price_region']  = ($courierType === 'region') ? ($courier->region_price ?? 9) : 0;
-            $data['courier_price_village'] = ($courierType === 'village') ? ($courier->village_price ?? 13) : 0;
-
-            // 5. მონაცემების განახლება
-            $order->update($data);
-
-            // 6. საწყობის განახლება (გადავცემთ 3 პარამეტრს)
-            $this->handleStockChange($order->id, $order->status_id, $oldStatusId);
-
-            return response()->json(['success' => true, 'message' => 'Order Updated Successfully']);
-        });
-    } catch (\Exception $e) {
-        return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
-    }
-}
-
-    public function destroy($id)
-    {
-        Product_Order::destroy($id);
         return response()->json(['success' => true, 'message' => 'Order Deleted Successfully']);
-    }
+    });
+}
 
    public function apiProductsOut(Request $request)
 {
@@ -224,6 +295,7 @@ if ($courierType === 'tbilisi') {
             $q->where('is_primary', 1)
               ->orWhereNull('merged_id');
         })
+        ->whereIn('order_type', ['sale', 'change'])
         ->latest();
 
     if ($request->debt_only == 1) {
@@ -372,39 +444,40 @@ if ($courierType === 'tbilisi') {
             return $html;
         })
         ->addColumn('status_label', function ($item) use ($isAdmin) {
-            $color = $item->orderStatus->color ?? 'default';
-            $name  = $item->orderStatus->name  ?? 'Pending';
+    $color = $item->orderStatus->color ?? 'default';
+    $name  = $item->orderStatus->name  ?? 'Pending';
 
-            if ($isAdmin) {
-                // primary-ს სპეციალური სტატუს ღილაკი
-                if ($item->is_primary) {
-                    $allChildrenStatus3 = $item->children->every(fn($c) => $c->status_id == 3);
-                    $disabled = $allChildrenStatus3 ? '' : 'disabled title="ყველა შვილი უნდა იყოს საწყობში"';
-                    return '<span class="label label-' . $color . '" 
-                                style="font-size:12px; padding:4px 8px;">
-                                ' . $name . '
-                            </span><br>
-                            <button class="btn btn-xs btn-success mt-1 ' . ($allChildrenStatus3 ? '' : 'disabled') . '" 
-                                ' . $disabled . '
-                                onclick="mergeUpdateStatus(' . $item->id . ', ' . $item->merged_id . ')"
-                                style="margin-top:3px;">
-                                <i class="fa fa-truck"></i> კურიერთან
-                            </button>';
-                }
-
-                return '<span class="label label-' . $color . '" 
-                            style="cursor:pointer; font-size:12px; padding:4px 8px;" 
-                            onclick="openStatusModal(' . $item->id . ', ' . $item->status_id . ')" 
-                            title="შეცვალე სტატუსი">
-                            ' . $name . ' <i class="fa fa-pencil" style="margin-left:4px;font-size:10px;opacity:0.7;"></i>
-                        </span>';
-            }
-
+    if ($isAdmin) {
+        // primary-ს სპეციალური სტატუს ღილაკი — უცვლელი
+        if ($item->is_primary) {
+            $allChildrenStatus3 = $item->children->every(fn($c) => $c->status_id == 3);
+            $disabled = $allChildrenStatus3 ? '' : 'disabled title="ყველა შვილი უნდა იყოს საწყობში"';
             return '<span class="label label-' . $color . '" 
                         style="font-size:12px; padding:4px 8px;">
                         ' . $name . '
-                    </span>';
-        })
+                    </span><br>
+                    <button class="btn btn-xs btn-success mt-1 ' . ($allChildrenStatus3 ? '' : 'disabled') . '" 
+                        ' . $disabled . '
+                        onclick="mergeUpdateStatus(' . $item->id . ', ' . $item->merged_id . ')"
+                        style="margin-top:3px;">
+                        <i class="fa fa-truck"></i> კურიერთან
+                    </button>';
+        }
+
+        // ─── sale/change ორდერი — სტატუსი მხოლოდ საჩვენებელია ───
+        // purchase-ზეა დამოკიდებული, ხელით ვერ იცვლება
+        return '<span class="label label-' . $color . '" 
+                    style="font-size:12px; padding:4px 8px;">
+                    ' . $name . '
+                </span>';
+    }
+
+    // staff
+    return '<span class="label label-' . $color . '" 
+                style="font-size:12px; padding:4px 8px;">
+                ' . $name . '
+            </span>';
+})
         ->addColumn('action', function ($item) use ($isAdmin) {
     if (!$isAdmin) return '';
 
@@ -448,15 +521,26 @@ if ($courierType === 'tbilisi') {
 public function updateStatus(Request $request, $id)
 {
     $order = Product_Order::findOrFail($id);
+
+    // ─── sale ორდერის სტატუსი ხელით არ იცვლება ───────────────────
+    // სტატუსი ავტომატურად იცვლება purchase ორდერის მიხედვით
+    if ($order->order_type === 'sale') {
+        return response()->json([
+            'success' => false,
+            'message' => 'Sale ორდერის სტატუსი ავტომატურია და ხელით ვერ შეიცვლება!'
+        ], 422);
+    }
+    // ──────────────────────────────────────────────────────────────
+
     $oldStatusId = $order->status_id;
     $newStatusId = $request->status_id;
 
     // --- STATUS FLOW VALIDATION ---
     $allowedTransitions = [
-        1 => [1, 2],       // 1-დან შეიძლება მხოლოდ 1-ზე ან 2-ზე
-        2 => [1, 2, 3],    // 2-დან შეიძლება 1-ზე, 2-ზე ან 3-ზე
-        3 => [2, 3, 4],    // 3-დან შეიძლება 2-ზე, 3-ზე ან 4-ზე
-        4 => [3, 4]        // 4-დან შეიძლება 3-ზე ან 4-ზე
+        1 => [1, 2],
+        2 => [1, 2, 3],
+        3 => [2, 3, 4],
+        4 => [3, 4]
     ];
 
     if (!in_array($newStatusId, $allowedTransitions[$oldStatusId] ?? [])) {
@@ -466,20 +550,15 @@ public function updateStatus(Request $request, $id)
         ], 422);
     }
 
-
-
-
-    // ჯერ ვამოწმებთ საწყობის ლოგიკას
     $stockUpdated = $this->handleStockChange($id, $newStatusId);
 
     if (!$stockUpdated) {
         return response()->json([
-            'success' => false, 
+            'success' => false,
             'message' => 'შეცდომა: საწყობში არ არის საკმარისი ნაშთი!'
         ], 400);
     }
 
-    $oldStatusId = $order->status_id;
     $order->update(['status_id' => $newStatusId]);
 
     StatusChangeLog::create([
@@ -496,13 +575,51 @@ public function updateStatus(Request $request, $id)
 
 public function restore($id)
 {
-    $order = Product_Order::withoutGlobalScope('active')->findOrFail($id);
-    $order->update(['status' => 'active']);
+    return \DB::transaction(function () use ($id) {
+        $order = Product_Order::withoutGlobalScope('active')->findOrFail($id);
 
-    return response()->json([
-        'success' => true, 
-        'message' => 'ორდერი წარმატებით აღდგა'
-    ]);
+        $newStatusId = $order->status_id;
+
+        if (in_array($order->order_type, ['sale', 'change'])) {
+
+            if (in_array($order->status_id, [2, 3])) {
+                $stock = \App\Models\Warehouse::where('product_id', $order->product_id)
+                                              ->where('size', $order->product_size)
+                                              ->first();
+
+                $available = $stock
+                    ? ($stock->physical_qty + $stock->incoming_qty - $stock->reserved_qty)
+                    : 0;
+
+                if ($available > 0) {
+                    $stock->increment('reserved_qty', 1);
+
+                    // stock-ის მდგომარეობით სწორი სტატუსი
+                    if ($stock->physical_qty > 0 && $stock->incoming_qty == 0) {
+                        // ყველა საწყობშია → sale-იც საწყობში
+                        $newStatusId = 3;
+                    } elseif ($stock->incoming_qty > 0) {
+                        // purchase გზაშია → sale გზაში
+                        $newStatusId = 2;
+                    }
+
+                } else {
+                    // stock არ არის — მოლოდინში
+                    $newStatusId = 1;
+                }
+            }
+        }
+
+        $order->update([
+            'status'    => 'active',
+            'status_id' => $newStatusId,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'ორდერი წარმატებით აღდგა'
+        ]);
+    });
 }
     public function exportProductOrder($id)
 {
@@ -860,75 +977,6 @@ private function buildOrderCollection($id)
     return $all;
 }
 
-public function handleStockChange($orderId, $newStatusId, $oldStatusParam = null)
-{
-    $order = Product_Order::findOrFail($orderId);
-    
-    // თუ ფუნქციას გარედან მიაწოდეს ძველი სტატუსი, ვიყენებთ მას. 
-    // თუ არა (მაგ. store-ის დროს), ვიყენებთ ბაზაში არსებულს.
-    $oldStatusId = ($oldStatusParam !== null) ? $oldStatusParam : $order->status_id;
-    
-    // თუ სტატუსი რეალურად არ შეცვლილა, არაფერს ვაკეთებთ
-    if ($oldStatusId == $newStatusId && $oldStatusParam !== null) return true;
-
-    $stock = \App\Models\Warehouse::firstOrCreate(
-        ['product_id' => $order->product_id, 'size' => $order->product_size],
-        ['physical_qty' => 0, 'incoming_qty' => 0, 'reserved_qty' => 0]
-    );
-
-    $qty = $order->quantity ?? 1;
-    $admin_id = 1;
-
-    // --- ლოგიკა: 1 -> 2 (გზაში) ---
-    if ($oldStatusId == 1 && $newStatusId == 2) {
-        if ($order->customer_id == $admin_id) {
-            $stock->increment('incoming_qty', $qty);
-        } else {
-            $freeIncoming = $stock->incoming_qty - $stock->reserved_qty;
-            if ($freeIncoming <= 0) $stock->increment('incoming_qty');
-            $stock->increment('reserved_qty');
-        }
-    }
-
-    // --- ლოგიკა: 2 -> 3 (საწყობში) ---
-    if ($oldStatusId == 2 && $newStatusId == 3) {
-        $stock->decrement('incoming_qty', $qty);
-        $stock->increment('physical_qty', $qty);
-    }
-// --- ლოგიკა: 3 -> 2 (საწყობიდან ისევ გზაში) ---
-if ($oldStatusId == 3 && $newStatusId == 2) {
-    // ვაკლებთ ფიზიკურს, რადგან თაროზე აღარ დევს
-    $stock->decrement('physical_qty', $qty);
-    
-    // ვამატებთ ინქამინგს, რადგან ისევ "გზაშია"
-    $stock->increment('incoming_qty', $qty);
-
-    // რეზერვს არ ვეხებით! ის უკვე გაზრდილი იყო 1->2 გადასვლის დროს.
-}
-    // --- ლოგიკა: 3 -> 4 (კურიერთან) ---
-    if ($oldStatusId == 3 && $newStatusId == 4) {
-        $stock->decrement('physical_qty', $qty);
-        $stock->decrement('reserved_qty', $qty);
-    }
-
-    // --- ლოგიკა: 4 -> 3 (დაბრუნება) ---
-    if ($oldStatusId == 4 && $newStatusId == 3) {
-        $stock->increment('physical_qty', $qty);
-        $stock->increment('reserved_qty', $qty);
-    }
-
-    // --- ლოგიკა: 2 -> 1 (უკან დაბრუნება ახალში) ---
-    if ($oldStatusId == 2 && $newStatusId == 1) {
-        if ($order->customer_id == $admin_id) {
-            $stock->decrement('incoming_qty', $qty);
-        } else {
-            $stock->decrement('reserved_qty', $qty);
-            if ($stock->incoming_qty > 0) $stock->decrement('incoming_qty', $qty);
-        }
-    }
-
-    return $stock->save();
-}
 
 
 
