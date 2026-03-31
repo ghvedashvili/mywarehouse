@@ -499,130 +499,111 @@ class WarehouseController extends Controller
     // purchase-ის მთლიანი qty-ით — ორმაგი დათვლა რომ არ მოხდეს.
     //
     private function syncSaleOrdersAfterPurchase(Product_Order $purchase, int $oldStatusId, int $newStatusId): void
-    {
-        $productId = $purchase->product_id;
-        $size      = $purchase->product_size;
+{
+    $productId = $purchase->product_id;
+    $size      = $purchase->product_size;
 
-        // ══════════════════════════════════════════════════════════════
-        // CASE 1: purchase 1 → 2 (გზაში)
-        // მოლოდინში (status=1) sale-ები → status=2, reserved +1 (FIFO)
-        // ლიმიტი: incoming - reserved (ახლად დამატებული incoming-იდან)
-        // ══════════════════════════════════════════════════════════════
-        if ($oldStatusId === 1 && $newStatusId === 2) {
+    // ─── helper: დავალიანება აქვს თუ არა ───────────────────────
+    $hasDebt = function(Product_Order $sale): bool {
+        $total = $sale->price_georgia - ($sale->discount ?? 0);
+        $paid  = ($sale->paid_tbc  ?? 0) + ($sale->paid_bog  ?? 0)
+               + ($sale->paid_lib  ?? 0) + ($sale->paid_cash ?? 0);
+        return ($total - $paid) > 0.01;
+    };
+    // ────────────────────────────────────────────────────────────
 
-            $stock = Warehouse::where('product_id', $productId)
-                              ->where('size', $size)
-                              ->first();
+    // CASE 1: purchase 1→2
+    if ($oldStatusId === 1 && $newStatusId === 2) {
+        $stock = Warehouse::where('product_id', $productId)->where('size', $size)->first();
+        if (!$stock) return;
 
-            if (!$stock) return;
+        $pendingSales = Product_Order::where('order_type', 'sale')
+            ->where('product_id', $productId)
+            ->where('product_size', $size)
+            ->where('status_id', 1)
+            ->orderBy('created_at', 'asc')
+            ->get();
 
-            $pendingSales = Product_Order::where('order_type', 'sale')
-                ->where('product_id', $productId)
-                ->where('product_size', $size)
-                ->where('status_id', 1)
-                ->orderBy('created_at', 'asc')
-                ->get();
+        foreach ($pendingSales as $sale) {
+            $stock->refresh();
+            $available = $stock->incoming_qty - $stock->reserved_qty;
+            if ($available <= 0) break;
 
-            foreach ($pendingSales as $sale) {
-                $stock->refresh();
-                $available = $stock->incoming_qty - $stock->reserved_qty;
-                if ($available <= 0) break;
+            if ($hasDebt($sale)) continue; // ← დავალიანება — გამოვტოვოთ
 
-                $stock->increment('reserved_qty', 1);
-                $sale->status_id = 2;
-                $sale->save();
-            }
-        }
-
-        // ══════════════════════════════════════════════════════════════
-        // CASE 2: purchase 2 → 3 (საწყობში მიღება)
-        // ყველა status=2 sale → status=3
-        // stock არ ვეხებით! handleStockForPurchase-მა უკვე გააკეთა:
-        // incoming -qty, physical +qty (მთლიანი purchase qty-ით)
-        // ══════════════════════════════════════════════════════════════
-        if ($oldStatusId === 2 && $newStatusId === 3) {
-
-            $activeSales = Product_Order::where('order_type', 'sale')
-                ->where('product_id', $productId)
-                ->where('product_size', $size)
-                ->where('status_id', 2)
-                ->get();
-
-            foreach ($activeSales as $sale) {
-                $sale->status_id = 3;
-                $sale->save();
-            }
-        }
-
-        // ══════════════════════════════════════════════════════════════
-        // CASE 3: purchase 2 → 1 (rollback გზაშიდან ახალზე)
-        // status=2 sale-ები → status=1, reserved -1
-        // ══════════════════════════════════════════════════════════════
-        if ($oldStatusId === 2 && $newStatusId === 1) {
-
-            $stock = Warehouse::where('product_id', $productId)
-                              ->where('size', $size)
-                              ->first();
-
-            $salesToRollback = Product_Order::where('order_type', 'sale')
-                ->where('product_id', $productId)
-                ->where('product_size', $size)
-                ->where('status_id', 2)
-                ->get();
-
-            foreach ($salesToRollback as $sale) {
-                if ($stock) $stock->decrement('reserved_qty', 1);
-                $sale->status_id = 1;
-                $sale->save();
-            }
-
-            if ($stock) $stock->save();
-        }
-
-        // ══════════════════════════════════════════════════════════════
-        // CASE 4: purchase 3 → 2 (rollback საწყობიდან გზაშიზე)
-        // status=3 sale-ები → status=2
-        // stock არ ვეხებით! handleStockForPurchase-მა უკვე გააკეთა:
-        // physical -qty, incoming +qty (მთლიანი purchase qty-ით)
-        // ══════════════════════════════════════════════════════════════
-        if ($oldStatusId === 3 && $newStatusId === 2) {
-
-            $salesToRollback = Product_Order::where('order_type', 'sale')
-                ->where('product_id', $productId)
-                ->where('product_size', $size)
-                ->where('status_id', 3)
-                ->get();
-
-            foreach ($salesToRollback as $sale) {
-                $sale->status_id = 2;
-                $sale->save();
-            }
-        }
-
-        // ══════════════════════════════════════════════════════════════
-        // CASE 5: purchase გაუქმება (→ 4)
-        // status=2 და status=3 sale-ები → status=1, reserved -1
-        // handleStockForPurchase-მა უკვე გააკეთა incoming/physical კლება
-        // ══════════════════════════════════════════════════════════════
-        if ($newStatusId === 4) {
-
-            $stock = Warehouse::where('product_id', $productId)
-                              ->where('size', $size)
-                              ->first();
-
-            $affectedSales = Product_Order::where('order_type', 'sale')
-                ->where('product_id', $productId)
-                ->where('product_size', $size)
-                ->whereIn('status_id', [2, 3])
-                ->get();
-
-            foreach ($affectedSales as $sale) {
-                if ($stock) $stock->decrement('reserved_qty', 1);
-                $sale->status_id = 1;
-                $sale->save();
-            }
-
-            if ($stock) $stock->save();
+            $stock->increment('reserved_qty', 1);
+            $sale->status_id = 2;
+            $sale->save();
         }
     }
+
+    // CASE 2: purchase 2→3
+    if ($oldStatusId === 2 && $newStatusId === 3) {
+        $activeSales = Product_Order::where('order_type', 'sale')
+            ->where('product_id', $productId)
+            ->where('product_size', $size)
+            ->where('status_id', 2)
+            ->get();
+
+        foreach ($activeSales as $sale) {
+            if ($hasDebt($sale)) continue; // ← დავალიანება — გამოვტოვოთ
+
+            $sale->status_id = 3;
+            $sale->save();
+        }
+    }
+
+    // CASE 3: purchase 2→1 (rollback)
+    if ($oldStatusId === 2 && $newStatusId === 1) {
+        $stock = Warehouse::where('product_id', $productId)->where('size', $size)->first();
+
+        $salesToRollback = Product_Order::where('order_type', 'sale')
+            ->where('product_id', $productId)
+            ->where('product_size', $size)
+            ->where('status_id', 2)
+            ->get();
+
+        foreach ($salesToRollback as $sale) {
+            // rollback-ზე დავალიანება არ ამოწმდება — ყველა უნდა დაბრუნდეს
+            if ($stock) $stock->decrement('reserved_qty', 1);
+            $sale->status_id = 1;
+            $sale->save();
+        }
+        if ($stock) $stock->save();
+    }
+
+    // CASE 4: purchase 3→2 (rollback)
+    if ($oldStatusId === 3 && $newStatusId === 2) {
+        $salesToRollback = Product_Order::where('order_type', 'sale')
+            ->where('product_id', $productId)
+            ->where('product_size', $size)
+            ->where('status_id', 3)
+            ->get();
+
+        foreach ($salesToRollback as $sale) {
+            // rollback-ზე დავალიანება არ ამოწმდება
+            $sale->status_id = 2;
+            $sale->save();
+        }
+    }
+
+    // CASE 5: purchase გაუქმება (→4)
+    if ($newStatusId === 4) {
+        $stock = Warehouse::where('product_id', $productId)->where('size', $size)->first();
+
+        $affectedSales = Product_Order::where('order_type', 'sale')
+            ->where('product_id', $productId)
+            ->where('product_size', $size)
+            ->whereIn('status_id', [2, 3])
+            ->get();
+
+        foreach ($affectedSales as $sale) {
+            // გაუქმებაზე დავალიანება არ ამოწმდება — ყველა უნდა დაბრუნდეს
+            if ($stock) $stock->decrement('reserved_qty', 1);
+            $sale->status_id = 1;
+            $sale->save();
+        }
+        if ($stock) $stock->save();
+    }
+}
 }

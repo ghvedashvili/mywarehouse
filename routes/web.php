@@ -73,7 +73,10 @@ Route::resource('categories', CategoryController::class);
 Route::post('productsOut/merge', [ProductOrderController::class, 'mergeOrders'])->name('productsOut.merge');
 Route::post('productsOut/mergeStatus', [ProductOrderController::class, 'mergeUpdateStatus'])->name('productsOut.mergeStatus');
 Route::post('productsOut/{id}/unmerge', [ProductOrderController::class, 'unmergeOrder'])->name('productsOut.unmerge');
-
+Route::post('exportPDF/productOrder/filtered', [ProductOrderController::class, 'exportFilteredOrders'])
+    ->name('exportPDF.productOrderFiltered');
+    Route::post('productsOut/{id}/send-to-courier', [ProductOrderController::class, 'singleUpdateStatus'])
+    ->name('productsOut.sendToCourier');
 
     // Products
     Route::resource('products', ProductController::class);
@@ -85,8 +88,7 @@ Route::post('productsOut/{id}/unmerge', [ProductOrderController::class, 'unmerge
     Route::get('/exportProductOrderAll', [ProductOrderController::class, 'exportProductOrderAll'])->name('exportPDF.productOrderAll');
     Route::get('/exportProductOrderAllExcel', [ProductOrderController::class, 'exportExcel'])->name('exportExcel.productOrderAll');
     Route::get('/exportProductOrder/{id}', [ProductOrderController::class, 'exportProductOrder'])->name('exportPDF.productOrder');
-Route::post('exportPDF/productOrder/filtered', [ProductOrderController::class, 'exportFilteredOrders'])
-    ->name('exportPDF.productOrderFiltered');
+
 Route::get('api/deleted-products', [ProductController::class, 'apiDeletedProducts'])->name('api.deleted-products');
 Route::post('products/{id}/restore', [ProductController::class, 'restore'])->name('products.restore');
 Route::post('productsOut/{id}/restore', [ProductOrderController::class, 'restore'])->name('productsOut.restore');

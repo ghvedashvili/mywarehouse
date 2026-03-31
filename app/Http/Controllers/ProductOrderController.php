@@ -178,7 +178,58 @@ public function update(Request $request, $id)
             $data['courier_price_village'] = ($courierType === 'village') ? ($courier->village_price ?? 13) : 0;
 
             // 5. მონაცემების განახლება
-            $order->update($data);
+           // 5. მონაცემების განახლება
+$order->update($data);
+
+// ─── გადახდის ცვლილების შემდეგ სტატუსის კორექტირება ──────────
+if (in_array($order->order_type, ['sale', 'change'])) {
+
+    $order->refresh();
+    $total = $order->price_georgia - ($order->discount ?? 0);
+    $paid  = ($order->paid_tbc  ?? 0) + ($order->paid_bog  ?? 0)
+           + ($order->paid_lib  ?? 0) + ($order->paid_cash ?? 0);
+    $hasDebt = ($total - $paid) > 0.01;
+
+    $stock = \App\Models\Warehouse::where('product_id', $order->product_id)
+                                  ->where('size', $order->product_size)
+                                  ->first();
+
+   // ─── CASE A: დავალიანება გასწორდა, ორდერი მოლოდინშია ───────
+if (!$hasDebt && $order->status_id == 1) {
+
+    $available = $stock
+        ? max(0, $stock->physical_qty + $stock->incoming_qty - $stock->reserved_qty)
+        : 0;
+
+    if ($available > 0 && $stock) {
+        if ($stock->physical_qty > 0) {
+            $order->status_id = 3;
+            // physical არ ეხება! მხოლოდ reserved +1
+            $stock->increment('reserved_qty', 1);
+        } else {
+            $order->status_id = 2;
+            $stock->increment('reserved_qty', 1);
+        }
+        $order->save();
+    }
+}
+
+// ─── CASE B: დავალიანება გაჩნდა, ორდერი გზაში ან საწყობშია ─
+elseif ($hasDebt && in_array($order->status_id, [2, 3])) {
+
+    if ($stock) {
+        // physical არ ეხება! მხოლოდ reserved -1
+        $stock->decrement('reserved_qty', 1);
+    }
+
+    $order->status_id = 1;
+    $order->save();
+}
+    
+
+   
+}
+// ──────────────────────────────────────────────────────────────
 
             // 6. საწყობი — მხოლოდ purchase-ზე იძახება
             // sale სტატუსი ავტომატურია (purchase-ზეა დამოკიდებული)
@@ -448,7 +499,7 @@ public function handleStockChange($orderId, $newStatusId, $oldStatusParam = null
     $name  = $item->orderStatus->name  ?? 'Pending';
 
     if ($isAdmin) {
-        // primary-ს სპეციალური სტატუს ღილაკი — უცვლელი
+        // merged primary — უცვლელი
         if ($item->is_primary) {
             $allChildrenStatus3 = $item->children->every(fn($c) => $c->status_id == 3);
             $disabled = $allChildrenStatus3 ? '' : 'disabled title="ყველა შვილი უნდა იყოს საწყობში"';
@@ -456,7 +507,7 @@ public function handleStockChange($orderId, $newStatusId, $oldStatusParam = null
                         style="font-size:12px; padding:4px 8px;">
                         ' . $name . '
                     </span><br>
-                    <button class="btn btn-xs btn-success mt-1 ' . ($allChildrenStatus3 ? '' : 'disabled') . '" 
+                    <button class="btn btn-xs btn-success ' . ($allChildrenStatus3 ? '' : 'disabled') . '" 
                         ' . $disabled . '
                         onclick="mergeUpdateStatus(' . $item->id . ', ' . $item->merged_id . ')"
                         style="margin-top:3px;">
@@ -464,15 +515,23 @@ public function handleStockChange($orderId, $newStatusId, $oldStatusParam = null
                     </button>';
         }
 
-        // ─── sale/change ორდერი — სტატუსი მხოლოდ საჩვენებელია ───
-        // purchase-ზეა დამოკიდებული, ხელით ვერ იცვლება
-        return '<span class="label label-' . $color . '" 
-                    style="font-size:12px; padding:4px 8px;">
-                    ' . $name . '
-                </span>';
+        // ─── ჩვეულებრივი sale — status=3-ზე კურიერთან ღილაკი ───
+        $html = '<span class="label label-' . $color . '" 
+                     style="font-size:12px; padding:4px 8px;">
+                     ' . $name . '
+                 </span>';
+
+        if ($item->status_id == 3) {
+            $html .= '<br><button class="btn btn-xs btn-success" 
+                          onclick="sendSingleToCourier(' . $item->id . ')"
+                          style="margin-top:3px;">
+                          <i class="fa fa-truck"></i> კურიერთან
+                      </button>';
+        }
+
+        return $html;
     }
 
-    // staff
     return '<span class="label label-' . $color . '" 
                 style="font-size:12px; padding:4px 8px;">
                 ' . $name . '
@@ -512,6 +571,53 @@ public function handleStockChange($orderId, $newStatusId, $oldStatusParam = null
         ->rawColumns(['order_id', 'children_json', 'show_photo', 'product_info', 'prices', 'payment', 'customer_contact', 'status_label', 'action'])
         ->make(true);
 }
+
+public function singleUpdateStatus(Request $request, $id)
+{
+    return \DB::transaction(function () use ($id) {
+        $order = Product_Order::findOrFail($id);
+
+        if ($order->status_id != 3) {
+            return response()->json([
+                'success' => false,
+                'message' => 'მხოლოდ "საწყობში" სტატუსის ორდერი გაიგზავნება!'
+            ], 422);
+        }
+
+        // stock შემოწმება
+        $stock = \App\Models\Warehouse::where('product_id', $order->product_id)
+                                      ->where('size', $order->product_size)
+                                      ->first();
+
+        if (!$stock || $stock->physical_qty < 1) {
+            return response()->json([
+                'success' => false,
+                'message' => 'საწყობში ნაშთი არ არის!'
+            ], 400);
+        }
+
+        // stock კორექტირება და სტატუსი
+        $this->handleStockChange($order->id, 4);
+
+        $oldStatusId = $order->status_id;
+        $order->update(['status_id' => 4]);
+
+        StatusChangeLog::create([
+            'order_id'       => $order->id,
+            'user_id'        => auth()->id(),
+            'status_id_from' => $oldStatusId,
+            'status_id_to'   => 4,
+            'changed_at'     => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'ორდერი კურიერს გადაეცა! ✅'
+        ]);
+    });
+}
+
+
     public function exportProductOrderAll()
     {
         $product_Order = Product_Order::with(['product', 'customer', 'orderStatus'])->get();

@@ -1196,7 +1196,22 @@ function mergeUpdateStatus(primaryId, mergedId) {
             },
             success: function(data) {
                 table.ajax.reload(null, false);
-                swal("წარმატება!", data.message, "success");
+
+                var pdfUrl = "{{ url('exportProductOrder') }}/" + primaryId;
+
+                swal({
+                    title: '✅ კურიერს გადაეცა!',
+                    type: 'success',
+                    showConfirmButton: false,
+                    showCancelButton: true,
+                    cancelButtonText: 'დახურვა',
+                    html: 'გსურთ ორდერის დაბეჭდვა?<br><br>' +
+                          '<a href="' + pdfUrl + '" target="_blank" ' +
+                          'class="btn btn-success" ' +
+                          'onclick="swal.close()">' +
+                          '<i class="fa fa-print"></i> დაბეჭდვა' +
+                          '</a>'
+                });
             },
             error: function(xhr) {
                 swal("შეცდომა", xhr.responseJSON ? xhr.responseJSON.message : "შეცდომა", "error");
@@ -1210,5 +1225,51 @@ $('#form-sale-content').on('submit', function() {
     // დროებით ვააქტიურებთ დაბლოკილ ველებს გაგზავნისთვის
     $(this).find(':disabled').prop('disabled', false);
 });
+
+window.sendSingleToCourier = function(id) {
+    swal({
+        title: 'კურიერთან გაგზავნა?',
+        text: 'ორდერი #' + id + ' კურიერს გადაეცემა',
+        type: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#00a65a',
+        cancelButtonText: 'გაუქმება',
+        confirmButtonText: 'დიახ, გაგზავნა!'
+    }).then(function() {
+        $.ajax({
+            url: "{{ url('productsOut') }}/" + id + "/send-to-courier",
+            type: 'POST',
+            data: { _token: "{{ csrf_token() }}" },
+            success: function(res) {
+    table.ajax.reload();
+
+    var pdfUrl = "{{ url('exportProductOrder') }}/" + id;
+
+    swal({
+        title: '✅ კურიერს გადაეცა!',
+        text: 'გსურთ ორდერის დაბეჭდვა?',
+        type: 'success',
+        showCancelButton: true,
+        cancelButtonText: 'არა',
+        confirmButtonText: 'დაბეჭდვა',
+        // ── confirm ღილაკის ნაცვლად HTML link ──
+        html: 'გსურთ ორდერის დაბეჭდვა?<br><br>' +
+              '<a href="' + pdfUrl + '" target="_blank" ' +
+              'class="btn btn-success" ' +
+              'onclick="swal.close()">' +
+              '<i class="fa fa-print"></i> დაბეჭდვა' +
+              '</a>',
+        showConfirmButton: false,
+        showCancelButton: true,
+        cancelButtonText: 'დახურვა'
+    });
+},
+            error: function(xhr) {
+                var msg = xhr.responseJSON ? xhr.responseJSON.message : 'შეცდომა!';
+                swal('შეცდომა', msg, 'error');
+            }
+        });
+    });
+};
     </script>
 @endsection
