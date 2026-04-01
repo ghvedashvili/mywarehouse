@@ -1271,5 +1271,64 @@ window.sendSingleToCourier = function(id) {
         });
     });
 };
+// ── SALE FORM: size change → stock info ──
+$(document).on('change', '#size_sale', function() {
+    var prodId = $('#product_id_sale').val();
+    var size   = $(this).val();
+
+    if (!prodId || !size) {
+        $('#sale_stock_info').hide();
+        return;
+    }
+
+    $.get("{{ route('warehouse.stockInfo') }}", 
+        { product_id: prodId, size: size }, 
+        function(data) {
+            if (!data.found) {
+                $('#sale_si_physical').text(0);
+                $('#sale_si_incoming').text(0);
+                $('#sale_si_reserved').text(0);
+                $('#sale_si_available').text(0);
+                $('#sale_si_badge').html('<span class="label label-danger">ნაშთი არ არის</span>');
+                $('#sale_stock_info').show();
+                return;
+            }
+
+            var avail = data.available;
+
+            $('#sale_si_physical').text(data.physical_qty);
+            $('#sale_si_incoming').text(data.incoming_qty);
+            $('#sale_si_reserved').text(data.reserved_qty);
+            $('#sale_si_available').text(avail);
+
+            // ფერი და badge
+            var color, badge;
+            if (avail <= 0) {
+                color = '#e74c3c';
+                badge = '<span class="label label-danger">ნაშთი არ არის — მოლოდინში წავა</span>';
+            } else if (avail <= 3) {
+                color = '#f39c12';
+                badge = '<span class="label label-warning">მცირე ნაშთი</span>';
+            } else {
+                color = '#00a65a';
+                badge = '<span class="label label-success">ხელმისაწვდომია</span>';
+            }
+
+            $('#sale_si_available').css('color', color);
+            $('#sale_si_badge').html(badge);
+            $('#sale_stock_info').show();
+        }
+    );
+});
+
+// ── პროდუქტის შეცვლისას stock info დამალვა ──
+$(document).on('change', '#product_id_sale', function() {
+    $('#sale_stock_info').hide();
+});
+
+// ── modal დახურვისას stock info დამალვა ──
+$('#modal-sale').on('hidden.bs.modal', function() {
+    $('#sale_stock_info').hide();
+});
     </script>
 @endsection

@@ -136,13 +136,6 @@ class WarehouseController extends Controller
         return response()->json(['success' => true, 'message' => 'შესყიდვა დარეგისტრირდა!']);
     }
 
-    // ─── შესყიდვის Edit ───────────────────────────────────────────────
-    public function edit($id)
-    {
-        $order = Product_Order::where('order_type', 'purchase')->findOrFail($id);
-        return response()->json($order);
-    }
-
     // ─── შესყიდვის Update ─────────────────────────────────────────────
     public function update(Request $request, $id)
     {
@@ -347,6 +340,14 @@ class WarehouseController extends Controller
             return response()->json(['success' => true, 'message' => 'შესყიდვა განახლდა!']);
         });
     }
+    // ─── შესყიდვის Edit ───────────────────────────────────────────────
+    public function edit($id)
+    {
+        $order = Product_Order::where('order_type', 'purchase')->findOrFail($id);
+        return response()->json($order);
+    }
+
+    
 
     // ─── შესყიდვის წაშლა ─────────────────────────────────────────────
     public function destroy($id)
@@ -503,14 +504,30 @@ class WarehouseController extends Controller
     $productId = $purchase->product_id;
     $size      = $purchase->product_size;
 
-    // ─── helper: დავალიანება აქვს თუ არა ───────────────────────
+    // ─── helper: სტატუსის შეცვლა + ლოგი ─────────────────────────
+    $logAndSave = function(Product_Order $sale, int $toStatus) {
+        $fromStatus      = $sale->status_id;
+        $sale->status_id = $toStatus;
+        $sale->save();
+
+        if ($fromStatus !== $toStatus) {
+            \App\Models\StatusChangeLog::create([
+                'order_id'       => $sale->id,
+                'user_id'        => auth()->id(),
+                'status_id_from' => $fromStatus,
+                'status_id_to'   => $toStatus,
+                'changed_at'     => now(),
+            ]);
+        }
+    };
+
+    // ─── helper: დავალიანება ─────────────────────────────────────
     $hasDebt = function(Product_Order $sale): bool {
         $total = $sale->price_georgia - ($sale->discount ?? 0);
         $paid  = ($sale->paid_tbc  ?? 0) + ($sale->paid_bog  ?? 0)
                + ($sale->paid_lib  ?? 0) + ($sale->paid_cash ?? 0);
         return ($total - $paid) > 0.01;
     };
-    // ────────────────────────────────────────────────────────────
 
     // CASE 1: purchase 1→2
     if ($oldStatusId === 1 && $newStatusId === 2) {
@@ -528,12 +545,10 @@ class WarehouseController extends Controller
             $stock->refresh();
             $available = $stock->incoming_qty - $stock->reserved_qty;
             if ($available <= 0) break;
-
-            if ($hasDebt($sale)) continue; // ← დავალიანება — გამოვტოვოთ
+            if ($hasDebt($sale)) continue;
 
             $stock->increment('reserved_qty', 1);
-            $sale->status_id = 2;
-            $sale->save();
+            $logAndSave($sale, 2);
         }
     }
 
@@ -546,10 +561,8 @@ class WarehouseController extends Controller
             ->get();
 
         foreach ($activeSales as $sale) {
-            if ($hasDebt($sale)) continue; // ← დავალიანება — გამოვტოვოთ
-
-            $sale->status_id = 3;
-            $sale->save();
+            if ($hasDebt($sale)) continue;
+            $logAndSave($sale, 3);
         }
     }
 
@@ -564,10 +577,8 @@ class WarehouseController extends Controller
             ->get();
 
         foreach ($salesToRollback as $sale) {
-            // rollback-ზე დავალიანება არ ამოწმდება — ყველა უნდა დაბრუნდეს
             if ($stock) $stock->decrement('reserved_qty', 1);
-            $sale->status_id = 1;
-            $sale->save();
+            $logAndSave($sale, 1);
         }
         if ($stock) $stock->save();
     }
@@ -581,9 +592,7 @@ class WarehouseController extends Controller
             ->get();
 
         foreach ($salesToRollback as $sale) {
-            // rollback-ზე დავალიანება არ ამოწმდება
-            $sale->status_id = 2;
-            $sale->save();
+            $logAndSave($sale, 2);
         }
     }
 
@@ -598,10 +607,8 @@ class WarehouseController extends Controller
             ->get();
 
         foreach ($affectedSales as $sale) {
-            // გაუქმებაზე დავალიანება არ ამოწმდება — ყველა უნდა დაბრუნდეს
             if ($stock) $stock->decrement('reserved_qty', 1);
-            $sale->status_id = 1;
-            $sale->save();
+            $logAndSave($sale, 1);
         }
         if ($stock) $stock->save();
     }

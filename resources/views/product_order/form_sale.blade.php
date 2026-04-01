@@ -10,7 +10,6 @@
 
                 <input type="hidden" name="id" id="id">
                 <input type="hidden" name="order_type" value="sale">
-                {{-- დამალული input-ები JS-ისთვის --}}
                 <input type="hidden" name="price_georgia" id="price_georgia_sale">
                 <input type="hidden" name="price_usa" id="price_usa_sale">
                 <input type="hidden" id="courier_price_tbilisi" name="courier_price_tbilisi" value="0">
@@ -26,8 +25,8 @@
                 <div class="modal-body" style="padding: 20px 25px;">
                     <div class="row">
                         <div class="col-md-8">
-                            
-                            {{-- 1. PRODUCT, SIZE & PRICES ROW --}}
+
+                            {{-- 1. PRODUCT, SIZE & PRICES --}}
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="form-group mb-3">
@@ -64,9 +63,42 @@
                                 </div>
                             </div>
 
+                            {{-- STOCK INFO (ზომის არჩევის შემდეგ ჩნდება) --}}
+                            <div id="sale_stock_info" style="display:none; margin-bottom:10px; margin-top:-5px;">
+                                <div style="
+                                    border-radius: 6px;
+                                    padding: 7px 14px;
+                                    font-size: 12px;
+                                    display: flex;
+                                    gap: 14px;
+                                    align-items: center;
+                                    flex-wrap: wrap;
+                                    border: 1px solid #ddd;
+                                    background: #f9f9f9;
+                                ">
+                                    <span>
+                                        📦 <strong>საწყობში:</strong>
+                                        <span id="sale_si_physical" style="font-weight:800;">0</span>
+                                    </span>
+                                    <span>
+                                        🚚 <strong>გზაში:</strong>
+                                        <span id="sale_si_incoming" style="font-weight:800;">0</span>
+                                    </span>
+                                    <span>
+                                        🔒 <strong>დაჯავშნული:</strong>
+                                        <span id="sale_si_reserved" style="font-weight:800;">0</span>
+                                    </span>
+                                    <span>
+                                        ✅ <strong>ხელმისაწვდომი:</strong>
+                                        <span id="sale_si_available" style="font-weight:900; font-size:14px;">0</span>
+                                    </span>
+                                    <span id="sale_si_badge"></span>
+                                </div>
+                            </div>
+
                             {{-- 2. CUSTOMER --}}
                             <div class="form-group" style="margin-top: 10px;">
-                                <label style="font-weight: 600;">2. Customer 
+                                <label style="font-weight: 600;">2. Customer
                                     <button type="button" class="btn btn-link btn-xs pull-right" data-toggle="modal" data-target="#modal-form">+ Add New</button>
                                 </label>
                                 <select name="customer_id" id="customer_id_sale" class="form-control select2" style="width: 100%;" required>
@@ -74,7 +106,7 @@
                                     @foreach($customers as $customer)
                                         <option value="{{ $customer->id }}"
                                             data-address="{{ $customer->address }}"
-                                            data-city-id="{{ $customer->city_id }}" 
+                                            data-city-id="{{ $customer->city_id }}"
                                             data-city="{{ $customer->city->name ?? '' }}"
                                             data-tel="{{ $customer->tel }}"
                                             data-alt="{{ $customer->alternative_tel }}"
@@ -100,11 +132,10 @@
                             @if($isAdmin)
                             <div class="well well-sm" style="background: #f4f4f4; border: 1px solid #ddd; padding: 10px; margin-top: 15px;">
                                 <div class="row">
-                                    <div class="col-md-6">
+                                    <div class="col-md-12">
                                         <label class="small" style="font-weight:600;">Discount</label>
                                         <input type="number" name="discount" id="discount_sale" class="form-control input-sm" value="0">
                                     </div>
-                                    
                                 </div>
                                 <div class="input-group input-group-sm" style="margin-top:10px;">
                                     <span class="input-group-addon">TBC</span>
@@ -133,29 +164,26 @@
                             </div>
 
                             <div class="well well-sm text-left" style="background:#fff; border:1px solid #eee; padding:10px;">
-                                <!-- ახალი -->
-<div style="margin-top:0;">
-    <label style="font-weight: 600; display:block; margin-bottom:6px; font-size:13px;">🚚 Courier</label>
-    
-    <label style="display:block; font-size:13px; margin-bottom:4px; cursor:pointer;">
-        <input type="radio" name="courier_type" id="courier_tbilisi" value="tbilisi"> 
-        Tbilisi (+{{ $courier->tbilisi_price ?? 6 }} ₾)
-    </label>
-    <label style="display:block; font-size:13px; margin-bottom:4px; cursor:pointer;">
-        <input type="radio" name="courier_type" id="courier_region" value="region"> 
-        Region (+{{ $courier->region_price ?? 9 }} ₾)
-    </label>
-    <label style="display:block; font-size:13px; margin-bottom:4px; cursor:pointer;">
-        <input type="radio" name="courier_type" id="courier_village" value="village"> 
-        Village (+{{ $courier->village_price ?? 13 }} ₾)
-    </label>
-    <label style="display:block; font-size:13px; color:#999; cursor:pointer;">
-        <input type="radio" name="courier_type" id="courier_none" value="none" checked> 
-        არ გამოიყენება
-    </label>
-</div>
-                                
-                                <textarea name="comment" class="form-control" rows="3" placeholder="Notes..." style="font-size:12px;"></textarea>
+                                <div style="margin-top:0;">
+                                    <label style="font-weight: 600; display:block; margin-bottom:6px; font-size:13px;">🚚 Courier</label>
+                                    <label style="display:block; font-size:13px; margin-bottom:4px; cursor:pointer;">
+                                        <input type="radio" name="courier_type" id="courier_tbilisi" value="tbilisi">
+                                        Tbilisi (+{{ $courier->tbilisi_price ?? 6 }} ₾)
+                                    </label>
+                                    <label style="display:block; font-size:13px; margin-bottom:4px; cursor:pointer;">
+                                        <input type="radio" name="courier_type" id="courier_region" value="region">
+                                        Region (+{{ $courier->region_price ?? 9 }} ₾)
+                                    </label>
+                                    <label style="display:block; font-size:13px; margin-bottom:4px; cursor:pointer;">
+                                        <input type="radio" name="courier_type" id="courier_village" value="village">
+                                        Village (+{{ $courier->village_price ?? 13 }} ₾)
+                                    </label>
+                                    <label style="display:block; font-size:13px; color:#999; cursor:pointer;">
+                                        <input type="radio" name="courier_type" id="courier_none" value="none" checked>
+                                        არ გამოიყენება
+                                    </label>
+                                </div>
+                                <textarea name="comment" class="form-control" rows="3" placeholder="Notes..." style="font-size:12px; margin-top:10px;"></textarea>
                             </div>
                         </div>
                     </div>
