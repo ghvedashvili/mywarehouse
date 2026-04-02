@@ -58,7 +58,8 @@
                                         <input type="number" id="purchase_price_geo_input"
                                                name="price_georgia"
                                                class="form-control" step="0.01" min="0" placeholder="0.00"
-                                               style="font-weight:bold; color:#00a65a;">
+                                               style="font-weight:bold; color:#00a65a; background:#f9f9f9;"
+                                               readonly>
                                     </div>
                                 </div>
                                 <div class="col-md-2">

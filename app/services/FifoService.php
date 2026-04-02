@@ -69,7 +69,6 @@ class FifoService
     // ════════════════════════════════════════════════════════════════
     public static function reassignPrices(int $productId, string $size, int $excludePurchaseId = 0): void
     {
-        // purchase-ები ქრონოლოგიურად
         $purchaseQuery = Product_Order::where('order_type', 'purchase')
             ->where('product_id', $productId)
             ->where('product_size', $size)
@@ -84,7 +83,7 @@ class FifoService
 
         if ($purchases->isEmpty()) return;
 
-        // თითოეულ purchase-ს მივუბრუნოთ მისი sale-ები და განვაახლოთ ფასები
+        // 1. მიბმული sale-ების ფასები განახლდება purchase-ის მიხედვით
         foreach ($purchases as $purchase) {
             Product_Order::where('order_type', 'sale')
                 ->where('purchase_order_id', $purchase->id)
@@ -93,6 +92,25 @@ class FifoService
                     'price_usa'     => $purchase->cost_price,
                     'price_georgia' => $purchase->price_georgia,
                 ]);
+        }
+
+        // 2. purchase_order_id=null მქონე sale-ები — FIFO-ს მიხედვით მივუბრუნოთ purchase
+        $nullSales = Product_Order::where('order_type', 'sale')
+            ->where('product_id', $productId)
+            ->where('product_size', $size)
+            ->whereIn('status_id', [1, 2, 3])
+            ->whereNull('purchase_order_id')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        foreach ($nullSales as $sale) {
+            $nextPurchase = self::getNextPurchase($productId, $size);
+            if ($nextPurchase) {
+                $sale->purchase_order_id = $nextPurchase->id;
+                $sale->price_usa         = (float) $nextPurchase->cost_price;
+                $sale->price_georgia     = (float) $nextPurchase->price_georgia;
+                $sale->save();
+            }
         }
     }
 }

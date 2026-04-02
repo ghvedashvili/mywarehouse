@@ -100,7 +100,7 @@ $data['purchase_order_id']  = $fifo['purchase_order_id']; // ← ეს და�
     }
 
     // ─── დავალიანების შემოწმება ───────────────────────────────────
-    $total   = $product->price_geo - ($data['discount'] ?? 0);
+    $total = $data['price_georgia'] - ($data['discount'] ?? 0);
     $paid    = ($data['paid_tbc']  ?? 0) + ($data['paid_bog']  ?? 0)
              + ($data['paid_lib']  ?? 0) + ($data['paid_cash'] ?? 0);
     $hasDebt = ($total - $paid) > 0.01;
@@ -416,20 +416,23 @@ public function handleStockChange($orderId, $newStatusId, $oldStatusParam = null
     return htmlspecialchars($item->children->map(function($child) {
         // payment გამოთვლა
         $geo  = $child->price_georgia - ($child->discount ?? 0);
-        $paid = ($child->paid_tbc ?? 0) + ($child->paid_bog ?? 0) +
-                ($child->paid_lib ?? 0) + ($child->paid_cash ?? 0);
-        $diff = $geo - $paid;
+$paid = ($child->paid_tbc ?? 0) + ($child->paid_bog ?? 0) +
+        ($child->paid_lib ?? 0) + ($child->paid_cash ?? 0);
+$diff = $geo - $paid;
 
-        if ($diff > 0.01) {
-            $payment = '-' . number_format($diff, 2) . ' ₾';
-            $paymentColor = 'red';
-        } elseif ($diff < -0.01) {
-            $payment = '+' . number_format(abs($diff), 2) . ' ₾';
-            $paymentColor = 'green';
-        } else {
-            $payment = 'გადახდილია';
-            $paymentColor = 'green';
-        }
+if ($diff < -0.01) {
+    $payment = '+' . number_format(abs($diff), 2) . ' ₾';
+    $paymentColor = 'green';
+} elseif (abs($diff) <= 0.01) {
+    $payment = 'გადახდილია';
+    $paymentColor = 'green';
+} elseif ($child->status_id == 1 && $paid > 0) {
+    $payment = '✅ გადახდილია ⚠️ (-' . number_format($diff, 2) . ' ₾)';
+    $paymentColor = '#e67e22';
+} else {
+    $payment = '-' . number_format($diff, 2) . ' ₾';
+    $paymentColor = 'red';
+}
 
         return [
             'id'            => $child->id,
@@ -484,25 +487,52 @@ public function handleStockChange($orderId, $newStatusId, $oldStatusParam = null
             return $geo . $usa;
         })
         ->addColumn('payment', function ($item) {
-            $geo  = $item->price_georgia - ($item->discount ?? 0);
-            $paid = ($item->paid_tbc ?? 0) + ($item->paid_bog ?? 0) +
-                    ($item->paid_lib ?? 0) + ($item->paid_cash ?? 0);
-            $diff = $geo - $paid;
+    $geo  = $item->price_georgia - ($item->discount ?? 0);
+    $paid = ($item->paid_tbc ?? 0) + ($item->paid_bog ?? 0) +
+            ($item->paid_lib ?? 0) + ($item->paid_cash ?? 0);
+    $diff = $geo - $paid;
 
-            if ($diff > 0.01) {
-                return '<span style="color:red; font-weight:bold;">
-                            <i class="fa fa-exclamation-circle"></i> -' . number_format($diff, 2) . ' ₾
-                        </span>';
-            } elseif ($diff < -0.01) {
-                return '<span style="color:green; font-weight:bold;">
-                            <i class="fa fa-plus-circle"></i> + ' . number_format(abs($diff), 2) . ' ₾
-                        </span>';
-            } else {
-                return '<span style="color:green;">
-                            <i class="fa fa-check-circle"></i> გადახდილია
-                        </span>';
-            }
-        })
+    // კლიენტმა მეტი გადაიხადა ვიდრე ახლანდელი ფასია
+    if ($diff < -0.01) {
+        return '<span style="color:green; font-weight:bold;">
+                    <i class="fa fa-plus-circle"></i> +' . number_format(abs($diff), 2) . ' ₾
+                </span>';
+    }
+
+    // სრულად გადახდილია
+    if (abs($diff) <= 0.01) {
+        return '<span style="color:green;">
+                    <i class="fa fa-check-circle"></i> გადახდილია
+                </span>';
+    }
+
+    // status=1 და გადახდა არის — ფასი გაიზარდა შემდეგ
+    if ($item->status_id == 1 && $paid > 0) {
+    // warehouse-იდან ხელმისაწვდომი ნაშთი
+    $stock = \App\Models\Warehouse::where('product_id', $item->product_id)
+        ->where('size', $item->product_size)
+        ->first();
+
+    $available = $stock
+        ? max(0, ($stock->physical_qty + $stock->incoming_qty) - $stock->reserved_qty)
+        : 0;
+
+    $slotsText = $available > 0
+        ? '<br><small style="color:#888;">📦 თავისუფალი: ' . $available . ' ცალი</small>'
+        : '<br><small style="color:#e74c3c;">📦 ადგილი არ არის</small>';
+
+    return '<span style="color:#e67e22; font-weight:bold;">
+                <i class="fa fa-check-circle"></i> გადახდილია
+                <br><small style="color:#e67e22;">⚠️ ფასი დასაკორექტირებელია (-' . number_format($diff, 2) . ' ₾)</small>'
+                . $slotsText .
+            '</span>';
+}
+
+    // ჩვეულებრივი დავალიანება
+    return '<span style="color:red; font-weight:bold;">
+                <i class="fa fa-exclamation-circle"></i> -' . number_format($diff, 2) . ' ₾
+            </span>';
+})
         ->addColumn('customer_contact', function ($item) {
             $customer = $item->customer;
             if (!$customer) return '<span class="text-muted">-</span>';

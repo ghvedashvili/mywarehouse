@@ -233,6 +233,13 @@ $(function() {
         var opt   = $(this).find(':selected');
         var sizes = opt.data('sizes') || '';
         var image = opt.data('image') || '';
+        var geo   = opt.data('price-ge') || 0;
+
+        // price_georgia პირდაპირ პროდუქტიდან (readonly ველი)
+        var isNew = !$('#purchase_id').val();
+        if (isNew) {
+            $('#purchase_price_geo_input').val(geo);
+        }
 
         $('#purchase_size').empty().append('<option value="">ზომა</option>');
         if (sizes) {
@@ -307,12 +314,6 @@ $(function() {
             $('#fifo_current_display').text('$' + data.fifo_cost);
             $('#fifo_current_block').show();
             $('#current-stock-info').show();
-
-            // ახალი შესყიდვის დროს ბოლო price_georgia ავტომატურად ჩაისვას
-            var isNew = !$('#purchase_id').val();
-            if (isNew && data.last_price_geo > 0) {
-                $('#purchase_price_geo_input').val(data.last_price_geo);
-            }
         });
     }
 
