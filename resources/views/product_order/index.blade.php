@@ -448,11 +448,11 @@ sSelect.prop('disabled', false);
 $('.edit-lock-msg').remove(); 
 
 // ვბლოკავთ მხოლოდ იმ შემთხვევაში, თუ სტატუსი არსებობს და არ არის "ახალი" (1)
-if (data.id && statusId > 1) { 
-    pSelect.prop('disabled', true);
-    sSelect.prop('disabled', true);
-    pSelect.closest('.form-group').find('label').append(' <span class="edit-lock-msg text-danger small">(Locked)</span>');
-}
+// if (data.id && statusId > 1) { 
+//     pSelect.prop('disabled', true);
+//     sSelect.prop('disabled', true);
+//     pSelect.closest('.form-group').find('label').append(' <span class="edit-lock-msg text-danger small">(Locked)</span>');
+// }
 
             // 4. ბანკები და ფასდაკლება
             $('#modal-sale input[name="paid_tbc"]').val(data.paid_tbc || 0);
@@ -1249,10 +1249,10 @@ function mergeUpdateStatus(primaryId, mergedId) {
 }
 
 // როცა მომხმარებელი აჭერს Save-ს
-$('#form-sale-content').on('submit', function() {
-    // დროებით ვააქტიურებთ დაბლოკილ ველებს გაგზავნისთვის
-    $(this).find(':disabled').prop('disabled', false);
-});
+// $('#form-sale-content').on('submit', function() {
+//     // დროებით ვააქტიურებთ დაბლოკილ ველებს გაგზავნისთვის
+//     $(this).find(':disabled').prop('disabled', false);
+// });
 
 window.sendSingleToCourier = function(id) {
     swal({

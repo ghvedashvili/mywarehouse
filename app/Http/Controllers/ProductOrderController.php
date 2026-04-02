@@ -150,28 +150,18 @@ public function update(Request $request, $id)
 {
     try {
         return \DB::transaction(function () use ($request, $id) {
-            $order       = Product_Order::findOrFail($id);
-            $oldStatusId = $order->status_id;
-            $data        = $request->all();
+            $order        = Product_Order::findOrFail($id);
+            $oldStatusId  = $order->status_id;
+            $oldProductId = (int) $order->product_id;
+            $oldSize      = $order->product_size;
+            $data         = $request->all();
 
-            // 1. პროდუქტი/ზომა არ იცვლება status != 1-ზე
-            if ($oldStatusId != 1) {
-                $pIdChanged  = $request->has('product_id')   && $request->product_id   != $order->product_id;
-                $sizeChanged = $request->has('product_size') && $request->product_size != $order->product_size;
-                if ($pIdChanged || $sizeChanged) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'სტატუსის გამო პროდუქტის ან ზომის შეცვლა აკრძალულია!'
-                    ], 422);
-                }
-            }
-
-            // 2. სტატუსი მხოლოდ admin-ს შეუძლია შეცვალოს
+            // 1. სტატუსი მხოლოდ admin-ს შეუძლია შეცვალოს
             if (auth()->user()->role !== 'admin') {
                 unset($data['status_id']);
             }
 
-            // 3. ბანკები და კურიერი
+            // 2. ბანკები და კურიერი
             $data['paid_tbc']  = $request->paid_tbc  ?? 0;
             $data['paid_bog']  = $request->paid_bog  ?? 0;
             $data['paid_lib']  = $request->paid_lib  ?? 0;
@@ -190,13 +180,94 @@ public function update(Request $request, $id)
             $data['courier_price_region']  = ($courierType === 'region')  ? ($courier->region_price  ?? 9)  : 0;
             $data['courier_price_village'] = ($courierType === 'village') ? ($courier->village_price ?? 13) : 0;
 
-            // 4. მონაცემების განახლება
-            $order->update($data);
+            // 3. პროდუქტი/ზომა შეიცვალა?
+            $newProductId = (int) ($request->product_id ?? $order->product_id);
+            $newSize      = $request->product_size ?? $order->product_size;
+            $keyChanged   = ($newProductId !== $oldProductId || $newSize !== $oldSize);
 
-            // 5. გადახდის ცვლილების შემდეგ სტატუსის კორექტირება
+            // sale/change — პროდუქტი/ზომა შეიცვალა და იყო დარეზერვებული
+            if ($keyChanged && in_array($order->order_type, ['sale', 'change']) && in_array($oldStatusId, [2, 3])) {
+                // ძველ stock-ს reserved -1
+                $oldStock = \App\Models\Warehouse::where('product_id', $oldProductId)
+                    ->where('size', $oldSize)->first();
+                if ($oldStock) {
+                    $oldStock->decrement('reserved_qty', 1);
+                }
+                // purchase_order_id გაიწმინდება
+                $data['purchase_order_id'] = null;
+                $data['status_id']         = 1;
+
+                // ძველ purchase-ზე გათავისუფლებული ადგილი —
+                // მოვძებნოთ მომლოდინე sale-ები და დავაწინაუროთ
+                $oldPurchaseOrderId = $order->purchase_order_id;
+                if ($oldPurchaseOrderId) {
+                    $oldPurchase = Product_Order::find($oldPurchaseOrderId);
+                    if ($oldPurchase && in_array($oldPurchase->status_id, [2, 3])) {
+                        // ძველი purchase-ის მომლოდინე sale-ები (status=1, purchase_order_id=ამ purchase-ზე ან null)
+                        $waitingSales = Product_Order::where('order_type', 'sale')
+                            ->where('product_id', $oldProductId)
+                            ->where('product_size', $oldSize)
+                            ->where('status_id', 1)
+                            ->where('id', '!=', $order->id)
+                            ->orderBy('created_at', 'asc')
+                            ->get();
+
+                        foreach ($waitingSales as $waitingSale) {
+                            if ($oldStock) $oldStock->refresh();
+
+                            $available = $oldStock
+                                ? ($oldStock->incoming_qty + $oldStock->physical_qty) - $oldStock->reserved_qty
+                                : 0;
+
+                            if ($available <= 0) break;
+
+                            // დავალიანება შევამოწმოთ
+                            $wTotal   = $waitingSale->price_georgia - ($waitingSale->discount ?? 0);
+                            $wPaid    = ($waitingSale->paid_tbc ?? 0) + ($waitingSale->paid_bog ?? 0)
+                                      + ($waitingSale->paid_lib ?? 0) + ($waitingSale->paid_cash ?? 0);
+                            $wHasDebt = ($wTotal - $wPaid) > 0.01;
+
+                            if ($wHasDebt) continue;
+
+                            // FIFO ფასი
+                            $fifo = \App\Services\FifoService::getPrices($oldProductId, $oldSize);
+                            $waitingSale->purchase_order_id = $fifo['purchase_order_id'];
+                            $waitingSale->price_usa         = $fifo['cost_price'];
+                            $waitingSale->price_georgia     = $fifo['price_georgia'];
+                            $waitingSale->status_id         = $oldPurchase->status_id; // 2 ან 3
+                            $waitingSale->save();
+
+                            if ($oldStock) $oldStock->increment('reserved_qty', 1);
+
+                            StatusChangeLog::create([
+                                'order_id'       => $waitingSale->id,
+                                'user_id'        => auth()->id(),
+                                'status_id_from' => 1,
+                                'status_id_to'   => $waitingSale->status_id,
+                                'changed_at'     => now(),
+                            ]);
+
+                            break; // ერთი ადგილი გათავისუფლდა — ერთი sale დავაწინაუროთ
+                        }
+                    }
+                }
+            }
+
+            // 4. FIFO ფასები თუ პროდუქტი/ზომა შეიცვალა
+            if ($keyChanged && in_array($order->order_type, ['sale', 'change'])) {
+                $fifo = \App\Services\FifoService::getPrices($newProductId, $newSize);
+                $data['price_georgia']     = $fifo['price_georgia'];
+                $data['price_usa']         = $fifo['cost_price'];
+                $data['purchase_order_id'] = $fifo['purchase_order_id'];
+            }
+
+            // 5. მონაცემების განახლება
+            $order->update($data);
+            $order->refresh();
+
+            // 6. sale/change — გადახდა + stock კორექტირება
             if (in_array($order->order_type, ['sale', 'change'])) {
 
-                $order->refresh();
                 $total   = $order->price_georgia - ($order->discount ?? 0);
                 $paid    = ($order->paid_tbc  ?? 0) + ($order->paid_bog  ?? 0)
                          + ($order->paid_lib  ?? 0) + ($order->paid_cash ?? 0);
@@ -206,25 +277,18 @@ public function update(Request $request, $id)
                                               ->where('size', $order->product_size)
                                               ->first();
 
-                // ─── CASE A: დავალიანება გასწორდა, ორდერი მოლოდინშია ──
+                // CASE A: დავალიანება არ არის, status=1 → დავარეზერვოთ
                 if (!$hasDebt && $order->status_id == 1) {
-
                     $available = $stock
                         ? max(0, $stock->physical_qty + $stock->incoming_qty - $stock->reserved_qty)
                         : 0;
 
                     if ($available > 0 && $stock) {
-                        $fromStatus = 1;
-
-                        if ($stock->physical_qty > 0) {
-                            $order->status_id = 3;
-                        } else {
-                            $order->status_id = 2;
-                        }
+                        $fromStatus       = 1;
+                        $order->status_id = $stock->physical_qty > 0 ? 3 : 2;
                         $stock->increment('reserved_qty', 1);
                         $order->save();
 
-                        // ─── ლოგი ────────────────────────────────────
                         StatusChangeLog::create([
                             'order_id'       => $order->id,
                             'user_id'        => auth()->id(),
@@ -232,21 +296,15 @@ public function update(Request $request, $id)
                             'status_id_to'   => $order->status_id,
                             'changed_at'     => now(),
                         ]);
-                        // ─────────────────────────────────────────────
                     }
 
-                // ─── CASE B: დავალიანება გაჩნდა, გზაში ან საწყობშია ──
+                // CASE B: დავალიანება გაჩნდა, status=2/3 → მოლოდინში
                 } elseif ($hasDebt && in_array($order->status_id, [2, 3])) {
-
                     $fromStatus = $order->status_id;
-
-                    if ($stock) {
-                        $stock->decrement('reserved_qty', 1);
-                    }
+                    if ($stock) $stock->decrement('reserved_qty', 1);
                     $order->status_id = 1;
                     $order->save();
 
-                    // ─── ლოგი ────────────────────────────────────────
                     StatusChangeLog::create([
                         'order_id'       => $order->id,
                         'user_id'        => auth()->id(),
@@ -254,11 +312,10 @@ public function update(Request $request, $id)
                         'status_id_to'   => 1,
                         'changed_at'     => now(),
                     ]);
-                    // ─────────────────────────────────────────────────
                 }
             }
 
-            // 6. საწყობი — მხოლოდ purchase-ზე
+            // 7. purchase-ის stock
             if (!in_array($order->order_type, ['sale', 'change'])) {
                 $this->handleStockChange($order->id, $order->status_id, $oldStatusId);
             }
@@ -487,49 +544,51 @@ if ($diff < -0.01) {
             return $geo . $usa;
         })
         ->addColumn('payment', function ($item) {
-    $geo  = $item->price_georgia - ($item->discount ?? 0);
-    $paid = ($item->paid_tbc ?? 0) + ($item->paid_bog ?? 0) +
-            ($item->paid_lib ?? 0) + ($item->paid_cash ?? 0);
-    $diff = $geo - $paid;
+    $geo      = $item->price_georgia - ($item->discount ?? 0);
+    $paid     = ($item->paid_tbc ?? 0) + ($item->paid_bog ?? 0) +
+                ($item->paid_lib ?? 0) + ($item->paid_cash ?? 0);
+    $diff     = $geo - $paid;
+    $discount = (float) ($item->discount ?? 0);
 
-    // კლიენტმა მეტი გადაიხადა ვიდრე ახლანდელი ფასია
+    // ფასდაკლების badge
+    $discountBadge = $discount > 0.01
+        ? '<small style="color:#8e44ad; display:block;">🏷️ ფასდაკლება: -' . number_format($discount, 2) . ' ₾</small>'
+        : '';
+
+    // კლიენტმა მეტი გადაიხადა
     if ($diff < -0.01) {
-        return '<span style="color:green; font-weight:bold;">
+        return $discountBadge . '<span style="color:green; font-weight:bold;">
                     <i class="fa fa-plus-circle"></i> +' . number_format(abs($diff), 2) . ' ₾
                 </span>';
     }
 
     // სრულად გადახდილია
     if (abs($diff) <= 0.01) {
-        return '<span style="color:green;">
+        return $discountBadge . '<span style="color:green;">
                     <i class="fa fa-check-circle"></i> გადახდილია
                 </span>';
     }
 
-    // status=1 და გადახდა არის — ფასი გაიზარდა შემდეგ
+    // status=1, გადახდილია მაგრამ ფასი გაიზარდა
     if ($item->status_id == 1 && $paid > 0) {
-    // warehouse-იდან ხელმისაწვდომი ნაშთი
-    $stock = \App\Models\Warehouse::where('product_id', $item->product_id)
-        ->where('size', $item->product_size)
-        ->first();
+        $stock = \App\Models\Warehouse::where('product_id', $item->product_id)
+            ->where('size', $item->product_size)->first();
+        $available = $stock
+            ? max(0, ($stock->physical_qty + $stock->incoming_qty) - $stock->reserved_qty)
+            : 0;
+        $slotsText = $available > 0
+            ? '<br><small style="color:#888;">📦 თავისუფალი: ' . $available . ' ცალი</small>'
+            : '<br><small style="color:#e74c3c;">📦 ადგილი არ არის</small>';
 
-    $available = $stock
-        ? max(0, ($stock->physical_qty + $stock->incoming_qty) - $stock->reserved_qty)
-        : 0;
-
-    $slotsText = $available > 0
-        ? '<br><small style="color:#888;">📦 თავისუფალი: ' . $available . ' ცალი</small>'
-        : '<br><small style="color:#e74c3c;">📦 ადგილი არ არის</small>';
-
-    return '<span style="color:#e67e22; font-weight:bold;">
-                <i class="fa fa-check-circle"></i> გადახდილია
-                <br><small style="color:#e67e22;">⚠️ ფასი დასაკორექტირებელია (-' . number_format($diff, 2) . ' ₾)</small>'
-                . $slotsText .
-            '</span>';
-}
+        return $discountBadge . '<span style="color:#e67e22; font-weight:bold;">
+                    <i class="fa fa-check-circle"></i> გადახდილია
+                    <br><small style="color:#e67e22;">⚠️ ფასი დასაკორექტირებელია (-' . number_format($diff, 2) . ' ₾)</small>'
+                    . $slotsText .
+                '</span>';
+    }
 
     // ჩვეულებრივი დავალიანება
-    return '<span style="color:red; font-weight:bold;">
+    return $discountBadge . '<span style="color:red; font-weight:bold;">
                 <i class="fa fa-exclamation-circle"></i> -' . number_format($diff, 2) . ' ₾
             </span>';
 })
