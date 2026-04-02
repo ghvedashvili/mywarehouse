@@ -30,12 +30,10 @@ class ProductController extends Controller
      */
    public function store(Request $request)
 {
-    // 1. ვალიდაცია
     $this->validate($request, [
         'product_code' => 'required|string|unique:products,product_code',
         'name'         => 'required|string',
         'Price_geo'    => 'required',
-        'Price_usa'    => 'required',
         'category_id'  => 'required|exists:categories,id',
         'image'        => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         'sizes'        => 'nullable|array',
@@ -43,9 +41,7 @@ class ProductController extends Controller
 
     $input = $request->all();
 
-    // 2. ფასების და სტატუსების მინიჭება
     $input['price_geo'] = $request->Price_geo;
-    $input['price_usa'] = $request->Price_usa;
     $input['product_status'] = $request->has('product_status') ? 1 : 0;
     $input['in_warehouse']   = $request->has('in_warehouse') ? 1 : 0;
 
@@ -100,7 +96,6 @@ class ProductController extends Controller
         'product_code' => 'required|string|unique:products,product_code,' . $id,
         'name'         => 'required|string',
         'Price_geo'    => 'required',
-        'Price_usa'    => 'required',
         'category_id'  => 'required|exists:categories,id',
         'image'        => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         'sizes'        => 'nullable|array',
@@ -108,9 +103,7 @@ class ProductController extends Controller
 
     $input = $request->all();
 
-    // ფასების და სტატუსების მინიჭება
     $input['price_geo'] = $request->Price_geo;
-    $input['price_usa'] = $request->Price_usa;
     $input['product_status'] = $request->has('product_status') ? 1 : 0;
     $input['in_warehouse']   = $request->has('in_warehouse') ? 1 : 0;
 

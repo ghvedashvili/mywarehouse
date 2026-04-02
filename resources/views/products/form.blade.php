@@ -66,15 +66,10 @@
                             <div class="well well-sm" style="background: #f4f4f4; border: 1px solid #ddd; padding: 15px; margin-top: 10px;">
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <label style="font-weight: 600;">Price USA ($)</label>
-                                        <input type="text" class="form-control shadow-sm" id="price_usa" name="Price_usa" required>
-                                    </div>
-                                    <div class="col-md-6">
                                         <label style="font-weight: 600;">Price GEO (₾)</label>
                                         <input type="text" class="form-control shadow-sm" id="price_geo" name="Price_geo" required>
                                     </div>
                                 </div>
-                               
                             </div>
                         </div>
 

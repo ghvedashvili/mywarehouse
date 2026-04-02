@@ -248,6 +248,17 @@ class WarehouseController extends Controller
                 if ($qtyDiff !== 0 && in_array($order->status_id, [2, 3])) {
                     $stock = Warehouse::where('product_id', $newProduct)->where('size', $newSize)->first();
 
+                    // მინიმუმი = კურიერზე გადაცემული + დარეზერვებული sale-ები ამ purchase-დან
+                    $minRequired = Product_Order::where('purchase_order_id', $order->id)
+                        ->whereIn('status_id', [2, 3, 4])->count();
+
+                    if ($newQty < $minRequired) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'რაოდენობა ვერ შემცირდება ' . $newQty . '-ზე: ' . $minRequired . ' ერთეული უკვე გამოყენებულია (დარეზერვებული + კურიერთან).'
+                        ], 422);
+                    }
+
                     if ($stock) {
                         if ($order->status_id == 2) $stock->increment('incoming_qty', $qtyDiff);
                         elseif ($order->status_id == 3) $stock->increment('physical_qty', $qtyDiff);
@@ -304,7 +315,17 @@ class WarehouseController extends Controller
                     $remainingIncoming = $stock->incoming_qty - ($order->status_id == 2 ? $order->quantity : 0);
                     $remainingTotal    = $remainingPhysical + $remainingIncoming;
 
-                    // ამ purchase-ს მიბმული sale-ების რაოდენობა
+                    // status=4 (კურიერთან) sale-ები — წაშლა სრულად აიკრძალება
+                    $courierSales = Product_Order::where('purchase_order_id', $order->id)
+                        ->where('status_id', 4)->count();
+
+                    if ($courierSales > 0) {
+                        throw new \Exception(
+                            'წაშლა შეუძლებელია: ' . $courierSales . ' sale ორდერი უკვე კურიერთანაა გადაცემული.'
+                        );
+                    }
+
+                    // ამ purchase-ს მიბმული active sale-ების რაოდენობა
                     $thisOrderSales = Product_Order::where('purchase_order_id', $order->id)
                         ->whereIn('status_id', [2, 3])->count();
 

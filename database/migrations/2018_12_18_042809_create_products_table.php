@@ -20,7 +20,7 @@ class CreateProductsTable extends Migration
 
             $table->string('product_code')->unique();
             $table->string('name');
-            $table->decimal('price_usa', 8, 2);
+            $table->decimal('price_usa', 8, 2)->default(0);
             $table->decimal('price_geo', 8, 2);
             $table->string('image')->nullable();
             $table->boolean('product_status')->default(1);

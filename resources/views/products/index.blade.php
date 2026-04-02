@@ -111,9 +111,6 @@
     <th>Category</th>
     <th>Sizes</th>
     <th>Price GEO</th>
-   @if(auth()->user()->role == 'admin')
-<th>Price USA</th>
-@endif
     <th>Status / Stock</th>
     @if(auth()->user()->role == 'admin')
 <th>Actions</th>
@@ -165,10 +162,6 @@ var columns = [
     {data: 'format_sizes', name: 'format_sizes', orderable: false},
     {data: 'price_geo', name: 'price_geo'},
 ];
-
-if (isAdmin) {
-    columns.push({data: 'price_usa', name: 'price_usa'});
-}
 
 columns.push({data: 'status_stock', name: 'status_stock', orderable: false, searchable: false});
 
@@ -237,7 +230,6 @@ $('#filter_category, #filter_status, #filter_stock').change(function(){
             $('#product_code').val(data.product_code);
             $('#name').val(data.name);
             $('#price_geo').val(data.price_geo);
-            $('#price_usa').val(data.price_usa);
             $('#category_id').val(data.category_id);
 
             // სტატუსების მონიშვნა (Prop მეთოდი საუკეთესოა ჩეკბოქსებისთვის)
@@ -390,8 +382,7 @@ $(document).ready(function() {
                 type: "GET",
                 dataType: "JSON",
                 success: function(data) {
-                    // ვავსებთ ფასებს (დარწმუნდით, რომ ბაზაში ამ სვეტებს ასე ჰქვია)
-                    $('#price_usa').val(data.price_usa || 0);
+                    // ვავსებთ ფასებს
                     $('#price_georgia').val(data.price_georgia || 0);
                     calculateBalance(); // გადავთვალოთ ბალანსი
                 }
