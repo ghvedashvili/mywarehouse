@@ -4,11 +4,10 @@
             <form id="form-purchase" method="post" class="form-horizontal">
                 {{ csrf_field() }} {{ method_field('POST') }}
 
-                <input type="hidden" name="id"           id="purchase_id">
-                <input type="hidden" name="order_type"   value="purchase">
-                {{-- ფასები hidden — JS ავსებს submit-მდე --}}
-                <input type="hidden" name="price_georgia" id="purchase_price_georgia_hidden">
+                <input type="hidden" name="id"            id="purchase_id">
+                <input type="hidden" name="order_type"    value="purchase">
                 <input type="hidden" name="price_usa"     id="purchase_price_usa_hidden">
+                <input type="hidden" name="courier_price_international" id="purchase_transport_hidden" value="0">
 
                 <div class="modal-header bg-gray-light">
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
@@ -27,7 +26,7 @@
 
                             {{-- 1. PRODUCT + SIZE + PRICES --}}
                             <div class="row">
-                                <div class="col-md-5">
+                                <div class="col-md-4">
                                     <div class="form-group">
                                         <label style="font-weight:600;">1. პროდუქტი</label>
                                         <select name="product_id" id="purchase_product_id"
@@ -36,7 +35,6 @@
                                             @foreach($products as $product)
                                                 <option value="{{ $product->id }}"
                                                     data-price-ge="{{ $product->price_geo }}"
-                                                    data-price-us="{{ $product->price_usa }}"
                                                     data-sizes="{{ $product->sizes }}"
                                                     data-image="{{ asset(ltrim($product->image ?? '', '/')) }}">
                                                     {{ $product->name }}
@@ -54,21 +52,48 @@
                                         </select>
                                     </div>
                                 </div>
-                                <div class="col-md-2 text-center">
-                                    <label style="font-weight:600;">Price (₾)</label>
-                                    <div id="purchase_price_geo_text" class="form-control"
-                                         style="background:#f9f9f9; font-weight:bold; color:#00a65a; font-size:14px; padding:6px 2px;">
-                                        0
+                                <div class="col-md-2">
+                                    <div class="form-group">
+                                        <label style="font-weight:600;">Price (₾)</label>
+                                        <input type="number" id="purchase_price_geo_input"
+                                               name="price_georgia"
+                                               class="form-control" step="0.01" min="0" placeholder="0.00"
+                                               style="font-weight:bold; color:#00a65a;">
                                     </div>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <div class="form-group">
-                                        <label style="font-weight:600;">Price ($)
-                                            <small class="text-muted" style="font-weight:400;">თვითღირებულება</small>
-                                        </label>
+                                        <label style="font-weight:600;">პროდუქტის ფასი ($)</label>
                                         <input type="number" id="purchase_price_usa_input"
                                                class="form-control" step="0.01" min="0" placeholder="0.00"
                                                style="font-weight:bold; color:#357ca5;">
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="form-group">
+                                        <label style="font-weight:600;">ტრანსპ. ($)</label>
+                                        <input type="number" id="purchase_transport_input"
+                                               class="form-control" step="0.01" min="0" placeholder="0.00"
+                                               style="font-weight:bold; color:#8e44ad;">
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- COST PRICE BANNER --}}
+                            <div class="row" style="margin-top:-5px; margin-bottom:8px;">
+                                <div class="col-md-12">
+                                    <div style="background:#fff8e1; border:1px solid #ffe082; border-radius:6px;
+                                                padding:8px 14px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+                                        <div>
+                                            <span style="font-size:11px; color:#888;">🧮 ამ შესყიდვის თვითღირებულება (FIFO):</span>
+                                            <strong id="purchase_cost_price_display"
+                                                    style="font-size:15px; color:#e67e22; margin-left:4px;">$0.00</strong>
+                                        </div>
+                                        <div id="fifo_current_block" style="display:none;">
+                                            <span style="font-size:11px; color:#888;">📊 მიმდინარე FIFO:</span>
+                                            <strong id="fifo_current_display"
+                                                    style="font-size:15px; color:#27ae60; margin-left:4px;">$0.00</strong>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -106,24 +131,17 @@
                                 <label style="font-weight:600; display:block; margin-bottom:6px;">3. გადახდა</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-addon">TBC</span>
-                                    <input type="number" name="paid_tbc" class="form-control purchase-payment"
-                                           placeholder="0" step="0.01" value="0">
+                                    <input type="number" name="paid_tbc" class="form-control purchase-payment" placeholder="0" step="0.01" value="0">
                                     <span class="input-group-addon">BOG</span>
-                                    <input type="number" name="paid_bog" class="form-control purchase-payment"
-                                           placeholder="0" step="0.01" value="0">
+                                    <input type="number" name="paid_bog" class="form-control purchase-payment" placeholder="0" step="0.01" value="0">
                                     <span class="input-group-addon">Lib</span>
-                                    <input type="number" name="paid_lib" class="form-control purchase-payment"
-                                           placeholder="0" step="0.01" value="0">
+                                    <input type="number" name="paid_lib" class="form-control purchase-payment" placeholder="0" step="0.01" value="0">
                                     <span class="input-group-addon">Cash</span>
-                                    <input type="number" name="paid_cash" class="form-control purchase-payment"
-                                           placeholder="0" step="0.01" value="0">
+                                    <input type="number" name="paid_cash" class="form-control purchase-payment" placeholder="0" step="0.01" value="0">
                                 </div>
-
                                 <div style="margin-top:10px; min-height:40px;">
                                     <small style="display:block; color:#777;">Summary:</small>
-                                    <strong id="purchase_summary_text" style="font-size:13px;">
-                                        შეიყვანეთ მონაცემები
-                                    </strong>
+                                    <strong id="purchase_summary_text" style="font-size:13px;">შეიყვანეთ მონაცემები</strong>
                                 </div>
                             </div>
 
@@ -143,9 +161,8 @@
                             <div style="width:100%; height:160px; border:2px dashed #ddd; border-radius:10px;
                                         display:flex; align-items:center; justify-content:center;
                                         background:#fff; overflow:hidden; margin-bottom:15px;">
-                                <img id="purchase_preview" class="img-responsive"
-                                     style="display:none; max-height:155px;">
-                                <span id="purchase_no_img" class="text-muted italic">No Image</span>
+                                <img id="purchase_preview" class="img-responsive" style="display:none; max-height:155px;">
+                                <span id="purchase_no_img" class="text-muted">No Image</span>
                             </div>
 
                             <div id="current-stock-info"
@@ -165,8 +182,12 @@
                                     </div>
                                     <div class="col-xs-4">
                                         <div style="font-size:22px; font-weight:800; color:#8a6d3b;" id="si-reserved">0</div>
-                                        <div style="font-size:10px; color:#888;">🔒 დაჯავშნული</div>
+                                        <div style="font-size:10px; color:#888;">🔒 დაჯავშნ.</div>
                                     </div>
+                                </div>
+                                <div style="margin-top:10px; border-top:1px solid #ddd; padding-top:8px; text-align:center;">
+                                    <span style="font-size:11px; color:#888;">მიმდინარე FIFO თვითღ.:</span>
+                                    <strong id="si-fifo-cost" style="color:#8e44ad; font-size:13px;">—</strong>
                                 </div>
                             </div>
                         </div>
@@ -174,14 +195,13 @@
                     </div>
                 </div>
 
-                <div class="modal-footer bg-gray-light">
-                    <button type="button" class="btn btn-default btn-flat pull-left"
-                            data-dismiss="modal">გაუქმება</button>
-                    <button type="submit" class="btn btn-success btn-flat"
-                            style="padding:6px 40px; font-weight:bold;">
-                        💾 შენახვა
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">გაუქმება</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fa fa-save"></i> შენახვა
                     </button>
                 </div>
+
             </form>
         </div>
     </div>

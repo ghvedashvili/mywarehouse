@@ -9,12 +9,12 @@ class ProductSeeder extends Seeder
 {
     public function run(): void
     {
-        for ($i = 1; $i <= 10; $i++) {
+        for ($i = 1; $i <= 2; $i++) {
             DB::table('products')->insert([
-                'category_id' => $i,
+                'category_id' => 3,
                 'product_code' => 'SKU-00' . $i,
                 'name' => 'პროდუქტი ' . $i,
-                'price_usa' => rand(10, 50),
+                'price_usa' =>0,
                 'price_geo' => rand(30, 150),
                 'product_status' => 1,
                 'in_warehouse' => 1,

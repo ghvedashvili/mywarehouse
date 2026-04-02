@@ -105,6 +105,9 @@ Route::get('/warehouse/api-purchases', [WarehouseController::class, 'apiPurchase
 Route::post('/warehouse/{id}/receive', [WarehouseController::class, 'receiveStock'])->name('warehouse.receive');
 Route::resource('warehouse', WarehouseController::class);
 Route::post('warehouse/update-status/{id}', [WarehouseController::class, 'updateStatus']);
+Route::get('/api/fifo-prices', [WarehouseController::class, 'fifoPrices']);
+
+
     // Users
     Route::get('/user/change-password', [UserController::class, 'changePasswordForm'])->name('user.change-password');
 Route::post('/user/change-password', [UserController::class, 'changePassword'])->name('user.change-password');

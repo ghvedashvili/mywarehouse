@@ -377,6 +377,7 @@ var table = $('#products-out-table').DataTable({
         // =====================
         function addSaleForm() {
             save_method = "add";
+             isEditMode = false;
            $('#form-sale-content input[name=_method]').val('POST'); // შეიცვალა
             $('#form-sale-content')[0].reset();
             $('#modal-sale .modal-title').text('Add New Sale');
@@ -407,6 +408,7 @@ var table = $('#products-out-table').DataTable({
 // =====================
 function editForm(id) {
     save_method = 'edit';
+     isEditMode = true; // ← დაამატე თავში
     $('#form-sale-content input[name=_method]').val('PATCH');
 
     $.ajax({
@@ -474,19 +476,32 @@ if (data.id && statusId > 1) {
 
             // ✨ ზომის ჩატვირთვის ლოდინი
             var checkSizeExist = setInterval(function() {
-                if ($('#size_sale option').length > 1) {
-                    $('#size_sale').val(data.product_size);
-                    
-                    if (typeof calculateSaleSummary === "function") {
-                        calculateSaleSummary();
-                    }
-                    clearInterval(checkSizeExist);
-                }
-            }, 100);
+    if ($('#size_sale option').length > 1) {
+        clearInterval(checkSizeExist);
 
-            setTimeout(function() { clearInterval(checkSizeExist); }, 2000);
+        // isEditMode დარწმუნებით true-ია ზომის დაყენებამდე
+        isEditMode = true;
+        $('#size_sale').val(data.product_size);
+
+        // display ველები პირდაპირ ჩავავსოთ — FIFO-ს არ ველოდოთ
+        $('#price_georgia_sale').val(data.price_georgia || 0);
+        $('#price_usa_sale').val(data.price_usa || 0);
+        $('#price_georgia_text').text(data.price_georgia || 0);
+        $('#price_usa_text').text(data.price_usa || 0);
+
+        if (typeof calculateSaleSummary === 'function') {
+            calculateSaleSummary();
+        }
+
+        // size change event-ის დამუშავების შემდეგ გავაუქმოთ
+        setTimeout(function() { isEditMode = false; }, 500);
+    }
+}, 100);
+
+setTimeout(function() { clearInterval(checkSizeExist); }, 2000);
 
             $('#modal-sale').modal('show');
+            
         },
         error: function() {
             swal("შეცდომა", "მონაცემების წამოღება ვერ მოხერხდა", "error");
@@ -496,45 +511,50 @@ if (data.id && statusId > 1) {
         // =====================
         // Product change
         // =====================
+        var isEditMode = false; // ← დაამატე
+
         $(document).on('change', '#product_id_sale', function() {
-            const selected = $(this).find('option:selected');
+    const selected = $(this).find('option:selected');
 
-            let priceGe = selected.data('price-ge') || 0;
-            let priceUs = selected.data('price-us') || 0;
+    if (!isEditMode) {
+        let priceGe = selected.data('price-ge') || 0;
+        let priceUs = selected.data('price-us') || 0;
+        $('#price_georgia_sale').val(priceGe);
+        $('#price_georgia_text').text(priceGe);
+        $('#price_usa_sale').val(priceUs);
+        $('#price_usa_text').text(priceUs);
+    }
 
-            $('#price_georgia_sale').val(priceGe);
-            $('#price_georgia_text').text(priceGe);
-            $('#price_usa_sale').val(priceUs);
-            $('#price_usa_text').text(priceUs);
+    // სურათი — ყოველთვის განახლდება
+    const imageUrl = selected.data('image');
+    if (imageUrl) {
+        $('#target_image').attr('src', imageUrl).show();
+        $('#no_image_text').hide();
+    } else {
+        $('#target_image').hide();
+        $('#no_image_text').show();
+    }
 
-            const imageUrl = selected.data('image');
-            if (imageUrl) {
-                $('#target_image').attr('src', imageUrl).show();
-                $('#no_image_text').hide();
-            } else {
-                $('#target_image').hide();
-                $('#no_image_text').show();
-            }
+    // ზომები — ყოველთვის განახლდება
+    const sizesRaw = selected.data('sizes');
+    const sizeSelect = $('#size_sale');
+    sizeSelect.empty();
 
-            const sizesRaw = selected.data('sizes');
-            const sizeSelect = $('#size_sale');
-            sizeSelect.empty();
-
-            if (sizesRaw && sizesRaw.toString().trim() !== '') {
-                sizeSelect.append('<option value="">-- Select Size --</option>');
-                sizesRaw.toString().split(',').forEach(function(size) {
-                    let s = size.trim();
-                    if (s !== '') sizeSelect.append(`<option value="${s}">${s}</option>`);
-                });
-                sizeSelect.prop('required', true);
-            } else {
-                sizeSelect.append('<option value="">-- No Size --</option>');
-                sizeSelect.prop('required', false);
-            }
-
-            calculateSaleSummary();
-            $(this).trigger('productLoaded');
+    if (sizesRaw && sizesRaw.toString().trim() !== '') {
+        sizeSelect.append('<option value="">-- Select Size --</option>');
+        sizesRaw.toString().split(',').forEach(function(size) {
+            let s = size.trim();
+            if (s !== '') sizeSelect.append(`<option value="${s}">${s}</option>`);
         });
+        sizeSelect.prop('required', true);
+    } else {
+        sizeSelect.append('<option value="">-- No Size --</option>');
+        sizeSelect.prop('required', false);
+    }
+
+    calculateSaleSummary();
+    $(this).trigger('productLoaded');
+});
 
         // =====================
         // Sale Form Submit
@@ -1271,19 +1291,49 @@ window.sendSingleToCourier = function(id) {
         });
     });
 };
-// ── SALE FORM: size change → stock info ──
+// ── SALE FORM: size change → stock info + FIFO ფასები ──
 $(document).on('change', '#size_sale', function() {
     var prodId = $('#product_id_sale').val();
     var size   = $(this).val();
 
     if (!prodId || !size) {
         $('#sale_stock_info').hide();
+        if (!isEditMode) {
+            $('#price_georgia_sale').val(0);
+            $('#price_georgia_text').text(0);
+            $('#price_usa_sale').val(0);
+            $('#price_usa_text').text(0);
+        }
         return;
     }
 
     $.get("{{ route('warehouse.stockInfo') }}", 
         { product_id: prodId, size: size }, 
         function(data) {
+            // FIFO ფასები მხოლოდ ახალი sale-ის დროს
+            if (!isEditMode) {
+                $.get("{{ url('api/fifo-prices') }}", 
+                    { product_id: prodId, size: size },
+                    function(fifo) {
+                        $('#price_georgia_sale').val(fifo.price_georgia || 0);
+                        $('#price_georgia_text').text(fifo.price_georgia || 0);
+                        $('#price_usa_sale').val(fifo.cost_price || 0);
+                        $('#price_usa_text').text(fifo.cost_price || 0);
+
+                        if (typeof calculateSaleSummary === 'function') {
+                            calculateSaleSummary();
+                        }
+                    }
+                );
+            } else {
+                // edit-ის დროს display ველები ჩავავსოთ hidden-იდან
+                $('#price_georgia_text').text($('#price_georgia_sale').val() || 0);
+                $('#price_usa_text').text($('#price_usa_sale').val() || 0);
+                if (typeof calculateSaleSummary === 'function') {
+                    calculateSaleSummary();
+                }
+            }
+
             if (!data.found) {
                 $('#sale_si_physical').text(0);
                 $('#sale_si_incoming').text(0);
@@ -1295,13 +1345,11 @@ $(document).on('change', '#size_sale', function() {
             }
 
             var avail = data.available;
-
             $('#sale_si_physical').text(data.physical_qty);
             $('#sale_si_incoming').text(data.incoming_qty);
             $('#sale_si_reserved').text(data.reserved_qty);
             $('#sale_si_available').text(avail);
 
-            // ფერი და badge
             var color, badge;
             if (avail <= 0) {
                 color = '#e74c3c';
@@ -1313,7 +1361,6 @@ $(document).on('change', '#size_sale', function() {
                 color = '#00a65a';
                 badge = '<span class="label label-success">ხელმისაწვდომია</span>';
             }
-
             $('#sale_si_available').css('color', color);
             $('#sale_si_badge').html(badge);
             $('#sale_stock_info').show();

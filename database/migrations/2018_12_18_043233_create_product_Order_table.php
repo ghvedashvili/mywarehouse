@@ -19,7 +19,8 @@ class CreateProductOrderTable extends Migration
             $table->string('product_size')->nullable();
             $table->string('color')->nullable();
             $table->integer('quantity')->default(1);
-
+$table->decimal('cost_price', 10, 2)->default(0);
+$table->unsignedInteger('purchase_order_id')->nullable()->index();
            $table->integer('customer_id')->unsigned()->nullable();
             $table->integer('status_id')->unsigned()->default(1);
             $table->integer('user_id')->unsigned();

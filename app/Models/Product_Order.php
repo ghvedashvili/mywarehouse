@@ -13,7 +13,7 @@ class Product_Order extends Model
         'courier_id', 'courier_price_international', 'courier_price_tbilisi', 'courier_price_region',
         'price_usa', 'price_georgia', 'discount',
         'paid_tbc', 'paid_bog', 'paid_lib', 'paid_cash',
-        'order_type', 'comment', 'status',
+        'order_type', 'comment', 'status','cost_price','purchase_order_id',
 'courier_price_village',
     ];
 

@@ -10,6 +10,9 @@ use App\Models\Courier;
 use App\Models\Product_Order;
 use App\Models\StatusChangeLog;
 use App\Exports\ExportProdukOrder;
+
+use App\Services\FifoService;
+
 use Illuminate\Http\Request;
 use Yajra\DataTables\DataTables;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -59,8 +62,13 @@ class ProductOrderController extends Controller
     $user = auth()->user();
 
     $data['user_id']       = $user->id;
-    $data['price_georgia'] = $product->price_geo;
-    $data['price_usa']     = $product->price_usa;
+    $fifo = FifoService::getPrices(
+    $request->product_id,
+    $request->product_size ?? ''
+);
+$data['price_georgia'] = $fifo['price_georgia'];
+$data['price_usa']     = $fifo['cost_price'];
+$data['purchase_order_id']  = $fifo['purchase_order_id']; // ← ეს დაამატე
 
     if ($user->role === 'staff') {
         $data['discount']  = 0;
