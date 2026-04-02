@@ -323,16 +323,15 @@ class WarehouseController extends Controller
                 if ($order->status_id == 2) $this->handleStockForPurchase($id, 1);
                 elseif ($order->status_id == 3) $this->handleStockForPurchase($id, 4);
 
-                // ══ ამ purchase-ს მიბმული sale-ები → status=1, purchase_order_id=null ══
+                // ══ ამ purchase-ს მიბმული sale-ები → status=1, purchase_order_id=null, ფასები რჩება ══
                 $boundSales = Product_Order::where('purchase_order_id', $order->id)
                     ->whereIn('status_id', [2, 3])->get();
 
                 foreach ($boundSales as $sale) {
                     if ($stock) $stock->decrement('reserved_qty', 1);
-                    $sale->purchase_order_id = null; // purchase წაიშლება
-                    $sale->price_usa         = 0;
-                    $sale->price_georgia     = 0;
-                    $sale->status_id         = 1;
+                    $sale->purchase_order_id = null; // purchase წაიშლება — id გაიწმინდება
+                    // ფასები რჩება — კლიენტთან ვალდებულება ინახება
+                    $sale->status_id = 1;
                     $sale->save();
                 }
                 if ($stock) $stock->save();
@@ -689,7 +688,7 @@ class WarehouseController extends Controller
         }
 
         // CASE 5: purchase გაუქმება →4
-        // ამ purchase-ს მიბმული sale-ები → status=1 (purchase_order_id null-დება — purchase წაიშლება)
+        // ამ purchase-ს მიბმული sale-ები → status=1, ფასები რჩება
         if ($newStatusId === 4) {
             $stock = Warehouse::where('product_id', $productId)->where('size', $size)->first();
 
@@ -700,8 +699,8 @@ class WarehouseController extends Controller
 
             foreach ($affectedSales as $sale) {
                 if ($stock) $stock->decrement('reserved_qty', 1);
-                // purchase წაიშლება — purchase_order_id null-დება
-                $logAndSave($sale, 1, 0, 0, null);
+                // ფასები რჩება — purchase_order_id null-დება
+                $logAndSave($sale, 1, $sale->price_usa, $sale->price_georgia, null);
             }
             if ($stock) $stock->save();
         }
