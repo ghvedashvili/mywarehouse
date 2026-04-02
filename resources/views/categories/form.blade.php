@@ -1,7 +1,7 @@
 <div class="modal fade" id="modal-form" tabindex="1" role="dialog" aria-hidden="true" data-backdrop="static">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form  id="form-item" method="post" class="form-horizontal" data-toggle="validator" enctype="multipart/form-data" >
+            <form id="form-item" method="post" class="form-horizontal" data-toggle="validator" enctype="multipart/form-data">
                 {{ csrf_field() }} {{ method_field('POST') }}
 
                 <div class="modal-header">
@@ -10,30 +10,22 @@
                     <h3 class="modal-title"></h3>
                 </div>
 
-
                 <div class="modal-body">
                     <input type="hidden" id="id" name="id">
 
-
                     <div class="box-body">
                         <div class="form-group">
-                            <label >Name</label>
-                            <input type="text" class="form-control" id="name" name="name"  autofocus required>
+                            <label>Name</label>
+                            <input type="text" class="form-control" id="name" name="name" autofocus required>
                             <span class="help-block with-errors"></span>
                         </div>
                         <div class="form-group">
-            <label>Sizes (მაგ: S, M, L ან 37, 38, 39)</label>
-            <input type="text" class="form-control" id="sizes" name="sizes" placeholder="შეიყვანეთ მძიმით გამოყოფილი">
-            <p class="help-block">ჩაწერეთ ზომები და გამოყავით მძიმეებით.</p>
-        </div>
+                            <label>Sizes (მაგ: S, M, L ან 37, 38, 39)</label>
+                            <input type="text" class="form-control" id="sizes" name="sizes" placeholder="შეიყვანეთ მძიმით გამოყოფილი">
+                            <p class="help-block">ჩაწერეთ ზომები და გამოყავით მძიმეებით.</p>
+                        </div>
                     </div>
-                    <div class="form-group">
-    <label>International Courier Price</label>
-    <input type="number" step="0.01" class="form-control" id="international_courier_price" name="international_courier_price" placeholder="მაგ: 20.50">
-</div>
-                    <!-- /.box-body -->
-
-                </div><!-- Log on to codeastro.com for more projects! -->
+                </div>
 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-danger pull-left" data-dismiss="modal">Cancel</button>
@@ -42,8 +34,5 @@
 
             </form>
         </div>
-        <!-- /.modal-content -->
     </div>
-    <!-- /.modal-dialog -->
 </div>
-<!-- /.modal -->
