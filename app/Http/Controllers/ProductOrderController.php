@@ -63,12 +63,12 @@ class ProductOrderController extends Controller
 
     $data['user_id']       = $user->id;
     $fifo = FifoService::getPrices(
-    $request->product_id,
-    $request->product_size ?? ''
-);
-$data['price_georgia'] = $fifo['price_georgia'];
-$data['price_usa']     = $fifo['cost_price'];
-$data['purchase_order_id']  = $fifo['purchase_order_id']; // ← ეს დაამატე
+        $request->product_id,
+        $request->product_size ?? ''
+    );
+    $data['price_georgia']     = $fifo['price_georgia'];
+    $data['price_usa']         = $fifo['cost_price'];
+    $data['purchase_order_id'] = null; // status=1-ზე null — დარეზერვებისას მიენიჭება
 
     if ($user->role === 'staff') {
         $data['discount']  = 0;
@@ -116,16 +116,12 @@ $data['purchase_order_id']  = $fifo['purchase_order_id']; // ← ეს და�
         : 0;
 
     if (!$hasDebt && $available > 0 && $stock) {
-        // გადახდილია და ნაშთი არის
-        if ($stock->physical_qty > 0) {
-            $data['status_id'] = 3;
-        } else {
-            $data['status_id'] = 2;
-        }
+        // გადახდილია და ნაშთი არის — დავარეზერვოთ
+        $data['status_id']         = $stock->physical_qty > 0 ? 3 : 2;
+        $data['purchase_order_id'] = $fifo['purchase_order_id']; // მხოლოდ დარეზერვებისას
         $newOrder = Product_Order::create($data);
         $stock->increment('reserved_qty', 1);
 
-        // ─── ლოგი: 1 → 2 ან 3 ───────────────────────────────────
         StatusChangeLog::create([
             'order_id'       => $newOrder->id,
             'user_id'        => auth()->id(),
@@ -133,13 +129,11 @@ $data['purchase_order_id']  = $fifo['purchase_order_id']; // ← ეს და�
             'status_id_to'   => $newOrder->status_id,
             'changed_at'     => now(),
         ]);
-        // ────────────────────────────────────────────────────────
 
     } else {
-        // დავალიანება აქვს ან ნაშთი არ არის → მოლოდინში
+        // დავალიანება აქვს ან ნაშთი არ არის → მოლოდინში, purchase_order_id=null
         $data['status_id'] = 1;
         Product_Order::create($data);
-        // status=1 საწყო სტატუსია — ლოგი არ სჭირდება
     }
     // ──────────────────────────────────────────────────────────────
 
@@ -286,6 +280,11 @@ public function update(Request $request, $id)
                     if ($available > 0 && $stock) {
                         $fromStatus       = 1;
                         $order->status_id = $stock->physical_qty > 0 ? 3 : 2;
+
+                        // FIFO purchase_order_id მიენიჭება დარეზერვებისას
+                        $fifo = \App\Services\FifoService::getPrices($order->product_id, $order->product_size);
+                        $order->purchase_order_id = $fifo['purchase_order_id'];
+
                         $stock->increment('reserved_qty', 1);
                         $order->save();
 
@@ -302,7 +301,8 @@ public function update(Request $request, $id)
                 } elseif ($hasDebt && in_array($order->status_id, [2, 3])) {
                     $fromStatus = $order->status_id;
                     if ($stock) $stock->decrement('reserved_qty', 1);
-                    $order->status_id = 1;
+                    $order->status_id        = 1;
+                    $order->purchase_order_id = null;
                     $order->save();
 
                     StatusChangeLog::create([
@@ -483,9 +483,6 @@ if ($diff < -0.01) {
 } elseif (abs($diff) <= 0.01) {
     $payment = 'გადახდილია';
     $paymentColor = 'green';
-} elseif ($child->status_id == 1 && $paid > 0) {
-    $payment = '✅ გადახდილია ⚠️ (-' . number_format($diff, 2) . ' ₾)';
-    $paymentColor = '#e67e22';
 } else {
     $payment = '-' . number_format($diff, 2) . ' ₾';
     $paymentColor = 'red';
@@ -567,24 +564,6 @@ if ($diff < -0.01) {
         return $discountBadge . '<span style="color:green;">
                     <i class="fa fa-check-circle"></i> გადახდილია
                 </span>';
-    }
-
-    // status=1, გადახდილია მაგრამ ფასი გაიზარდა
-    if ($item->status_id == 1 && $paid > 0) {
-        $stock = \App\Models\Warehouse::where('product_id', $item->product_id)
-            ->where('size', $item->product_size)->first();
-        $available = $stock
-            ? max(0, ($stock->physical_qty + $stock->incoming_qty) - $stock->reserved_qty)
-            : 0;
-        $slotsText = $available > 0
-            ? '<br><small style="color:#888;">📦 თავისუფალი: ' . $available . ' ცალი</small>'
-            : '<br><small style="color:#e74c3c;">📦 ადგილი არ არის</small>';
-
-        return $discountBadge . '<span style="color:#e67e22; font-weight:bold;">
-                    <i class="fa fa-check-circle"></i> გადახდილია
-                    <br><small style="color:#e67e22;">⚠️ ფასი დასაკორექტირებელია (-' . number_format($diff, 2) . ' ₾)</small>'
-                    . $slotsText .
-                '</span>';
     }
 
     // ჩვეულებრივი დავალიანება

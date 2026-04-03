@@ -247,20 +247,14 @@ var table = $('#products-out-table').DataTable({
     ajax: "{{ route('api.productsOut') }}",
     columns: columns,
     order: [[1, 'desc']],
-    rowCallback: function(row, data) {
+    rrowCallback: function(row, data) {
     var geo  = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
     var paid = parseFloat(data.paid_tbc || 0) + parseFloat(data.paid_bog || 0) +
                parseFloat(data.paid_lib || 0) + parseFloat(data.paid_cash || 0);
     var diff = geo - paid;
 
     if (diff > 0.01) {
-        if (data.status_id == 1 && paid > 0) {
-            // გადახდილია მაგრამ ფასი გაიზარდა — ნარინჯისფერი
-            $(row).css('background-color', '#fef3e2');
-        } else {
-            // ჩვეულებრივი დავალიანება — წითელი
-            $(row).css('background-color', '#f2dede');
-        }
+        $(row).css('background-color', '#f2dede'); // წითელი — ყველა დავალიანება
     } else {
         $(row).css('background-color', '');
     }
@@ -1152,9 +1146,7 @@ $(document).on('click', '.expand-btn', function() {
             : '<span class="label label-default">No Img</span>';
 
         var statusBadge = '<span class="label label-' + child.status_color + '">' + child.status_name + '</span>';
-        if (isAdmin) {
-            statusBadge += ' <span class="label label-default" style="cursor:pointer;" onclick="openStatusModal(' + child.id + ',' + child.status_id + ')"><i class="fa fa-pencil"></i></span>';
-        }
+// შვილ ორდერებს სტატუსის ხელით შეცვლა არ შეიძლება
 
         // prices
         var prices = '<b>GE:</b> ' + child.price_georgia + ' ₾';

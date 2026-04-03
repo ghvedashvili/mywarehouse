@@ -248,14 +248,14 @@ class WarehouseController extends Controller
                 if ($qtyDiff !== 0 && in_array($order->status_id, [2, 3])) {
                     $stock = Warehouse::where('product_id', $newProduct)->where('size', $newSize)->first();
 
-                    // მინიმუმი = კურიერზე გადაცემული + დარეზერვებული sale-ები ამ purchase-დან
-                    $minRequired = Product_Order::where('purchase_order_id', $order->id)
-                        ->whereIn('status_id', [2, 3, 4])->count();
+                    // მინიმუმი = მხოლოდ კურიერზე გადაცემული sale-ები
+                    $courierCount = Product_Order::where('purchase_order_id', $order->id)
+                        ->where('status_id', 4)->count();
 
-                    if ($newQty < $minRequired) {
+                    if ($newQty < $courierCount) {
                         return response()->json([
                             'success' => false,
-                            'message' => 'რაოდენობა ვერ შემცირდება ' . $newQty . '-ზე: ' . $minRequired . ' ერთეული უკვე გამოყენებულია (დარეზერვებული + კურიერთან).'
+                            'message' => 'რაოდენობა ვერ შემცირდება ' . $newQty . '-ზე: ' . $courierCount . ' ერთეული უკვე კურიერთანაა გადაცემული.'
                         ], 422);
                     }
 
@@ -266,6 +266,45 @@ class WarehouseController extends Controller
                         $stock->refresh();
 
                         if ($qtyDiff < 0) {
+                            // ამ purchase-ს მიბმული sale-ები — თუ ვეღარ ეტევა
+                            $reservedFromThis = Product_Order::where('purchase_order_id', $order->id)
+                                ->whereIn('status_id', [2, 3])
+                                ->orderBy('created_at', 'desc')
+                                ->get();
+
+                            foreach ($reservedFromThis as $sale) {
+                                $stock->refresh();
+                                $overflow = $stock->reserved_qty - ($stock->incoming_qty + $stock->physical_qty);
+                                if ($overflow <= 0) break;
+
+                                // სხვა purchase-ზე ადგილი არის?
+                                $nextPurchase = FifoService::getNextPurchase($newProduct, $newSize);
+
+                                if ($nextPurchase && $nextPurchase->id !== $order->id) {
+                                    // სხვა purchase-ზე გადავიტანოთ — სტატუსი და ნაშთი არ იცვლება
+                                    $sale->purchase_order_id = $nextPurchase->id;
+                                    $sale->price_usa         = (float) $nextPurchase->cost_price;
+                                    $sale->price_georgia     = (float) $nextPurchase->price_georgia;
+                                    $sale->save();
+                                } else {
+                                    // სხვა purchase არ არის — status=1-ზე დაბრუნება
+                                    $stock->decrement('reserved_qty', 1);
+                                    $sale->purchase_order_id = null;
+                                    $sale->status_id         = 1;
+                                    $sale->save();
+
+                                    StatusChangeLog::create([
+                                        'order_id'       => $sale->id,
+                                        'user_id'        => auth()->id(),
+                                        'status_id_from' => $sale->getOriginal('status_id'),
+                                        'status_id_to'   => 1,
+                                        'changed_at'     => now(),
+                                    ]);
+                                }
+                            }
+
+                            // სხვა purchase-ებიდანაც თუ კვლავ overflow-ია
+                            $stock->refresh();
                             $overflow = $stock->reserved_qty - ($stock->incoming_qty + $stock->physical_qty);
                             if ($overflow > 0) {
                                 $salesToDemote = Product_Order::where('order_type', 'sale')
@@ -275,11 +314,11 @@ class WarehouseController extends Controller
 
                                 foreach ($salesToDemote as $sale) {
                                     $stock->decrement('reserved_qty', 1);
-                                    $sale->price_usa = 0;
                                     $sale->status_id = 1;
                                     $sale->save();
                                 }
                             }
+                            if ($stock) $stock->save();
                         } else {
                             $this->promotePendingSales($newProduct, $newSize, $stock, $order->status_id);
                         }
@@ -311,11 +350,7 @@ class WarehouseController extends Controller
                                   ->where('size', $order->product_size)->first();
 
                 if ($stock) {
-                    $remainingPhysical = $stock->physical_qty - ($order->status_id == 3 ? $order->quantity : 0);
-                    $remainingIncoming = $stock->incoming_qty - ($order->status_id == 2 ? $order->quantity : 0);
-                    $remainingTotal    = $remainingPhysical + $remainingIncoming;
-
-                    // status=4 (კურიერთან) sale-ები — წაშლა სრულად აიკრძალება
+                    // მხოლოდ კურიერთან გადაცემული sale-ები კრძალავს წაშლას
                     $courierSales = Product_Order::where('purchase_order_id', $order->id)
                         ->where('status_id', 4)->count();
 
@@ -324,36 +359,54 @@ class WarehouseController extends Controller
                             'წაშლა შეუძლებელია: ' . $courierSales . ' sale ორდერი უკვე კურიერთანაა გადაცემული.'
                         );
                     }
-
-                    // ამ purchase-ს მიბმული active sale-ების რაოდენობა
-                    $thisOrderSales = Product_Order::where('purchase_order_id', $order->id)
-                        ->whereIn('status_id', [2, 3])->count();
-
-                    // დარჩენილი sale-ები სხვა purchase-ებიდან
-                    $otherReserved = $stock->reserved_qty - $thisOrderSales;
-
-                    if ($remainingTotal < $otherReserved) {
-                        throw new \Exception(
-                            'წაშლა შეუძლებელია: ამ შესყიდვის გარეშე საკმარისი ნაშთი არ იქნება. ' .
-                            'დარჩება: ' . $remainingTotal . ' ცალი, საჭიროა: ' . $otherReserved . ' ცალი.'
-                        );
-                    }
                 }
 
                 // ══ stock განახლება ══
                 if ($order->status_id == 2) $this->handleStockForPurchase($id, 1);
                 elseif ($order->status_id == 3) $this->handleStockForPurchase($id, 4);
 
-                // ══ ამ purchase-ს მიბმული sale-ები → status=1, purchase_order_id=null, ფასები რჩება ══
-                $boundSales = Product_Order::where('purchase_order_id', $order->id)
+                // ══ ამ purchase-ს მიბმული sale-ები + null purchase_order_id მქონე sale-ები ══
+                $boundSales = Product_Order::where('order_type', 'sale')
+                    ->where('product_id', $order->product_id)
+                    ->where('product_size', $order->product_size)
+                    ->where(function($q) use ($order) {
+                        $q->where('purchase_order_id', $order->id)
+                          ->orWhereNull('purchase_order_id');
+                    })
                     ->whereIn('status_id', [2, 3])->get();
 
                 foreach ($boundSales as $sale) {
-                    if ($stock) $stock->decrement('reserved_qty', 1);
-                    $sale->purchase_order_id = null; // purchase წაიშლება — id გაიწმინდება
-                    // ფასები რჩება — კლიენტთან ვალდებულება ინახება
-                    $sale->status_id = 1;
-                    $sale->save();
+                    // სხვა purchase-ზე ადგილი არის? (წაშლილი order-ის გარდა)
+                    $nextPurchase = \App\Services\FifoService::getNextPurchase(
+                        $order->product_id,
+                        $order->product_size,
+                        $order->id
+                    );
+
+                    if ($nextPurchase) {
+                        // სხვა purchase-ზე გადავიტანოთ
+                        // სტატუსიც განახლდება purchase-ის სტატუსის მიხედვით
+                        $newSaleStatus = $nextPurchase->status_id; // 2 ან 3
+                        $sale->purchase_order_id = $nextPurchase->id;
+                        $sale->price_usa         = (float) $nextPurchase->cost_price;
+                        $sale->price_georgia     = (float) $nextPurchase->price_georgia;
+                        $sale->status_id         = $newSaleStatus;
+                        $sale->save();
+
+                        StatusChangeLog::create([
+                            'order_id'       => $sale->id,
+                            'user_id'        => auth()->id(),
+                            'status_id_from' => $sale->getOriginal('status_id'),
+                            'status_id_to'   => $newSaleStatus,
+                            'changed_at'     => now(),
+                        ]);
+                    } else {
+                        // სხვა purchase არ არის — status=1-ზე დაბრუნება
+                        if ($stock) $stock->decrement('reserved_qty', 1);
+                        $sale->purchase_order_id = null;
+                        $sale->status_id         = 1;
+                        $sale->save();
+                    }
                 }
                 if ($stock) $stock->save();
             }
@@ -468,11 +521,10 @@ class WarehouseController extends Controller
 
             if ($available <= 0) break;
 
-            // ჯერ FIFO ფასი განვაახლოთ
+            // ჯერ FIFO ფასი განვაახლოთ (purchase_order_id ჯერ არ ენიჭება)
             $nextPurchase = FifoService::getNextPurchase($productId, $size);
-            $sale->purchase_order_id = $nextPurchase?->id;
-            $sale->price_usa         = $nextPurchase?->cost_price ?? 0;
-            $sale->price_georgia     = $nextPurchase?->price_georgia ?? 0;
+            $sale->price_usa     = $nextPurchase?->cost_price ?? 0;
+            $sale->price_georgia = $nextPurchase?->price_georgia ?? 0;
 
             // შემდეგ შევამოწმოთ დავალიანება ახალი ფასით
             $total   = $sale->price_georgia - ($sale->discount ?? 0);
@@ -481,12 +533,14 @@ class WarehouseController extends Controller
             $hasDebt = ($total - $paid) > 0.01;
 
             if ($hasDebt) {
-                // დავალიანებაა — status=1 რჩება, მხოლოდ ფასი შეინახება
+                // დავალიანებაა — status=1 რჩება, purchase_order_id=null
+                $sale->purchase_order_id = null;
                 $sale->save();
                 continue;
             }
 
-            // დავალიანება არ არის — status-ი განახლდება
+            // დავალიანება არ არის — დავარეზერვოთ
+            $sale->purchase_order_id = $nextPurchase?->id; // მხოლოდ აქ ენიჭება
             $stock->increment('reserved_qty', 1);
             $sale->status_id = $purchaseStatus;
             $sale->save();
@@ -607,7 +661,7 @@ class WarehouseController extends Controller
         $productId = $order->product_id;
         $size      = $order->product_size;
 
-        $logAndSave = function (Product_Order $sale, int $newSaleStatus, float $priceUsa = 0, float $priceGeo = 0, ?int $purchaseOrderId = null) {
+        $logAndSave = function (Product_Order $sale, int $newSaleStatus, float $priceUsa = 0, float $priceGeo = 0, ?int $purchaseOrderId = -1) {
             StatusChangeLog::create([
                 'order_id'       => $sale->id,
                 'user_id'        => auth()->id(),
@@ -615,9 +669,9 @@ class WarehouseController extends Controller
                 'status_id_to'   => $newSaleStatus,
                 'changed_at'     => now(),
             ]);
-            $sale->price_usa     = $priceUsa;
+            $sale->price_usa = $priceUsa;
             if ($priceGeo > 0) $sale->price_georgia = $priceGeo;
-            if ($purchaseOrderId !== null) $sale->purchase_order_id = $purchaseOrderId;
+            if ($purchaseOrderId !== -1) $sale->purchase_order_id = $purchaseOrderId; // -1 = არ შეცვალო
             $sale->status_id = $newSaleStatus;
             $sale->save();
         };
@@ -642,15 +696,15 @@ class WarehouseController extends Controller
                 $stock->refresh();
                 $available = $stock->incoming_qty - $stock->reserved_qty;
 
-                // ჯერ FIFO ფასი განვაახლოთ
+                // ჯერ FIFO ფასი განვაახლოთ (purchase_order_id ჯერ არ ენიჭება)
                 $nextPurchase = FifoService::getNextPurchase($productId, $size);
-                $sale->purchase_order_id = $nextPurchase?->id;
-                $sale->price_usa         = $nextPurchase?->cost_price ?? 0;
-                $sale->price_georgia     = $nextPurchase?->price_georgia ?? 0;
+                $sale->price_usa     = $nextPurchase?->cost_price ?? 0;
+                $sale->price_georgia = $nextPurchase?->price_georgia ?? 0;
 
                 // შემდეგ შევამოწმოთ დავალიანება ახალი ფასით
                 if ($available > 0 && !$hasDebt($sale)) {
-                    // ნაშთი კმარა და დავალიანება არ არის — status=2
+                    // ნაშთი კმარა და დავალიანება არ არის — დავარეზერვოთ
+                    $sale->purchase_order_id = $nextPurchase?->id; // მხოლოდ აქ ენიჭება
                     $stock->increment('reserved_qty', 1);
                     $logAndSave($sale, 2,
                         $sale->price_usa,
@@ -658,7 +712,8 @@ class WarehouseController extends Controller
                         $sale->purchase_order_id
                     );
                 } else {
-                    // ნაშთი არ კმარა ან დავალიანებაა — status=1 რჩება
+                    // ნაშთი არ კმარა ან დავალიანებაა — status=1, purchase_order_id=null
+                    $sale->purchase_order_id = null;
                     $sale->save();
                 }
             }
@@ -679,7 +734,7 @@ class WarehouseController extends Controller
         }
 
         // CASE 3: purchase 2→1
-        // ამ purchase-ს მიბმული sale-ები → status=1 (purchase_order_id რჩება)
+        // ამ purchase-ს მიბმული sale-ები → status=1, purchase_order_id გაიწმინდება
         if ($oldStatusId === 2 && $newStatusId === 1) {
             $stock = Warehouse::where('product_id', $productId)->where('size', $size)->first();
 
@@ -690,8 +745,8 @@ class WarehouseController extends Controller
 
             foreach ($reservedSales as $sale) {
                 if ($stock) $stock->decrement('reserved_qty', 1);
-                // purchase_order_id რჩება — მომავალი reassign-ისთვის
-                $logAndSave($sale, 1, $sale->price_usa, $sale->price_georgia, $sale->purchase_order_id);
+                // purchase_order_id null-დება — purchase ახლად გამოდის
+                $logAndSave($sale, 1, $sale->price_usa, $sale->price_georgia, null);
             }
             if ($stock) $stock->save();
         }

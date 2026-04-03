@@ -10,20 +10,20 @@ class FifoService
     // შემდეგი sale-ისთვის შესაბამისი purchase-ის პოვნა (FIFO)
     // აბრუნებს purchase ორდერს რომლიდანაც შემდეგი sale უნდა წავიდეს
     // ════════════════════════════════════════════════════════════════
-    public static function getNextPurchase(int $productId, string $size = ''): ?Product_Order
+    public static function getNextPurchase(int $productId, string $size = '', int $excludeId = 0): ?Product_Order
     {
-        // purchase-ები ქრონოლოგიურად
         $query = Product_Order::where('order_type', 'purchase')
             ->where('product_id', $productId)
             ->whereIn('status_id', [2, 3])
             ->orderBy('created_at', 'asc');
 
         if ($size !== '') $query->where('product_size', $size);
-        $purchases = $query->get(['id', 'quantity', 'cost_price', 'price_georgia', 'created_at']);
+        if ($excludeId > 0) $query->where('id', '!=', $excludeId);
+
+        $purchases = $query->get(['id', 'quantity', 'cost_price', 'price_georgia', 'status_id', 'created_at']);
 
         if ($purchases->isEmpty()) return null;
 
-        // თითოეული purchase-ისთვის ვნახოთ რამდენი sale უკვე მიბმულია
         foreach ($purchases as $purchase) {
             $usedCount = Product_Order::where('order_type', 'sale')
                 ->where('purchase_order_id', $purchase->id)
@@ -31,11 +31,10 @@ class FifoService
                 ->count();
 
             if ($usedCount < $purchase->quantity) {
-                return $purchase; // ამ purchase-ს ჯერ კიდევ აქვს თავისუფალი slot-ი
+                return $purchase;
             }
         }
 
-        // ყველა purchase ამოიწურა — ბოლო purchase დავაბრუნოთ
         return $purchases->last();
     }
 
