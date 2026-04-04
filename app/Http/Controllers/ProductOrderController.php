@@ -470,22 +470,43 @@ public function handleStockChange($orderId, $newStatusId, $oldStatusParam = null
 {
     $isAdmin = auth()->user()->role === 'admin';
 
+    /*
+     * ⚠️ Product_Order მოდელში საჭიროა siblings() relation:
+     *
+     * public function siblings()
+     * {
+     *     return $this->hasMany(Product_Order::class, 'merged_id', 'merged_id')
+     *                 ->where('is_primary', 0)
+     *                 ->withoutGlobalScope('active');
+     * }
+     */
+
+    // DataTables search სტრიქონი
+    $search = $request->input('search.value', '');
+
+    // სტატუს ფილტრი
+    $statuses = $request->has('statuses') ? $request->input('statuses') : [];
+
     $query = Product_Order::withoutGlobalScope('active')
         ->with(['product', 'customer.city', 'orderStatus'])
         ->where(function($q) {
-            // მხოლოდ primary-ები და დამოუკიდებლები
             $q->where('is_primary', 1)
               ->orWhereNull('merged_id');
         })
-        ->whereIn('order_type', ['sale', 'change'])
-        ->latest();
+        ->whereIn('order_type', ['sale', 'change']);
+
+    // სტატუს ფილტრი — primary თვითონ ან შვილი ემთხვევა
+    if (!empty($statuses)) {
+        $query->where(function($q) use ($statuses) {
+            $q->whereIn('status_id', $statuses)
+              ->orWhereHas('siblings', function($sq) use ($statuses) {
+                  $sq->whereIn('status_id', $statuses);
+              });
+        });
+    }
 
     if ($request->debt_only == 1) {
         $query->whereRaw('(price_georgia - IFNULL(discount,0)) > (IFNULL(paid_tbc,0) + IFNULL(paid_bog,0) + IFNULL(paid_lib,0) + IFNULL(paid_cash,0))');
-    }
-
-    if ($request->has('statuses')) {
-        $query->whereIn('status_id', $request->input('statuses'));
     }
 
     if ($request->get('show_deleted') == 1) {
@@ -494,6 +515,34 @@ public function handleStockChange($orderId, $newStatusId, $oldStatusParam = null
         $query->where('status', 'active');
     }
 
+    // ძებნა — primary თვითონ ან შვილი ემთხვევა
+    if ($search !== '') {
+        $query->where(function($q) use ($search) {
+            $q->whereHas('product', function($pq) use ($search) {
+                $pq->where('name', 'like', "%{$search}%")
+                   ->orWhere('product_code', 'like', "%{$search}%");
+            })
+            ->orWhereHas('customer', function($cq) use ($search) {
+                $cq->where('name', 'like', "%{$search}%")
+                   ->orWhere('tel', 'like', "%{$search}%")
+                   ->orWhere('alternative_tel', 'like', "%{$search}%");
+            })
+            // შვილებში ძებნა
+            ->orWhereHas('siblings', function($sq) use ($search) {
+                $sq->whereHas('product', function($pq) use ($search) {
+                    $pq->where('name', 'like', "%{$search}%")
+                       ->orWhere('product_code', 'like', "%{$search}%");
+                })
+                ->orWhereHas('customer', function($cq) use ($search) {
+                    $cq->where('name', 'like', "%{$search}%")
+                       ->orWhere('tel', 'like', "%{$search}%")
+                       ->orWhere('alternative_tel', 'like', "%{$search}%");
+                });
+            });
+        });
+    }
+
+    $query->latest();
     $productOrder = $query->get();
 
     // თითოეულ primary-ს შვილები მივუერთოთ
@@ -510,8 +559,17 @@ public function handleStockChange($orderId, $newStatusId, $oldStatusParam = null
     }
 
     return Datatables::of($productOrder)
+        ->filter(function() {}) // DataTables-ის built-in ძებნა გამოვრთოთ — ჩვენ query-ში ვამუშავებთ
         ->addColumn('order_id', function ($item) {
-            return '#' . $item->id;
+            // ტიპის პირველი ასო: S=sale, C=change, P=purchase
+            $typeMap = ['sale' => 'S', 'change' => 'C', 'purchase' => 'P'];
+            $prefix  = $typeMap[$item->order_type] ?? 'S';
+            // created_at → YYMMDD
+            $datePart = $item->created_at ? $item->created_at->format('ymd') : '000000';
+            return $prefix . $item->id . '/' . $datePart;
+        })
+        ->addColumn('children_count', function ($item) {
+            return $item->is_primary ? $item->children->count() + 1 : 0;
         })
         ->addColumn('children_json', function ($item) {
     return htmlspecialchars($item->children->map(function($child) {
@@ -577,14 +635,23 @@ if ($diff < -0.01) {
             return $item->created_at->format('Y-m-d H:i:s');
         })
         ->addColumn('customer_name', function ($item) {
-            return $item->customer->name ?? 'N/A';
+            $customer = $item->customer;
+            if (!$customer) return '<span class="text-muted">N/A</span>';
+
+            $name    = e($customer->name);
+            $city    = e($customer->city->name ?? '-');
+            $address = e($customer->address ?? '-');
+            $tel     = e($customer->tel ?? '-');
+            $alt     = $customer->alternative_tel ? ' / ' . e($customer->alternative_tel) : '';
+
+            return '<strong>' . $name . '</strong>'
+                 . '<hr style="margin:3px 0;">'
+                 . '<small class="text-muted">'
+                 . '<i class="fa fa-map-marker"></i> ' . $city . ', ' . $address . '<br>'
+                 . '<i class="fa fa-phone"></i> ' . $tel . $alt
+                 . '</small>';
         })
-        ->addColumn('prices', function ($item) use ($isAdmin) {
-            $geo = '<b>GE:</b> ' . $item->price_georgia . ' ₾';
-            $usa = $isAdmin ? '<br><b>US:</b> ' . $item->price_usa . ' $' : '';
-            return $geo . $usa;
-        })
-        ->addColumn('payment', function ($item) {
+        ->addColumn('payment', function ($item) use ($isAdmin) {
     $geo      = $item->price_georgia - ($item->discount ?? 0);
     $paid     = ($item->paid_tbc ?? 0) + ($item->paid_bog ?? 0) +
                 ($item->paid_lib ?? 0) + ($item->paid_cash ?? 0);
@@ -596,41 +663,31 @@ if ($diff < -0.01) {
         ? '<small style="color:#8e44ad; display:block;">🏷️ ფასდაკლება: -' . number_format($discount, 2) . ' ₾</small>'
         : '';
 
-    // კლიენტმა მეტი გადაიხადა
+    // სტატუსი
     if ($diff < -0.01) {
-        return $discountBadge . '<span style="color:green; font-weight:bold;">
+        $statusHtml = $discountBadge . '<span style="color:green; font-weight:bold;">
                     <i class="fa fa-plus-circle"></i> +' . number_format(abs($diff), 2) . ' ₾
                 </span>';
-    }
-
-    // სრულად გადახდილია
-    if (abs($diff) <= 0.01) {
-        return $discountBadge . '<span style="color:green;">
+    } elseif (abs($diff) <= 0.01) {
+        $statusHtml = $discountBadge . '<span style="color:green;">
                     <i class="fa fa-check-circle"></i> გადახდილია
                 </span>';
-    }
-
-    // ჩვეულებრივი დავალიანება
-    return $discountBadge . '<span style="color:red; font-weight:bold;">
+    } else {
+        $statusHtml = $discountBadge . '<span style="color:red; font-weight:bold;">
                 <i class="fa fa-exclamation-circle"></i> -' . number_format($diff, 2) . ' ₾
             </span>';
+    }
+
+    // Prices ქვემოთ
+    $pricesHtml = '<hr style="margin:4px 0;">'
+        . '<small><b>GE:</b> ' . number_format($item->price_georgia, 2) . ' ₾';
+    if ($isAdmin) {
+        $pricesHtml .= ' &nbsp; <b>US:</b> ' . number_format($item->price_usa, 2) . ' $';
+    }
+    $pricesHtml .= '</small>';
+
+    return $statusHtml . $pricesHtml;
 })
-        ->addColumn('customer_contact', function ($item) {
-            $customer = $item->customer;
-            if (!$customer) return '<span class="text-muted">-</span>';
-
-            $city    = $customer->city->name ?? '-';
-            $address = $customer->address ?? '-';
-            $tel     = $customer->tel ?? '-';
-            $alt     = $customer->alternative_tel ?? '';
-
-            $html  = '<small>';
-            $html .= '<i class="fa fa-map-marker"></i> ' . e($city) . ', ' . e($address) . '<br>';
-            $html .= '<i class="fa fa-phone"></i> ' . e($tel);
-            if ($alt) $html .= ' / ' . e($alt);
-            $html .= '</small>';
-            return $html;
-        })
         ->addColumn('status_label', function ($item) use ($isAdmin) {
     $color = $item->orderStatus->color ?? 'default';
     $name  = $item->orderStatus->name  ?? 'Pending';
@@ -638,11 +695,9 @@ if ($diff < -0.01) {
     if ($isAdmin) {
         // merged primary
         if ($item->is_primary) {
-            $totalCount         = $item->children->count() + 1;
-            $allStatus3         = $item->status_id == 3 && $item->children->every(fn($c) => $c->status_id == 3);
+            $allStatus3 = $item->status_id == 3 && $item->children->every(fn($c) => $c->status_id == 3);
 
             $html = '<span class="label label-' . $color . '" style="font-size:12px; padding:4px 8px;">' . $name . '</span>';
-            $html .= ' <span class="label label-warning" style="font-size:11px;" title="გაერთიანებული ორდერები">📦 ' . $totalCount . ' ამანათი</span>';
 
             if ($allStatus3) {
                 $html .= '<br><button class="btn btn-xs btn-success"
@@ -714,7 +769,7 @@ if ($diff < -0.01) {
         '<a onclick="showStatusLog(' . $item->id . ')" class="btn btn-warning btn-xs" title="ისტორია"><i class="fa fa-history"></i></a>' .
         '</center>';
 })
-        ->rawColumns(['order_id', 'children_json', 'show_photo', 'product_info', 'prices', 'payment', 'customer_contact', 'status_label', 'action'])
+        ->rawColumns(['order_id', 'children_json', 'show_photo', 'product_info', 'payment', 'customer_name', 'status_label', 'action'])
         ->make(true);
 }
 

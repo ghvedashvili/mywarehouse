@@ -51,4 +51,10 @@ class Product_Order extends Model
     {
         return $this->belongsTo(Customer::class)->withoutGlobalScope('active');
     }
+     public function siblings()
+      {
+          return $this->hasMany(Product_Order::class, 'merged_id', 'merged_id')
+                      ->where('is_primary', 0)
+                      ->withoutGlobalScope('active');
+      }
 }

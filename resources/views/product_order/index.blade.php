@@ -51,16 +51,14 @@
             <table id="products-out-table" class="table table-bordered table-striped">
                 <thead class="fs-1">
     <tr>
-        <th><input type="checkbox" id="check-all" title="ყველას მონიშვნა"></th>
-        <th></th>  {{-- expand ღილაკი --}}
-        <th>Status</th>
-        <th>Date</th>
-        <th>Picture</th>
+        <th style="width:110px;">№ / <input type="checkbox" id="check-all" title="ყველას მონიშვნა"></th>
+        <th style="width:40px;"></th>  {{-- expand ღილაკი --}}
+        <th style="width:80px;">თარიღი</th>
+        <th>სტატუსი</th>
+        <th style="width:70px;">Picture</th>
         <th>Product</th>
         <th>Customer</th>
-        <th>Prices</th>
         <th>Payment</th>
-        <th>Contact</th>
         @if(auth()->user()->role == 'admin')
         <th>Actions</th>
         @endif
@@ -193,30 +191,55 @@
         var isAdmin = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
 
 var columns = [
+    // სვეტი 1: ორდერის ნომერი + checkbox
+    // სვეტი 1: ორდერის ნომერი, შემდეგ checkbox + 📦 ერთ ხაზზე
     {
         data: null,
         orderable: false,
         searchable: false,
         render: function(data) {
-            // გაერთიანებული შვილები ვერ ირჩევა
-            if (data.merged_id && !data.is_primary) return '';
-            return '<input type="checkbox" class="row-check" data-id="' + data.id + '" data-status="' + data.status_id + '">';
-        }
-    },
-    {
-        data: null,
-        orderable: false,
-        searchable: false,
-        render: function(data) {
-            if (data.is_primary) {
-                return '<button class="btn btn-xs btn-default expand-btn" data-id="' + data.id + '" data-children=\'' + data.children_json + '\'>' +
-                       '<i class="fa fa-chevron-right"></i></button>';
+            var typeMap = {sale: 'S', change: 'C', purchase: 'P'};
+            var prefix  = typeMap[data.order_type] || 'S';
+            var d       = new Date(data.created_at);
+            var yy      = String(d.getFullYear()).slice(-2);
+            var mm      = ("0"+(d.getMonth()+1)).slice(-2);
+            var dd      = ("0"+d.getDate()).slice(-2);
+            var orderNo = prefix + data.id + '/' + yy + mm + dd;
+
+            // 1. ჩეკბოქსი და ნომერი (ერთ ხაზზე)
+            var cb = (data.merged_id && !data.is_primary)
+                ? ''
+                : '<input type="checkbox" class="row-check" data-id="' + data.id + '" data-status="' + data.status_id + '" style="margin:0;">';
+            
+            var headerRow = '<div style="display:flex; align-items:center; gap:5px;">' + 
+                                cb + 
+                                '<small style="font-weight:600; color:#333; white-space:nowrap;">' + orderNo + '</small>' + 
+                            '</div>';
+
+            // 2. Expand 📦 ბეჯი (როგორც ღილაკი)
+            var expandSection = '';
+            if (data.is_primary && data.children_count > 0) {
+                // აქ 📦 ბეჯს ვანიჭებთ expand-btn კლასს
+                expandSection = '<div style="margin-top:4px; padding-left:2px;">' +
+                                    '<span class="label label-warning expand-btn" ' +
+                                    'data-id="' + data.id + '" data-children=\'' + data.children_json + '\' ' +
+                                    'style="cursor:pointer; font-size:11px; display:inline-block; border:1px solid #e67e22;">' +
+                                    '<i class="fa fa-chevron-right" style="font-size:9px; margin-right:3px;"></i> 📦 ' + data.children_count +
+                                    '</span>' +
+                                '</div>';
+            } else if (!data.is_primary && data.merged_id) {
+                // თუ შვილია, უბრალოდ ვიზუალური ინდენტირება
+                expandSection = '<div style="margin-top:4px; padding-left:5px; color:#bbb;"><i class="fa fa-level-up fa-rotate-90"></i></div>';
             }
-            return '';
+
+            return '<div style="display:flex; flex-direction:column; justify-content:center;">' + 
+                        headerRow + 
+                        expandSection + 
+                   '</div>';
         }
     },
-    {data: 'status_label',     name: 'status_label',     orderable: false, searchable: false},
-    {data: 'created_at',       name: 'created_at',
+    // სვეტი 3: თარიღი
+    {data: 'created_at', name: 'created_at',
         render: function(data) {
             if (data) {
                 let d = new Date(data);
@@ -225,12 +248,16 @@ var columns = [
             return '';
         }
     },
-    {data: 'show_photo',       name: 'show_photo',       orderable: false, searchable: false},
-    {data: 'product_info',     name: 'product_info',     orderable: false, searchable: false},
-    {data: 'customer_name',    name: 'customer_name'},
-    {data: 'prices',           name: 'prices',           orderable: false, searchable: false},
-    {data: 'payment',          name: 'payment',          orderable: false, searchable: false},
-    {data: 'customer_contact', name: 'customer_contact', orderable: false, searchable: true},
+    // სვეტი 4: სტატუსი
+    {data: 'status_label', name: 'status_label', orderable: false, searchable: false},
+    // სვეტი 5: Picture
+    {data: 'show_photo',   name: 'show_photo',   orderable: false, searchable: false},
+    // სვეტი 6: Product
+    {data: 'product_info', name: 'product_info', orderable: false, searchable: false},
+    // სვეტი 7: Customer + Contact
+    {data: 'customer_name', name: 'customer_name'},
+    // სვეტი 8: Payment + Prices
+    {data: 'payment',      name: 'payment',      orderable: false, searchable: false},
 ];
 
 if (isAdmin) {
@@ -246,7 +273,7 @@ var table = $('#products-out-table').DataTable({
     serverSide: true,
     ajax: "{{ route('api.productsOut') }}",
     columns: columns,
-    order: [[1, 'desc']],
+    order: [[2, 'desc']],
     rrowCallback: function(row, data) {
     var geo  = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
     var paid = parseFloat(data.paid_tbc || 0) + parseFloat(data.paid_bog || 0) +
@@ -1143,45 +1170,45 @@ $(document).on('click', '.expand-btn', function() {
         var statusBadge = '<span class="label label-' + child.status_color + '">' + child.status_name + '</span>';
 // შვილ ორდერებს სტატუსის ხელით შეცვლა არ შეიძლება
 
-        // prices
-        var prices = '<b>GE:</b> ' + child.price_georgia + ' ₾';
-        if (isAdmin) prices += '<br><b>US:</b> ' + child.price_usa + ' $';
+        // payment + prices გაერთიანება
+        var paymentPrices = '<span style="color:' + child.payment_color + '; font-weight:bold;">' + child.payment + '</span>'
+            + '<hr style="margin:4px 0;">'
+            + '<small><b>GE:</b> ' + child.price_georgia + ' ₾';
+        if (isAdmin) paymentPrices += ' &nbsp; <b>US:</b> ' + child.price_usa + ' $';
+        paymentPrices += '</small>';
 
-        // payment
-        var payment = '<span style="color:' + child.payment_color + '; font-weight:bold;">' + child.payment + '</span>';
-
-        // contact
-        var contact = '<small>' +
-            '<i class="fa fa-map-marker"></i> ' + child.customer_city + ', ' + child.customer_address + '<br>' +
-            '<i class="fa fa-phone"></i> ' + child.customer_tel +
-            (child.customer_alt ? ' / ' + child.customer_alt : '') +
-            '</small>';
+        // customer + contact გაერთიანება
+        var customerInfo = '<strong>' + child.customer_name + '</strong>'
+            + '<hr style="margin:3px 0;">'
+            + '<small>'
+            + '<i class="fa fa-map-marker"></i> ' + child.customer_city + ', ' + child.customer_address + '<br>'
+            + '<i class="fa fa-phone"></i> ' + child.customer_tel
+            + (child.customer_alt ? ' / ' + child.customer_alt : '')
+            + '</small>';
 
         // actions
-        var deleteBtn = child.status_id == 4
-            ? '<span class="btn btn-danger btn-xs disabled" title="კურიერთანაა — წაშლა შეუძლებელია" style="opacity:0.4;"><i class="fa fa-trash"></i></span> '
+        var deleteBtn2 = child.status_id == 4
+            ? '<span class="btn btn-danger btn-xs disabled" style="opacity:0.4;"><i class="fa fa-trash"></i></span> '
             : '<a onclick="deleteData(' + child.id + ')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i></a> ';
 
         var actions = isAdmin
             ? '<a onclick="editForm(' + child.id + ')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i></a> ' +
-              deleteBtn +
-              '<a onclick="showStatusLog(' + child.id + ')" class="btn btn-warning btn-xs"><i class="fa fa-history"></i></a> '
+              deleteBtn2 +
+              '<a onclick="showStatusLog(' + child.id + ')" class="btn btn-warning btn-xs"><i class="fa fa-history"></i></a>'
             : '';
 
         var row = '<tr class="child-row-' + parentId + '" style="background:#fffde7;">' +
-            '<td></td>' +
+            
             '<td style="padding-left:20px;"><i class="fa fa-level-up fa-rotate-90" style="color:#aaa;"></i></td>' +
-            '<td>' + statusBadge + '</td>' +
             '<td>' + child.created_at + '</td>' +
+            '<td>' + statusBadge + '</td>' +
             '<td>' + img + '</td>' +
             '<td><div>' + child.product_name + '</div>' +
                 '<small class="text-muted">' + child.product_code + '</small>' +
                 (child.product_size ? ' <span class="label label-info">' + child.product_size + '</span>' : '') +
             '</td>' +
-            '<td>' + child.customer_name + '</td>' +
-            '<td>' + prices + '</td>' +
-            '<td>' + payment + '</td>' +
-            '<td>' + contact + '</td>' +
+            '<td>' + customerInfo + '</td>' +
+            '<td>' + paymentPrices + '</td>' +
             (isAdmin ? '<td>' + actions + '</td>' : '') +
         '</tr>';
 
