@@ -13,8 +13,8 @@ class Product_Order extends Model
         'courier_id', 'courier_price_international', 'courier_price_tbilisi', 'courier_price_region',
         'price_usa', 'price_georgia', 'discount',
         'paid_tbc', 'paid_bog', 'paid_lib', 'paid_cash',
-        'order_type', 'comment', 'status','cost_price','purchase_order_id',
-'courier_price_village',
+        'order_type', 'comment', 'status', 'cost_price', 'purchase_order_id',
+        'courier_price_village', 'original_sale_id',
     ];
 
     protected $hidden = ['created_at', 'updated_at'];
@@ -57,4 +57,19 @@ class Product_Order extends Model
                       ->where('is_primary', 0)
                       ->withoutGlobalScope('active');
       }
+
+    // change ორდერი → original sale
+    public function originalSale()
+    {
+        return $this->belongsTo(Product_Order::class, 'original_sale_id')
+                    ->withoutGlobalScope('active');
+    }
+
+    // sale → მასზე შექმნილი change ორდერები
+    public function changeOrders()
+    {
+        return $this->hasMany(Product_Order::class, 'original_sale_id')
+                    ->where('order_type', 'change')
+                    ->withoutGlobalScope('active');
+    }
 }

@@ -11,32 +11,33 @@ class FifoService
     // აბრუნებს purchase ორდერს რომლიდანაც შემდეგი sale უნდა წავიდეს
     // ════════════════════════════════════════════════════════════════
     public static function getNextPurchase(int $productId, string $size = '', int $excludeId = 0): ?Product_Order
-    {
-        $query = Product_Order::where('order_type', 'purchase')
-            ->where('product_id', $productId)
-            ->whereIn('status_id', [2, 3])
-            ->orderBy('created_at', 'asc');
+{
+    $query = Product_Order::where('order_type', 'purchase')
+        ->where('product_id', $productId)
+        ->whereIn('status_id', [2, 3])
+        ->orderBy('created_at', 'asc');
 
-        if ($size !== '') $query->where('product_size', $size);
-        if ($excludeId > 0) $query->where('id', '!=', $excludeId);
+    if ($size !== '') $query->where('product_size', $size);
+    if ($excludeId > 0) $query->where('id', '!=', $excludeId);
 
-        $purchases = $query->get(['id', 'quantity', 'cost_price', 'price_georgia', 'status_id', 'created_at']);
+    $purchases = $query->get(['id', 'quantity', 'cost_price', 'price_georgia', 'status_id', 'created_at']);
 
-        if ($purchases->isEmpty()) return null;
+    if ($purchases->isEmpty()) return null;
 
-        foreach ($purchases as $purchase) {
-            $usedCount = Product_Order::where('order_type', 'sale')
-                ->where('purchase_order_id', $purchase->id)
-                ->whereIn('status_id', [1, 2, 3])
-                ->count();
+    foreach ($purchases as $purchase) {
+        // გასწორებული ხაზი: ვითვლით sale-საც და change-საც
+        $usedCount = Product_Order::whereIn('order_type', ['sale', 'change'])
+            ->where('purchase_order_id', $purchase->id)
+            ->whereIn('status_id', [1, 2, 3])
+            ->count();
 
-            if ($usedCount < $purchase->quantity) {
-                return $purchase;
-            }
+        if ($usedCount < $purchase->quantity) {
+            return $purchase;
         }
-
-        return null; // ყველა purchase სავსეა — ადგილი არ არის
     }
+
+    return null;
+}
 
     // ════════════════════════════════════════════════════════════════
     // შემდეგი sale-ისთვის ფასები

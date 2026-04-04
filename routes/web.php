@@ -69,7 +69,8 @@ Route::resource('categories', CategoryController::class);
     Route::get('/exportSupplierssAll', [SupplierController::class, 'exportSuppliersAll'])->name('exportPDF.suppliersAll');
     Route::get('/exportSuppliersAllExcel', [SupplierController::class, 'exportExcel'])->name('exportExcel.suppliersAll');
 
-
+Route::post('productsOut/change', [ProductOrderController::class, 'storeChange'])
+     ->name('productsOut.change');
 Route::post('productsOut/merge', [ProductOrderController::class, 'mergeOrders'])->name('productsOut.merge');
 Route::post('productsOut/mergeStatus', [ProductOrderController::class, 'mergeUpdateStatus'])->name('productsOut.mergeStatus');
 Route::post('productsOut/{id}/unmerge', [ProductOrderController::class, 'unmergeOrder'])->name('productsOut.unmerge');

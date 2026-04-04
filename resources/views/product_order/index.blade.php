@@ -174,6 +174,148 @@
     </div>
 </div>
     @include('product_Order.form_sale')
+
+{{-- ═══════════════════════════════════════════════════════════ --}}
+{{-- 🔄 Change Order Modal                                       --}}
+{{-- ═══════════════════════════════════════════════════════════ --}}
+<div class="modal fade" id="modal-change" tabindex="-1" role="dialog" data-backdrop="static">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content" style="border-radius:8px;">
+            <form id="form-change">
+                @csrf
+                <input type="hidden" name="original_sale_id" id="change_original_sale_id">
+
+                <div class="modal-header" style="background:#f39c12; color:#fff; border-radius:8px 8px 0 0;">
+                    <button type="button" class="close" data-dismiss="modal" style="color:#fff; opacity:1;">&times;</button>
+                    <h4 class="modal-title"><i class="fa fa-refresh"></i> გაცვლა / დაბრუნება</h4>
+                </div>
+
+                <div class="modal-body">
+
+                    {{-- original info --}}
+                    <div style="background:#f9f9f9; border:1px solid #ddd; border-radius:6px;
+                                padding:10px 14px; margin-bottom:14px; font-size:13px;">
+                        <i class="fa fa-cube" style="color:#888;"></i>
+                        <strong id="change-orig-product">—</strong>
+                        <span id="change-orig-size" class="label label-info" style="margin-left:6px;"></span>
+                        <span style="color:#888; margin-left:8px;">Sale #<span id="change-orig-id">—</span></span>
+                    </div>
+
+                    {{-- ტიპი --}}
+                    <div class="form-group">
+                        <label style="font-weight:600;">ტიპი</label>
+                        <div>
+                            <label class="radio-inline">
+                                <input type="radio" name="change_type" value="return" checked> ↩ დაბრუნება
+                            </label>
+                            <label class="radio-inline">
+                                <input type="radio" name="change_type" value="size"> 📐 ზომის გაცვლა
+                            </label>
+                            <label class="radio-inline">
+                                <input type="radio" name="change_type" value="product"> 🔄 პროდუქტის გაცვლა
+                            </label>
+                        </div>
+                    </div>
+
+                    {{-- პროდუქტი / ზომა --}}
+                    <div id="change-new-fields">
+                        <div class="row">
+                            <div class="col-md-7" id="change-product-group" style="display:none;">
+                                <div class="form-group">
+                                    <label style="font-weight:600;">ახალი პროდუქტი</label>
+                                    <select name="product_id" id="change_product_id" class="form-control" required>
+                                        <option value="">— აირჩიე —</option>
+                                        @foreach($all_products as $product)
+                                            <option value="{{ $product->id }}"
+                                                data-sizes="{{ $product->sizes }}"
+                                                data-price-ge="{{ $product->price_geo }}">
+                                                {{ $product->name }}
+                                                @if($product->product_code)({{ $product->product_code }})@endif
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-5">
+                                <div class="form-group">
+                                    <label style="font-weight:600;">ახალი ზომა</label>
+                                    <select name="product_size" id="change_size" class="form-control" required>
+                                        <option value="">— ზომა —</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Stock info --}}
+                        <div id="change-stock-info" style="display:none; background:#f4f4f4;
+                             border-radius:8px; padding:10px 14px; margin-bottom:10px;">
+                            <div style="font-size:11px; font-weight:700; text-transform:uppercase;
+                                        color:#888; margin-bottom:6px;">მიმდინარე ნაშთი</div>
+                            <div class="row text-center">
+                                <div class="col-xs-3">
+                                    <div style="font-size:20px; font-weight:800; color:#3c763d;" id="chg-si-physical">0</div>
+                                    <div style="font-size:10px; color:#888;">📦 ფიზიკური</div>
+                                </div>
+                                <div class="col-xs-3">
+                                    <div style="font-size:20px; font-weight:800; color:#31708f;" id="chg-si-incoming">0</div>
+                                    <div style="font-size:10px; color:#888;">🚚 გზაში</div>
+                                </div>
+                                <div class="col-xs-3">
+                                    <div style="font-size:20px; font-weight:800; color:#8a6d3b;" id="chg-si-reserved">0</div>
+                                    <div style="font-size:10px; color:#888;">🔒 დაჯავშნ.</div>
+                                </div>
+                                <div class="col-xs-3">
+                                    <div style="font-size:20px; font-weight:800;" id="chg-si-available">0</div>
+                                    <div style="font-size:10px; color:#888;">✅ თავისუფალი</div>
+                                </div>
+                            </div>
+                            <div style="margin-top:8px; text-align:center;" id="chg-si-badge"></div>
+                        </div>
+
+                        {{-- ფასთა სხვაობა --}}
+                        <div id="change-price-diff-block" style="display:none; background:#fff8e1;
+                             border:1px solid #ffe082; border-radius:6px; padding:10px 14px;
+                             margin-bottom:10px; font-size:13px;">
+                            <span style="color:#888;">ფასთა სხვაობა:</span>
+                            <strong id="change-price-diff" style="font-size:15px; margin-left:6px;">—</strong>
+                        </div>
+                    </div>
+
+                    {{-- გადახდა --}}
+                    <div class="well well-sm" style="background:#f4f4f4; border:1px solid #ddd; padding:10px;">
+                        <label style="font-weight:600; display:block; margin-bottom:6px;">
+                            <i class="fa fa-credit-card"></i> გადახდა (სხვაობა)
+                        </label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-addon">TBC</span>
+                            <input type="number" name="paid_tbc" class="form-control" placeholder="0" step="0.01" value="0">
+                            <span class="input-group-addon">BOG</span>
+                            <input type="number" name="paid_bog" class="form-control" placeholder="0" step="0.01" value="0">
+                            <span class="input-group-addon">Cash</span>
+                            <input type="number" name="paid_cash" class="form-control" placeholder="0" step="0.01" value="0">
+                        </div>
+                    </div>
+
+                    {{-- შენიშვნა --}}
+                    <div class="form-group" style="margin-top:10px;">
+                        <label style="font-weight:600;">შენიშვნა</label>
+                        <textarea name="comment" id="change_comment" class="form-control" rows="2"
+                                  placeholder="შენიშვნა..."></textarea>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">გაუქმება</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fa fa-refresh"></i> დარეგისტრირება
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @section('bot')
@@ -274,18 +416,22 @@ var table = $('#products-out-table').DataTable({
     ajax: "{{ route('api.productsOut') }}",
     columns: columns,
     order: [[2, 'desc']],
-    rrowCallback: function(row, data) {
-    var geo  = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
-    var paid = parseFloat(data.paid_tbc || 0) + parseFloat(data.paid_bog || 0) +
-               parseFloat(data.paid_lib || 0) + parseFloat(data.paid_cash || 0);
-    var diff = geo - paid;
-
-    if (diff > 0.01) {
-        $(row).css('background-color', '#f2dede'); // წითელი — ყველა დავალიანება
-    } else {
-        $(row).css('background-color', '');
-    }
-},
+    createdRow: function(row, data) {
+        // change ორდერი — ლურჯი ფონი
+        if (data.original_sale_id) {
+            $(row).css('background-color', '#d9edf7');
+            return;
+        }
+        // დავალიანება — წითელი ფონი
+        var geo  = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
+        var paid = parseFloat(data.paid_tbc || 0) + parseFloat(data.paid_bog || 0) +
+                   parseFloat(data.paid_lib || 0) + parseFloat(data.paid_cash || 0);
+        if ((geo - paid) > 0.01) {
+            $(row).css('background-color', '#f2dede');
+        } else {
+            $(row).css('background-color', '');
+        }
+    },
     initComplete: function() {
     var switchHtml = `
         <div style="display:inline-flex; align-items:center; gap:8px; margin-left:15px; vertical-align:middle;">
@@ -1405,5 +1551,206 @@ $(document).on('change', '#product_id_sale', function() {
 $('#modal-sale').on('hidden.bs.modal', function() {
     $('#sale_stock_info').hide();
 });
+
+// ════════════════════════════════════════════════════════════
+// 🔄 CHANGE ORDER JS
+// ════════════════════════════════════════════════════════════
+
+window.openChangeModal = function(saleId) {
+    $('#form-change')[0].reset();
+    $('#change_original_sale_id').val(saleId);
+    $('input[name="change_type"][value="return"]').prop('checked', true);
+    $('#change-stock-info').hide();
+    $('#change-price-diff-block').hide();
+    $('#change-product-group').hide();
+    $('#change_size').empty().append('<option value="">— ზომა —</option>');
+
+    $.get("{{ url('productsOut') }}/" + saleId + "/edit", function(data) {
+        $('#change-orig-id').text(data.id);
+        $('#change-orig-product').text(data.current_product ? data.current_product.name : '');
+        $('#change-orig-size').text(data.product_size || '');
+        $('#change_product_id').val(data.product_id);
+        $('#form-change').data('orig-price', parseFloat(data.price_georgia) || 0);
+        $('#form-change').data('orig-product-id', data.product_id);
+        $('#form-change').data('orig-size', data.product_size);
+
+        var sizes = $('#change_product_id option[value="' + data.product_id + '"]').data('sizes') || '';
+        // return არის default — ზომა ჩავავსოთ და ჩავკეტოთ
+        var $sel = $('#change_size');
+        $sel.empty().prop('disabled', true);
+        if (sizes) {
+            sizes.toString().split(',').forEach(function(s) {
+                s = s.trim();
+                if (s) $sel.append('<option value="' + s + '">' + s + '</option>');
+            });
+        }
+        $sel.val(data.product_size);
+    });
+
+    $('#modal-change').modal('show');
+};
+
+function populateChangeSizes(sizesRaw, selectedSize) {
+    var $sel = $('#change_size');
+    $sel.empty().append('<option value="">— ზომა —</option>');
+    if (sizesRaw) {
+        sizesRaw.toString().split(',').forEach(function(s) {
+            s = s.trim();
+            if (s) $sel.append('<option value="' + s + '">' + s + '</option>');
+        });
+    }
+    if (selectedSize) {
+        $sel.val(selectedSize);
+        loadChangeStockInfo();
+    }
+    $('#change-stock-info').hide();
+}
+
+function loadChangeStockInfo() {
+    var changeType = $('input[name="change_type"]:checked').val();
+    if (changeType === 'return') { $('#change-stock-info').hide(); return; }
+    var prodId = $('#change_product_id').val();
+    var size   = $('#change_size').val();
+    if (!prodId || !size) { $('#change-stock-info').hide(); return; }
+
+    $.get("{{ route('warehouse.stockInfo') }}", { product_id: prodId, size: size }, function(data) {
+        if (!data.found) {
+            $('#chg-si-physical, #chg-si-incoming, #chg-si-reserved, #chg-si-available').text(0);
+            $('#chg-si-available').css('color', '#e74c3c');
+            $('#chg-si-badge').html('<span class="label label-danger">ნაშთი არ არის — მოლოდინში წავა</span>');
+        } else {
+            var avail = data.available;
+            $('#chg-si-physical').text(data.physical_qty);
+            $('#chg-si-incoming').text(data.incoming_qty);
+            $('#chg-si-reserved').text(data.reserved_qty);
+            $('#chg-si-available').text(avail);
+            var color = avail <= 0 ? '#e74c3c' : (avail <= 3 ? '#f39c12' : '#00a65a');
+            var badge = avail <= 0
+                ? '<span class="label label-danger">ნაშთი არ არის</span>'
+                : (avail <= 3 ? '<span class="label label-warning">მცირე ნაშთი</span>'
+                              : '<span class="label label-success">ხელმისაწვდომია</span>');
+            $('#chg-si-available').css('color', color);
+            $('#chg-si-badge').html(badge);
+        }
+        $('#change-stock-info').show();
+    });
+}
+
+function updateChangePriceDiff() {
+    var changeType = $('input[name="change_type"]:checked').val();
+    if (changeType === 'return') { $('#change-price-diff-block').hide(); return; }
+    var origPrice = parseFloat($('#form-change').data('orig-price') || 0);
+    var newPrice  = parseFloat($('#change_product_id option:selected').data('price-ge') || 0);
+    var diff = newPrice - origPrice;
+    var diffEl = $('#change-price-diff');
+    if (Math.abs(diff) < 0.01) {
+        diffEl.text('სხვაობა არ არის').css('color', '#888');
+    } else if (diff > 0) {
+        diffEl.text('+' + diff.toFixed(2) + ' ₾ (კლიენტმა უნდა გადაიხადოს)').css('color', '#e74c3c');
+    } else {
+        diffEl.text(diff.toFixed(2) + ' ₾ (სასარგებლოდ)').css('color', '#27ae60');
+    }
+    $('#change-price-diff-block').show();
+}
+
+$(document).on('change', 'input[name="change_type"]', function() {
+    var type = $(this).val();
+    var origProductId = $('#form-change').data('orig-product-id');
+    var origSize      = $('#form-change').data('orig-size');
+
+    if (type === 'return') {
+        // დაბრუნება — product + ზომა ავტომატური, ჩაკეტილი
+        $('#change-product-group').hide();
+        $('#change-price-diff-block').hide();
+        $('#change-stock-info').hide();
+        $('#change_product_id').val(origProductId);
+        var sizes = $('#change_product_id option[value="' + origProductId + '"]').data('sizes') || '';
+        var $sel = $('#change_size');
+        $sel.empty();
+        if (sizes) {
+            sizes.toString().split(',').forEach(function(s) {
+                s = s.trim();
+                if (s) $sel.append('<option value="' + s + '">' + s + '</option>');
+            });
+        }
+        $sel.val(origSize).prop('disabled', true); // ჩაკეტვა
+    } else if (type === 'size') {
+        // ზომის გაცვლა — product იგივე, ზომა სხვა (original გამოვრიცხოთ)
+        $('#change-product-group').hide();
+        $('#change_product_id').val(origProductId);
+        var opt = $('#change_product_id option[value="' + origProductId + '"]');
+        var $sel2 = $('#change_size');
+        $sel2.empty().append('<option value="">— ზომა —</option>').prop('disabled', false);
+        var sizes2 = opt.data('sizes') || '';
+        if (sizes2) {
+            sizes2.toString().split(',').forEach(function(s) {
+                s = s.trim();
+                if (s && s !== origSize) { // original ზომა გამოვრიცხოთ
+                    $sel2.append('<option value="' + s + '">' + s + '</option>');
+                }
+            });
+        }
+        $('#change-stock-info').hide();
+        updateChangePriceDiff();
+    } else {
+        // პროდუქტის გაცვლა
+        $('#change-product-group').show();
+        $('#change_product_id').val('');
+        $('#change_size').empty().append('<option value="">— ზომა —</option>').prop('disabled', false);
+        $('#change-stock-info').hide();
+        updateChangePriceDiff();
+    }
+});
+
+$(document).on('change', '#change_product_id', function() {
+    var sizes = $(this).find('option:selected').data('sizes') || '';
+    populateChangeSizes(sizes, null);
+    $('#change-stock-info').hide();
+    updateChangePriceDiff();
+});
+
+$(document).on('change', '#change_size', function() {
+    loadChangeStockInfo();
+    updateChangePriceDiff();
+});
+
+$('#form-change').on('submit', function(e) {
+    e.preventDefault();
+    var productId = $('#change_product_id').val();
+    var size      = $('#change_size').val();
+    if (!productId || !size) {
+        swal('შეცდომა', 'პროდუქტი და ზომა სავალდებულოა', 'error');
+        return;
+    }
+    // disabled ველები serialize-ში არ ჩაერთვება — დროებით გავხსნოთ
+    var $disabledSize = $('#change_size').filter(':disabled');
+    $disabledSize.prop('disabled', false);
+    var formData = $(this).serialize();
+    $disabledSize.prop('disabled', true);
+
+    $.ajax({
+        url:  "{{ url('productsOut/change') }}",
+        type: 'POST',
+        data: formData,
+        success: function(res) {
+            $('#modal-change').modal('hide');
+            table.ajax.reload(null, false);
+            swal({ title: '✅', text: res.message, type: 'success', timer: 2000 });
+        },
+        error: function(xhr) {
+            var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'შეცდომა!';
+            swal('შეცდომა', msg, 'error');
+        }
+    });
+});
+
+$('#modal-change').on('hidden.bs.modal', function() {
+    $('#form-change')[0].reset();
+    $('#change-price-diff-block').hide();
+    $('#change-product-group').hide();
+    $('#change-stock-info').hide();
+    $('#change_size').prop('disabled', false);
+});
+
     </script>
 @endsection

@@ -205,17 +205,23 @@ $(function() {
         processing: true, serverSide: true,
         ajax: "{{ route('warehouse.apiPurchases') }}",
         columns: [
-            { data: 'id',           name: 'id' },
-            { data: 'product_name', name: 'product_name' },
-            { data: 'product_code', name: 'product_code' },
-            { data: 'product_size', name: 'product_size' },
-            { data: 'quantity',     name: 'quantity' },
-            { data: 'payment',      name: 'payment',    orderable: false },
-            { data: 'price_paid',   name: 'price_paid', orderable: false },
-            { data: 'status_name',  name: 'status_name', orderable: false },
-            { data: 'created_at',   name: 'created_at' },
-            { data: 'action',       name: 'action',     orderable: false },
-        ]
+            { data: 'id',                 name: 'id' },
+            { data: 'product_name',       name: 'product_name' },
+            { data: 'product_code',       name: 'product_code' },
+            { data: 'product_size',       name: 'product_size' },
+            { data: 'quantity',           name: 'quantity' },
+            { data: 'payment',            name: 'payment',           orderable: false },
+            { data: 'price_paid',         name: 'price_paid',        orderable: false },
+            { data: 'status_name',        name: 'status_name',       orderable: false },
+            { data: 'created_at',         name: 'created_at' },
+            { data: 'action',             name: 'action',            orderable: false },
+            { data: 'is_return_purchase', name: 'is_return_purchase', visible: false },
+        ],
+        createdRow: function(row, data) {
+            if (data.is_return_purchase == 1) {
+                $(row).css('background-color', '#d9edf7'); // ლურჯი — დაბრუნება/გაცვლა
+            }
+        }
     });
 
     // ══ TABS ══
@@ -404,40 +410,38 @@ $(function() {
             var $lockFields  = $('#purchase_product_id, #purchase_size, #purchase_price_usa_input, #purchase_transport_input');
             var $qtyField    = $('#purchase_qty');
 
-            // ჯერ გავხსნათ ყველა
             $lockFields.prop('disabled', false).css('background', '');
             $qtyField.removeAttr('min').css('background', '');
             $('#purchase-courier-lock-msg').remove();
 
             if (courierCount > 0) {
-                // product / size / ფასი / ტრანსპ. — ჩაკეტვა
                 $lockFields.prop('disabled', true).css('background', '#f5f5f5');
-
-                // qty — მხოლოდ courierCount-მდე შემცირება
                 $qtyField.attr('min', courierCount).css('background', '#fff8e1');
-
-                // გაფრთხილების ბანერი
-                var lockMsg = '<div id="purchase-courier-lock-msg" style="' +
-                    'background:#fff3cd; border:1px solid #ffc107; border-radius:6px;' +
-                    'padding:8px 12px; margin-bottom:10px; font-size:12px; color:#856404;">' +
+                var lockMsg = '<div id="purchase-courier-lock-msg" style="background:#fff3cd; border:1px solid #ffc107;' +
+                    'border-radius:6px; padding:8px 12px; margin-bottom:10px; font-size:12px; color:#856404;">' +
                     '⚠️ <strong>' + courierCount + ' ერთეული</strong> კურიერთანაა გადაცემული. ' +
                     'პროდუქტი / ზომა / ფასი / ტრანსპ. ვერ შეიცვლება. ' +
-                    'რაოდენობა მინ. <strong>' + courierCount + '</strong>-მდეა შემცირებადი.' +
-                    '</div>';
-
+                    'რაოდენობა მინ. <strong>' + courierCount + '</strong>-მდეა შემცირებადი.</div>';
                 $('#form-purchase .modal-body').prepend(lockMsg);
             }
-            // ─────────────────────────────────────────────────────────
 
             calcPurchaseSummary();
             $('#modal-purchase').modal('show');
         });
     };
 
+    // ── modal დახურვისას lock ველები გავხსნოთ ──
+    $('#modal-purchase').on('hidden.bs.modal', function() {
+        $('#purchase_product_id, #purchase_size, #purchase_price_usa_input, #purchase_transport_input')
+            .prop('disabled', false).css('background', '');
+        $('#purchase_qty').removeAttr('min').css('background', '');
+        $('#purchase-courier-lock-msg').remove();
+    });
+
     // ══ DELETE ══
     window.deletePurchase = function(id) {
         swal({
-            title: 'დარწმუნებული ხარ?', text: 'შესყიდვა წაიშლება! მასზე მიბმული sale ორდერები გადავლენ სხვა შესყიდვაზე ან "მოლოდინში" სტატუსში.',
+            title: 'დარწმუნებული ხარ?', text: 'შესყიდვა წაიშლება!',
             type: 'warning', showCancelButton: true,
             confirmButtonColor: '#dd4b39',
             cancelButtonText: 'გაუქმება', confirmButtonText: 'წაშლა'
@@ -458,21 +462,13 @@ $(function() {
         });
     };
 
-    // ── modal დახურვისას lock ველები გავხსნოთ ──
-    $('#modal-purchase').on('hidden.bs.modal', function() {
-        $('#purchase_product_id, #purchase_size, #purchase_price_usa_input, #purchase_transport_input')
-            .prop('disabled', false).css('background', '');
-        $('#purchase_qty').removeAttr('min').css('background', '');
-        $('#purchase-courier-lock-msg').remove();
-    });
-
     // ══ SUBMIT ══
     $('#form-purchase').on('submit', function(e) {
         e.preventDefault();
         $('#purchase_price_usa_hidden').val($('#purchase_price_usa_input').val() || 0);
         $('#purchase_transport_hidden').val($('#purchase_transport_input').val() || 0);
 
-        // disabled ველები serialize-ში არ ჩაერთვება — გარებით გავააქტიუროთ, serialize-ი გავუშვათ, შემდეგ უკან
+        // disabled ველები serialize-ში არ ჩაერთვება — დროებით გავახსნოთ
         var $locked = $('#purchase_product_id, #purchase_size, #purchase_price_usa_input, #purchase_transport_input').filter(':disabled');
         $locked.prop('disabled', false);
         var formData = $(this).serialize();

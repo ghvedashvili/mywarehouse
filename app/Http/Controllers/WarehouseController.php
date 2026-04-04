@@ -62,13 +62,18 @@ class WarehouseController extends Controller
         return DataTables::of($purchases)
             ->addColumn('product_name', fn($row) => $row->product->name ?? 'N/A')
             ->addColumn('product_code', fn($row) => $row->product->product_code ?? '-')
+            ->addColumn('is_return_purchase', fn($row) => str_starts_with($row->comment ?? '', '↩') ? 1 : 0)
             ->addColumn('status_name', function ($row) {
                 $color = $row->orderStatus->color ?? 'default';
                 $name  = $row->orderStatus->name  ?? '-';
+                // auto-purchase-ზე comment badge
+                $commentBadge = str_starts_with($row->comment ?? '', '↩')
+                    ? '<br><small style="color:#31708f; font-style:italic;">' . e($row->comment) . '</small>'
+                    : '';
                 return '<span class="label label-' . $color . '"
                               style="cursor:pointer"
                               onclick="openStatusModal(' . $row->id . ', ' . $row->status_id . ')"
-                              title="სტატუსის შეცვლა">' . $name . '</span>';
+                              title="სტატუსის შეცვლა">' . $name . '</span>' . $commentBadge;
             })
             ->editColumn('created_at', fn($row) => $row->created_at ? $row->created_at->format('d.m.Y H:i') : '-')
             ->addColumn('price_paid', fn($row) => number_format($row->price_georgia, 2) . ' ₾')
@@ -204,7 +209,7 @@ class WarehouseController extends Controller
                 $oldStock = Warehouse::where('product_id', $oldProduct)->where('size', $oldSize)->first();
 
                 // ძველი product/size-ის ყველა მიბმული sale (status 2,3) → წაშლის ლოგიკა
-                $boundSales = Product_Order::where('order_type', 'sale')
+                $boundSales = Product_Order::whereIn('order_type', ['sale', 'change'])
                     ->where('purchase_order_id', $order->id)
                     ->whereIn('status_id', [2, 3])
                     ->get();
@@ -246,7 +251,7 @@ class WarehouseController extends Controller
                 }
 
                 // purchase_order_id=null მქონე sale-ებიც (status 2,3) → წაშლის ლოგიკა
-                $nullSales = Product_Order::where('order_type', 'sale')
+                $nullSales = Product_Order::whereIn('order_type', ['sale', 'change'])
                     ->where('product_id', $oldProduct)->where('product_size', $oldSize)
                     ->whereNull('purchase_order_id')
                     ->whereIn('status_id', [2, 3])->get();
@@ -444,7 +449,7 @@ class WarehouseController extends Controller
                 elseif ($order->status_id == 3) $this->handleStockForPurchase($id, 4);
 
                 // ამ purchase-ს მიბმული sale-ები → სხვა purchase ან status=1
-                $boundSales = Product_Order::where('order_type', 'sale')
+                $boundSales = Product_Order::whereIn('order_type', ['sale', 'change'])
                     ->where('product_id', $order->product_id)
                     ->where('product_size', $order->product_size)
                     ->where(function($q) use ($order) {
@@ -591,7 +596,7 @@ class WarehouseController extends Controller
     // ─── Pending sale-ების დაწინაურება FIFO ──────────────────────────
     private function promotePendingSales(int $productId, string $size, Warehouse $stock, int $purchaseStatus): void
     {
-        $pendingSales = Product_Order::where('order_type', 'sale')
+        $pendingSales = Product_Order::whereIn('order_type', ['sale', 'change'])
             ->where('product_id', $productId)->where('product_size', $size)
             ->where('status_id', 1)->orderBy('created_at', 'asc')->get();
 
@@ -643,7 +648,7 @@ class WarehouseController extends Controller
         };
 
         // 1. გზაში/საწყობში მყოფი sale-ები — თუ ახლა დავალიანება გაჩნდა → status=1
-        $activeSales = Product_Order::where('order_type', 'sale')
+        $activeSales = Product_Order::whereIn('order_type', ['sale', 'change'])
             ->where('product_id', $productId)
             ->where('product_size', $size)
             ->whereIn('status_id', [2, 3])
@@ -668,7 +673,7 @@ class WarehouseController extends Controller
         $stock->refresh();
 
         // 2. status=1 sale-ები — თუ ახლა გადახდილია → status=2/3
-        $pendingSales = Product_Order::where('order_type', 'sale')
+        $pendingSales = Product_Order::whereIn('order_type', ['sale', 'change'])
             ->where('product_id', $productId)
             ->where('product_size', $size)
             ->where('status_id', 1)
@@ -705,7 +710,7 @@ class WarehouseController extends Controller
     {
         $purchaseStatus = $purchase->status_id; // 2 ან 3
 
-        $pendingSales = Product_Order::where('order_type', 'sale')
+        $pendingSales = Product_Order::whereIn('order_type', ['sale', 'change'])
             ->where('product_id', $purchase->product_id)
             ->where('product_size', $purchase->product_size)
             ->where('status_id', 1)
@@ -814,61 +819,60 @@ class WarehouseController extends Controller
         };
 
         // CASE 1: purchase 1→2
-        if ($oldStatusId === 1 && $newStatusId === 2) {
-            $stock = Warehouse::where('product_id', $productId)->where('size', $size)->first();
-            if (!$stock) return;
+        // CASE 1: purchase 1→2 — FIFO-ს ნაცვლად პირდაპირ ამ purchase-ს ვაბამთ
+if ($oldStatusId === 1 && $newStatusId === 2) {
+    $stock = Warehouse::where('product_id', $productId)->where('size', $size)->first();
+    if (!$stock) return;
 
-            $pendingSales = Product_Order::where('order_type', 'sale')
-                ->where('product_id', $productId)->where('product_size', $size)
-                ->where('status_id', 1)->orderBy('created_at', 'asc')->get();
+    $capacity = $order->quantity; // ამ purchase-ს რამდენი sale შეუძლია
+    $alreadyUsed = Product_Order::whereIn('order_type', ['sale', 'change'])
+        ->where('purchase_order_id', $order->id)
+        ->whereIn('status_id', [1, 2, 3])
+        ->count();
+    $canTake = $capacity - $alreadyUsed;
 
-            foreach ($pendingSales as $sale) {
-                $stock->refresh();
-                $available = $stock->incoming_qty - $stock->reserved_qty;
+    if ($canTake <= 0) return;
 
-                // ჯერ FIFO ფასი განვაახლოთ (purchase_order_id ჯერ არ ენიჭება)
-                $nextPurchase = FifoService::getNextPurchase($productId, $size);
-                $sale->price_usa     = $nextPurchase?->cost_price ?? 0;
-                $sale->price_georgia = $nextPurchase?->price_georgia ?? 0;
+    $pendingSales = Product_Order::whereIn('order_type', ['sale', 'change'])
+        ->where('product_id', $productId)->where('product_size', $size)
+        ->where('status_id', 1)->orderBy('created_at', 'asc')->get();
 
-                // შემდეგ შევამოწმოთ დავალიანება ახალი ფასით
-                if ($available > 0 && !$hasDebt($sale)) {
-                    // ნაშთი კმარა და დავალიანება არ არის — დავარეზერვოთ
-                    $sale->purchase_order_id = $nextPurchase?->id; // მხოლოდ აქ ენიჭება
-                    $stock->increment('reserved_qty', 1);
-                    $logAndSave($sale, 2,
-                        $sale->price_usa,
-                        $sale->price_georgia,
-                        $sale->purchase_order_id
-                    );
-                } else {
-                    // ნაშთი არ კმარა ან დავალიანებაა — status=1, purchase_order_id=null
-                    $sale->purchase_order_id = null;
-                    $sale->save();
-                }
-            }
-        }
+    foreach ($pendingSales as $sale) {
+        if ($canTake <= 0) break;
+        $stock->refresh();
+        $available = $stock->incoming_qty - $stock->reserved_qty;
+        if ($available <= 0) break;
+        if ($hasDebt($sale)) continue;
+
+        $sale->purchase_order_id = $order->id;  // ← პირდაპირ ამ purchase-ს
+        $sale->price_usa     = $order->cost_price;
+        $sale->price_georgia = $order->price_georgia;
+        $stock->increment('reserved_qty', 1);
+        $canTake--;
+        $logAndSave($sale, 2, $sale->price_usa, $sale->price_georgia, $sale->purchase_order_id);
+    }
+}
 
         // CASE 2: purchase 2→3
-        // მხოლოდ ამ purchase-ს მიბმული sale-ები გადავიყვანოთ status=3-ზე
-        if ($oldStatusId === 2 && $newStatusId === 3) {
-            $salesToPromote = Product_Order::where('order_type', 'sale')
-                ->where('purchase_order_id', $order->id)
-                ->where('status_id', 2)
-                ->get();
+// მხოლოდ ამ purchase-ს მიბმული sale-ები გადავიყვანოთ status=3-ზე
+if ($oldStatusId === 2 && $newStatusId === 3) {
+    $salesToPromote = Product_Order::whereIn('order_type', ['sale', 'change'])
+        ->where('purchase_order_id', $order->id)
+        ->where('status_id', 2)
+        ->get();
 
-            foreach ($salesToPromote as $sale) {
-                if ($hasDebt($sale)) continue;
-                $logAndSave($sale, 3, $sale->price_usa, $sale->price_georgia, $sale->purchase_order_id);
-            }
-        }
+    foreach ($salesToPromote as $sale) {
+        // debt-ი ცალკეა — საქონელი ჩამოვიდა, sale საწყობში გადადის debt-ის მიუხედავად
+        $logAndSave($sale, 3, $sale->price_usa, $sale->price_georgia, $sale->purchase_order_id);
+    }
+}
 
         // CASE 3: purchase 2→1
         // ამ purchase-ს მიბმული sale-ები → status=1, purchase_order_id გაიწმინდება
         if ($oldStatusId === 2 && $newStatusId === 1) {
             $stock = Warehouse::where('product_id', $productId)->where('size', $size)->first();
 
-            $reservedSales = Product_Order::where('order_type', 'sale')
+            $reservedSales = Product_Order::whereIn('order_type', ['sale', 'change'])
                 ->where('purchase_order_id', $order->id)
                 ->where('status_id', 2)
                 ->get();
@@ -884,7 +888,7 @@ class WarehouseController extends Controller
         // CASE 4: purchase 3→2
         // ამ purchase-ს მიბმული sale-ები → status=2
         if ($oldStatusId === 3 && $newStatusId === 2) {
-            $salesToRollback = Product_Order::where('order_type', 'sale')
+            $salesToRollback = Product_Order::whereIn('order_type', ['sale', 'change'])
                 ->where('purchase_order_id', $order->id)
                 ->where('status_id', 3)
                 ->get();
@@ -898,7 +902,7 @@ class WarehouseController extends Controller
         if ($newStatusId === 4) {
             $stock = Warehouse::where('product_id', $productId)->where('size', $size)->first();
 
-            $affectedSales = Product_Order::where('order_type', 'sale')
+            $affectedSales = Product_Order::whereIn('order_type', ['sale', 'change'])
                 ->where('purchase_order_id', $order->id)
                 ->whereIn('status_id', [2, 3])
                 ->get();
