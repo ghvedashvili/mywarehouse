@@ -399,6 +399,36 @@ $(function() {
             $('[name="paid_cash"]', '#form-purchase').val(data.paid_cash || 0);
             $('#purchase_comment').val(data.comment || '');
 
+            // ─── courier_count-ის მიხედვით ველების lock/unlock ───────
+            var courierCount = data.courier_count || 0;
+            var $lockFields  = $('#purchase_product_id, #purchase_size, #purchase_price_usa_input, #purchase_transport_input');
+            var $qtyField    = $('#purchase_qty');
+
+            // ჯერ გავხსნათ ყველა
+            $lockFields.prop('disabled', false).css('background', '');
+            $qtyField.removeAttr('min').css('background', '');
+            $('#purchase-courier-lock-msg').remove();
+
+            if (courierCount > 0) {
+                // product / size / ფასი / ტრანსპ. — ჩაკეტვა
+                $lockFields.prop('disabled', true).css('background', '#f5f5f5');
+
+                // qty — მხოლოდ courierCount-მდე შემცირება
+                $qtyField.attr('min', courierCount).css('background', '#fff8e1');
+
+                // გაფრთხილების ბანერი
+                var lockMsg = '<div id="purchase-courier-lock-msg" style="' +
+                    'background:#fff3cd; border:1px solid #ffc107; border-radius:6px;' +
+                    'padding:8px 12px; margin-bottom:10px; font-size:12px; color:#856404;">' +
+                    '⚠️ <strong>' + courierCount + ' ერთეული</strong> კურიერთანაა გადაცემული. ' +
+                    'პროდუქტი / ზომა / ფასი / ტრანსპ. ვერ შეიცვლება. ' +
+                    'რაოდენობა მინ. <strong>' + courierCount + '</strong>-მდეა შემცირებადი.' +
+                    '</div>';
+
+                $('#form-purchase .modal-body').prepend(lockMsg);
+            }
+            // ─────────────────────────────────────────────────────────
+
             calcPurchaseSummary();
             $('#modal-purchase').modal('show');
         });
@@ -407,7 +437,7 @@ $(function() {
     // ══ DELETE ══
     window.deletePurchase = function(id) {
         swal({
-            title: 'დარწმუნებული ხარ?', text: 'შესყიდვა წაიშლება!',
+            title: 'დარწმუნებული ხარ?', text: 'შესყიდვა წაიშლება! მასზე მიბმული sale ორდერები გადავლენ სხვა შესყიდვაზე ან "მოლოდინში" სტატუსში.',
             type: 'warning', showCancelButton: true,
             confirmButtonColor: '#dd4b39',
             cancelButtonText: 'გაუქმება', confirmButtonText: 'წაშლა'
@@ -428,18 +458,32 @@ $(function() {
         });
     };
 
+    // ── modal დახურვისას lock ველები გავხსნოთ ──
+    $('#modal-purchase').on('hidden.bs.modal', function() {
+        $('#purchase_product_id, #purchase_size, #purchase_price_usa_input, #purchase_transport_input')
+            .prop('disabled', false).css('background', '');
+        $('#purchase_qty').removeAttr('min').css('background', '');
+        $('#purchase-courier-lock-msg').remove();
+    });
+
     // ══ SUBMIT ══
     $('#form-purchase').on('submit', function(e) {
         e.preventDefault();
         $('#purchase_price_usa_hidden').val($('#purchase_price_usa_input').val() || 0);
         $('#purchase_transport_hidden').val($('#purchase_transport_input').val() || 0);
 
+        // disabled ველები serialize-ში არ ჩაერთვება — გარებით გავააქტიუროთ, serialize-ი გავუშვათ, შემდეგ უკან
+        var $locked = $('#purchase_product_id, #purchase_size, #purchase_price_usa_input, #purchase_transport_input').filter(':disabled');
+        $locked.prop('disabled', false);
+        var formData = $(this).serialize();
+        $locked.prop('disabled', true);
+
         var id  = $('#purchase_id').val();
         var url = id ? "{{ url('warehouse') }}/" + id : "{{ url('warehouse') }}";
 
         $.ajax({
             url: url, type: 'POST',
-            data: $(this).serialize(),
+            data: formData,
             success: function(res) {
                 $('#modal-purchase').modal('hide');
                 stockTable.ajax.reload();

@@ -35,7 +35,7 @@ class FifoService
             }
         }
 
-        return $purchases->last();
+        return null; // ყველა purchase სავსეა — ადგილი არ არის
     }
 
     // ════════════════════════════════════════════════════════════════
