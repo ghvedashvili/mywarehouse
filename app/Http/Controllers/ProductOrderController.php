@@ -398,6 +398,55 @@ public function handleStockChange($orderId, $newStatusId, $oldStatusParam = null
     return \DB::transaction(function () use ($id) {
         $order = Product_Order::findOrFail($id);
 
+        // კურიერთან გადაცემული ორდერის წაშლა იკრძალება
+        if ($order->status_id == 4) {
+            return response()->json([
+                'success' => false,
+                'message' => 'კურიერთან გადაცემული ორდერი ვერ წაიშლება!'
+            ], 422);
+        }
+
+        // ─── გაერთიანებული ორდერის დამუშავება ────────────────────
+        if ($order->merged_id) {
+
+            if ($order->is_primary) {
+                // მშობლის წაშლა — ჯერ გავშალოთ, შემდეგ წავშალოთ
+                $mergedId = $order->merged_id;
+                $children = Product_Order::where('merged_id', $mergedId)
+                    ->where('is_primary', 0)->get();
+
+                foreach ($children as $child) {
+                    // კურიერის ფასი პირველი შვილისგან გადაეცეს
+                    $child->merged_id              = null;
+                    $child->is_primary             = 0;
+                    $child->courier_price_tbilisi  = $order->courier_price_tbilisi;
+                    $child->courier_price_region   = $order->courier_price_region;
+                    $child->courier_price_village  = $order->courier_price_village;
+                    $child->save();
+                }
+
+            } else {
+                // შვილის წაშლა — merged_id გაიწმინდება
+                $order->merged_id = null;
+                $order->save();
+
+                // თუ ბოლო შვილი იყო — primary გახდეს ჩვეულებრივი
+                $remainingChildren = Product_Order::where('merged_id', $order->getOriginal('merged_id'))
+                    ->where('is_primary', 0)->count();
+
+                if ($remainingChildren === 0) {
+                    $primary = Product_Order::where('merged_id', $order->getOriginal('merged_id'))
+                        ->where('is_primary', 1)->first();
+                    if ($primary) {
+                        $primary->merged_id  = null;
+                        $primary->is_primary = 0;
+                        $primary->save();
+                    }
+                }
+            }
+        }
+        // ──────────────────────────────────────────────────────────
+
         // ─── stock rollback sale/change წაშლამდე ──────────────────
         if (in_array($order->order_type, ['sale', 'change'])) {
             if (in_array($order->status_id, [2, 3])) {
@@ -462,12 +511,7 @@ public function handleStockChange($orderId, $newStatusId, $oldStatusParam = null
 
     return Datatables::of($productOrder)
         ->addColumn('order_id', function ($item) {
-            $badge = '';
-            if ($item->is_primary) {
-                $count = $item->children->count() + 1;
-                $badge = ' <span class="label label-warning">' . $count . ' ამანათი</span>';
-            }
-            return '#' . $item->id . $badge;
+            return '#' . $item->id;
         })
         ->addColumn('children_json', function ($item) {
     return htmlspecialchars($item->children->map(function($child) {
@@ -592,20 +636,22 @@ if ($diff < -0.01) {
     $name  = $item->orderStatus->name  ?? 'Pending';
 
     if ($isAdmin) {
-        // merged primary — უცვლელი
+        // merged primary
         if ($item->is_primary) {
-            $allChildrenStatus3 = $item->children->every(fn($c) => $c->status_id == 3);
-            $disabled = $allChildrenStatus3 ? '' : 'disabled title="ყველა შვილი უნდა იყოს საწყობში"';
-            return '<span class="label label-' . $color . '" 
-                        style="font-size:12px; padding:4px 8px;">
-                        ' . $name . '
-                    </span><br>
-                    <button class="btn btn-xs btn-success ' . ($allChildrenStatus3 ? '' : 'disabled') . '" 
-                        ' . $disabled . '
-                        onclick="mergeUpdateStatus(' . $item->id . ', ' . $item->merged_id . ')"
-                        style="margin-top:3px;">
-                        <i class="fa fa-truck"></i> კურიერთან
-                    </button>';
+            $totalCount         = $item->children->count() + 1;
+            $allStatus3         = $item->status_id == 3 && $item->children->every(fn($c) => $c->status_id == 3);
+
+            $html = '<span class="label label-' . $color . '" style="font-size:12px; padding:4px 8px;">' . $name . '</span>';
+            $html .= ' <span class="label label-warning" style="font-size:11px;" title="გაერთიანებული ორდერები">📦 ' . $totalCount . ' ამანათი</span>';
+
+            if ($allStatus3) {
+                $html .= '<br><button class="btn btn-xs btn-success"
+                              onclick="mergeUpdateStatus(' . $item->id . ', ' . $item->merged_id . ')"
+                              style="margin-top:3px;">
+                              <i class="fa fa-truck"></i> კურიერთან
+                          </button>';
+            }
+            return $html;
         }
 
         // ─── ჩვეულებრივი sale — status=3-ზე კურიერთან ღილაკი ───
@@ -643,9 +689,16 @@ if ($diff < -0.01) {
     $email      = e($item->customer->email ?? '');
     $customerId = $item->customer_id;
 
-    // ✅ primary-ზე edit/delete არ გამოჩნდეს
+    $canDelete  = $item->status_id != 4;
+    $deleteBtn  = $canDelete
+        ? '<a onclick="deleteData(' . $item->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a> '
+        : '<span class="btn btn-danger btn-xs disabled" title="კურიერთანაა — წაშლა შეუძლებელია" style="opacity:0.4;"><i class="fa fa-trash"></i></span> ';
+
+    // ✅ primary-ზე edit/delete + unmerge
     if ($item->is_primary) {
         return '<center>' .
+            '<a onclick="editForm(' . $item->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a> ' .
+            $deleteBtn .
             '<a href="' . $exportPdfUrl . '" target="_blank" class="btn btn-info btn-xs" title="PDF"><i class="fa fa-file-pdf-o"></i></a> ' .
             '<a onclick="openMailModal(' . $item->id . ', ' . $customerId . ', \'' . $email . '\')" class="btn btn-default btn-xs" title="Mail"><i class="fa fa-envelope"></i></a> ' .
             '<a onclick="showStatusLog(' . $item->id . ')" class="btn btn-warning btn-xs" title="ისტორია"><i class="fa fa-history"></i></a> ' .
@@ -655,7 +708,7 @@ if ($diff < -0.01) {
 
     return '<center>' .
         '<a onclick="editForm(' . $item->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a> ' .
-        '<a onclick="deleteData(' . $item->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a> ' .
+        $deleteBtn .
         '<a href="' . $exportPdfUrl . '" target="_blank" class="btn btn-info btn-xs" title="PDF"><i class="fa fa-file-pdf-o"></i></a> ' .
         '<a onclick="openMailModal(' . $item->id . ', ' . $customerId . ', \'' . $email . '\')" class="btn btn-default btn-xs" title="Mail"><i class="fa fa-envelope"></i></a> ' .
         '<a onclick="showStatusLog(' . $item->id . ')" class="btn btn-warning btn-xs" title="ისტორია"><i class="fa fa-history"></i></a>' .
@@ -977,11 +1030,6 @@ public function mergeOrders(Request $request)
     }
 
     $orders = Product_Order::whereIn('id', $ids)->get();
-    $allStatus3 = $orders->every(fn($o) => $o->status_id == 3);
-
-    if (!$allStatus3) {
-        return response()->json(['success' => false, 'message' => 'ყველა ორდერი უნდა იყოს "საწყობში" სტატუსში']);
-    }
 
     // ✅ შევამოწმოთ არის თუ არა რამდენიმე primary
     $primaries = $orders->where('is_primary', 1);
@@ -989,15 +1037,8 @@ public function mergeOrders(Request $request)
         return response()->json(['success' => false, 'message' => 'ორი გაერთიანებული ჯგუფის შერწყმა შეუძლებელია']);
     }
 
-    // ✅ თუ ერთი primary არსებობს — ის რჩება primary-დ
-    // თუ არცერთი არ არის primary — პირველი ხდება primary
     $existingPrimary = $primaries->first();
     $primaryId = $existingPrimary ? $existingPrimary->id : $ids[0];
-
-    $allStatus3 = $orders->every(fn($o) => $o->status_id == 3);
-    if (!$allStatus3) {
-        return response()->json(['success' => false, 'message' => 'ყველა ორდერი უნდა იყოს "საწყობში" სტატუსში']);
-    }
 
     // კურიერის ტიპის შემოწმება
     $getType = function($order) {
@@ -1053,7 +1094,6 @@ public function unmergeOrder($id)
     }
 
     $primary = Product_Order::where('merged_id', $mergedId)->where('is_primary', 1)->first();
-    
     if (!$primary) {
         return response()->json(['success' => false, 'message' => 'მთავარი ორდერი ვერ მოიძებნა']);
     }
@@ -1062,35 +1102,16 @@ public function unmergeOrder($id)
     $region  = $primary->courier_price_region;
     $village = $primary->courier_price_village;
 
-    // ვიღებთ ყველა ორდერს მასივში
     $allOrders = Product_Order::where('merged_id', $mergedId)->get();
 
     foreach ($allOrders as $o) {
-        $oldStatusId = $o->status_id;
-        $targetStatusId = 3; 
-
-        // 1. ჯერ საწყობის ლოგიკა (ნაშთის დაბრუნება)
-        $this->handleStockChange($o->id, $targetStatusId);
-
-        // 2. პირდაპირი განახლება საიმედოობისთვის
-        $o->merged_id = null;
-        $o->is_primary = 0;
-        $o->status_id = $targetStatusId;
+        // სტატუსი უცვლელია — მხოლოდ merge ველები გაიწმინდება
+        $o->merged_id             = null;
+        $o->is_primary            = 0;
         $o->courier_price_tbilisi = $tbilisi;
-        $o->courier_price_region = $region;
+        $o->courier_price_region  = $region;
         $o->courier_price_village = $village;
-        $o->save(); // update-ის ნაცვლად ვიყენებთ save-ს
-
-        // 3. ლოგირება
-        if ($oldStatusId != $targetStatusId) {
-            StatusChangeLog::create([
-                'order_id'       => $o->id,
-                'user_id'        => auth()->id(),
-                'status_id_from' => $oldStatusId,
-                'status_id_to'   => $targetStatusId,
-                'changed_at'     => now(),
-            ]);
-        }
+        $o->save();
     }
 
     return response()->json(['success' => true, 'message' => 'ორდერები წარმატებით დაიშალა']);
@@ -1103,23 +1124,32 @@ public function mergeUpdateStatus(Request $request)
 
     $orders = Product_Order::where('merged_id', $mergedId)->get();
 
-    // 1. ჯერ ვამოწმებთ ყველა ორდერზე არის თუ არა ნაშთი
+    // 1. ყველა ორდერი (primary + შვილები) status=3 უნდა იყოს
+    $allStatus3 = $orders->every(fn($o) => $o->status_id == 3);
+    if (!$allStatus3) {
+        return response()->json([
+            'success' => false,
+            'message' => 'ყველა ორდერი (მშობელი და შვილები) უნდა იყოს "საწყობში" სტატუსში!'
+        ], 422);
+    }
+
+    // 2. ნაშთის შემოწმება
     foreach ($orders as $order) {
         $stock = \App\Models\Warehouse::where('product_id', $order->product_id)
                                       ->where('size', $order->product_size)
                                       ->first();
         if (!$stock || $stock->physical_qty < ($order->quantity ?? 1)) {
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'message' => "ამანათი #{$order->id} ვერ გაიგზავნება - საწყობში ნაშთი არ არის!"
             ], 400);
         }
     }
 
-    // 2. თუ ყველაზე არის ნაშთი, მერე ვანახლებთ
+    // 3. სტატუსის განახლება
     foreach ($orders as $order) {
         $this->handleStockChange($order->id, $statusId);
-        
+
         $oldStatusId = $order->status_id;
         $order->update(['status_id' => $statusId]);
 

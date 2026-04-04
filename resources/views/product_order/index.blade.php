@@ -1036,12 +1036,7 @@ function toggleMergeBtn() {
     var count   = checked.length;
 
     if (count >= 2) {
-        // ყველა მონიშნული status_id=3 უნდა იყოს
-        var allStatus3 = true;
-        checked.each(function() {
-            if ($(this).data('status') != 3) allStatus3 = false;
-        });
-        $('#btn-merge').toggle(allStatus3);
+        $('#btn-merge').show();
     } else {
         $('#btn-merge').hide();
     }
@@ -1163,8 +1158,14 @@ $(document).on('click', '.expand-btn', function() {
             '</small>';
 
         // actions
+        var deleteBtn = child.status_id == 4
+            ? '<span class="btn btn-danger btn-xs disabled" title="კურიერთანაა — წაშლა შეუძლებელია" style="opacity:0.4;"><i class="fa fa-trash"></i></span> '
+            : '<a onclick="deleteData(' + child.id + ')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i></a> ';
+
         var actions = isAdmin
-            ? '<a onclick="showStatusLog(' + child.id + ')" class="btn btn-warning btn-xs"><i class="fa fa-history"></i></a> '
+            ? '<a onclick="editForm(' + child.id + ')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i></a> ' +
+              deleteBtn +
+              '<a onclick="showStatusLog(' + child.id + ')" class="btn btn-warning btn-xs"><i class="fa fa-history"></i></a> '
             : '';
 
         var row = '<tr class="child-row-' + parentId + '" style="background:#fffde7;">' +
