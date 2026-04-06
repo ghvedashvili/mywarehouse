@@ -40,6 +40,14 @@
             <li><a href="{{ route('productsOut.index') }}"><i class="fa fa-minus"></i> <span>Outgoing Products</span></a></li>
            <li><a href="{{ route('warehouse.index') }}"><i class="fa fa-archive"></i> <span>🏭 საწყობი</span></a></li>
            @if(Auth::user()->role === 'admin')
+<li class="{{ request()->routeIs('finance.*') ? 'active' : '' }}">
+    <a href="{{ route('finance.index') }}">
+        <i class="fa fa-line-chart"></i>
+        <span>💰 ფინანსები</span>
+    </a>
+</li>
+@endif
+           @if(Auth::user()->role === 'admin')
 <li><a href="{{ route('user.index') }}"><i class="fa fa-user-secret"></i> <span>System Users</span></a></li>
 @endif
 

@@ -14,6 +14,7 @@ use App\Http\Controllers\ProductOrderController;
 use App\Http\Controllers\ProductMasukController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WarehouseController;
+use App\Http\Controllers\FinanceController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -61,6 +62,14 @@ Route::resource('categories', CategoryController::class);
     Route::post('/importSales', [SaleController::class, 'ImportExcel'])->name('import.sales');
     Route::get('/exportSalesAll', [SaleController::class, 'exportSalesAll'])->name('exportPDF.salesAll');
     Route::get('/exportSalesAllExcel', [SaleController::class, 'exportExcel'])->name('exportExcel.salesAll');
+
+
+// Finance
+Route::get('/finance',            [FinanceController::class, 'index'])->name('finance.index');
+Route::post('/finance',           [FinanceController::class, 'store'])->name('finance.store');
+Route::delete('/finance/{id}',    [FinanceController::class, 'destroy'])->name('finance.destroy');
+Route::get('/finance/api-stats',  [FinanceController::class, 'apiStats'])->name('finance.apiStats');
+
 
     // Suppliers
     Route::resource('suppliers', SupplierController::class);
