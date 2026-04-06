@@ -188,7 +188,7 @@
 
     <div class="footer clearfix">
         <span class="thank-you">გმადლობთ შენაძენისთვის!</span>
-        <span class="brand">I M S</span>
+        <span class="brand">Original 100%</span>
     </div>
 
 </div>

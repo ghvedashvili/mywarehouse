@@ -1049,6 +1049,16 @@ class ProductOrderController extends Controller
 
         $orders = Product_Order::whereIn('id', $ids)->get();
 
+        // ✅ სტატუსის შეზღუდვა — მხოლოდ status 1, 2, 3 გაერთიანდება
+        $invalidOrders = $orders->filter(fn($o) => !in_array($o->status_id, [1, 2, 3]));
+        if ($invalidOrders->isNotEmpty()) {
+            $badIds = $invalidOrders->pluck('id')->implode(', ');
+            return response()->json([
+                'success' => false,
+                'message' => "გაერთიანება შეუძლებელია — ორდერი #{$badIds} დაუშვებელ სტატუსშია (მხოლოდ მოლოდინი / გზაში / საწყობი)"
+            ], 422);
+        }
+
         $primaries = $orders->where('is_primary', 1);
         if ($primaries->count() > 1) {
             return response()->json(['success' => false, 'message' => 'ორი გაერთიანებული ჯგუფის შერწყმა შეუძლებელია']);
