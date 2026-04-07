@@ -64,37 +64,30 @@
                             </div>
 
                             {{-- STOCK INFO (ზომის არჩევის შემდეგ ჩნდება) --}}
-                            <div id="sale_stock_info" style="display:none; margin-bottom:10px; margin-top:-5px;">
-                                <div style="
-                                    border-radius: 6px;
-                                    padding: 7px 14px;
-                                    font-size: 12px;
-                                    display: flex;
-                                    gap: 14px;
-                                    align-items: center;
-                                    flex-wrap: wrap;
-                                    border: 1px solid #ddd;
-                                    background: #f9f9f9;
-                                ">
-                                    <span>
-                                        📦 <strong>საწყობში:</strong>
-                                        <span id="sale_si_physical" style="font-weight:800;">0</span>
-                                    </span>
-                                    <span>
-                                        🚚 <strong>გზაში:</strong>
-                                        <span id="sale_si_incoming" style="font-weight:800;">0</span>
-                                    </span>
-                                    <span>
-                                        🔒 <strong>დაჯავშნული:</strong>
-                                        <span id="sale_si_reserved" style="font-weight:800;">0</span>
-                                    </span>
-                                    <span>
-                                        ✅ <strong>ხელმისაწვდომი:</strong>
-                                        <span id="sale_si_available" style="font-weight:900; font-size:14px;">0</span>
-                                    </span>
-                                    <span id="sale_si_badge"></span>
-                                </div>
-                            </div>
+<div id="sale_stock_info" style="display:none; margin-top: 4px; margin-bottom: 6px;">
+    <div style="
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: nowrap;
+        font-size: 11.5px;
+        background: #f9f9f9;
+        border: 1px solid #e0e0e0;
+        border-radius: 5px;
+        padding: 5px 10px;
+        white-space: nowrap;
+        overflow-x: auto;
+    ">
+        <span>📦 <strong>საწყობში:</strong> <span id="sale_si_physical" style="font-weight:800;">0</span></span>
+        <span style="color:#ccc;">|</span>
+        <span>🚚 <strong>გზაში:</strong> <span id="sale_si_incoming" style="font-weight:800;">0</span></span>
+        <span style="color:#ccc;">|</span>
+        <span>🔒 <strong>დაჯავშნული:</strong> <span id="sale_si_reserved" style="font-weight:800;">0</span></span>
+        <span style="color:#ccc;">|</span>
+        <span>✅ <strong>ხელმისაწვდომი:</strong> <span id="sale_si_available" style="font-weight:900; font-size:13px;">0</span></span>
+        <span id="sale_si_badge"></span>
+    </div>
+</div>
 
                             {{-- 2. CUSTOMER --}}
                             <div class="form-group" style="margin-top: 10px;">

@@ -3,7 +3,25 @@
 @section('top')
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('assets/bower_components/datatables.net-bs/css/dataTables.bootstrap.min.css') }}">
-@endsection
+<style>
+.select2-container--default .select2-selection--single {
+    height: 34px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height: 34px;
+    padding-left: 8px;
+    color: #333;
+}
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 34px;
+}
+.select2-container--default .select2-selection--single .select2-selection__placeholder {
+    color: #999;
+}
+</style>
+    @endsection
 
 @section('content')
     <div class="box box-success">
@@ -482,7 +500,14 @@ var table = $('#products-out-table').DataTable({
             placeholder: '-- Choose Customer --',
             allowClear: true
         });
-
+// =====================
+// Select2 — product (sale)
+// =====================
+$('#product_id_sale').select2({
+    dropdownParent: $('#modal-sale'),
+    placeholder: '— Choose Product —',
+    allowClear: true
+});
         // customer info ჩვენება — მხოლოდ ერთხელ
         $('#customer_id_sale').on('change', function() {
             var selected = $(this).find('option:selected');
