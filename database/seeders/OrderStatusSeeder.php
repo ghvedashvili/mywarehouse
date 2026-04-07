@@ -9,7 +9,7 @@ class OrderStatusSeeder extends Seeder
 {
     public function run(): void
     {
-        $statuses = ['ახალი', 'მიღებული', 'მზადდება', 'გზაშია', 'კურიერთან', 'ჩაბარებული', 'დასრულებული', 'გაუქმებული', 'დაბრუნებული', 'დაპაუზებული'];
+        $statuses = ['ახალი', 'მიღებული', 'მზადდება', 'გზაშია', 'კურიერთან', 'დაბრუნებული', 'გაცვლილი', 'გაუქმებული', 'დაბრუნებული', 'დაპაუზებული'];
 
         foreach ($statuses as $status) {
             DB::table('order_statuses')->insert([

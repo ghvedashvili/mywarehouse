@@ -22,10 +22,10 @@ return new class extends Migration
     DB::table('order_statuses')->insert([
         ['name' => 'ახალი', 'color' => 'warning'],
         ['name' => 'გზაში', 'color' => 'primary'],
-        ['name' => 'საწყობში', 'color' => 'secondary'],
+        ['name' => 'საწყობში', 'color' => 'warning'],
         ['name' => 'კურიერთან', 'color' => 'success'],
-        ['name' => 'დასრულებული', 'color' => 'dark'],
-        ['name' => 'გაუქმებული', 'color' => 'danger'],
+        ['name' => 'დაბრუნებული', 'color' => 'danger'],
+        ['name' => 'გაცვლილი', 'color' => 'danger'],
     ]);
 }
 

@@ -435,6 +435,16 @@ var table = $('#products-out-table').DataTable({
     columns: columns,
     order: [[2, 'desc']],
     createdRow: function(row, data) {
+        // დაბრუნებული — მოიისფრო ფონი
+        if (data.status_id == 5) {
+            $(row).css('background-color', '#f5eef8');
+            return;
+        }
+        // გაცვლილი — ღია ყვითელი ფონი
+        if (data.status_id == 6) {
+            $(row).css('background-color', '#fef9e7');
+            return;
+        }
         // change ორდერი — ლურჯი ფონი
         if (data.original_sale_id) {
             $(row).css('background-color', '#d9edf7');

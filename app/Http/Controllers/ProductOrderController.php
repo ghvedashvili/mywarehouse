@@ -1049,16 +1049,6 @@ class ProductOrderController extends Controller
 
         $orders = Product_Order::whereIn('id', $ids)->get();
 
-        // ✅ სტატუსის შეზღუდვა — მხოლოდ status 1, 2, 3 გაერთიანდება
-        $invalidOrders = $orders->filter(fn($o) => !in_array($o->status_id, [1, 2, 3]));
-        if ($invalidOrders->isNotEmpty()) {
-            $badIds = $invalidOrders->pluck('id')->implode(', ');
-            return response()->json([
-                'success' => false,
-                'message' => "გაერთიანება შეუძლებელია — ორდერი #{$badIds} დაუშვებელ სტატუსშია (მხოლოდ მოლოდინი / გზაში / საწყობი)"
-            ], 422);
-        }
-
         $primaries = $orders->where('is_primary', 1);
         if ($primaries->count() > 1) {
             return response()->json(['success' => false, 'message' => 'ორი გაერთიანებული ჯგუფის შერწყმა შეუძლებელია']);
@@ -1266,7 +1256,10 @@ class ProductOrderController extends Controller
             $oldSize      = $originalSale->product_size;
 
             // ─── 1. დაბრუნებული პროდუქტის purchase ორდერი ────────────
-            // status=1 (მოლოდინში) — ადმინი შემდეგ ხელით გადაიყვანს 2/3-ზე
+            // დაბრუნება  → paid_cash = price_georgia (100% გადახდილი)
+            // გაცვლა     → discount  = price_georgia (100% ფასდაკლება)
+            $isReturn = ($changeType === 'return');
+
             $sourcePurchase = Product_Order::create([
                 'order_type'                  => 'purchase',
                 'product_id'                  => $oldProductId,
@@ -1278,13 +1271,14 @@ class ProductOrderController extends Controller
                 'status_id'                   => 1,
                 'customer_id'                 => null,
                 'user_id'                     => auth()->id(),
-                'comment'                     => '↩ ' . ($changeType === 'return' ? 'დაბრუნება' : 'გაცვლა') .
+                'comment'                     => '↩ ' . ($isReturn ? 'დაბრუნება' : 'გაცვლა') .
                                                  ' — Sale #' . $originalSale->id,
                 'courier_price_international' => 0,
                 'courier_price_tbilisi'       => 0,
                 'courier_price_region'        => 0,
                 'courier_price_village'       => 0,
-                'discount'                    => 0,
+                // ორივე შემთხვევა: discount = price_usa (100% ფასდაკლება თვითღირებულებაზე)
+                'discount'                    => $originalSale->price_usa,
                 'paid_tbc'                    => 0,
                 'paid_bog'                    => 0,
                 'paid_lib'                    => 0,
@@ -1329,9 +1323,9 @@ class ProductOrderController extends Controller
                 'customer_id'                 => $originalSale->customer_id,
                 'user_id'                     => auth()->id(),
                 'status_id'                   => $newStatus,
-                'price_georgia'               => $fifo['price_georgia'] ?? $newProduct->price_geo ?? 0,
-                'price_usa'                   => $fifo['cost_price'] ?? 0,
-                'cost_price'                  => $fifo['cost_price'] ?? 0,
+                'price_georgia'               => $fifo['price_georgia'] ?? $newProduct->price_geo ?? $originalSale->price_georgia,
+                'price_usa'                   => $fifo['cost_price'] ?: $originalSale->price_usa,
+                'cost_price'                  => $fifo['cost_price'] ?: $originalSale->price_usa,
                 'purchase_order_id'           => ($newStatus > 1) ? ($fifo['purchase_order_id'] ?? null) : null,
                 'discount'                    => $originalSale->discount ?? 0,
                 'paid_tbc'                    => $paidTbc,
