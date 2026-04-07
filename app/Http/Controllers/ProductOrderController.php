@@ -150,6 +150,21 @@ class ProductOrderController extends Controller
                 $oldSize      = $order->product_size;
                 $data         = $request->all();
 
+                // ─── დაბრუნებული / გაცვლილი — რედაქტირება იკრძალება ─
+                if (in_array($order->status_id, [5, 6])) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'ეს ორდერი ვერ შეიცვლება — სტატუსი: ' .
+                            ($order->status_id === 5 ? 'დაბრუნებული' : 'გაცვლილი'),
+                    ], 422);
+                }
+
+                // ─── კურიერთან გადაცემულზე პროდუქტი/ზომა იკრძალება ──
+                if ($order->status_id === 4) {
+                    $data['product_id']   = $order->product_id;
+                    $data['product_size'] = $order->product_size;
+                }
+
                 // 1. სტატუსი მხოლოდ admin-ს შეუძლია შეცვალოს
                 if (auth()->user()->role !== 'admin') {
                     unset($data['status_id']);
@@ -379,6 +394,20 @@ class ProductOrderController extends Controller
             'image'          => $product->image ? url($product->image) : null,
             'product_status' => $product->product_status,
         ] : null;
+
+        // courier_servise_local ველი null-ია ან სინქრონიზებული არ არის —
+        // ფასებიდან გამოვიანგარიშოთ
+        if (empty($product_Order->courier_servise_local)) {
+            if ((float) $product_Order->courier_price_tbilisi > 0) {
+                $product_Order->courier_servise_local = 'tbilisi';
+            } elseif ((float) $product_Order->courier_price_region > 0) {
+                $product_Order->courier_servise_local = 'region';
+            } elseif ((float) $product_Order->courier_price_village > 0) {
+                $product_Order->courier_servise_local = 'village';
+            } else {
+                $product_Order->courier_servise_local = 'none';
+            }
+        }
 
         return response()->json($product_Order);
     }

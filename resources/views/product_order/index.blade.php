@@ -435,16 +435,6 @@ var table = $('#products-out-table').DataTable({
     columns: columns,
     order: [[2, 'desc']],
     createdRow: function(row, data) {
-        // დაბრუნებული — მოიისფრო ფონი
-        if (data.status_id == 5) {
-            $(row).css('background-color', '#f5eef8');
-            return;
-        }
-        // გაცვლილი — ღია ყვითელი ფონი
-        if (data.status_id == 6) {
-            $(row).css('background-color', '#fef9e7');
-            return;
-        }
         // change ორდერი — ლურჯი ფონი
         if (data.original_sale_id) {
             $(row).css('background-color', '#d9edf7');
@@ -639,22 +629,31 @@ function editForm(id) {
             $('#customer_id_sale').val(data.customer_id).trigger('change');
             $('#status_id_sale').val(data.status_id);
 
+            // კურიერი — customer trigger-ის შემდეგ ვაყენებთ რომ გადაეწეროს
+            setTimeout(function() {
+                var courierVal = data.courier_servise_local || 'none';
+                $('input[name="courier_type"][value="' + courierVal + '"]').prop('checked', true);
+            }, 50);
+
            // 🔒 პროდუქტის და ზომის ბლოკირების ლოგიკა
 var statusId = data.status_id ? parseInt(data.status_id) : 1;
 var pSelect = $('#product_id_sale');
 var sSelect = $('#size_sale');
 
-// ყოველთვის თავიდან გავხსნათ, რომ "Add"-ის დროს პრობლემა არ იყოს
+// ყოველთვის გავხსნათ პირველ რიგში
 pSelect.prop('disabled', false);
 sSelect.prop('disabled', false);
-$('.edit-lock-msg').remove(); 
+$('.edit-lock-msg').remove();
 
-// ვბლოკავთ მხოლოდ იმ შემთხვევაში, თუ სტატუსი არსებობს და არ არის "ახალი" (1)
-// if (data.id && statusId > 1) { 
-//     pSelect.prop('disabled', true);
-//     sSelect.prop('disabled', true);
-//     pSelect.closest('.form-group').find('label').append(' <span class="edit-lock-msg text-danger small">(Locked)</span>');
-// }
+// status=4 (კურიერთან) — პროდუქტი და ზომა ჩაკეტილი
+if (statusId === 4) {
+    pSelect.prop('disabled', true);
+    sSelect.prop('disabled', true);
+    pSelect.closest('.form-group').find('label').first()
+        .append(' <span class="edit-lock-msg label label-warning" style="font-size:10px;">🔒 კურიერთანაა</span>');
+    sSelect.closest('.form-group').find('label').first()
+        .append(' <span class="edit-lock-msg label label-warning" style="font-size:10px;">🔒</span>');
+}
 
             // 4. ბანკები და ფასდაკლება
             $('#modal-sale input[name="paid_tbc"]').val(data.paid_tbc || 0);
@@ -663,9 +662,8 @@ $('.edit-lock-msg').remove();
             $('#modal-sale input[name="paid_cash"]').val(data.paid_cash || 0);
             $('#discount_sale').val(data.discount || 0);
 
-            // 5. კურიერის ლოგიკა
+            // 5. კურიერის ლოგიკა — customer trigger-ის შემდეგ გადაეწეროს
             var courierVal = data.courier_servise_local || 'none';
-            $('input[name="courier_type"][value="' + courierVal + '"]').prop('checked', true).trigger('change');
 
             // 6. პროდუქტის სინქრონიზაცია (ინაქტიურის გათვალისწინებით)
             var cp = data.current_product;
@@ -775,10 +773,17 @@ setTimeout(function() { clearInterval(checkSizeExist); }, 2000);
             var id = form.find('input[name="id"]').val();
             var url = (save_method == 'add') ? "{{ url('productsOut') }}" : "{{ url('productsOut') }}/" + id;
 
+            // disabled ველები FormData-ში არ ჩაერთვება —
+            // გავხსნოთ დროებით, FormData ვაგროვოთ, შემდეგ დავხუროთ
+            var $locked = form.find(':disabled');
+            $locked.prop('disabled', false);
+            var formData = new FormData(this);
+            $locked.prop('disabled', true);
+
             $.ajax({
                 url: url,
                 type: "POST",
-                data: new FormData(this),
+                data: formData,
                 contentType: false,
                 processData: false,
                 success: function(data) {
@@ -787,12 +792,13 @@ setTimeout(function() { clearInterval(checkSizeExist); }, 2000);
                     swal("წარმატება!", data.message, "success");
                 },
                 error: function(xhr) {
-                    if (xhr.status === 422) {
-                        var response = JSON.parse(xhr.responseText);
-                        swal("შეცდომა", response.message, "error");
-                    } else {
-                        swal("შეცდომა", "მონაცემები ვერ შეინახა", "error");
+                    var msg = "მონაცემები ვერ შეინახა";
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        msg = xhr.responseJSON.message;
+                    } else if (xhr.status === 422) {
+                        try { msg = JSON.parse(xhr.responseText).message; } catch(e) {}
                     }
+                    swal("შეცდომა", msg, "error");
                 }
             });
         });
