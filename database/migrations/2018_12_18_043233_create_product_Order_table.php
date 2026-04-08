@@ -22,6 +22,8 @@ class CreateProductOrderTable extends Migration
 $table->decimal('cost_price', 10, 2)->default(0);
 $table->unsignedInteger('purchase_order_id')->nullable()->index();
 $table->unsignedInteger('original_sale_id')->nullable()->index();
+ $table->unsignedBigInteger('changed_to_order_id')->nullable();
+ $table->unsignedBigInteger('returned_purchase_id')->nullable();
            $table->integer('customer_id')->unsigned()->nullable();
             $table->integer('status_id')->unsigned()->default(1);
             $table->integer('user_id')->unsigned();

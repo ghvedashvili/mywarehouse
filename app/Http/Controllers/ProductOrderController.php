@@ -85,7 +85,7 @@ class ProductOrderController extends Controller
 
         $courier       = Courier::first();
         $categoryPrice = $product->category->international_courier_price ?? null;
-        $data['courier_price_international'] = $categoryPrice ?? ($courier->international_price ?? 30);
+        // $data['courier_price_international'] = $categoryPrice ?? ($courier->international_price ?? 30);
         $data['courier_price_tbilisi'] = 0;
         $data['courier_price_region']  = 0;
         $data['courier_price_village'] = 0;
@@ -180,8 +180,8 @@ class ProductOrderController extends Controller
                 $courier = \App\Models\Courier::first();
                 $product = \App\Models\Product::with('category')
                     ->findOrFail($request->product_id ?? $order->product_id);
-                $data['courier_price_international'] = $product->category->international_courier_price
-                    ?? ($courier->international_price ?? 30);
+                // $data['courier_price_international'] = $product->category->international_courier_price
+                //     ?? ($courier->international_price ?? 30);
 
                 $courierType = $request->courier_type ?? 'none';
                 $data['courier_servise_local']  = $courierType;

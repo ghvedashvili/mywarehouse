@@ -546,39 +546,71 @@ public function partialReceive(Request $request, $id)
         $totalOriginalQty = $purchase->quantity;
         $remainingQty     = $totalOriginalQty - $receivedQty;
 
-        if ($receivedQty >= $totalOriginalQty) {
-            return response()->json(['success' => false, 'message' => 'მისაღები რაოდენობა ნაკლები უნდა იყოს მთლიანზე'], 422);
+        if ($receivedQty <= 0) {
+            return response()->json(['success' => false, 'message' => 'რაოდენობა უნდა იყოს მინიმუმ 1'], 422);
         }
 
-        // ─── მხოლოდ გადახდები იყოფა პროპორციულად ─────────────────────
-        // price_usa, courier_price_international, cost_price, price_georgia
-        // ყველა ერთი ცალის ფასია — არ იცვლება!
+        if ($receivedQty > $totalOriginalQty) {
+            return response()->json(['success' => false, 'message' => 'მისაღები რაოდენობა არ შეიძლება აღემატებოდეს მთლიანს (' . $totalOriginalQty . ')'], 422);
+        }
 
+        $stock = Warehouse::where('product_id', $purchase->product_id)
+                          ->where('size', $purchase->product_size)->first();
+
+        // ─── სრული მიღება ──────────────────────────────────────────────
+        if ($receivedQty == $totalOriginalQty) {
+            $purchase->update(['status_id' => 3]);
+
+            if ($stock) {
+                $stock->decrement('incoming_qty', $receivedQty);
+                $stock->increment('physical_qty', $receivedQty);
+                $stock->save();
+            }
+
+            $linkedSales = Product_Order::where('purchase_order_id', $purchase->id)
+                ->where('status_id', 2)
+                ->get();
+
+            foreach ($linkedSales as $sale) {
+                $sale->status_id = 3;
+                $sale->save();
+
+                StatusChangeLog::create([
+                    'order_id'       => $sale->id,
+                    'user_id'        => auth()->id(),
+                    'status_id_from' => 2,
+                    'status_id_to'   => 3,
+                    'changed_at'     => now(),
+                ]);
+            }
+
+            return response()->json(['success' => true, 'message' => 'სრულად მიღებულია']);
+        }
+
+        // ─── ნაწილობრივი მიღება (split) ────────────────────────────────
         $ratio = $receivedQty / $totalOriginalQty;
 
-        // ─── მოვამზადოთ მონაცემები ახალი (ნაშთი) ორდერისთვის ─────────
         $newData = $purchase->toArray();
         unset($newData['id'], $newData['created_at'], $newData['updated_at']);
 
         $newData['quantity']                    = $remainingQty;
-        $newData['price_usa']                   = $purchase->price_usa;                   // უცვლელი
-        $newData['courier_price_international'] = $purchase->courier_price_international; // უცვლელი
-        $newData['cost_price']                  = $purchase->cost_price;                  // უცვლელი
-        $newData['price_georgia']               = $purchase->price_georgia;               // უცვლელი
+        $newData['price_usa']                   = $purchase->price_usa;
+        $newData['courier_price_international'] = $purchase->courier_price_international;
+        $newData['cost_price']                  = $purchase->cost_price;
+        $newData['price_georgia']               = $purchase->price_georgia;
         $newData['paid_tbc']                    = round($purchase->paid_tbc  * (1 - $ratio), 2);
         $newData['paid_bog']                    = round($purchase->paid_bog  * (1 - $ratio), 2);
         $newData['paid_lib']                    = round($purchase->paid_lib  * (1 - $ratio), 2);
         $newData['paid_cash']                   = round($purchase->paid_cash * (1 - $ratio), 2);
         $newData['comment']                     = '📦 ნაშთი #' . $id . '-დან';
-        $newData['status_id']                   = 2; // რჩება გზაში
+        $newData['status_id']                   = 2;
 
-        // ─── განვაახლოთ მიმდინარე ორდერი (მიღებული ნაწილი) ──────────
         $purchase->update([
             'quantity'                    => $receivedQty,
-            'price_usa'                   => $purchase->price_usa,                   // უცვლელი
-            'courier_price_international' => $purchase->courier_price_international, // უცვლელი
-            'cost_price'                  => $purchase->cost_price,                  // უცვლელი
-            'price_georgia'               => $purchase->price_georgia,               // უცვლელი
+            'price_usa'                   => $purchase->price_usa,
+            'courier_price_international' => $purchase->courier_price_international,
+            'cost_price'                  => $purchase->cost_price,
+            'price_georgia'               => $purchase->price_georgia,
             'paid_tbc'                    => round($purchase->paid_tbc  * $ratio, 2),
             'paid_bog'                    => round($purchase->paid_bog  * $ratio, 2),
             'paid_lib'                    => round($purchase->paid_lib  * $ratio, 2),
@@ -586,19 +618,13 @@ public function partialReceive(Request $request, $id)
             'status_id'                   => 3,
         ]);
 
-        // შევქმნათ ნაშთის ორდერი
         $newPurchase = Product_Order::create($newData);
-
-        // ─── საწყობის (Warehouse) განახლება ───────────────────────────
-        $stock = Warehouse::where('product_id', $purchase->product_id)
-                          ->where('size', $purchase->product_size)->first();
 
         if ($stock) {
             $stock->decrement('incoming_qty', $receivedQty);
             $stock->increment('physical_qty', $receivedQty);
         }
 
-        // ─── გაყიდვების გადაბმა ───────────────────────────────────────
         $linkedSales = Product_Order::where('purchase_order_id', $purchase->id)
             ->where('status_id', 2)
             ->orderBy('created_at', 'asc')
@@ -607,11 +633,8 @@ public function partialReceive(Request $request, $id)
         $processed = 0;
         foreach ($linkedSales as $sale) {
             if ($processed < $receivedQty) {
-                // ეს sale მიღებულ ნაწილს ეკუთვნის → status=3 (საწყობში)
                 $sale->status_id = 3;
                 $sale->save();
-
-              //  if ($stock) $stock->decrement('reserved_qty', 1); // reserved ბალანსი
 
                 StatusChangeLog::create([
                     'order_id'       => $sale->id,
@@ -622,7 +645,6 @@ public function partialReceive(Request $request, $id)
                 ]);
                 $processed++;
             } else {
-                // დანარჩენი sale-ები მიებას ახალ ნაშთ purchase-ს (ჯერ კიდევ გზაში)
                 $sale->purchase_order_id = $newPurchase->id;
                 $sale->save();
             }
