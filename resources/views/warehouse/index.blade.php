@@ -165,6 +165,45 @@
 </div>
 
 @include('warehouse.form_purchase')
+
+{{-- Partial Receive Modal --}}
+<div class="modal fade" id="modal-partial-receive" tabindex="-1" role="dialog" data-backdrop="static">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content" style="border-radius:8px;">
+            <div class="modal-header" style="background:#f39c12; color:#fff; border-radius:8px 8px 0 0;">
+                <button type="button" class="close" data-dismiss="modal" style="color:#fff; opacity:1;">&times;</button>
+                <h4 class="modal-title" style="font-weight:700;">📦 საწყობში მიღება</h4>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="partial_purchase_id">
+
+                <div style="background:#f9f9f9; border:1px solid #ddd; border-radius:6px;
+                            padding:10px 14px; margin-bottom:14px; font-size:13px;">
+                    <div><strong id="partial_product_name">—</strong></div>
+                    <div style="margin-top:4px; color:#666;">
+                        შეკვეთილი: <strong id="partial_total_qty">—</strong> ერთ.
+                        &nbsp;|&nbsp;
+                        ზომა: <strong id="partial_size">—</strong>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label style="font-weight:600;">რამდენი ჩამოვიდა?</label>
+                    <input type="number" id="partial_received_qty" class="form-control"
+                           min="1" placeholder="0" style="font-size:18px; font-weight:700; text-align:center;">
+                    <small class="text-muted" id="partial_remaining_text" style="display:block; margin-top:6px;"></small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">გაუქმება</button>
+                <button type="button" class="btn btn-success" onclick="submitPartialReceive()" id="btn-partial-save">
+                    <i class="fa fa-check"></i> დადასტურება
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @section('bot')
@@ -495,9 +534,77 @@ $(function() {
 
     // ══ STATUS MODAL ══
     window.openStatusModal = function(orderId, currentStatus) {
-        $('#status_order_id').val(orderId);
-        $('#new_status_id').val(currentStatus);
-        $('#modal-status').modal('show');
+        // status=2 (გზაში) ჩვეულებრივი სტატუს-მოდალი ნახევრად გახსნის partial modal-ს
+        // ჯერ ჩამოვიტანოთ purchase info
+        $.get("{{ url('warehouse') }}/" + orderId + "/edit", function(data) {
+            if (currentStatus == 2) {
+                // partial receive modal
+                $('#partial_purchase_id').val(orderId);
+                $('#partial_product_name').text(data.product_name || 'Purchase #' + orderId);
+                $('#partial_size').text(data.product_size || '');
+                $('#partial_total_qty').text(data.quantity);
+                $('#partial_received_qty').val(data.quantity).attr('max', data.quantity);
+                updatePartialRemaining(data.quantity, data.quantity);
+                $('#modal-partial-receive').modal('show');
+            } else {
+                $('#status_order_id').val(orderId);
+                $('#new_status_id').val(currentStatus);
+                $('#modal-status').modal('show');
+            }
+        });
+    };
+
+    $('#partial_received_qty').on('input', function() {
+        var total = parseInt($('#partial_total_qty').text()) || 0;
+        var got   = parseInt($(this).val()) || 0;
+        updatePartialRemaining(total, got);
+    });
+
+    function updatePartialRemaining(total, got) {
+        var rem = total - got;
+        var txt = '';
+        if (got >= total) {
+            txt = '<span style="color:#00a65a; font-weight:700;">✅ სრული მიღება — ყველა ' + total + ' ერთ. ჩამოვა</span>';
+        } else if (got > 0) {
+            txt = '<span style="color:#f39c12; font-weight:700;">⚠️ ' + rem + ' ერთ. კვლავ გზაში დარჩება (ახალი Purchase შეიქმნება)</span>';
+        }
+        $('#partial_remaining_text').html(txt);
+    }
+
+    window.submitPartialReceive = function() {
+        var id  = $('#partial_purchase_id').val();
+        var qty = parseInt($('#partial_received_qty').val());
+        var max = parseInt($('#partial_total_qty').text());
+
+        if (!qty || qty < 1) {
+            swal('შეცდომა', 'შეიყვანეთ მიღებული რაოდენობა', 'error');
+            return;
+        }
+        if (qty > max) {
+            swal('შეცდომა', 'მიღებული (' + qty + ') მეტია შეკვეთილზე (' + max + ')', 'error');
+            return;
+        }
+
+        $('#btn-partial-save').prop('disabled', true).text('...');
+
+        $.ajax({
+            url: "{{ url('warehouse') }}/" + id + "/partial-receive",
+            type: 'POST',
+            data: { received_qty: qty, _token: "{{ csrf_token() }}" },
+            success: function(res) {
+                $('#modal-partial-receive').modal('hide');
+                purchasesTable.ajax.reload();
+                stockTable.ajax.reload();
+                swal({ title: '✅', text: res.message, type: 'success', timer: 2500 });
+            },
+            error: function(xhr) {
+                var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'შეცდომა!';
+                swal({ title: 'შეცდომა', text: msg, type: 'error' });
+            },
+            complete: function() {
+                $('#btn-partial-save').prop('disabled', false).html('<i class="fa fa-check"></i> დადასტურება');
+            }
+        });
     };
 
     window.submitStatus = function() {

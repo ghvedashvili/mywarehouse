@@ -113,6 +113,7 @@ Route::get('/warehouse/stock-info', [WarehouseController::class, 'stockInfo'])->
 Route::get('/warehouse/api-stock', [WarehouseController::class, 'apiStock'])->name('warehouse.apiStock');
 Route::get('/warehouse/api-purchases', [WarehouseController::class, 'apiPurchases'])->name('warehouse.apiPurchases');
 Route::post('/warehouse/{id}/receive', [WarehouseController::class, 'receiveStock'])->name('warehouse.receive');
+Route::post('/warehouse/{id}/partial-receive', [WarehouseController::class, 'partialReceive'])->name('warehouse.partialReceive');
 Route::resource('warehouse', WarehouseController::class);
 Route::post('warehouse/update-status/{id}', [WarehouseController::class, 'updateStatus']);
 Route::get('/api/fifo-prices', [WarehouseController::class, 'fifoPrices']);
