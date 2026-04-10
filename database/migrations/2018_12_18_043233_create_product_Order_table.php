@@ -10,8 +10,10 @@ class CreateProductOrderTable extends Migration
     {
         Schema::create('product_Order', function (Blueprint $table) {
             $table->increments('id');
-            $table->enum('status', ['active', 'deleted'])->default('active');
+            $table->string('order_number', 20)->nullable()->unique();
 
+            $table->enum('status', ['active', 'deleted'])->default('active');
+$table->tinyInteger('sale_from')->default(0);
             $table->unsignedInteger('merged_id')->nullable();
             $table->boolean('is_primary')->default(0);
 

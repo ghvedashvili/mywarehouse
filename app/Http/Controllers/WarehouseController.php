@@ -591,7 +591,7 @@ public function partialReceive(Request $request, $id)
         $ratio = $receivedQty / $totalOriginalQty;
 
         $newData = $purchase->toArray();
-        unset($newData['id'], $newData['created_at'], $newData['updated_at']);
+        unset($newData['id'], $newData['created_at'], $newData['updated_at'], $newData['order_number']);
 
         $newData['quantity']                    = $remainingQty;
         $newData['price_usa']                   = $purchase->price_usa;

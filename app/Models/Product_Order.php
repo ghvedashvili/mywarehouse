@@ -15,6 +15,7 @@ class Product_Order extends Model
         'paid_tbc', 'paid_bog', 'paid_lib', 'paid_cash',
         'order_type', 'comment', 'status', 'cost_price', 'purchase_order_id',
         'courier_price_village', 'original_sale_id',
+        'order_number', 'sale_from',
     ];
 
     protected $hidden = ['created_at', 'updated_at'];
@@ -23,6 +24,23 @@ class Product_Order extends Model
     {
         static::addGlobalScope('active', function ($query) {
             $query->where('status', 'active');
+        });
+
+        // ახალი ორდერის შექმნის შემდეგ order_number ავტომატურად გენერირდება
+        static::created(function ($order) {
+            if (empty($order->order_number)) {
+                $prefix = match($order->order_type) {
+                    'sale'     => 's',
+                    'change'   => 'c',
+                    'purchase' => 'p',
+                    default    => 'x',
+                };
+
+                $date = now()->format('dmy'); // მაგ: 100426
+
+                $order->order_number = $prefix . $order->id . '/' . $date;
+                $order->saveQuietly(); // booted loop-ის თავიდან ასაცილებლად
+            }
         });
     }
 
@@ -51,12 +69,13 @@ class Product_Order extends Model
     {
         return $this->belongsTo(Customer::class)->withoutGlobalScope('active');
     }
-     public function siblings()
-      {
-          return $this->hasMany(Product_Order::class, 'merged_id', 'merged_id')
-                      ->where('is_primary', 0)
-                      ->withoutGlobalScope('active');
-      }
+
+    public function siblings()
+    {
+        return $this->hasMany(Product_Order::class, 'merged_id', 'merged_id')
+                    ->where('is_primary', 0)
+                    ->withoutGlobalScope('active');
+    }
 
     // change ორდერი → original sale
     public function originalSale()

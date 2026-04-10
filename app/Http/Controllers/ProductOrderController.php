@@ -119,6 +119,7 @@ class ProductOrderController extends Controller
             // გადახდილია და ნაშთი არის — დავარეზერვოთ
             $data['status_id']         = $stock->physical_qty > 0 ? 3 : 2;
             $data['purchase_order_id'] = $fifo['purchase_order_id']; // მხოლოდ დარეზერვებისას
+            $data['sale_from']         = $stock->physical_qty > 0 ? 1 : 0; // 1=საწყობიდან, 0=სხვა
             $newOrder = Product_Order::create($data);
             $stock->increment('reserved_qty', 1);
 
@@ -572,10 +573,7 @@ class ProductOrderController extends Controller
         return Datatables::of($productOrder)
             ->filter(function() {})
             ->addColumn('order_id', function ($item) {
-                $typeMap  = ['sale' => 'S', 'change' => 'C', 'purchase' => 'P'];
-                $prefix   = $typeMap[$item->order_type] ?? 'S';
-                $datePart = $item->created_at ? $item->created_at->format('ymd') : '000000';
-                return $prefix . $item->id . '/' . $datePart;
+                return $item->order_number ?? ('S' . $item->id);
             })
             ->addColumn('cross_ref_html', function ($item) {
                 $html = '';

@@ -358,13 +358,7 @@ var columns = [
         orderable: false,
         searchable: false,
         render: function(data) {
-            var typeMap = {sale: 'S', change: 'C', purchase: 'P'};
-            var prefix  = typeMap[data.order_type] || 'S';
-            var d       = new Date(data.created_at);
-            var yy      = String(d.getFullYear()).slice(-2);
-            var mm      = ("0"+(d.getMonth()+1)).slice(-2);
-            var dd      = ("0"+d.getDate()).slice(-2);
-            var orderNo = prefix + data.id + '/' + yy + mm + dd;
+            var orderNo = data.order_number || ('S' + data.id);
 
             // 1. ჩეკბოქსი და ნომერი (ერთ ხაზზე)
             var cb = (data.merged_id && !data.is_primary)
