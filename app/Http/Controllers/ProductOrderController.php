@@ -66,9 +66,11 @@ class ProductOrderController extends Controller
             $request->product_id,
             $request->product_size ?? ''
         );
-        $data['price_georgia']     = $fifo['price_georgia'];
-        $data['price_usa']         = $fifo['cost_price'];
-        $data['purchase_order_id'] = null; // status=1-ზე null — დარეზერვებისას მიენიჭება
+        // price_georgia — პროდუქტიდან (შემდეგ არ იცვლება)
+        // price_usa     — purchase-დან (თუ მიბმული არ არის — 0, მოგვიანებით განახლდება)
+        $data['price_georgia']     = (float) ($product->price_geo ?? 0);
+        $data['price_usa']         = $fifo['purchase_order_id'] ? (float) $fifo['cost_price'] : 0;
+        $data['purchase_order_id'] = null; // დარეზერვებისას მიენიჭება
 
         if ($user->role === 'staff') {
             $data['discount'] = 0;
@@ -119,6 +121,7 @@ class ProductOrderController extends Controller
             // ნაშთი არის — გადახდის მიუხედავად სტატუსი 2 ან 3
             $data['status_id']         = $stock->physical_qty > 0 ? 3 : 2;
             $data['purchase_order_id'] = $fifo['purchase_order_id'];
+            $data['price_usa']         = $fifo['purchase_order_id'] ? (float) $fifo['cost_price'] : 0;
             $data['sale_from']         = $stock->physical_qty > 0 ? 1 : 0;
             $newOrder = Product_Order::create($data);
             $stock->increment('reserved_qty', 1);
@@ -240,8 +243,8 @@ class ProductOrderController extends Controller
                                 $fifo = \App\Services\FifoService::getPrices($oldProductId, $oldSize);
                                 $waitingSale->purchase_order_id = $fifo['purchase_order_id'];
                                 $waitingSale->price_usa         = $fifo['cost_price'];
-                                $waitingSale->price_georgia     = $fifo['price_georgia'];
-                                $waitingSale->status_id         = $oldPurchase->status_id; // 2 ან 3
+                                // price_georgia არ იცვლება
+                                $waitingSale->status_id         = $oldPurchase->status_id;
                                 $waitingSale->save();
 
                                 if ($oldStock) $oldStock->increment('reserved_qty', 1);
@@ -263,8 +266,9 @@ class ProductOrderController extends Controller
                 // 4. FIFO ფასები თუ პროდუქტი/ზომა შეიცვალა
                 if ($keyChanged && in_array($order->order_type, ['sale', 'change'])) {
                     $fifo = \App\Services\FifoService::getPrices($newProductId, $newSize);
-                    $data['price_georgia']     = $fifo['price_georgia'];
-                    $data['price_usa']         = $fifo['cost_price'];
+                    $newProduct = \App\Models\Product::withoutGlobalScope('active')->find($newProductId);
+                    $data['price_georgia']     = (float) ($newProduct->price_geo ?? $order->price_georgia);
+                    $data['price_usa']         = $fifo['purchase_order_id'] ? (float) $fifo['cost_price'] : 0;
                     $data['purchase_order_id'] = $fifo['purchase_order_id'];
                 }
 
@@ -474,7 +478,7 @@ class ProductOrderController extends Controller
                                 if ($pendingSale) {
                                     $pendingSale->purchase_order_id = $purchase->id;
                                     $pendingSale->price_usa         = (float) $purchase->cost_price;
-                                    $pendingSale->price_georgia     = (float) $purchase->price_georgia;
+                                    // price_georgia არ იცვლება
                                     $pendingSale->status_id         = $purchase->status_id;
                                     $pendingSale->save();
 
@@ -496,7 +500,12 @@ class ProductOrderController extends Controller
             }
             // ──────────────────────────────────────────────────────────
 
-            $order->update(['status' => 'deleted', 'purchase_order_id' => null]);
+            $order->update([
+                'status'            => 'deleted',
+                'purchase_order_id' => null,
+                'price_usa'         => 0,
+                'price_georgia'     => 0,
+            ]);
 
             return response()->json(['success' => true, 'message' => 'Order Deleted Successfully']);
         });
@@ -1546,8 +1555,8 @@ class ProductOrderController extends Controller
                 'customer_id'                 => $originalSale->customer_id,
                 'user_id'                     => auth()->id(),
                 'status_id'                   => $newStatus,
-                'price_georgia'               => $fifo['price_georgia'] ?? $newProduct->price_geo ?? $originalSale->price_georgia,
-                'price_usa'                   => $fifo['cost_price'] ?: $originalSale->price_usa,
+                'price_georgia'               => (float) ($newProduct->price_geo ?? $originalSale->price_georgia),
+                'price_usa'                   => $fifo['purchase_order_id'] ? (float) $fifo['cost_price'] : 0,
                 'cost_price'                  => $fifo['cost_price'] ?: $originalSale->price_usa,
                 'purchase_order_id'           => ($newStatus > 1) ? ($fifo['purchase_order_id'] ?? null) : null,
                 'discount'                    => $originalSale->discount ?? 0,
@@ -1685,7 +1694,7 @@ private function attachImageBase64(Product_Order $order): void
 
             $order->purchase_order_id = $nextPurchase->id;
             $order->price_usa         = (float) $nextPurchase->cost_price;
-            $order->price_georgia     = (float) $nextPurchase->price_georgia;
+            // price_georgia არ იცვლება
             $order->status_id         = $newStatus;
             $order->save();
 

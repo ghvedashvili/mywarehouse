@@ -222,7 +222,6 @@ class WarehouseController extends Controller
                         $newSaleStatus = $nextPurchase->status_id;
                         $sale->purchase_order_id = $nextPurchase->id;
                         $sale->price_usa         = (float) $nextPurchase->cost_price;
-                        $sale->price_georgia     = (float) $nextPurchase->price_georgia;
                         $sale->status_id         = $newSaleStatus;
                         $sale->save();
 
@@ -261,7 +260,6 @@ class WarehouseController extends Controller
                     if ($nextPurchase) {
                         $sale->purchase_order_id = $nextPurchase->id;
                         $sale->price_usa         = (float) $nextPurchase->cost_price;
-                        $sale->price_georgia     = (float) $nextPurchase->price_georgia;
                         $sale->status_id         = $nextPurchase->status_id;
                         $sale->save();
                     } else {
@@ -369,7 +367,6 @@ class WarehouseController extends Controller
                                 if ($nextPurchase) {
                                     $sale->purchase_order_id = $nextPurchase->id;
                                     $sale->price_usa         = (float) $nextPurchase->cost_price;
-                                    $sale->price_georgia     = (float) $nextPurchase->price_georgia;
                                     $sale->status_id         = $nextPurchase->status_id;
                                     $sale->save();
 
@@ -471,7 +468,6 @@ class WarehouseController extends Controller
                         $newSaleStatus = $nextPurchase->status_id;
                         $sale->purchase_order_id = $nextPurchase->id;
                         $sale->price_usa         = (float) $nextPurchase->cost_price;
-                        $sale->price_georgia     = (float) $nextPurchase->price_georgia;
                         $sale->status_id         = $newSaleStatus;
                         $sale->save();
 
@@ -736,12 +732,10 @@ public function partialReceive(Request $request, $id)
 
             if ($available <= 0) break;
 
-            // FIFO ფასი
             $nextPurchase = FifoService::getNextPurchase($productId, $size);
-            $sale->price_usa     = $nextPurchase?->cost_price ?? 0;
-            $sale->price_georgia = $nextPurchase?->price_georgia ?? 0;
+            $sale->price_usa = $nextPurchase?->cost_price ?? 0;
+            // price_georgia არ იცვლება
 
-            // დარეზერვება — debt-ის მიუხედავად
             $sale->purchase_order_id = $nextPurchase?->id;
             $stock->increment('reserved_qty', 1);
             $sale->status_id = $purchaseStatus;
@@ -809,7 +803,7 @@ public function partialReceive(Request $request, $id)
 
             $sale->purchase_order_id = $purchase->id;
             $sale->price_usa         = (float) $purchase->cost_price;
-            $sale->price_georgia     = (float) $purchase->price_georgia;
+            // price_georgia არ იცვლება
             $sale->status_id         = $purchaseStatus;
             $sale->save();
 
@@ -869,7 +863,7 @@ public function partialReceive(Request $request, $id)
         $productId = $order->product_id;
         $size      = $order->product_size;
 
-        $logAndSave = function (Product_Order $sale, int $newSaleStatus, float $priceUsa = 0, float $priceGeo = 0, ?int $purchaseOrderId = -1) {
+        $logAndSave = function (Product_Order $sale, int $newSaleStatus, float $priceUsa = 0, ?int $purchaseOrderId = -1) {
             StatusChangeLog::create([
                 'order_id'       => $sale->id,
                 'user_id'        => auth()->id(),
@@ -878,8 +872,8 @@ public function partialReceive(Request $request, $id)
                 'changed_at'     => now(),
             ]);
             $sale->price_usa = $priceUsa;
-            if ($priceGeo > 0) $sale->price_georgia = $priceGeo;
-            if ($purchaseOrderId !== -1) $sale->purchase_order_id = $purchaseOrderId; // -1 = არ შეცვალო
+            // price_georgia არ იცვლება — პროდუქტიდან მოდის შექმნისას
+            if ($purchaseOrderId !== -1) $sale->purchase_order_id = $purchaseOrderId;
             $sale->status_id = $newSaleStatus;
             $sale->save();
         };
@@ -916,12 +910,11 @@ if ($oldStatusId === 1 && $newStatusId === 2) {
         $available = $stock->incoming_qty - $stock->reserved_qty;
         if ($available <= 0) break;
 
-        $sale->purchase_order_id = $order->id;  // ← პირდაპირ ამ purchase-ს
+        $sale->purchase_order_id = $order->id;
         $sale->price_usa     = $order->cost_price;
-        $sale->price_georgia = $order->price_georgia;
         $stock->increment('reserved_qty', 1);
         $canTake--;
-        $logAndSave($sale, 2, $sale->price_usa, $sale->price_georgia, $sale->purchase_order_id);
+        $logAndSave($sale, 2, $sale->price_usa, $sale->purchase_order_id);
     }
 }
 
@@ -934,8 +927,7 @@ if ($oldStatusId === 2 && $newStatusId === 3) {
         ->get();
 
     foreach ($salesToPromote as $sale) {
-        // debt-ი ცალკეა — საქონელი ჩამოვიდა, sale საწყობში გადადის debt-ის მიუხედავად
-        $logAndSave($sale, 3, $sale->price_usa, $sale->price_georgia, $sale->purchase_order_id);
+        $logAndSave($sale, 3, $sale->price_usa, $sale->purchase_order_id);
     }
 }
 
@@ -951,8 +943,7 @@ if ($oldStatusId === 2 && $newStatusId === 3) {
 
             foreach ($reservedSales as $sale) {
                 if ($stock) $stock->decrement('reserved_qty', 1);
-                // purchase_order_id null-დება — purchase ახლად გამოდის
-                $logAndSave($sale, 1, $sale->price_usa, $sale->price_georgia, null);
+                $logAndSave($sale, 1, 0, null); // price_usa=0 რადგან purchase-ი გამოვიდა
             }
             if ($stock) $stock->save();
         }
@@ -965,7 +956,7 @@ if ($oldStatusId === 2 && $newStatusId === 3) {
                 ->where('status_id', 3)
                 ->get();
             foreach ($salesToRollback as $sale) {
-                $logAndSave($sale, 2, $sale->price_usa, $sale->price_georgia, $sale->purchase_order_id);
+                $logAndSave($sale, 2, $sale->price_usa, $sale->purchase_order_id);
             }
         }
 
@@ -981,8 +972,7 @@ if ($oldStatusId === 2 && $newStatusId === 3) {
 
             foreach ($affectedSales as $sale) {
                 if ($stock) $stock->decrement('reserved_qty', 1);
-                // ფასები რჩება — purchase_order_id null-დება
-                $logAndSave($sale, 1, $sale->price_usa, $sale->price_georgia, null);
+                $logAndSave($sale, 1, 0, null); // price_usa=0 რადგან purchase-ი გაუქმდა
             }
             if ($stock) $stock->save();
         }

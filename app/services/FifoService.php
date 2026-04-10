@@ -83,14 +83,14 @@ class FifoService
 
         if ($purchases->isEmpty()) return;
 
-        // 1. მიბმული sale-ების ფასები განახლდება purchase-ის მიხედვით
+        // 1. მიბმული sale-ების price_usa განახლება purchase-ის cost_price-ით
+        // price_georgia არ იცვლება — პროდუქტიდან მოდის
         foreach ($purchases as $purchase) {
             Product_Order::where('order_type', 'sale')
                 ->where('purchase_order_id', $purchase->id)
                 ->whereIn('status_id', [1, 2, 3])
                 ->update([
-                    'price_usa'     => $purchase->cost_price,
-                    'price_georgia' => $purchase->price_georgia,
+                    'price_usa' => $purchase->cost_price,
                 ]);
         }
 
@@ -108,7 +108,7 @@ class FifoService
             if ($nextPurchase) {
                 $sale->purchase_order_id = $nextPurchase->id;
                 $sale->price_usa         = (float) $nextPurchase->cost_price;
-                $sale->price_georgia     = (float) $nextPurchase->price_georgia;
+                // price_georgia არ იცვლება
                 $sale->save();
             }
         }
