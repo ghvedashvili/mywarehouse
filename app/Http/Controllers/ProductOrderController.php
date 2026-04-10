@@ -445,7 +445,7 @@ class ProductOrderController extends Controller
             }
             // ──────────────────────────────────────────────────────────
 
-            // ─── stock rollback sale/change წაშლამდე ──────────────────
+            // ─── stock rollback + pending sale-ის დაწინაურება ────────────
             if (in_array($order->order_type, ['sale', 'change'])) {
                 if (in_array($order->status_id, [2, 3])) {
                     $stock = \App\Models\Warehouse::where('product_id', $order->product_id)
@@ -453,12 +453,50 @@ class ProductOrderController extends Controller
                                                   ->first();
                     if ($stock) {
                         $stock->decrement('reserved_qty', 1);
+                        $stock->refresh();
+
+                        // ─── გათავისუფლებულ purchase slot-ზე pending sale მიება ──
+                        $purchaseOrderId = $order->purchase_order_id;
+                        if ($purchaseOrderId) {
+                            $purchase = Product_Order::withoutGlobalScope('active')
+                                ->find($purchaseOrderId);
+
+                            if ($purchase && in_array($purchase->status_id, [2, 3])) {
+                                // ვიპოვოთ ყველაზე ძველი pending sale ამ product/size-ზე
+                                $pendingSale = Product_Order::whereIn('order_type', ['sale', 'change'])
+                                    ->where('product_id', $order->product_id)
+                                    ->where('product_size', $order->product_size)
+                                    ->where('status_id', 1)
+                                    ->where('id', '!=', $order->id)
+                                    ->orderBy('created_at', 'asc')
+                                    ->first();
+
+                                if ($pendingSale) {
+                                    $pendingSale->purchase_order_id = $purchase->id;
+                                    $pendingSale->price_usa         = (float) $purchase->cost_price;
+                                    $pendingSale->price_georgia     = (float) $purchase->price_georgia;
+                                    $pendingSale->status_id         = $purchase->status_id;
+                                    $pendingSale->save();
+
+                                    $stock->increment('reserved_qty', 1);
+
+                                    StatusChangeLog::create([
+                                        'order_id'       => $pendingSale->id,
+                                        'user_id'        => auth()->id(),
+                                        'status_id_from' => 1,
+                                        'status_id_to'   => $purchase->status_id,
+                                        'changed_at'     => now(),
+                                    ]);
+                                }
+                            }
+                        }
+                        // ─────────────────────────────────────────────────────────
                     }
                 }
             }
             // ──────────────────────────────────────────────────────────
 
-            $order->update(['status' => 'deleted']);
+            $order->update(['status' => 'deleted', 'purchase_order_id' => null]);
 
             return response()->json(['success' => true, 'message' => 'Order Deleted Successfully']);
         });
