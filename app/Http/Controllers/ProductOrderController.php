@@ -106,7 +106,7 @@ class ProductOrderController extends Controller
         $hasDebt = ($total - $paid) > 0.01;
         // ──────────────────────────────────────────────────────────────
 
-        // ─── Auto-status: stock + დავალიანება ─────────────────────────
+        // ─── Auto-status: stock ────────────────────────────────────────
         $stock = \App\Models\Warehouse::where('product_id', $data['product_id'])
                                       ->where('size', $request->product_size)
                                       ->first();
@@ -115,11 +115,11 @@ class ProductOrderController extends Controller
             ? max(0, $stock->physical_qty + $stock->incoming_qty - $stock->reserved_qty)
             : 0;
 
-        if (!$hasDebt && $available > 0 && $stock) {
-            // გადახდილია და ნაშთი არის — დავარეზერვოთ
+        if ($available > 0 && $stock) {
+            // ნაშთი არის — გადახდის მიუხედავად სტატუსი 2 ან 3
             $data['status_id']         = $stock->physical_qty > 0 ? 3 : 2;
-            $data['purchase_order_id'] = $fifo['purchase_order_id']; // მხოლოდ დარეზერვებისას
-            $data['sale_from']         = $stock->physical_qty > 0 ? 1 : 0; // 1=საწყობიდან, 0=სხვა
+            $data['purchase_order_id'] = $fifo['purchase_order_id'];
+            $data['sale_from']         = $stock->physical_qty > 0 ? 1 : 0;
             $newOrder = Product_Order::create($data);
             $stock->increment('reserved_qty', 1);
 
@@ -132,7 +132,7 @@ class ProductOrderController extends Controller
             ]);
 
         } else {
-            // დავალიანება აქვს ან ნაშთი არ არის → მოლოდინში, purchase_order_id=null
+            // ნაშთი არ არის → მოლოდინში
             $data['status_id'] = 1;
             Product_Order::create($data);
         }
@@ -272,20 +272,15 @@ class ProductOrderController extends Controller
                 $order->update($data);
                 $order->refresh();
 
-                // 6. sale/change — გადახდა + stock კორექტირება
+                // 6. sale/change — stock კორექტირება
                 if (in_array($order->order_type, ['sale', 'change'])) {
-
-                    $total   = $order->price_georgia - ($order->discount ?? 0);
-                    $paid    = ($order->paid_tbc  ?? 0) + ($order->paid_bog  ?? 0)
-                             + ($order->paid_lib  ?? 0) + ($order->paid_cash ?? 0);
-                    $hasDebt = ($total - $paid) > 0.01;
 
                     $stock = \App\Models\Warehouse::where('product_id', $order->product_id)
                                                   ->where('size', $order->product_size)
                                                   ->first();
 
-                    // CASE A: დავალიანება არ არის, status=1 → დავარეზერვოთ
-                    if (!$hasDebt && $order->status_id == 1) {
+                    // CASE A: status=1 და ნაშთი გამოჩნდა → დავარეზერვოთ (debt-ის მიუხედავად)
+                    if ($order->status_id == 1) {
                         $available = $stock
                             ? max(0, $stock->physical_qty + $stock->incoming_qty - $stock->reserved_qty)
                             : 0;
@@ -308,22 +303,6 @@ class ProductOrderController extends Controller
                                 'changed_at'     => now(),
                             ]);
                         }
-
-                    // CASE B: დავალიანება გაჩნდა, status=2/3 → მოლოდინში
-                    } elseif ($hasDebt && in_array($order->status_id, [2, 3])) {
-                        $fromStatus = $order->status_id;
-                        if ($stock) $stock->decrement('reserved_qty', 1);
-                        $order->status_id         = 1;
-                        $order->purchase_order_id = null;
-                        $order->save();
-
-                        StatusChangeLog::create([
-                            'order_id'       => $order->id,
-                            'user_id'        => auth()->id(),
-                            'status_id_from' => $fromStatus,
-                            'status_id_to'   => 1,
-                            'changed_at'     => now(),
-                        ]);
                     }
                 }
 
@@ -725,18 +704,35 @@ class ProductOrderController extends Controller
                 $color = $item->orderStatus->color ?? 'default';
                 $name  = $item->orderStatus->name  ?? 'Pending';
 
+                // გადახდის შემოწმება
+                $isPaid = function ($order) {
+                    $total = $order->price_georgia - ($order->discount ?? 0);
+                    $paid  = ($order->paid_tbc ?? 0) + ($order->paid_bog ?? 0)
+                           + ($order->paid_lib ?? 0) + ($order->paid_cash ?? 0);
+                    return ($total - $paid) <= 0.01;
+                };
+
                 if ($isAdmin) {
                     if ($item->is_primary) {
                         $allStatus3 = $item->status_id == 3 && $item->children->every(fn($c) => $c->status_id == 3);
+                        $allPaid    = $isPaid($item) && $item->children->every(fn($c) => $isPaid($c));
 
                         $html = '<span class="label label-' . $color . '" style="font-size:12px; padding:4px 8px;">' . $name . '</span>';
 
                         if ($allStatus3) {
-                            $html .= '<br><button class="btn btn-xs btn-success"
-                                          onclick="mergeUpdateStatus(' . $item->id . ', ' . $item->merged_id . ')"
-                                          style="margin-top:3px;">
-                                          <i class="fa fa-truck"></i> კურიერთან
-                                      </button>';
+                            if ($allPaid) {
+                                $html .= '<br><button class="btn btn-xs btn-success"
+                                              onclick="mergeUpdateStatus(' . $item->id . ', ' . $item->merged_id . ')"
+                                              style="margin-top:3px;">
+                                              <i class="fa fa-truck"></i> კურიერთან
+                                          </button>';
+                            } else {
+                                $html .= '<br><span class="btn btn-xs btn-default disabled"
+                                              title="დავალიანება არ არის დახურული"
+                                              style="margin-top:3px; opacity:0.5; cursor:not-allowed;">
+                                              <i class="fa fa-truck"></i> კურიერთან
+                                          </span>';
+                            }
                         }
                         return $html;
                     }
@@ -747,11 +743,19 @@ class ProductOrderController extends Controller
                              </span>';
 
                     if ($item->status_id == 3) {
-                        $html .= '<br><button class="btn btn-xs btn-success" 
-                                      onclick="sendSingleToCourier(' . $item->id . ')"
-                                      style="margin-top:3px;">
-                                      <i class="fa fa-truck"></i> კურიერთან
-                                  </button>';
+                        if ($isPaid($item)) {
+                            $html .= '<br><button class="btn btn-xs btn-success" 
+                                          onclick="sendSingleToCourier(' . $item->id . ')"
+                                          style="margin-top:3px;">
+                                          <i class="fa fa-truck"></i> კურიერთან
+                                      </button>';
+                        } else {
+                            $html .= '<br><span class="btn btn-xs btn-default disabled"
+                                          title="დავალიანება არ არის დახურული"
+                                          style="margin-top:3px; opacity:0.5; cursor:not-allowed;">
+                                          <i class="fa fa-truck"></i> კურიერთან
+                                      </span>';
+                        }
                     }
 
                     return $html;
@@ -838,6 +842,18 @@ class ProductOrderController extends Controller
                     'message' => 'მხოლოდ "საწყობში" სტატუსის ორდერი გაიგზავნება!'
                 ], 422);
             }
+
+            // ─── დავალიანების შემოწმება ───────────────────────────────
+            $total   = $order->price_georgia - ($order->discount ?? 0);
+            $paid    = ($order->paid_tbc ?? 0) + ($order->paid_bog ?? 0)
+                     + ($order->paid_lib ?? 0) + ($order->paid_cash ?? 0);
+            if (($total - $paid) > 0.01) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ორდერს აქვს დავალიანება — კურიერთან გადაცემა შეუძლებელია!'
+                ], 422);
+            }
+            // ──────────────────────────────────────────────────────────
 
             $stock = \App\Models\Warehouse::where('product_id', $order->product_id)
                                           ->where('size', $order->product_size)
@@ -1212,6 +1228,20 @@ class ProductOrderController extends Controller
                 'message' => 'ყველა ორდერი (მშობელი და შვილები) უნდა იყოს "საწყობში" სტატუსში!'
             ], 422);
         }
+
+        // ─── დავალიანების შემოწმება ყველა ორდერზე ────────────────────
+        foreach ($orders as $order) {
+            $total = $order->price_georgia - ($order->discount ?? 0);
+            $paid  = ($order->paid_tbc ?? 0) + ($order->paid_bog ?? 0)
+                   + ($order->paid_lib ?? 0) + ($order->paid_cash ?? 0);
+            if (($total - $paid) > 0.01) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "ორდერი #{$order->id} — დავალიანება არ არის დახურული, კურიერთან გადაცემა შეუძლებელია!"
+                ], 422);
+            }
+        }
+        // ──────────────────────────────────────────────────────────────
 
         foreach ($orders as $order) {
             $stock = \App\Models\Warehouse::where('product_id', $order->product_id)

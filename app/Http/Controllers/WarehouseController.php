@@ -736,26 +736,13 @@ public function partialReceive(Request $request, $id)
 
             if ($available <= 0) break;
 
-            // ჯერ FIFO ფასი განვაახლოთ (purchase_order_id ჯერ არ ენიჭება)
+            // FIFO ფასი
             $nextPurchase = FifoService::getNextPurchase($productId, $size);
             $sale->price_usa     = $nextPurchase?->cost_price ?? 0;
             $sale->price_georgia = $nextPurchase?->price_georgia ?? 0;
 
-            // შემდეგ შევამოწმოთ დავალიანება ახალი ფასით
-            $total   = $sale->price_georgia - ($sale->discount ?? 0);
-            $paid    = ($sale->paid_tbc ?? 0) + ($sale->paid_bog ?? 0)
-                     + ($sale->paid_lib ?? 0) + ($sale->paid_cash ?? 0);
-            $hasDebt = ($total - $paid) > 0.01;
-
-            if ($hasDebt) {
-                // დავალიანებაა — status=1 რჩება, purchase_order_id=null
-                $sale->purchase_order_id = null;
-                $sale->save();
-                continue;
-            }
-
-            // დავალიანება არ არის — დავარეზერვოთ
-            $sale->purchase_order_id = $nextPurchase?->id; // მხოლოდ აქ ენიჭება
+            // დარეზერვება — debt-ის მიუხედავად
+            $sale->purchase_order_id = $nextPurchase?->id;
             $stock->increment('reserved_qty', 1);
             $sale->status_id = $purchaseStatus;
             $sale->save();
@@ -768,39 +755,7 @@ public function partialReceive(Request $request, $id)
         $stock = Warehouse::where('product_id', $productId)->where('size', $size)->first();
         if (!$stock) return;
 
-        $hasDebt = function (Product_Order $sale): bool {
-            $total = $sale->price_georgia - ($sale->discount ?? 0);
-            $paid  = ($sale->paid_tbc ?? 0) + ($sale->paid_bog ?? 0)
-                   + ($sale->paid_lib ?? 0) + ($sale->paid_cash ?? 0);
-            return ($total - $paid) > 0.01;
-        };
-
-        // 1. გზაში/საწყობში მყოფი sale-ები — თუ ახლა დავალიანება გაჩნდა → status=1
-        $activeSales = Product_Order::whereIn('order_type', ['sale', 'change'])
-            ->where('product_id', $productId)
-            ->where('product_size', $size)
-            ->whereIn('status_id', [2, 3])
-            ->get();
-
-        foreach ($activeSales as $sale) {
-            if ($hasDebt($sale)) {
-                $stock->decrement('reserved_qty', 1);
-                $sale->status_id = 1;
-                $sale->save();
-
-                StatusChangeLog::create([
-                    'order_id'       => $sale->id,
-                    'user_id'        => auth()->id(),
-                    'status_id_from' => $sale->getOriginal('status_id'),
-                    'status_id_to'   => 1,
-                    'changed_at'     => now(),
-                ]);
-            }
-        }
-        $stock->save();
-        $stock->refresh();
-
-        // 2. status=1 sale-ები — თუ ახლა გადახდილია → status=2/3
+        // status=1 sale-ები — ნაშთი არის → status=2/3 (debt-ის მიუხედავად)
         $pendingSales = Product_Order::whereIn('order_type', ['sale', 'change'])
             ->where('product_id', $productId)
             ->where('product_size', $size)
@@ -809,8 +764,6 @@ public function partialReceive(Request $request, $id)
             ->get();
 
         foreach ($pendingSales as $sale) {
-            if ($hasDebt($sale)) continue;
-
             $stock->refresh();
             $available = $purchaseStatus == 2
                 ? $stock->incoming_qty - $stock->reserved_qty
@@ -853,14 +806,6 @@ public function partialReceive(Request $request, $id)
                 : $stock->physical_qty - $stock->reserved_qty;
 
             if ($available <= 0) break;
-
-            // დავალიანების შემოწმება
-            $total   = $sale->price_georgia - ($sale->discount ?? 0);
-            $paid    = ($sale->paid_tbc ?? 0) + ($sale->paid_bog ?? 0)
-                     + ($sale->paid_lib ?? 0) + ($sale->paid_cash ?? 0);
-            $hasDebt = ($total - $paid) > 0.01;
-
-            if ($hasDebt) continue; // დავალიანება — გამოვტოვოთ
 
             $sale->purchase_order_id = $purchase->id;
             $sale->price_usa         = (float) $purchase->cost_price;
@@ -970,7 +915,6 @@ if ($oldStatusId === 1 && $newStatusId === 2) {
         $stock->refresh();
         $available = $stock->incoming_qty - $stock->reserved_qty;
         if ($available <= 0) break;
-        if ($hasDebt($sale)) continue;
 
         $sale->purchase_order_id = $order->id;  // ← პირდაპირ ამ purchase-ს
         $sale->price_usa     = $order->cost_price;
