@@ -509,6 +509,13 @@ class ProductOrderController extends Controller
             $query->where('status', 'active');
         }
 
+        // ─── Merge filter: კონკრეტული customer-ის გასაერთიანებელი ───────
+        if ($request->filled('merge_customer_id')) {
+            $query->where('customer_id', $request->merge_customer_id)
+                  ->whereIn('status_id', [1, 2, 3]);
+        }
+        // ──────────────────────────────────────────────────────────────
+
         if ($search !== '') {
             $query->where(function($q) use ($search) {
                 $q->whereHas('product', function($pq) use ($search) {
@@ -549,10 +556,71 @@ class ProductOrderController extends Controller
             }
         }
 
+        // ─── გასაერთიანებელი customer-ების ID-ები ─────────────────────
+        // ungrouped ორდერების customer_id-ები (merged_id IS NULL)
+        $ungroupedByCustomer = Product_Order::withoutGlobalScope('active')
+            ->where('status', 'active')
+            ->whereIn('order_type', ['sale', 'change'])
+            ->whereIn('status_id', [1, 2, 3])
+            ->whereNotNull('customer_id')
+            ->whereNull('merged_id')
+            ->select('customer_id')
+            ->groupBy('customer_id')
+            ->havingRaw('COUNT(*) >= 1')
+            ->pluck('customer_id')
+            ->flip()
+            ->toArray();
+
+        // primary ორდერების customer_id-ები (is_primary=1)
+        $primaryByCustomer = Product_Order::withoutGlobalScope('active')
+            ->where('status', 'active')
+            ->whereIn('order_type', ['sale', 'change'])
+            ->whereIn('status_id', [1, 2, 3])
+            ->whereNotNull('customer_id')
+            ->where('is_primary', 1)
+            ->select('customer_id')
+            ->groupBy('customer_id')
+            ->havingRaw('COUNT(*) >= 1')
+            ->pluck('customer_id')
+            ->flip()
+            ->toArray();
+
+        // customer-ი გასაერთიანებელია თუ:
+        // A) 2+ ungrouped ორდერი, ან
+        // B) 1+ primary + 1+ ungrouped (სხვა ჯგუფის გარეთ)
+        $ungroupedCounts = Product_Order::withoutGlobalScope('active')
+            ->where('status', 'active')
+            ->whereIn('order_type', ['sale', 'change'])
+            ->whereIn('status_id', [1, 2, 3])
+            ->whereNotNull('customer_id')
+            ->whereNull('merged_id')
+            ->select('customer_id', \DB::raw('COUNT(*) as cnt'))
+            ->groupBy('customer_id')
+            ->pluck('cnt', 'customer_id')
+            ->toArray();
+
+        // customer_id → გასაერთიანებელია თუ:
+        // ungrouped >= 2, ან (ungrouped >= 1 და primary >= 1)
+        $mergeableCustomerIds = [];
+        foreach ($ungroupedCounts as $customerId => $cnt) {
+            if ($cnt >= 2) {
+                $mergeableCustomerIds[$customerId] = true;
+            } elseif ($cnt >= 1 && isset($primaryByCustomer[$customerId])) {
+                $mergeableCustomerIds[$customerId] = true;
+            }
+        }
+        // ──────────────────────────────────────────────────────────────
+
         return Datatables::of($productOrder)
             ->filter(function() {})
             ->addColumn('order_id', function ($item) {
                 return $item->order_number ?? ('S' . $item->id);
+            })
+            ->addColumn('has_mergeable', function ($item) use ($mergeableCustomerIds) {
+                if (!in_array($item->status_id, [1, 2, 3])) return 0;
+                // შვილი ორდერი (merged მაგრამ არა primary) — არ ვაჩვენოთ
+                if ($item->merged_id && !$item->is_primary) return 0;
+                return isset($mergeableCustomerIds[$item->customer_id]) ? 1 : 0;
             })
             ->addColumn('cross_ref_html', function ($item) {
                 $html = '';
@@ -827,7 +895,7 @@ class ProductOrderController extends Controller
                     '<a onclick="showStatusLog(' . $item->id . ')" class="btn btn-warning btn-xs" title="ისტორია"><i class="fa fa-history"></i></a>' .
                     '</center>';
             })
-            ->rawColumns(['order_id', 'cross_ref_html', 'children_json', 'show_photo', 'product_info', 'payment', 'customer_name', 'status_label', 'action'])
+            ->rawColumns(['order_id', 'has_mergeable', 'cross_ref_html', 'children_json', 'show_photo', 'product_info', 'payment', 'customer_name', 'status_label', 'action'])
             ->make(true);
     }
 

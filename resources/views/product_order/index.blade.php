@@ -77,6 +77,8 @@
         <th>Product</th>
         <th>Customer</th>
         <th>Payment</th>
+        <th style="display:none;"></th> {{-- cross_ref_html hidden --}}
+        <th style="display:none;"></th> {{-- has_mergeable hidden --}}
         @if(auth()->user()->role == 'admin')
         <th>Actions</th>
         @endif
@@ -360,14 +362,23 @@ var columns = [
         render: function(data) {
             var orderNo = data.order_number || ('S' + data.id);
 
-            // 1. ჩეკბოქსი და ნომერი (ერთ ხაზზე)
+            // 1. ჩეკბოქსი და ნომერი
             var cb = (data.merged_id && !data.is_primary)
                 ? ''
                 : '<input type="checkbox" class="row-check" data-id="' + data.id + '" data-status="' + data.status_id + '" style="margin:0;">';
-            
-            var headerRow = '<div style="display:flex; align-items:center; gap:5px;">' + 
-                                cb + 
-                                '<small style="font-weight:600; color:#333; white-space:nowrap;">' + orderNo + '</small>' + 
+
+            // 🔍 გასაერთიანებელი ორდერების მინიშნება
+            var mergeHint = '';
+            if (data.has_mergeable && data.customer_id) {
+                mergeHint = '&nbsp;<span class="merge-search-btn" data-customer-id="' + data.customer_id + '" ' +
+                    'title="ამ კლიენტის სხვა ორდერებიც არსებობს — დააჭირეთ გასაფილტრად და მოსანიშნად" ' +
+                    'style="cursor:pointer; color:#e67e22;">' +
+                    '<i class="fa fa-search"></i></span>';
+            }
+
+            var headerRow = '<div style="display:flex; align-items:center; gap:5px;">' +
+                                cb +
+                                '<small style="font-weight:600; color:#333; white-space:nowrap;">' + orderNo + mergeHint + '</small>' +
                             '</div>';
 
             // 2. cross-reference ბეჯი (გაცვლა / დაბრუნება)
@@ -420,6 +431,8 @@ var columns = [
     {data: 'payment',      name: 'payment',      orderable: false, searchable: false},
     // hidden: cross-reference (გაცვლა/დაბრუნების ბმული) — render-ში გამოიყენება
     {data: 'cross_ref_html', name: 'cross_ref_html', orderable: false, searchable: false, visible: false},
+    // hidden: გასაერთიანებელი customer flag
+    {data: 'has_mergeable', name: 'has_mergeable', orderable: false, searchable: false, visible: false},
 ];
 
 if (isAdmin) {
@@ -1300,7 +1313,7 @@ function mergeSelected() {
                 ids:    ids
             },
             success: function(data) {
-                table.ajax.reload(null, false);
+                table.ajax.url("{{ route('api.productsOut') }}").load();
                 $('#btn-merge').hide();
                 $('#check-all').prop('checked', false);
                 swal("წარმატება!", data.message, "success");
@@ -1311,6 +1324,25 @@ function mergeSelected() {
         });
     });
 }
+
+// =====================
+// 🔍 Merge Search — customer-ის ყველა გასაერთიანებელი ორდერის ჩვენება
+// =====================
+$(document).on('click', '.merge-search-btn', function(e) {
+    e.stopPropagation();
+    var customerId = $(this).data('customer-id');
+
+    // 1. DataTable-ს გავფილტვრავთ customer_id-ით (AJAX reload + custom param)
+    table.ajax.url(
+        "{{ route('api.productsOut') }}?merge_customer_id=" + customerId
+    ).load(function() {
+        // 2. reload-ის შემდეგ — ყველა checkbox მოვნიშნოთ
+        setTimeout(function() {
+            $('.row-check').prop('checked', true);
+            toggleMergeBtn();
+        }, 100);
+    });
+});
 
 // =====================
 // Unmerge — გაყოფა
