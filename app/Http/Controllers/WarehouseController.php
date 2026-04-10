@@ -60,20 +60,44 @@ class WarehouseController extends Controller
             ->get();
 
         return DataTables::of($purchases)
+            ->addColumn('order_number', function ($row) {
+                $num = $row->order_number ?? ('#' . $row->id);
+                $badge = '';
+
+                // ახალი ჩანაწერები — original_sale_id ველი
+                if ($row->original_sale_id) {
+                    $origSale = \App\Models\Product_Order::withoutGlobalScope('active')
+                        ->select('id', 'order_number')
+                        ->find($row->original_sale_id);
+                    $origNum = $origSale
+                        ? ($origSale->order_number ?? ('#' . $origSale->id))
+                        : ('#' . $row->original_sale_id);
+                    $prefix = str_starts_with($row->comment ?? '', '↩ გაცვლა') ? '🔄' : '↩';
+                    $badge = '<br><small style="color:#31708f; font-style:italic;">'
+                           . $prefix . ' ' . e($origNum)
+                           . '</small>';
+
+                // ძველი ჩანაწერები — original_sale_id არ აქვს, მხოლოდ comment
+                } elseif (str_starts_with($row->comment ?? '', '↩')) {
+                    $prefix = str_starts_with($row->comment, '↩ გაცვლა') ? '🔄' : '↩';
+                    $badge = '<br><small style="color:#31708f; font-style:italic;">'
+                           . $prefix . ' ' . e($row->comment)
+                           . '</small>';
+                }
+
+                return e($num) . $badge;
+            })
             ->addColumn('product_name', fn($row) => $row->product->name ?? 'N/A')
             ->addColumn('product_code', fn($row) => $row->product->product_code ?? '-')
-            ->addColumn('is_return_purchase', fn($row) => str_starts_with($row->comment ?? '', '↩') ? 1 : 0)
+            ->addColumn('is_return_purchase', fn($row) => ($row->original_sale_id !== null || str_starts_with($row->comment ?? '', '↩')) ? 1 : 0)
             ->addColumn('status_name', function ($row) {
                 $color = $row->orderStatus->color ?? 'default';
                 $name  = $row->orderStatus->name  ?? '-';
-                // auto-purchase-ზე comment badge
-                $commentBadge = str_starts_with($row->comment ?? '', '↩')
-                    ? '<br><small style="color:#31708f; font-style:italic;">' . e($row->comment) . '</small>'
-                    : '';
+
                 return '<span class="label label-' . $color . '"
                               style="cursor:pointer"
                               onclick="openStatusModal(' . $row->id . ', ' . $row->status_id . ')"
-                              title="სტატუსის შეცვლა">' . $name . '</span>' . $commentBadge;
+                              title="სტატუსის შეცვლა">' . $name . '</span>';
             })
             ->editColumn('created_at', fn($row) => $row->created_at ? $row->created_at->format('d.m.Y H:i') : '-')
             ->addColumn('price_paid', fn($row) => number_format($row->price_georgia, 2) . ' ₾')
@@ -104,7 +128,8 @@ class WarehouseController extends Controller
                     <a onclick="deletePurchase(' . $row->id . ')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i></a>
                 </center>';
             })
-            ->rawColumns(['status_name', 'payment', 'action'])
+            ->rawColumns(['order_number', 'status_name', 'payment', 'action'])
+            // order_number შეიცავს HTML-ს (badge), rawColumns საჭიროა
             ->make(true);
     }
 
@@ -174,17 +199,18 @@ class WarehouseController extends Controller
             $newCostPrice = ($request->price_usa ?? 0) + ($request->courier_price_international ?? 0);
             $keyChanged   = ($oldSize !== $newSize || $oldProduct !== $newProduct);
 
-            // ─── კურიერზე გადაცემული sale-ების რაოდენობა ─────────────
-            $courierCount = Product_Order::where('purchase_order_id', $id)
-                ->where('status_id', 4)->count();
+            // ─── ამ purchase-დან ოდესმე გაყიდვა მოხდა? (კურიერთან / დაბრუნებული / გაცვლილი) ──
+            $courierCount = Product_Order::withoutGlobalScope('active')
+                ->where('purchase_order_id', $id)
+                ->whereIn('status_id', [4, 5, 6])->count();
 
-            // ─── თუ კურიერზე გადაეცა რამე: მხოლოდ qty შემცირება courierCount-მდე ──
+            // ─── თუ კურიერზე გადაეცა ან გაიყიდა: პროდუქტი/ზომა/ფასი/ტრანსპ. იკრძალება ──
             if ($courierCount > 0) {
                 // product/size/ფასი/ტრანსპ. შეცვლა — სრული ბლოკი
                 if ($keyChanged) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'პროდუქტი/ზომა ვერ შეიცვლება: ' . $courierCount . ' sale ორდერი უკვე კურიერთანაა გადაცემული.'
+                        'message' => 'პროდუქტი/ზომა ვერ შეიცვლება: ამ შესყიდვიდან ' . $courierCount . ' გაყიდვა უკვე განხორციელდა.'
                     ], 422);
                 }
                 if ($request->price_usa != $order->price_usa || $request->courier_price_international != $order->courier_price_international) {
@@ -411,9 +437,10 @@ class WarehouseController extends Controller
     {
         $order = Product_Order::with('product')->where('order_type', 'purchase')->findOrFail($id);
 
-        // კურიერზე გადაცემული sale-ების რაოდენობა — front-end-ს სჭირდება lock-ისთვის
-        $order->courier_count = Product_Order::where('purchase_order_id', $id)
-            ->where('status_id', 4)
+        // ამ purchase-დან ოდესმე გაყიდვა მოხდა? — front-end lock-ისთვის
+        $order->courier_count = Product_Order::withoutGlobalScope('active')
+            ->where('purchase_order_id', $id)
+            ->whereIn('status_id', [4, 5, 6])
             ->count();
 
         $order->product_name = $order->product->name ?? 'Purchase #' . $id;
@@ -427,21 +454,24 @@ class WarehouseController extends Controller
         return \DB::transaction(function () use ($id) {
             $order = Product_Order::where('order_type', 'purchase')->findOrFail($id);
 
+            // ─── გლობალური ბლოკი: ამ purchase-დან ოდესმე გაყიდვა მოხდა? ──
+            $soldSales = Product_Order::withoutGlobalScope('active')
+                ->where('purchase_order_id', $order->id)
+                ->whereIn('status_id', [4, 5, 6])
+                ->count();
+
+            if ($soldSales > 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'წაშლა შეუძლებელია: ამ შესყიდვიდან ' . $soldSales . ' გაყიდვა უკვე განხორციელდა (კურიერთან გადაცემული / დაბრუნებული / გაცვლილი).'
+                ], 422);
+            }
+            // ──────────────────────────────────────────────────────────────
+
             if (in_array($order->status_id, [2, 3])) {
 
                 $stock = Warehouse::where('product_id', $order->product_id)
                                   ->where('size', $order->product_size)->first();
-
-                // კურიერზე გადაცემული sale-ები — წაშლა სრულად იბლოკება
-                $courierSales = Product_Order::where('purchase_order_id', $order->id)
-                    ->where('status_id', 4)->count();
-
-                if ($courierSales > 0) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'წაშლა შეუძლებელია: ' . $courierSales . ' sale ორდერი უკვე კურიერთანაა გადაცემული.'
-                    ], 422);
-                }
 
                 // stock განახლება
                 if ($order->status_id == 2) $this->handleStockForPurchase($id, 1);

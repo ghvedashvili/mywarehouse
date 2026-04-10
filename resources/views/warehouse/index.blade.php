@@ -119,7 +119,7 @@
         <table id="purchases-table" class="table wh-table table-hover table-bordered">
             <thead>
                 <tr>
-                    <th>#</th>
+                    <th>ნომერი</th>
                     <th>პროდუქტი</th>
                     <th>კოდი</th>
                     <th>ზომა</th>
@@ -244,7 +244,7 @@ $(function() {
         processing: true, serverSide: true,
         ajax: "{{ route('warehouse.apiPurchases') }}",
         columns: [
-            { data: 'id',                 name: 'id' },
+            { data: 'order_number',       name: 'order_number' },
             { data: 'product_name',       name: 'product_name' },
             { data: 'product_code',       name: 'product_code' },
             { data: 'product_size',       name: 'product_size' },
@@ -401,7 +401,7 @@ $(function() {
         $.get("{{ url('warehouse') }}/" + id + "/edit", function(data) {
             $('#purchase_id').val(data.id);
             $('input[name="_method"]', '#form-purchase').val('PATCH');
-            $('#purchase-modal-title').text('✏️ შესყიდვის რედაქტირება #' + data.id);
+            $('#purchase-modal-title').text('✏️ შესყიდვის რედაქტირება ' + (data.order_number || '#' + data.id));
 
             var opt   = $('#purchase_product_id option[value="' + data.product_id + '"]');
             var sizes = opt.data('sizes') || '';

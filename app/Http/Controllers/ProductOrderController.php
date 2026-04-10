@@ -672,29 +672,52 @@ class ProductOrderController extends Controller
             ->addColumn('cross_ref_html', function ($item) {
                 $html = '';
 
-                // გაცვლილი sale (status=6) — გვიჩვენებს რომელი change ორდერით შეიცვალა
+                // გაცვლილი sale (status=6) — change ორდერის სრული ნომერი
                 if ($item->status_id == 6 && $item->changed_to_order_id) {
-                    $d = $item->created_at ? $item->created_at->format('ymd') : '000000';
+                    $changeOrder = \App\Models\Product_Order::withoutGlobalScope('active')
+                        ->select('id', 'order_number')
+                        ->find($item->changed_to_order_id);
+                    $changeNum = $changeOrder
+                        ? ($changeOrder->order_number ?? ('#' . $changeOrder->id))
+                        : ('#' . $item->changed_to_order_id);
                     $html .= '<small style="color:#8e44ad; display:block; margin-top:2px;">'
-                           . '🔄 → <b>C' . $item->changed_to_order_id . '</b></small>';
+                           . '🔄 → <b>' . e($changeNum) . '</b></small>';
                 }
 
-                // დაბრუნებული sale (status=5) — გვიჩვენებს შექმნილ purchase-ს
+                // დაბრუნებული sale (status=5) — purchase ორდერის სრული ნომერი
                 if ($item->status_id == 5 && $item->returned_purchase_id) {
+                    $retPurchase = \App\Models\Product_Order::withoutGlobalScope('active')
+                        ->select('id', 'order_number')
+                        ->find($item->returned_purchase_id);
+                    $retNum = $retPurchase
+                        ? ($retPurchase->order_number ?? ('#' . $retPurchase->id))
+                        : ('#' . $item->returned_purchase_id);
                     $html .= '<small style="color:#c0392b; display:block; margin-top:2px;">'
-                           . '↩ → <b>P' . $item->returned_purchase_id . '</b></small>';
+                           . '↩ → <b>' . e($retNum) . '</b></small>';
                 }
 
-                // change ორდერი — original sale-ის ნომერი
+                // change ორდერი — original sale-ის სრული ნომერი
                 if ($item->order_type === 'change' && $item->original_sale_id) {
+                    $origSale = \App\Models\Product_Order::withoutGlobalScope('active')
+                        ->select('id', 'order_number')
+                        ->find($item->original_sale_id);
+                    $origNum = $origSale
+                        ? ($origSale->order_number ?? ('#' . $origSale->id))
+                        : ('#' . $item->original_sale_id);
                     $html .= '<small style="color:#2471a3; display:block; margin-top:2px;">'
-                           . '↩ S' . $item->original_sale_id . '</small>';
+                           . '🔄 ' . e($origNum) . '</small>';
                 }
 
-                // purchase ორდერი დაბრუნებიდან — original sale-ის ნომერი
+                // purchase ორდერი დაბრუნებიდან — original sale-ის სრული ნომერი
                 if ($item->order_type === 'purchase' && $item->original_sale_id) {
+                    $origSale = \App\Models\Product_Order::withoutGlobalScope('active')
+                        ->select('id', 'order_number')
+                        ->find($item->original_sale_id);
+                    $origNum = $origSale
+                        ? ($origSale->order_number ?? ('#' . $origSale->id))
+                        : ('#' . $item->original_sale_id);
                     $html .= '<small style="color:#c0392b; display:block; margin-top:2px;">'
-                           . '↩ S' . $item->original_sale_id . '</small>';
+                           . '↩ ' . e($origNum) . '</small>';
                 }
 
                 return $html;
@@ -1500,7 +1523,7 @@ class ProductOrderController extends Controller
                 'customer_id'                 => null,
                 'user_id'                     => auth()->id(),
                 'comment'                     => '↩ ' . ($isReturn ? 'დაბრუნება' : 'გაცვლა') .
-                                                 ' — Sale #' . $originalSale->id,
+                                                 ' — ' . ($originalSale->order_number ?? ('#' . $originalSale->id)),
                 'courier_price_international' => 0,
                 'courier_price_tbilisi'       => 0,
                 'courier_price_region'        => 0,
