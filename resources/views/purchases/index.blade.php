@@ -35,29 +35,71 @@
             <h3>📦 შესყიდვების ორდერები</h3>
             <div class="wh-subtitle">Purchase Orders Management</div>
         </div>
-        <button onclick="openPurchaseModal()" class="btn btn-success btn-sm" style="font-weight:700;">
+        <button id="btn-new-purchase" onclick="openPurchaseModal()" class="btn btn-success btn-sm" style="font-weight:700;">
             <i class="fa fa-plus"></i> ახალი შესყიდვა
         </button>
     </div>
 
     <div style="margin-top:15px;">
-        <table id="purchases-table" class="table wh-table table-hover table-bordered">
-            <thead>
-                <tr>
-                    <th>ნომერი</th>
-                    <th>პროდუქტი</th>
-                    <th>კოდი</th>
-                    <th>ზომა</th>
-                    <th>რაოდ.</th>
-                    <th>გადახდა ($)</th>
-                    <th>Price (₾)</th>
-                    <th>სტატუსი</th>
-                    <th>თარიღი</th>
-                    <th>მოქმედება</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+
+        {{-- ══ TABS ══ --}}
+        <div style="display:flex; border-bottom:2px solid #dee2e6; margin-bottom:15px;">
+            <div id="tab-btn-regular"
+                 onclick="switchPurchaseTab('regular')"
+                 style="padding:10px 22px; cursor:pointer; font-size:13px; font-weight:600;
+                        color:#00a65a; border-bottom:3px solid #00a65a; margin-bottom:-2px;">
+                🛒 შესყიდვები
+            </div>
+            <div id="tab-btn-returns"
+                 onclick="switchPurchaseTab('returns')"
+                 style="padding:10px 22px; cursor:pointer; font-size:13px; font-weight:600;
+                        color:#666; border-bottom:3px solid transparent; margin-bottom:-2px;">
+                ↩ დაბრუნება / გაცვლა
+            </div>
+        </div>
+
+        {{-- ══ ჩვეულებრივი შესყიდვები ══ --}}
+        <div id="tab-regular">
+            <table id="purchases-table" class="table wh-table table-hover table-bordered">
+                <thead>
+                    <tr>
+                        <th>ნომერი</th>
+                        <th>პროდუქტი</th>
+                        <th>კოდი</th>
+                        <th>ზომა</th>
+                        <th>რაოდ.</th>
+                        <th>გადახდა ($)</th>
+                        <th>Price (₾)</th>
+                        <th>სტატუსი</th>
+                        <th>თარიღი</th>
+                        <th>მოქმედება</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        {{-- ══ დაბრუნება / გაცვლა ══ --}}
+        <div id="tab-returns" style="display:none;">
+            <table id="returns-table" class="table wh-table table-hover table-bordered">
+                <thead>
+                    <tr>
+                        <th>ნომერი</th>
+                        <th>პროდუქტი</th>
+                        <th>კოდი</th>
+                        <th>ზომა</th>
+                        <th>რაოდ.</th>
+                        <th>გადახდა ($)</th>
+                        <th>Price (₾)</th>
+                        <th>სტატუსი</th>
+                        <th>თარიღი</th>
+                        <th>მოქმედება</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
     </div>
 
 </div>
@@ -139,10 +181,65 @@ $(function() {
 
     $('.select2-purchase').select2({ dropdownParent: $('#modal-purchase'), width: '100%' });
 
-    // ══ PURCHASES TABLE ══
+    // ══ TAB SWITCHING ══
+    var currentTab = 'regular';
+
+    window.switchPurchaseTab = function(tab) {
+        currentTab = tab;
+
+        // tab buttons
+        $('#tab-btn-regular, #tab-btn-returns').css({
+            'color': '#666',
+            'border-bottom-color': 'transparent'
+        });
+        $('#tab-btn-' + tab).css({
+            'color': '#00a65a',
+            'border-bottom-color': '#00a65a'
+        });
+
+        // tab content
+        $('#tab-regular, #tab-returns').hide();
+        $('#tab-' + tab).show();
+
+        // "ახალი შესყიდვა" ღილაკი მხოლოდ regular tab-ზე
+        $('#btn-new-purchase').toggle(tab === 'regular');
+
+        if (tab === 'regular') {
+            purchasesTable.columns.adjust().draw(false);
+        } else {
+            returnsTable.columns.adjust().draw(false);
+        }
+    };
+
+    // ══ PURCHASES TABLE (ჩვეულებრივი) ══
     var purchasesTable = $('#purchases-table').DataTable({
         processing: true, serverSide: true,
-        ajax: "{{ route('purchases.api') }}",
+        ajax: {
+            url: "{{ route('purchases.api') }}",
+            data: { type: 'regular' }
+        },
+        columns: [
+            { data: 'order_number',       name: 'order_number' },
+            { data: 'product_name',       name: 'product_name' },
+            { data: 'product_code',       name: 'product_code' },
+            { data: 'product_size',       name: 'product_size' },
+            { data: 'quantity',           name: 'quantity' },
+            { data: 'payment',            name: 'payment',      orderable: false },
+            { data: 'price_paid',         name: 'price_paid',   orderable: false },
+            { data: 'status_name',        name: 'status_name',  orderable: false },
+            { data: 'created_at',         name: 'created_at' },
+            { data: 'action',             name: 'action',       orderable: false },
+            { data: 'is_return_purchase', name: 'is_return_purchase', visible: false },
+        ]
+    });
+
+    // ══ RETURNS TABLE (დაბრუნება / გაცვლა) ══
+    var returnsTable = $('#returns-table').DataTable({
+        processing: true, serverSide: true,
+        ajax: {
+            url: "{{ route('purchases.api') }}",
+            data: { type: 'returns' }
+        },
         columns: [
             { data: 'order_number',       name: 'order_number' },
             { data: 'product_name',       name: 'product_name' },
@@ -156,10 +253,8 @@ $(function() {
             { data: 'action',             name: 'action',       orderable: false },
             { data: 'is_return_purchase', name: 'is_return_purchase', visible: false },
         ],
-        createdRow: function(row, data) {
-            if (data.is_return_purchase == 1) {
-                $(row).css('background-color', '#d9edf7');
-            }
+        createdRow: function(row) {
+            $(row).css('background-color', '#d9edf7');
         }
     });
 
@@ -360,6 +455,7 @@ $(function() {
                 data: { _method: 'DELETE', _token: "{{ csrf_token() }}" },
                 success: function(res) {
                     purchasesTable.ajax.reload();
+                    returnsTable.ajax.reload();
                     swal({ title: 'წაიშალა!', text: res.message, type: 'success', timer: 1500 });
                 },
                 error: function(xhr) {
@@ -390,6 +486,7 @@ $(function() {
             success: function(res) {
                 $('#modal-purchase').modal('hide');
                 purchasesTable.ajax.reload();
+                returnsTable.ajax.reload();
                 swal({ title: '✅', text: res.message, type: 'success', timer: 1800 });
             },
             error: function(xhr) {
@@ -452,6 +549,7 @@ $(function() {
             success: function(res) {
                 $('#modal-partial-receive').modal('hide');
                 purchasesTable.ajax.reload();
+                returnsTable.ajax.reload();
                 swal({ title: '✅', text: res.message, type: 'success', timer: 2500 });
             },
             error: function(xhr) {
@@ -474,6 +572,7 @@ $(function() {
             success: function(res) {
                 $('#modal-status').modal('hide');
                 purchasesTable.ajax.reload();
+                returnsTable.ajax.reload();
                 swal({ title: '✅', text: res.message, type: 'success', timer: 1500 });
             },
             error: function(xhr) {

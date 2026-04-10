@@ -28,12 +28,22 @@ class PurchaseOrderController extends Controller
     }
 
     // ─── შესყიდვების DataTable ────────────────────────────────────────
-    public function apiPurchases()
+    // type=regular  → ჩვეულებრივი შესყიდვები (original_sale_id IS NULL და comment არ იწყება ↩-ით)
+    // type=returns  → დაბრუნება/გაცვლის გამო შექმნილი (original_sale_id IS NOT NULL ან comment ↩)
+    public function apiPurchases(Request $request)
     {
-        $purchases = Product_Order::with(['product', 'orderStatus'])
-            ->where('order_type', 'purchase')
-            ->latest()
-            ->get();
+        $type = $request->input('type', 'regular');
+
+        $query = Product_Order::with(['product', 'orderStatus'])
+            ->where('order_type', 'purchase');
+
+        if ($type === 'returns') {
+            $query->whereNotNull('original_sale_id');
+        } else {
+            $query->whereNull('original_sale_id');
+        }
+
+        $purchases = $query->latest()->get();
 
         return DataTables::of($purchases)
             ->addColumn('order_number', function ($row) {
@@ -50,20 +60,13 @@ class PurchaseOrderController extends Controller
                     $prefix = str_starts_with($row->comment ?? '', '↩ გაცვლა') ? '🔄' : '↩';
                     $badge  = '<br><small style="color:#31708f; font-style:italic;">'
                             . $prefix . ' ' . e($origNum) . '</small>';
-
-                } elseif (str_starts_with($row->comment ?? '', '↩')) {
-                    $prefix = str_starts_with($row->comment, '↩ გაცვლა') ? '🔄' : '↩';
-                    $badge  = '<br><small style="color:#31708f; font-style:italic;">'
-                            . $prefix . ' ' . e($row->comment) . '</small>';
                 }
 
                 return e($num) . $badge;
             })
             ->addColumn('product_name', fn($row) => $row->product->name ?? 'N/A')
             ->addColumn('product_code', fn($row) => $row->product->product_code ?? '-')
-            ->addColumn('is_return_purchase', fn($row) =>
-                ($row->original_sale_id !== null || str_starts_with($row->comment ?? '', '↩')) ? 1 : 0
-            )
+            ->addColumn('is_return_purchase', fn($row) => $row->original_sale_id !== null ? 1 : 0)
             ->addColumn('status_name', function ($row) {
                 $color = $row->orderStatus->color ?? 'default';
                 $name  = $row->orderStatus->name  ?? '-';

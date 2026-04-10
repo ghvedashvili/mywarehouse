@@ -1522,13 +1522,13 @@ class ProductOrderController extends Controller
                 'status_id'                   => 1,
                 'customer_id'                 => null,
                 'user_id'                     => auth()->id(),
+                'original_sale_id'            => $originalSale->id,
                 'comment'                     => '↩ ' . ($isReturn ? 'დაბრუნება' : 'გაცვლა') .
                                                  ' — ' . ($originalSale->order_number ?? ('#' . $originalSale->id)),
                 'courier_price_international' => 0,
                 'courier_price_tbilisi'       => 0,
                 'courier_price_region'        => 0,
                 'courier_price_village'       => 0,
-                // ორივე შემთხვევა: discount = price_usa (100% ფასდაკლება თვითღირებულებაზე)
                 'discount'                    => $originalSale->price_usa,
                 'paid_tbc'                    => 0,
                 'paid_bog'                    => 0,
@@ -1538,14 +1538,9 @@ class ProductOrderController extends Controller
 
             // ─── დაბრუნება: original sale → სტატუსი 5, purchase მიაბი ───
             if ($changeType === 'return') {
-                // 1. original sale-ის სტატუსი → 5 (დაბრუნებული)
-                $originalSale->status_id           = 5;
+                $originalSale->status_id            = 5;
                 $originalSale->returned_purchase_id = $sourcePurchase->id;
                 $originalSale->save();
-
-                // 2. purchase-ს ჩავუწეროთ რომელი ორდერი დაბრუნდა
-                $sourcePurchase->original_sale_id = $originalSale->id;
-                $sourcePurchase->save();
 
                 // 3. StatusChangeLog
                 StatusChangeLog::create([
