@@ -20,6 +20,9 @@
 .select2-container--default .select2-selection--single .select2-selection__placeholder {
     color: #999;
 }
+/* nested modal fix — customer form modal-sale-ის თავზე */
+#modal-form { z-index: 1060; }
+#modal-form + .modal-backdrop { z-index: 1055; }
 </style>
     @endsection
 
@@ -565,13 +568,12 @@ $('#product_id_sale').select2({
             var address = selected.data('address') || '';
             var altTel  = selected.data('alt') || '';
 
-            // ველების შევსება
             $('#customer_tel').text(selected.data('tel') || '');
             $('#customer_comment').text(selected.data('comment') || '');
             $('#customer_address_input').val(address);
             $('#customer_alt_tel_input').val(altTel);
 
-            // ორიგინალი მნიშვნელობები — შემდეგ შევადარებთ
+            // ორიგინალი მნიშვნელობები შენახვა
             $('#customer_address_input').data('original', address);
             $('#customer_alt_tel_input').data('original', altTel);
 
@@ -684,8 +686,6 @@ function editForm(id) {
             $('#status_id_sale').val(data.status_id);
 
             // ─── order_address / order_alt_tel ────────────────────────
-            // trigger('change') customer ველებს ავსებს customer-ის მონაცემებით,
-            // setTimeout-ით გადავეწეროთ ორდერის საკუთარი მნიშვნელობებით
             setTimeout(function() {
                 var orderAddr   = data.order_address || '';
                 var orderAltTel = data.order_alt_tel  || '';
@@ -836,12 +836,11 @@ setTimeout(function() { clearInterval(checkSizeExist); }, 2000);
             e.preventDefault();
             var form = $(this);
 
-            // შეიცვალა customer-ის მისამართი ან ალტ. ტელ?
-            var customerId      = $('#customer_id_sale').val();
-            var newAddress      = String($('#customer_address_input').val() || '');
-            var newAltTel       = String($('#customer_alt_tel_input').val() || '');
-            var origAddress     = String($('#customer_address_input').data('original') || '');
-            var origAltTel      = String($('#customer_alt_tel_input').data('original') || '');
+            var customerId  = $('#customer_id_sale').val();
+            var newAddress  = String($('#customer_address_input').val() || '');
+            var newAltTel   = String($('#customer_alt_tel_input').val() || '');
+            var origAddress = String($('#customer_address_input').data('original') || '');
+            var origAltTel  = String($('#customer_alt_tel_input').data('original') || '');
 
             var addressChanged  = customerId && (newAddress.trim() !== origAddress.trim());
             var altTelChanged   = customerId && (newAltTel.trim() !== origAltTel.trim());
@@ -852,7 +851,6 @@ setTimeout(function() { clearInterval(checkSizeExist); }, 2000);
                 if (addressChanged) changedFields.push('მისამართი');
                 if (altTelChanged)  changedFields.push('ალტ. ტელეფონი');
 
-                // დროებით ვინახავთ form-ს global-ში
                 window._pendingSaleForm = form;
 
                 swal({
@@ -902,17 +900,14 @@ setTimeout(function() { clearInterval(checkSizeExist); }, 2000);
                     $('#modal-sale').modal('hide');
                     table.ajax.reload();
 
-                    // თუ customer განახლდა — select option-ის data-* განვაახლოთ
                     if (updateCustomer === '1') {
                         var custId  = $('#customer_id_sale').val();
                         var newAddr = $('#customer_address_input').val();
                         var newAlt  = $('#customer_alt_tel_input').val();
                         var $opt    = $('#customer_id_sale option[value="' + custId + '"]');
                         if ($opt.length) {
-                            $opt.data('address', newAddr);
-                            $opt.data('alt', newAlt);
-                            $opt.attr('data-address', newAddr);
-                            $opt.attr('data-alt', newAlt);
+                            $opt.data('address', newAddr).attr('data-address', newAddr);
+                            $opt.data('alt',     newAlt).attr('data-alt',     newAlt);
                         }
                     }
 
@@ -1003,20 +998,16 @@ setTimeout(function() { clearInterval(checkSizeExist); }, 2000);
         // Customer Create Modal
         // =====================
         function openCustomerCreate() {
-            $('#modal-sale').modal('hide');
-            setTimeout(function() {
-                $('#modal-form').modal('show');
-            }, 400);
+            // modal-sale არ ვხურავთ — scroll-ის პრობლემის თავიდან ასაცილებლად
+            $('#modal-form').modal('show');
         }
 
-        // modal-form დაიხურა → sale გახსნა
-       $('#modal-form').on('hidden.bs.modal', function() {
-    if ($('#modal-sale').length) {
-        setTimeout(function() {
-            $('#modal-sale').modal('show');
-        }, 400);
-    }
-});
+        // modal-form დაიხურა → body-ს modal-open class დავუბრუნოთ
+        $('#modal-form').on('hidden.bs.modal', function() {
+            if ($('#modal-sale').hasClass('in') || $('#modal-sale').is(':visible')) {
+                $('body').addClass('modal-open');
+            }
+        });
 // ახალი — modal-sale დაიხურა → inactive temp option გასუფთავება
 $('#modal-sale').on('hidden.bs.modal', function() {
     $('#product_id_sale option[data-inactive="1"]').remove();

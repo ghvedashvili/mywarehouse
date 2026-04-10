@@ -92,7 +92,7 @@
                             {{-- 2. CUSTOMER --}}
                             <div class="form-group" style="margin-top: 10px;">
                                 <label style="font-weight: 600;">2. Customer
-                                    <button type="button" class="btn btn-link btn-xs pull-right" data-toggle="modal" data-target="#modal-form">+ Add New</button>
+                                    <button type="button" class="btn btn-link btn-xs pull-right" onclick="openCustomerCreate()">+ Add New</button>
                                 </label>
                                 <select name="customer_id" id="customer_id_sale" class="form-control select2" style="width: 100%;" required>
                                     <option value="">— Choose Customer —</option>
