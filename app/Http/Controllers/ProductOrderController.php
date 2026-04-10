@@ -664,8 +664,8 @@ class ProductOrderController extends Controller
                 return $item->order_number ?? ('S' . $item->id);
             })
             ->addColumn('has_mergeable', function ($item) use ($mergeableCustomerIds) {
+                if ($item->status === 'deleted') return 0;
                 if (!in_array($item->status_id, [1, 2, 3])) return 0;
-                // შვილი ორდერი (merged მაგრამ არა primary) — არ ვაჩვენოთ
                 if ($item->merged_id && !$item->is_primary) return 0;
                 return isset($mergeableCustomerIds[$item->customer_id]) ? 1 : 0;
             })
@@ -702,8 +702,22 @@ class ProductOrderController extends Controller
             ->addColumn('children_count', function ($item) {
                 return $item->is_primary ? $item->children->count() + 1 : 0;
             })
+            ->addColumn('children_by_status', function ($item) {
+                if (!$item->is_primary) return [];
+
+                $all = collect([$item])->merge($item->children);
+
+                return $all->groupBy('status_id')->map(function ($group) {
+                    $first = $group->first();
+                    return [
+                        'count' => $group->count(),
+                        'color' => $first->orderStatus->color ?? 'default',
+                        'name'  => $first->orderStatus->name  ?? '-',
+                    ];
+                })->values()->toArray();
+            })
             ->addColumn('children_json', function ($item) {
-                return htmlspecialchars($item->children->map(function($child) {
+                return $item->children->map(function($child) {
                     $geo  = $child->price_georgia - ($child->discount ?? 0);
                     $paid = ($child->paid_tbc ?? 0) + ($child->paid_bog ?? 0) +
                             ($child->paid_lib ?? 0) + ($child->paid_cash ?? 0);
@@ -740,7 +754,7 @@ class ProductOrderController extends Controller
                         'payment'          => $payment,
                         'payment_color'    => $paymentColor,
                     ];
-                })->toJson(), ENT_QUOTES, 'UTF-8');
+                })->values()->toArray();
             })
             ->addColumn('show_photo', function ($item) {
                 if (!$item->product || !$item->product->image) {
@@ -942,7 +956,7 @@ class ProductOrderController extends Controller
                     '<a onclick="showStatusLog(' . $item->id . ')" class="btn btn-warning btn-xs" title="ისტორია"><i class="fa fa-history"></i></a>' .
                     '</center>';
             })
-            ->rawColumns(['order_id', 'has_mergeable', 'cross_ref_html', 'children_json', 'show_photo', 'product_info', 'payment', 'customer_name', 'status_label', 'action'])
+            ->rawColumns(['order_id', 'has_mergeable', 'cross_ref_html', 'show_photo', 'product_info', 'payment', 'customer_name', 'status_label', 'action'])
             ->make(true);
     }
 

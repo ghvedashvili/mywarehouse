@@ -79,6 +79,7 @@
         <th>Payment</th>
         <th style="display:none;"></th> {{-- cross_ref_html hidden --}}
         <th style="display:none;"></th> {{-- has_mergeable hidden --}}
+        <th style="display:none;"></th> {{-- children_by_status hidden --}}
         @if(auth()->user()->role == 'admin')
         <th>Actions</th>
         @endif
@@ -369,7 +370,7 @@ var columns = [
 
             // 🔍 გასაერთიანებელი ორდერების მინიშნება
             var mergeHint = '';
-            if (data.has_mergeable && data.customer_id) {
+            if (data.has_mergeable && data.customer_id && data.status !== 'deleted') {
                 mergeHint = '&nbsp;<span class="merge-search-btn" data-customer-id="' + data.customer_id + '" ' +
                     'title="ამ კლიენტის სხვა ორდერებიც არსებობს — დააჭირეთ გასაფილტრად და მოსანიშნად" ' +
                     'style="cursor:pointer; color:#e67e22;">' +
@@ -386,19 +387,36 @@ var columns = [
                 ? '<div style="margin-top:2px;">' + data.cross_ref_html + '</div>'
                 : '';
 
-            // 3. Expand 📦 ბეჯი (როგორც ღილაკი)
+            // 3. Expand ბეჯები სტატუსების მიხედვით + ცალკე expand ღილაკი
             var expandSection = '';
             if (data.is_primary && data.children_count > 0) {
-                // აქ 📦 ბეჯს ვანიჭებთ expand-btn კლასს
-                expandSection = '<div style="margin-top:4px; padding-left:2px;">' +
-                                    '<span class="label label-warning expand-btn" ' +
-                                    'data-id="' + data.id + '" data-children=\'' + data.children_json + '\' ' +
-                                    'style="cursor:pointer; font-size:11px; display:inline-block; border:1px solid #e67e22;">' +
-                                    '<i class="fa fa-chevron-right" style="font-size:9px; margin-right:3px;"></i> 📦 ' + data.children_count +
-                                    '</span>' +
-                                '</div>';
+                window._childrenStore = window._childrenStore || {};
+                window._childrenStore[data.id] = Array.isArray(data.children_json)
+                    ? data.children_json
+                    : (typeof data.children_json === 'string' ? JSON.parse(data.children_json || '[]') : []);
+
+                var groups = Array.isArray(data.children_by_status)
+                    ? data.children_by_status
+                    : (typeof data.children_by_status === 'string' ? JSON.parse(data.children_by_status || '[]') : []);
+
+                var badgesHtml = '';
+                groups.forEach(function(g) {
+                    badgesHtml +=
+                        '<span class="label label-' + g.color + '" ' +
+                        'style="font-size:11px; display:inline-block; margin-right:3px;">' +
+                        '<i class="fa fa-cube" style="font-size:9px; margin-right:2px;"></i>' + g.count +
+                        '</span>';
+                });
+
+                expandSection =
+                    '<div style="margin-top:4px; display:flex; align-items:center; gap:4px;">' +
+                        badgesHtml +
+                        '<span class="expand-btn" data-id="' + data.id + '" ' +
+                        'style="cursor:pointer; color:#999; font-size:11px; margin-left:2px;">' +
+                        '<i class="fa fa-chevron-right"></i>' +
+                        '</span>' +
+                    '</div>';
             } else if (!data.is_primary && data.merged_id) {
-                // თუ შვილია, უბრალოდ ვიზუალური ინდენტირება
                 expandSection = '<div style="margin-top:4px; padding-left:5px; color:#bbb;"><i class="fa fa-level-up fa-rotate-90"></i></div>';
             }
 
@@ -433,6 +451,8 @@ var columns = [
     {data: 'cross_ref_html', name: 'cross_ref_html', orderable: false, searchable: false, visible: false},
     // hidden: გასაერთიანებელი customer flag
     {data: 'has_mergeable', name: 'has_mergeable', orderable: false, searchable: false, visible: false},
+    // hidden: children სტატუსებით
+    {data: 'children_by_status', name: 'children_by_status', orderable: false, searchable: false, visible: false},
 ];
 
 if (isAdmin) {
@@ -1377,7 +1397,7 @@ function unmergeOrder(id) {
 $(document).on('click', '.expand-btn', function() {
     var btn       = $(this);
     var parentId  = btn.data('id');
-    var children  = btn.data('children');
+    var children  = (window._childrenStore || {})[parentId] || [];
     var icon      = btn.find('i');
     var parentRow = btn.closest('tr');
 
@@ -1429,7 +1449,6 @@ $(document).on('click', '.expand-btn', function() {
             : '';
 
         var row = '<tr class="child-row-' + parentId + '" style="background:#fffde7;">' +
-            
             '<td style="padding-left:20px;"><i class="fa fa-level-up fa-rotate-90" style="color:#aaa;"></i></td>' +
             '<td>' + child.created_at + '</td>' +
             '<td>' + statusBadge + '</td>' +
@@ -1440,6 +1459,9 @@ $(document).on('click', '.expand-btn', function() {
             '</td>' +
             '<td>' + customerInfo + '</td>' +
             '<td>' + paymentPrices + '</td>' +
+            '<td style="display:none;"></td>' + // cross_ref_html
+            '<td style="display:none;"></td>' + // has_mergeable
+            '<td style="display:none;"></td>' + // children_by_status
             (isAdmin ? '<td>' + actions + '</td>' : '') +
         '</tr>';
 
