@@ -47,6 +47,8 @@ $table->unsignedInteger('original_sale_id')->nullable()->index();
 
             $table->enum('order_type', ['sale', 'change', 'purchase'])->default('sale');
             $table->text('comment')->nullable();
+            $table->string('order_address', 500)->nullable();
+            $table->string('order_alt_tel', 50)->nullable();
             $table->timestamps();
 
             $table->foreign('product_id')->references('id')->on('products')->onDelete('cascade');
@@ -54,6 +56,8 @@ $table->unsignedInteger('original_sale_id')->nullable()->index();
             $table->foreign('status_id')->references('id')->on('order_statuses');
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('courier_id')->references('id')->on('couriers');
+
+             
         });
     }
 

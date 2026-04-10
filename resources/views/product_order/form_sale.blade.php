@@ -109,13 +109,29 @@
                                     @endforeach
                                 </select>
 
-                                <div id="customer_info_fields" style="display:none; margin-top: 10px; background: #fdfdfd; border: 1px solid #eee; padding: 8px; border-radius: 5px;">
-                                    <div style="font-size: 12px; line-height: 1.6;">
-                                        <div>📍 <span id="customer_address" style="font-weight:600;"></span></div>
-                                        <div style="display:inline-block; margin-right:15px;">📞 <span id="customer_tel"></span></div>
-                                        <div style="display:inline-block;">📱 <span id="customer_alt_tel"></span></div>
-                                        <div style="color: #777; border-top: 1px solid #eee; margin-top: 5px; padding-top: 3px;">
-                                            📝 <span id="customer_comment"></span>
+                                <div id="customer_info_fields" style="display:none; margin-top: 10px; background: #fdfdfd; border: 1px solid #eee; padding: 10px; border-radius: 5px;">
+                                    <div class="row" style="font-size:13px;">
+                                        <div class="col-md-6">
+                                            <div class="form-group" style="margin-bottom:6px;">
+                                                <label style="font-weight:600; font-size:12px;">📞 ტელეფონი</label>
+                                                <div id="customer_tel" style="padding:4px 0; color:#555;"></div>
+                                            </div>
+                                            <div class="form-group" style="margin-bottom:6px;">
+                                                <label style="font-weight:600; font-size:12px;">📱 ალტ. ტელეფონი</label>
+                                                <input type="text" id="customer_alt_tel_input" name="order_alt_tel"
+                                                       class="form-control input-sm" placeholder="ალტერნატიული ტელ...">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group" style="margin-bottom:6px;">
+                                                <label style="font-weight:600; font-size:12px;">📍 მისამართი</label>
+                                                <input type="text" id="customer_address_input" name="order_address"
+                                                       class="form-control input-sm" placeholder="მისამართი...">
+                                            </div>
+                                            <div class="form-group" style="margin-bottom:0;">
+                                                <label style="font-weight:600; font-size:12px;">📝 კომენტარი</label>
+                                                <div id="customer_comment" style="padding:4px 0; color:#777; font-size:12px;"></div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

@@ -562,18 +562,27 @@ $('#product_id_sale').select2({
                 return;
             }
 
-            $('#customer_address').text((selected.data('city') || '') + ' - ' + (selected.data('address') || ''));
+            var address = selected.data('address') || '';
+            var altTel  = selected.data('alt') || '';
+
+            // ველების შევსება
             $('#customer_tel').text(selected.data('tel') || '');
-            $('#customer_alt_tel').text(selected.data('alt') || '');
             $('#customer_comment').text(selected.data('comment') || '');
+            $('#customer_address_input').val(address);
+            $('#customer_alt_tel_input').val(altTel);
+
+            // ორიგინალი მნიშვნელობები — შემდეგ შევადარებთ
+            $('#customer_address_input').data('original', address);
+            $('#customer_alt_tel_input').data('original', altTel);
+
             $('#customer_info_fields').show();
 
             var cityId = parseInt(selected.data('city-id'));
-    if (cityId === 1) {
-        $('input[name="courier_type"][value="tbilisi"]').prop('checked', true);
-    } else {
-        $('input[name="courier_type"][value="none"]').prop('checked', true);
-    }
+            if (cityId === 1) {
+                $('input[name="courier_type"][value="tbilisi"]').prop('checked', true);
+            } else {
+                $('input[name="courier_type"][value="none"]').prop('checked', true);
+            }
         });
 
         // =====================
@@ -673,6 +682,17 @@ function editForm(id) {
             // 3. კლიენტი და სტატუსი
             $('#customer_id_sale').val(data.customer_id).trigger('change');
             $('#status_id_sale').val(data.status_id);
+
+            // ─── order_address / order_alt_tel ────────────────────────
+            // trigger('change') customer ველებს ავსებს customer-ის მონაცემებით,
+            // setTimeout-ით გადავეწეროთ ორდერის საკუთარი მნიშვნელობებით
+            setTimeout(function() {
+                var orderAddr   = data.order_address || '';
+                var orderAltTel = data.order_alt_tel  || '';
+                $('#customer_address_input').val(orderAddr).data('original', orderAddr);
+                $('#customer_alt_tel_input').val(orderAltTel).data('original', orderAltTel);
+            }, 80);
+            // ─────────────────────────────────────────────────────────
 
             // კურიერი — customer trigger-ის შემდეგ ვაყენებთ რომ გადაეწეროს
             setTimeout(function() {
@@ -815,15 +835,62 @@ setTimeout(function() { clearInterval(checkSizeExist); }, 2000);
         $(document).on('submit', '#form-sale-content', function(e) {
             e.preventDefault();
             var form = $(this);
-            var id = form.find('input[name="id"]').val();
+
+            // შეიცვალა customer-ის მისამართი ან ალტ. ტელ?
+            var customerId      = $('#customer_id_sale').val();
+            var newAddress      = String($('#customer_address_input').val() || '');
+            var newAltTel       = String($('#customer_alt_tel_input').val() || '');
+            var origAddress     = String($('#customer_address_input').data('original') || '');
+            var origAltTel      = String($('#customer_alt_tel_input').data('original') || '');
+
+            var addressChanged  = customerId && (newAddress.trim() !== origAddress.trim());
+            var altTelChanged   = customerId && (newAltTel.trim() !== origAltTel.trim());
+            var customerChanged = addressChanged || altTelChanged;
+
+            if (customerChanged) {
+                var changedFields = [];
+                if (addressChanged) changedFields.push('მისამართი');
+                if (altTelChanged)  changedFields.push('ალტ. ტელეფონი');
+
+                // დროებით ვინახავთ form-ს global-ში
+                window._pendingSaleForm = form;
+
+                swal({
+                    title: 'Customer-ის მონაცემები შეიცვალა',
+                    text: changedFields.join(' და ') + ' — Customer-შიც განვაახლოთ?',
+                    type: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#00a65a',
+                    cancelButtonColor: '#aaa',
+                    confirmButtonText: 'კი, განვაახლოთ',
+                    cancelButtonText: 'არა, მხოლოდ ორდერში',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                }).then(function(result) {
+                    var f = window._pendingSaleForm;
+                    window._pendingSaleForm = null;
+                    var updateCust = (result === true) ? '1' : '0';
+                    submitSaleForm(f, updateCust);
+                }).catch(function() {
+                    var f = window._pendingSaleForm;
+                    window._pendingSaleForm = null;
+                    if (f) submitSaleForm(f, '0');
+                });
+            } else {
+                submitSaleForm(form, '0');
+            }
+        });
+
+        function submitSaleForm(form, updateCustomer) {
+            var id  = form.find('input[name="id"]').val();
             var url = (save_method == 'add') ? "{{ url('productsOut') }}" : "{{ url('productsOut') }}/" + id;
 
-            // disabled ველები FormData-ში არ ჩაერთვება —
-            // გავხსნოთ დროებით, FormData ვაგროვოთ, შემდეგ დავხუროთ
             var $locked = form.find(':disabled');
             $locked.prop('disabled', false);
-            var formData = new FormData(this);
+            var formData = new FormData(form[0]);
             $locked.prop('disabled', true);
+
+            formData.append('update_customer', updateCustomer);
 
             $.ajax({
                 url: url,
@@ -834,7 +901,22 @@ setTimeout(function() { clearInterval(checkSizeExist); }, 2000);
                 success: function(data) {
                     $('#modal-sale').modal('hide');
                     table.ajax.reload();
-                    swal("წარმატება!", data.message, "success");
+
+                    // თუ customer განახლდა — select option-ის data-* განვაახლოთ
+                    if (updateCustomer === '1') {
+                        var custId  = $('#customer_id_sale').val();
+                        var newAddr = $('#customer_address_input').val();
+                        var newAlt  = $('#customer_alt_tel_input').val();
+                        var $opt    = $('#customer_id_sale option[value="' + custId + '"]');
+                        if ($opt.length) {
+                            $opt.data('address', newAddr);
+                            $opt.data('alt', newAlt);
+                            $opt.attr('data-address', newAddr);
+                            $opt.attr('data-alt', newAlt);
+                        }
+                    }
+
+                    swal({ title: 'წარმატება!', text: data.message, type: 'success' });
                 },
                 error: function(xhr) {
                     var msg = "მონაცემები ვერ შეინახა";
@@ -843,10 +925,10 @@ setTimeout(function() { clearInterval(checkSizeExist); }, 2000);
                     } else if (xhr.status === 422) {
                         try { msg = JSON.parse(xhr.responseText).message; } catch(e) {}
                     }
-                    swal("შეცდომა", msg, "error");
+                    swal({ title: 'შეცდომა', text: msg, type: 'error' });
                 }
             });
-        });
+        }
 
         // =====================
         // Customer Form Submit — მხოლოდ ერთხელ

@@ -16,6 +16,9 @@ class Product_Order extends Model
         'order_type', 'comment', 'status', 'cost_price', 'purchase_order_id',
         'courier_price_village', 'original_sale_id',
         'order_number', 'sale_from',
+        'merged_id', 'is_primary',
+        'changed_to_order_id', 'returned_purchase_id',
+        'order_address', 'order_alt_tel',
     ];
 
     protected $hidden = ['created_at', 'updated_at'];

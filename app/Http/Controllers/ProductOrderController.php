@@ -61,6 +61,17 @@ class ProductOrderController extends Controller
         unset($data['status_id']);
         $user = auth()->user();
 
+        // ─── order_address / order_alt_tel ────────────────────────────
+        // ფორმიდან თუ მოვიდა — ვიყენებთ, თუ არა — customer-ისგან ვიღებთ
+        $customer = \App\Models\Customer::find($request->customer_id);
+        $data['order_address'] = $request->filled('order_address')
+            ? $request->order_address
+            : ($customer->address ?? null);
+        $data['order_alt_tel'] = $request->has('order_alt_tel')
+            ? $request->order_alt_tel
+            : ($customer->alternative_tel ?? null);
+        // ──────────────────────────────────────────────────────────────
+
         $data['user_id'] = $user->id;
         $fifo = FifoService::getPrices(
             $request->product_id,
@@ -141,7 +152,51 @@ class ProductOrderController extends Controller
         }
         // ──────────────────────────────────────────────────────────────
 
+        $this->maybeUpdateCustomer($request);
         return response()->json(['success' => true, 'message' => 'Order Created Successfully']);
+    }
+
+    // ─── Customer მონაცემების განახლება ორდერიდან ─────────────────────
+    private function maybeUpdateCustomer(Request $request): void
+    {
+        \Log::info('maybeUpdateCustomer called', [
+            'update_customer' => $request->input('update_customer'),
+            'customer_id'     => $request->input('customer_id'),
+            'order_address'   => $request->input('order_address'),
+            'order_alt_tel'   => $request->input('order_alt_tel'),
+        ]);
+
+        if ($request->input('update_customer') !== '1') {
+            \Log::info('maybeUpdateCustomer: skipped — update_customer != 1');
+            return;
+        }
+        if (!$request->filled('customer_id')) {
+            \Log::info('maybeUpdateCustomer: skipped — no customer_id');
+            return;
+        }
+
+        $customer = \App\Models\Customer::withoutGlobalScope('active')
+            ->find($request->customer_id);
+
+        if (!$customer) {
+            \Log::info('maybeUpdateCustomer: customer not found', ['id' => $request->customer_id]);
+            return;
+        }
+
+        $updates = [];
+        if ($request->filled('order_address')) {
+            $updates['address'] = $request->order_address;
+        }
+        if ($request->has('order_alt_tel')) {
+            $updates['alternative_tel'] = $request->order_alt_tel;
+        }
+
+        \Log::info('maybeUpdateCustomer: updates', $updates);
+
+        if (!empty($updates)) {
+            $result = $customer->update($updates);
+            \Log::info('maybeUpdateCustomer: update result', ['result' => $result]);
+        }
     }
 
     public function update(Request $request, $id)
@@ -153,6 +208,15 @@ class ProductOrderController extends Controller
                 $oldProductId = (int) $order->product_id;
                 $oldSize      = $order->product_size;
                 $data         = $request->all();
+
+                // ─── order_address / order_alt_tel ────────────────────
+                if ($request->filled('order_address')) {
+                    $data['order_address'] = $request->order_address;
+                }
+                if ($request->has('order_alt_tel')) {
+                    $data['order_alt_tel'] = $request->order_alt_tel;
+                }
+                // ─────────────────────────────────────────────────────
 
                 // ─── დაბრუნებული / გაცვლილი — რედაქტირება იკრძალება ─
                 if (in_array($order->status_id, [5, 6])) {
@@ -314,6 +378,10 @@ class ProductOrderController extends Controller
                 if (!in_array($order->order_type, ['sale', 'change'])) {
                     $this->handleStockChange($order->id, $order->status_id, $oldStatusId);
                 }
+
+                // ─── Customer განახლება (თუ მომხმარებელმა დაეთანხმა) ──
+                $this->maybeUpdateCustomer($request);
+                // ─────────────────────────────────────────────────────
 
                 return response()->json(['success' => true, 'message' => 'Order Updated Successfully']);
             });
@@ -793,9 +861,9 @@ class ProductOrderController extends Controller
                         'status_id'        => $child->status_id,
                         'customer_name'    => $child->customer->name ?? '-',
                         'customer_city'    => $child->customer->city->name ?? '-',
-                        'customer_address' => $child->customer->address ?? '-',
+                        'customer_address' => $child->order_address ?? ($child->customer->address ?? '-'),
                         'customer_tel'     => $child->customer->tel ?? '-',
-                        'customer_alt'     => $child->customer->alternative_tel ?? '',
+                        'customer_alt'     => $child->order_alt_tel ?? ($child->customer->alternative_tel ?? ''),
                         'created_at'       => $child->created_at ? $child->created_at->format('d.m.Y') : '-',
                         'payment'          => $payment,
                         'payment_color'    => $paymentColor,
@@ -828,17 +896,27 @@ class ProductOrderController extends Controller
                 $customer = $item->customer;
                 if (!$customer) return '<span class="text-muted">N/A</span>';
 
-                $name    = e($customer->name);
-                $city    = e($customer->city->name ?? '-');
-                $address = e($customer->address ?? '-');
-                $tel     = e($customer->tel ?? '-');
-                $alt     = $customer->alternative_tel ? ' / ' . e($customer->alternative_tel) : '';
+                $name = e($customer->name);
+                $city = e($customer->city->name ?? '-');
+                $tel  = e($customer->tel ?? '-');
 
-                return '<strong>' . $name . '</strong>'
+                // ორდერის საკუთარი მისამართი და ალტ. ტელ. — customer-ის მონაცემებთან შედარება
+                $address    = e($item->order_address ?? $customer->address ?? '-');
+                $altTel     = $item->order_alt_tel ?? $customer->alternative_tel ?? '';
+                $altDisplay = $altTel ? ' / ' . e($altTel) : '';
+
+                // მინიშნება თუ ორდერის მონაცემი განსხვავდება customer-ისგან
+                $addrDiff = $item->order_address && $item->order_address !== $customer->address;
+                $altDiff  = $item->order_alt_tel !== null && $item->order_alt_tel !== $customer->alternative_tel;
+                $diffBadge = ($addrDiff || $altDiff)
+                    ? ' <span title="ორდერის მონაცემი განსხვავდება Customer-ისგან" style="color:#e67e22; cursor:help;">✏️</span>'
+                    : '';
+
+                return '<strong>' . $name . '</strong>' . $diffBadge
                      . '<hr style="margin:3px 0;">'
                      . '<small class="text-muted">'
                      . '<i class="fa fa-map-marker"></i> ' . $city . ', ' . $address . '<br>'
-                     . '<i class="fa fa-phone"></i> ' . $tel . $alt
+                     . '<i class="fa fa-phone"></i> ' . $tel . $altDisplay
                      . '</small>';
             })
             ->addColumn('payment', function ($item) use ($isAdmin) {
