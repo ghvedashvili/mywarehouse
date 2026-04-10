@@ -98,7 +98,10 @@ Route::post('exportPDF/productOrder/filtered', [ProductOrderController::class, '
     Route::get('/exportProductOrderAll', [ProductOrderController::class, 'exportProductOrderAll'])->name('exportPDF.productOrderAll');
     Route::get('/exportProductOrderAllExcel', [ProductOrderController::class, 'exportExcel'])->name('exportExcel.productOrderAll');
     Route::get('/exportProductOrder/{id}', [ProductOrderController::class, 'exportProductOrder'])->name('exportPDF.productOrder');
+Route::get('productsOut/{id}/export-change-pdf', [ProductOrderController::class, 'exportChangePDF'])
+     ->name('exportPDF.changeOrder');
 
+     
 Route::get('api/deleted-products', [ProductController::class, 'apiDeletedProducts'])->name('api.deleted-products');
 Route::post('products/{id}/restore', [ProductController::class, 'restore'])->name('products.restore');
 Route::post('productsOut/{id}/restore', [ProductOrderController::class, 'restore'])->name('productsOut.restore');

@@ -577,6 +577,36 @@ class ProductOrderController extends Controller
                 $datePart = $item->created_at ? $item->created_at->format('ymd') : '000000';
                 return $prefix . $item->id . '/' . $datePart;
             })
+            ->addColumn('cross_ref_html', function ($item) {
+                $html = '';
+
+                // გაცვლილი sale (status=6) — გვიჩვენებს რომელი change ორდერით შეიცვალა
+                if ($item->status_id == 6 && $item->changed_to_order_id) {
+                    $d = $item->created_at ? $item->created_at->format('ymd') : '000000';
+                    $html .= '<small style="color:#8e44ad; display:block; margin-top:2px;">'
+                           . '🔄 → <b>C' . $item->changed_to_order_id . '</b></small>';
+                }
+
+                // დაბრუნებული sale (status=5) — გვიჩვენებს შექმნილ purchase-ს
+                if ($item->status_id == 5 && $item->returned_purchase_id) {
+                    $html .= '<small style="color:#c0392b; display:block; margin-top:2px;">'
+                           . '↩ → <b>P' . $item->returned_purchase_id . '</b></small>';
+                }
+
+                // change ორდერი — original sale-ის ნომერი
+                if ($item->order_type === 'change' && $item->original_sale_id) {
+                    $html .= '<small style="color:#2471a3; display:block; margin-top:2px;">'
+                           . '↩ S' . $item->original_sale_id . '</small>';
+                }
+
+                // purchase ორდერი დაბრუნებიდან — original sale-ის ნომერი
+                if ($item->order_type === 'purchase' && $item->original_sale_id) {
+                    $html .= '<small style="color:#c0392b; display:block; margin-top:2px;">'
+                           . '↩ S' . $item->original_sale_id . '</small>';
+                }
+
+                return $html;
+            })
             ->addColumn('children_count', function ($item) {
                 return $item->is_primary ? $item->children->count() + 1 : 0;
             })
@@ -743,7 +773,10 @@ class ProductOrderController extends Controller
                         '</center>';
                 }
 
-                $exportPdfUrl = route('exportPDF.productOrder', ['id' => $item->id]);
+              $exportPdfUrl = $item->order_type === 'change'
+    ? route('exportPDF.changeOrder', ['id' => $item->id])
+    : route('exportPDF.productOrder', ['id' => $item->id]);
+    
                 $email        = e($item->customer->email ?? '');
                 $customerId   = $item->customer_id;
 
@@ -751,6 +784,15 @@ class ProductOrderController extends Controller
                 $deleteBtn = $canDelete
                     ? '<a onclick="deleteData(' . $item->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a> '
                     : '<span class="btn btn-danger btn-xs disabled" title="კურიერთანაა — წაშლა შეუძლებელია" style="opacity:0.4;"><i class="fa fa-trash"></i></span> ';
+
+                // სტატუს 5 (დაბრუნებული) ან 6 (გაცვლილი) — მხოლოდ PDF, Mail, History
+                if (in_array($item->status_id, [5, 6])) {
+                    $baseButtons =
+                        '<a href="' . $exportPdfUrl . '" target="_blank" class="btn btn-info btn-xs" title="PDF"><i class="fa fa-file-pdf-o"></i></a> ' .
+                        '<a onclick="openMailModal(' . $item->id . ', ' . $customerId . ', \'' . $email . '\')" class="btn btn-default btn-xs" title="Mail"><i class="fa fa-envelope"></i></a> ' .
+                        '<a onclick="showStatusLog(' . $item->id . ')" class="btn btn-warning btn-xs" title="ისტორია"><i class="fa fa-history"></i></a>';
+                    return '<center>' . $baseButtons . '</center>';
+                }
 
                 $exchangeBtn = '';
                 if ($item->status_id == 4 && in_array($item->order_type, ['sale', 'change'])) {
@@ -783,7 +825,7 @@ class ProductOrderController extends Controller
                     '<a onclick="showStatusLog(' . $item->id . ')" class="btn btn-warning btn-xs" title="ისტორია"><i class="fa fa-history"></i></a>' .
                     '</center>';
             })
-            ->rawColumns(['order_id', 'children_json', 'show_photo', 'product_info', 'payment', 'customer_name', 'status_label', 'action'])
+            ->rawColumns(['order_id', 'cross_ref_html', 'children_json', 'show_photo', 'product_info', 'payment', 'customer_name', 'status_label', 'action'])
             ->make(true);
     }
 
@@ -1314,8 +1356,26 @@ class ProductOrderController extends Controller
                 'paid_cash'                   => 0,
             ]);
 
-            // ─── დაბრუნება: მხოლოდ purchase, change ორდერი არ იქმნება ─
+            // ─── დაბრუნება: original sale → სტატუსი 5, purchase მიაბი ───
             if ($changeType === 'return') {
+                // 1. original sale-ის სტატუსი → 5 (დაბრუნებული)
+                $originalSale->status_id           = 5;
+                $originalSale->returned_purchase_id = $sourcePurchase->id;
+                $originalSale->save();
+
+                // 2. purchase-ს ჩავუწეროთ რომელი ორდერი დაბრუნდა
+                $sourcePurchase->original_sale_id = $originalSale->id;
+                $sourcePurchase->save();
+
+                // 3. StatusChangeLog
+                StatusChangeLog::create([
+                    'order_id'       => $originalSale->id,
+                    'user_id'        => auth()->id(),
+                    'status_id_from' => 4,
+                    'status_id_to'   => 5,
+                    'changed_at'     => now(),
+                ]);
+
                 return response()->json([
                     'success' => true,
                     'message' => '↩ დაბრუნება წარმატებით დარეგისტრირდა! Purchase #' . $sourcePurchase->id,
@@ -1375,7 +1435,20 @@ class ProductOrderController extends Controller
                 if ($newStock) $newStock->increment('reserved_qty', 1);
             }
 
-            // ─── 5. StatusChangeLog ─────────────────────────────────────
+            // ─── 5. original sale → სტატუსი 6 (გაცვლილი) + cross-ref ──
+            $originalSale->status_id         = 6;
+            $originalSale->changed_to_order_id = $changeOrder->id;
+            $originalSale->save();
+
+            StatusChangeLog::create([
+                'order_id'       => $originalSale->id,
+                'user_id'        => auth()->id(),
+                'status_id_from' => 4,
+                'status_id_to'   => 6,
+                'changed_at'     => now(),
+            ]);
+
+            // ─── 6. StatusChangeLog (change ორდერი) ─────────────────────
             if ($newStatus > 1) {
                 StatusChangeLog::create([
                     'order_id'       => $changeOrder->id,
@@ -1394,6 +1467,58 @@ class ProductOrderController extends Controller
         });
     }
 
+// ამ მეთოდს დაამატე ProductOrderController-ში
+// Route: Route::get('productsOut/{id}/export-change-pdf', [ProductOrderController::class, 'exportChangePDF'])->name('exportPDF.changeOrder');
+
+public function exportChangePDF($id)
+{
+    // change ორდერი
+    $changeOrder = Product_Order::with(['product', 'customer.city', 'orderStatus'])
+        ->findOrFail($id);
+
+    // მხოლოდ change ტიპზე მუშაობს
+    if ($changeOrder->order_type !== 'change' || !$changeOrder->original_sale_id) {
+        abort(404, 'ეს ორდერი არ არის გაცვლის ტიპის');
+    }
+
+    // original sale
+    $originalSale = Product_Order::with(['product', 'customer.city'])
+        ->withoutGlobalScope('active')
+        ->findOrFail($changeOrder->original_sale_id);
+
+    // ლოგო base64
+    $logoPath   = public_path('assets/img/logo.png'); // გზა შეცვალე საჭიროებისამებრ
+    $logoBase64 = null;
+    if (file_exists($logoPath)) {
+        $logoBase64 = 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath));
+    }
+
+    // პროდუქტის სურათები base64
+    $this->attachImageBase64($changeOrder);
+    $this->attachImageBase64($originalSale);
+
+    $pdf = Pdf::loadView('product_Order.productOrderChangePDF', compact(
+        'changeOrder',
+        'originalSale',
+        'logoBase64'
+    ));
+
+    return $pdf->download('change_order_' . $changeOrder->id . '.pdf');
+}
+
+// helper — სურათს base64-ად ამატებს ორდერ ობიექტზე
+// (თუ exportProductOrder-შიც გაქვს მსგავსი helper, ერთი გამოიყენე)
+private function attachImageBase64(Product_Order $order): void
+{
+    $order->imageBase64 = null;
+    if ($order->product && $order->product->image) {
+        $imgPath = public_path($order->product->image);
+        if (file_exists($imgPath)) {
+            $mime = mime_content_type($imgPath);
+            $order->imageBase64 = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($imgPath));
+        }
+    }
+}
     private function promotePendingSalesAfterReturn(int $productId, string $size, \App\Models\Warehouse $stock): void
     {
         $pendingOrders = Product_Order::whereIn('order_type', ['sale', 'change'])

@@ -376,7 +376,12 @@ var columns = [
                                 '<small style="font-weight:600; color:#333; white-space:nowrap;">' + orderNo + '</small>' + 
                             '</div>';
 
-            // 2. Expand 📦 ბეჯი (როგორც ღილაკი)
+            // 2. cross-reference ბეჯი (გაცვლა / დაბრუნება)
+            var crossRef = (data.cross_ref_html && data.cross_ref_html.length > 0)
+                ? '<div style="margin-top:2px;">' + data.cross_ref_html + '</div>'
+                : '';
+
+            // 3. Expand 📦 ბეჯი (როგორც ღილაკი)
             var expandSection = '';
             if (data.is_primary && data.children_count > 0) {
                 // აქ 📦 ბეჯს ვანიჭებთ expand-btn კლასს
@@ -394,6 +399,7 @@ var columns = [
 
             return '<div style="display:flex; flex-direction:column; justify-content:center;">' + 
                         headerRow + 
+                        crossRef +
                         expandSection + 
                    '</div>';
         }
@@ -418,6 +424,8 @@ var columns = [
     {data: 'customer_name', name: 'customer_name'},
     // სვეტი 8: Payment + Prices
     {data: 'payment',      name: 'payment',      orderable: false, searchable: false},
+    // hidden: cross-reference (გაცვლა/დაბრუნების ბმული) — render-ში გამოიყენება
+    {data: 'cross_ref_html', name: 'cross_ref_html', orderable: false, searchable: false, visible: false},
 ];
 
 if (isAdmin) {
@@ -435,6 +443,16 @@ var table = $('#products-out-table').DataTable({
     columns: columns,
     order: [[2, 'desc']],
     createdRow: function(row, data) {
+        // გაცვლილი (status=6) — ღია მოიისფერი ფონი
+        if (data.status_id == 6) {
+            $(row).css('background-color', '#f5eef8');
+            return;
+        }
+        // დაბრუნებული (status=5) — ღია ნაცრისფერი ფონი
+        if (data.status_id == 5) {
+            $(row).css('background-color', '#f2f3f4');
+            return;
+        }
         // change ორდერი — ლურჯი ფონი
         if (data.original_sale_id) {
             $(row).css('background-color', '#d9edf7');
