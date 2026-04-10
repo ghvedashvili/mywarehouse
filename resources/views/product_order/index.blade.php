@@ -1448,8 +1448,16 @@ $(document).on('click', '.expand-btn', function() {
               '<a onclick="showStatusLog(' + child.id + ')" class="btn btn-warning btn-xs"><i class="fa fa-history"></i></a>'
             : '';
 
+        var crossRefHtml = '';
+        if (child.cross_ref && child.cross_ref.length > 0) {
+            crossRefHtml = '<div style="margin-top:2px;"><small style="color:#31708f; font-style:italic;">' + child.cross_ref + '</small></div>';
+        }
+
         var row = '<tr class="child-row-' + parentId + '" style="background:#fffde7;">' +
-            '<td style="padding-left:20px;"><i class="fa fa-level-up fa-rotate-90" style="color:#aaa;"></i></td>' +
+            '<td style="padding-left:20px;"><i class="fa fa-level-up fa-rotate-90" style="color:#aaa;"></i>' +
+                '<div style="font-weight:600; color:#333; font-size:12px; margin-top:3px;">' + (child.order_number || ('#' + child.id)) + '</div>' +
+                crossRefHtml +
+            '</td>' +
             '<td>' + child.created_at + '</td>' +
             '<td>' + statusBadge + '</td>' +
             '<td>' + img + '</td>' +

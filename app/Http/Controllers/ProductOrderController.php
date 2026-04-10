@@ -759,6 +759,29 @@ class ProductOrderController extends Controller
 
                     return [
                         'id'               => $child->id,
+                        'order_number'     => $child->order_number ?? ('#' . $child->id),
+                        'cross_ref'        => (function() use ($child) {
+                            $html = '';
+                            if ($child->status_id == 6 && $child->changed_to_order_id) {
+                                $ref = \App\Models\Product_Order::withoutGlobalScope('active')
+                                    ->select('id','order_number')->find($child->changed_to_order_id);
+                                $num = $ref ? ($ref->order_number ?? ('#'.$ref->id)) : ('#'.$child->changed_to_order_id);
+                                $html .= '🔄 → ' . $num;
+                            }
+                            if ($child->status_id == 5 && $child->returned_purchase_id) {
+                                $ref = \App\Models\Product_Order::withoutGlobalScope('active')
+                                    ->select('id','order_number')->find($child->returned_purchase_id);
+                                $num = $ref ? ($ref->order_number ?? ('#'.$ref->id)) : ('#'.$child->returned_purchase_id);
+                                $html .= '↩ → ' . $num;
+                            }
+                            if ($child->order_type === 'change' && $child->original_sale_id) {
+                                $ref = \App\Models\Product_Order::withoutGlobalScope('active')
+                                    ->select('id','order_number')->find($child->original_sale_id);
+                                $num = $ref ? ($ref->order_number ?? ('#'.$ref->id)) : ('#'.$child->original_sale_id);
+                                $html .= '🔄 ' . $num;
+                            }
+                            return $html;
+                        })(),
                         'product_name'     => $child->product->name ?? 'N/A',
                         'product_code'     => $child->product->product_code ?? '-',
                         'product_size'     => $child->product_size ?? '',
@@ -1522,13 +1545,13 @@ class ProductOrderController extends Controller
                 'status_id'                   => 1,
                 'customer_id'                 => null,
                 'user_id'                     => auth()->id(),
-                'original_sale_id'            => $originalSale->id,
                 'comment'                     => '↩ ' . ($isReturn ? 'დაბრუნება' : 'გაცვლა') .
                                                  ' — ' . ($originalSale->order_number ?? ('#' . $originalSale->id)),
                 'courier_price_international' => 0,
                 'courier_price_tbilisi'       => 0,
                 'courier_price_region'        => 0,
                 'courier_price_village'       => 0,
+                // ორივე შემთხვევა: discount = price_usa (100% ფასდაკლება თვითღირებულებაზე)
                 'discount'                    => $originalSale->price_usa,
                 'paid_tbc'                    => 0,
                 'paid_bog'                    => 0,
@@ -1538,9 +1561,14 @@ class ProductOrderController extends Controller
 
             // ─── დაბრუნება: original sale → სტატუსი 5, purchase მიაბი ───
             if ($changeType === 'return') {
-                $originalSale->status_id            = 5;
+                // 1. original sale-ის სტატუსი → 5 (დაბრუნებული)
+                $originalSale->status_id           = 5;
                 $originalSale->returned_purchase_id = $sourcePurchase->id;
                 $originalSale->save();
+
+                // 2. purchase-ს ჩავუწეროთ რომელი ორდერი დაბრუნდა
+                $sourcePurchase->original_sale_id = $originalSale->id;
+                $sourcePurchase->save();
 
                 // 3. StatusChangeLog
                 StatusChangeLog::create([
