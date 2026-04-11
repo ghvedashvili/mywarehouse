@@ -1,13 +1,21 @@
 @php
-    $isAdmin = auth()->user()->role === 'admin';
+    $isAdmin = auth()->check() && auth()->user()->role == 'admin';
 @endphp
 
-<div class="modal fade" id="modal-sale" tabindex="-1" role="dialog" data-backdrop="static">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content" style="border-radius: 10px;">
-            <form id="form-sale-content" method="post" class="form-horizontal" enctype="multipart/form-data">
-                {{ csrf_field() }} {{ method_field('POST') }}
+<style>
+    .modal-sale-card { border: 1px solid #eee; border-radius: 10px; padding: 12px; background: #fff; margin-bottom: 12px; }
+    .section-title { font-size: 11px; text-transform: uppercase; color: #6c757d; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 5px; }
+    .price-badge { font-size: 14px; padding: 8px; border-radius: 8px; text-align: center; font-weight: 700; }
+    .select2-container--bootstrap-5 .select2-selection { font-size: 13px; }
+</style>
 
+<div class="modal fade" id="modal-sale" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius:15px; overflow:hidden;">
+            <form id="form-sale-content" method="post" enctype="multipart/form-data">
+                @csrf @method('POST')
+                
+                {{-- Hidden Inputs --}}
                 <input type="hidden" name="id" id="id">
                 <input type="hidden" name="order_type" value="sale">
                 <input type="hidden" name="price_georgia" id="price_georgia_sale">
@@ -15,24 +23,28 @@
                 <input type="hidden" id="courier_price_tbilisi" name="courier_price_tbilisi" value="0">
                 <input type="hidden" id="db_tbilisi_price" value="{{ $courier->tbilisi_price ?? 6 }}">
 
-                <div class="modal-header bg-gray-light">
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                    <h4 class="modal-title" style="font-weight: bold;">🛒 Add New Sale</h4>
+                <div class="modal-header bg-dark text-white border-0">
+                    <h5 class="modal-title d-flex align-items-center gap-2">
+                        <i class="bi bi-cart-plus-fill"></i> 
+                        <span id="modal-sale-title">ახალი გაყიდვა</span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
 
-                <div class="modal-body" style="padding: 20px 25px;">
-                    <div class="row">
-                        <div class="col-md-8">
-
-                            {{-- 1. PRODUCT, SIZE & PRICES --}}
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="form-group mb-3">
-                                        <label style="font-weight: 600;">1. Product</label>
-                                        <select name="product_id" id="product_id_sale" class="form-control select2" style="width: 100%;" required>
-                                            <option value="">— Choose Product —</option>
+                <div class="modal-body bg-light p-3" style="max-height: 75vh; overflow-y: auto;">
+                    <div class="row g-3">
+                        
+                        {{-- მარცხენა მხარე --}}
+                        <div class="col-12 col-md-8">
+                            
+                            {{-- Section 1: Product --}}
+                            <div class="modal-sale-card shadow-sm">
+                                <div class="section-title"><i class="bi bi-box-seam"></i> პროდუქტის შერჩევა</div>
+                                <div class="row g-2">
+                                    <div class="col-12 col-sm-6">
+                                        <label class="form-label small fw-bold">პროდუქტი</label>
+                                        <select name="product_id" id="product_id_sale" class="form-select select2" required>
+                                            <option value="">— აირჩიეთ —</option>
                                             @foreach($all_products as $product)
                                                 <option value="{{ $product->id }}"
                                                     data-price-ge="{{ $product->price_geo }}"
@@ -44,166 +56,151 @@
                                             @endforeach
                                         </select>
                                     </div>
-                                </div>
-                                <div class="col-md-2">
-                                    <div class="form-group">
-                                        <label style="font-weight: 600;">Size</label>
-                                        <select name="product_size" id="size_sale" class="form-control" required>
-                                            <option value="">Size</option>
+                                    <div class="col-4 col-sm-2">
+                                        <label class="form-label small fw-bold">ზომა</label>
+                                        <select name="product_size" id="size_sale" class="form-select shadow-sm" required>
+                                            <option value="">—</option>
                                         </select>
                                     </div>
+                                    <div class="col-4 col-sm-2">
+                                        <label class="form-label small fw-bold text-success">₾ GEL</label>
+                                        <div id="price_georgia_text" class="price-badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">0</div>
+                                    </div>
+                                    <div class="col-4 col-sm-2">
+                                        <label class="form-label small fw-bold text-primary">$ USD</label>
+                                        <div id="price_usa_text" class="price-badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">0</div>
+                                    </div>
                                 </div>
-                                <div class="col-md-2 text-center">
-                                    <label style="font-weight: 600;">Price (₾)</label>
-                                    <div id="price_georgia_text" class="form-control" style="background:#f9f9f9; font-weight:bold; color:#00a65a; font-size:14px; padding: 6px 2px;">0</div>
-                                </div>
-                                <div class="col-md-2 text-center">
-                                    <label style="font-weight: 600;">Price ($)</label>
-                                    <div id="price_usa_text" class="form-control" style="background:#f9f9f9; font-weight:bold; color:#357ca5; font-size:14px; padding: 6px 2px;">0</div>
+
+                                {{-- Stock Info --}}
+                                <div id="sale_stock_info" class="mt-3 p-2 rounded-3 border-start border-4 border-info bg-white shadow-sm" style="display:none; font-size:12px;">
+                                    <div class="d-flex justify-content-between">
+                                        <span>📦 საწყობი: <b id="sale_si_physical">0</b></span>
+                                        <span>🚚 გზაში: <b id="sale_si_incoming">0</b></span>
+                                        <span>🔒 ჯავშანი: <b id="sale_si_reserved">0</b></span>
+                                        <span class="text-success">✅ ხელმისაწვდომია: <b id="sale_si_available">0</b></span>
+                                    </div>
                                 </div>
                             </div>
 
-                            {{-- STOCK INFO (ზომის არჩევის შემდეგ ჩნდება) --}}
-<div id="sale_stock_info" style="display:none; margin-top: 4px; margin-bottom: 6px;">
-    <div style="
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        flex-wrap: nowrap;
-        font-size: 11.5px;
-        background: #f9f9f9;
-        border: 1px solid #e0e0e0;
-        border-radius: 5px;
-        padding: 5px 10px;
-        white-space: nowrap;
-        overflow-x: auto;
-    ">
-        <span>📦 <strong>საწყობში:</strong> <span id="sale_si_physical" style="font-weight:800;">0</span></span>
-        <span style="color:#ccc;">|</span>
-        <span>🚚 <strong>გზაში:</strong> <span id="sale_si_incoming" style="font-weight:800;">0</span></span>
-        <span style="color:#ccc;">|</span>
-        <span>🔒 <strong>დაჯავშნული:</strong> <span id="sale_si_reserved" style="font-weight:800;">0</span></span>
-        <span style="color:#ccc;">|</span>
-        <span>✅ <strong>ხელმისაწვდომი:</strong> <span id="sale_si_available" style="font-weight:900; font-size:13px;">0</span></span>
-        <span id="sale_si_badge"></span>
-    </div>
-</div>
-
-                            {{-- 2. CUSTOMER --}}
-                            <div class="form-group" style="margin-top: 10px;">
-                                <label style="font-weight: 600;">2. Customer
-                                    <button type="button" class="btn btn-link btn-xs pull-right" onclick="openCustomerCreate()">+ Add New</button>
-                                </label>
-                                <select name="customer_id" id="customer_id_sale" class="form-control select2" style="width: 100%;" required>
-                                    <option value="">— Choose Customer —</option>
+                            {{-- Section 2: Customer --}}
+                            <div class="modal-sale-card shadow-sm">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div class="section-title m-0"><i class="bi bi-person-circle"></i> კლიენტი</div>
+                                    <button type="button" class="btn btn-outline-primary btn-sm rounded-pill py-0" onclick="openCustomerCreate()" style="font-size:11px;">
+                                        + ახალი კლიენტი
+                                    </button>
+                                </div>
+                                <select name="customer_id" id="customer_id_sale" class="form-select select2" required>
+                                    <option value="">— აირჩიეთ კლიენტი —</option>
                                     @foreach($customers as $customer)
                                         <option value="{{ $customer->id }}"
                                             data-address="{{ $customer->address }}"
                                             data-city-id="{{ $customer->city_id }}"
-                                            data-city="{{ $customer->city->name ?? '' }}"
                                             data-tel="{{ $customer->tel }}"
-                                            data-alt="{{ $customer->alternative_tel }}"
-                                            data-comment="{{ $customer->comment }}">
+                                            data-alt="{{ $customer->alternative_tel }}">
                                             {{ $customer->name }} ({{ $customer->tel }})
                                         </option>
                                     @endforeach
                                 </select>
 
-                                <div id="customer_info_fields" style="display:none; margin-top: 10px; background: #fdfdfd; border: 1px solid #eee; padding: 10px; border-radius: 5px;">
-                                    <div class="row" style="font-size:13px;">
-                                        <div class="col-md-6">
-                                            <div class="form-group" style="margin-bottom:6px;">
-                                                <label style="font-weight:600; font-size:12px;">📞 ტელეფონი</label>
-                                                <div id="customer_tel" style="padding:4px 0; color:#555;"></div>
-                                            </div>
-                                            <div class="form-group" style="margin-bottom:6px;">
-                                                <label style="font-weight:600; font-size:12px;">📱 ალტ. ტელეფონი</label>
-                                                <input type="text" id="customer_alt_tel_input" name="order_alt_tel"
-                                                       class="form-control input-sm" placeholder="ალტერნატიული ტელ...">
-                                            </div>
+                                <div id="customer_info_fields" class="mt-2 p-2 border rounded bg-white shadow-sm" style="display:none; font-size:12px;">
+                                    <div class="row g-2">
+                                        <div class="col-sm-6">
+                                            <div class="mb-1"><i class="bi bi-telephone"></i> <span id="customer_tel" class="fw-bold"></span></div>
+                                            <input type="text" id="customer_alt_tel_input" name="order_alt_tel" class="form-control form-control-sm" placeholder="ალტერნატიული ნომერი">
                                         </div>
-                                        <div class="col-md-6">
-                                            <div class="form-group" style="margin-bottom:6px;">
-                                                <label style="font-weight:600; font-size:12px;">📍 მისამართი</label>
-                                                <input type="text" id="customer_address_input" name="order_address"
-                                                       class="form-control input-sm" placeholder="მისამართი...">
-                                            </div>
-                                            <div class="form-group" style="margin-bottom:0;">
-                                                <label style="font-weight:600; font-size:12px;">📝 კომენტარი</label>
-                                                <div id="customer_comment" style="padding:4px 0; color:#777; font-size:12px;"></div>
-                                            </div>
+                                        <div class="col-sm-6">
+                                            <div class="mb-1"><i class="bi bi-geo-alt"></i> მისამართი:</div>
+                                            <input type="text" id="customer_address_input" name="order_address" class="form-control form-control-sm" placeholder="ქუჩა, კორპუსი, ბინა">
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {{-- 3. FINANCE --}}
+                            {{-- Section 3: Admin Finance --}}
                             @if($isAdmin)
-                            <div class="well well-sm" style="background: #f4f4f4; border: 1px solid #ddd; padding: 10px; margin-top: 15px;">
-                                <div class="row">
-                                    <div class="col-md-12">
-                                        <label class="small" style="font-weight:600;">Discount</label>
-                                        <input type="number" name="discount" id="discount_sale" class="form-control input-sm" value="0">
+                            <div class="modal-sale-card border-warning bg-warning bg-opacity-10 shadow-sm">
+                                <div class="section-title text-dark"><i class="bi bi-cash-stack"></i> ფინანსური ნაწილი</div>
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-sm-4">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-white">ფასდაკლება</span>
+                                            <input type="number" name="discount" id="discount_sale" class="form-control fw-bold text-danger" value="0">
+                                            <span class="input-group-text bg-white">₾</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-8 text-end text-muted small">
+                                        ჯამური გადასახდელი: <span id="sale_summary_text" class="fw-bold text-dark fs-6">—</span>
                                     </div>
                                 </div>
-                                <div class="input-group input-group-sm" style="margin-top:10px;">
-                                    <span class="input-group-addon">TBC</span>
-                                    <input type="number" name="paid_tbc" class="form-control" placeholder="0" step="0.01">
-                                    <span class="input-group-addon">BOG</span>
-                                    <input type="number" name="paid_bog" class="form-control" placeholder="0" step="0.01">
-                                    <span class="input-group-addon">Lib</span>
-                                    <input type="number" name="paid_lib" class="form-control" placeholder="0" step="0.01">
-                                    <span class="input-group-addon">Cash</span>
-                                    <input type="number" name="paid_cash" class="form-control" placeholder="0" step="0.01">
-                                </div>
-                                <div style="margin: 10px 0; min-height: 40px;">
-                                    <small style="display:block; color:#777;">Summary:</small>
-                                    <strong id="sale_summary_text" style="font-size: 13px;">შეიყვანეთ მონაცემები</strong>
+                                <div class="row g-1 mt-2">
+                                    <div class="col-3">
+                                        <input type="number" name="paid_tbc" class="form-control form-control-sm" placeholder="TBC" step="0.01">
+                                    </div>
+                                    <div class="col-3">
+                                        <input type="number" name="paid_bog" class="form-control form-control-sm" placeholder="BOG" step="0.01">
+                                    </div>
+                                    <div class="col-3">
+                                        <input type="number" name="paid_lib" class="form-control form-control-sm" placeholder="LIB" step="0.01">
+                                    </div>
+                                    <div class="col-3">
+                                        <input type="number" name="paid_cash" class="form-control form-control-sm" placeholder="CASH" step="0.01">
+                                    </div>
                                 </div>
                             </div>
                             @endif
                         </div>
 
-                        {{-- RIGHT SIDE: IMAGE & COURIER --}}
-                        <div class="col-md-4 text-center" style="border-left: 1px solid #eee;">
-                            <label style="font-weight: bold; display: block; margin-bottom: 10px;">Preview</label>
-                            <div style="width: 100%; height: 160px; border: 2px dashed #ddd; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: #fff; overflow: hidden; margin-bottom: 15px;">
-                                <img id="target_image" class="img-responsive" style="display:none; max-height: 155px;">
-                                <span id="no_image_text" class="text-muted italic">No Image</span>
-                            </div>
-
-                            <div class="well well-sm text-left" style="background:#fff; border:1px solid #eee; padding:10px;">
-                                <div style="margin-top:0;">
-                                    <label style="font-weight: 600; display:block; margin-bottom:6px; font-size:13px;">🚚 Courier</label>
-                                    <label style="display:block; font-size:13px; margin-bottom:4px; cursor:pointer;">
-                                        <input type="radio" name="courier_type" id="courier_tbilisi" value="tbilisi">
-                                        Tbilisi (+{{ $courier->tbilisi_price ?? 6 }} ₾)
-                                    </label>
-                                    <label style="display:block; font-size:13px; margin-bottom:4px; cursor:pointer;">
-                                        <input type="radio" name="courier_type" id="courier_region" value="region">
-                                        Region (+{{ $courier->region_price ?? 9 }} ₾)
-                                    </label>
-                                    <label style="display:block; font-size:13px; margin-bottom:4px; cursor:pointer;">
-                                        <input type="radio" name="courier_type" id="courier_village" value="village">
-                                        Village (+{{ $courier->village_price ?? 13 }} ₾)
-                                    </label>
-                                    <label style="display:block; font-size:13px; color:#999; cursor:pointer;">
-                                        <input type="radio" name="courier_type" id="courier_none" value="none" checked>
-                                        არ გამოიყენება
-                                    </label>
+                        {{-- მარჯვენა მხარე --}}
+                        <div class="col-12 col-md-4">
+                            <div class="modal-sale-card h-100 shadow-sm">
+                                <div class="section-title"><i class="bi bi-image"></i> პროდუქტის ფოტო</div>
+                                <div class="text-center border rounded mb-3 bg-light d-flex align-items-center justify-content-center" style="height:150px; overflow:hidden;">
+                                    <img id="target_image" class="img-fluid" style="display:none; max-height:100%;">
+                                    <div id="no_image_text" class="text-muted small">
+                                        <i class="bi bi-image-fill fs-2 d-block"></i>
+                                        არ არის ფოტო
+                                    </div>
                                 </div>
-                                <textarea name="comment" class="form-control" rows="3" placeholder="Notes..." style="font-size:12px; margin-top:10px;"></textarea>
+
+                                <div class="section-title"><i class="bi bi-truck"></i> კურიერი</div>
+                                <div class="bg-light p-2 rounded border shadow-sm">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="courier_type" id="courier_tbilisi" value="tbilisi">
+                                        <label class="form-check-label small" for="courier_tbilisi">თბილისი (+{{ $courier->tbilisi_price ?? 6 }} ₾)</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="courier_type" id="courier_region" value="region">
+                                        <label class="form-check-label small" for="courier_region">რაიონი (+{{ $courier->region_price ?? 9 }} ₾)</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="courier_type" id="courier_village" value="village">
+                                        <label class="form-check-label small" for="courier_village">სოფელი (+{{ $courier->village_price ?? 13 }} ₾)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="courier_type" id="courier_none" value="none" checked>
+                                        <label class="form-check-label small text-muted" for="courier_none">არ გამოიყენება</label>
+                                    </div>
+                                </div>
+                                
+                                <label class="form-label small fw-bold mt-3 mb-1">კომენტარი</label>
+                                <textarea name="comment" class="form-control form-control-sm shadow-sm" rows="3" placeholder="დამატებითი შენიშვნა..."></textarea>
                             </div>
                         </div>
+
                     </div>
                 </div>
 
-                <div class="modal-footer bg-gray-light">
-                    <button type="button" class="btn btn-default btn-flat pull-left" data-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-success btn-flat" style="padding: 6px 40px; font-weight: bold;">💾 Save Sale</button>
+                <div class="modal-footer bg-white border-top-0">
+                    <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">გაუქმება</button>
+                    <button type="submit" class="btn btn-success px-5 fw-bold shadow-sm rounded-pill">
+                        <i class="bi bi-check-lg"></i> შენახვა
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
 @include('customers.form')

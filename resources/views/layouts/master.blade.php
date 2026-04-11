@@ -1,154 +1,442 @@
 <!DOCTYPE html>
-<html>
+<html lang="ka">
 <head>
-    <!-- Log on to codeastro.com for more projects! -->
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>warehouse</title>
-    <!-- Tell the browser to be responsive to screen width -->
-    <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <link rel="stylesheet" href="{{ asset('assets/bower_components/bootstrap/dist/css/bootstrap.min.css ')}}">
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="{{ asset('assets/bower_components/font-awesome/css/font-awesome.min.css')}} ">
-    <!-- Ionicons -->
-    <link rel="stylesheet" href="{{ asset('assets/bower_components/Ionicons/css/ionicons.min.css')}} ">
-<link rel="icon" type="image/png" href="{{ asset('upload/favicon.png') }}">
+    <title>Warehouse</title>
+
+    {{-- Bootstrap 5 --}}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    {{-- Font Awesome 6 --}}
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    {{-- DataTables Bootstrap 5 --}}
+    <link href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     {{-- SweetAlert2 --}}
-    <script src="{{ asset('assets/sweetalert2/sweetalert2.min.js') }}"></script>
-    <link href="{{ asset('assets/sweetalert2/sweetalert2.min.css') }}" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+    <link rel="icon" type="image/png" href="{{ asset('upload/favicon.png') }}">
 
+    <style>
+        :root {
+            --sidebar-width: 240px;
+            --sidebar-bg: #1a1f2e;
+            --sidebar-hover: #252b3d;
+            --sidebar-active: #2d7dd2;
+            --sidebar-text: #a0aec0;
+            --sidebar-text-active: #fff;
+            --topbar-height: 56px;
+            --topbar-bg: #fff;
+            --body-bg: #f0f2f5;
+            --accent: #2d7dd2;
+        }
 
-    <!-- Theme style -->
-    <link rel="stylesheet" href="{{ asset('assets/dist/css/AdminLTE.min.css')}} ">
-    <!-- AdminLTE Skins. We have chosen the skin-blue for this starter
-          page. However, you can choose any other skin. Make sure you
-          apply the skin class to the body tag so the changes take effect. -->
-    <link rel="stylesheet" href="{{ asset('assets/dist/css/skins/skin-green.min.css')}} ">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-toggle/2.2.2/css/bootstrap-toggle.min.css">
-    <link rel="stylesheet" href="{{ asset('assets/bower_components/datatables.net-bs/css/dataTables.bootstrap.min.css') }}">
- 
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: var(--body-bg);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            font-size: 14px;
+            color: #2d3748;
+             overflow-x: hidden;
+        }
+
+        /* ── SIDEBAR ── */
+        #sidebar {
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            width: var(--sidebar-width);
+            background: var(--sidebar-bg);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.25s ease;
+            overflow-y: auto;
+        }
+
+        #sidebar .sidebar-brand {
+            padding: 18px 20px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            flex-shrink: 0;
+        }
+        #sidebar .sidebar-brand span {
+            font-size: 15px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 0.5px;
+        }
+        #sidebar .sidebar-brand small {
+            display: block;
+            font-size: 10px;
+            color: var(--sidebar-text);
+            margin-top: 2px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sidebar-user {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .sidebar-user img {
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(255,255,255,0.15);
+        }
+        .sidebar-user .user-info .name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #fff;
+            line-height: 1.2;
+        }
+        .sidebar-user .user-info .status {
+            font-size: 11px;
+            color: #48bb78;
+        }
+
+        .sidebar-nav { padding: 10px 0; flex: 1; }
+
+        .sidebar-nav .nav-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: rgba(255,255,255,0.3);
+            padding: 12px 20px 4px;
+        }
+
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 20px;
+            color: var(--sidebar-text);
+            text-decoration: none;
+            font-size: 13.5px;
+            font-weight: 500;
+            border-left: 3px solid transparent;
+            transition: all 0.15s;
+        }
+        .sidebar-nav a:hover {
+            background: var(--sidebar-hover);
+            color: #fff;
+        }
+        .sidebar-nav a.active {
+            background: var(--sidebar-hover);
+            color: var(--sidebar-text-active);
+            border-left-color: var(--accent);
+        }
+        .sidebar-nav a i {
+            width: 18px;
+            text-align: center;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        .sidebar-nav a.active i { opacity: 1; }
+
+        /* ── TOPBAR ── */
+        #topbar {
+            position: fixed;
+            top: 0;
+            left: var(--sidebar-width);
+            right: 0;
+            height: var(--topbar-height);
+            background: var(--topbar-bg);
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            z-index: 999;
+            gap: 12px;
+        }
+
+        #topbar .topbar-toggle {
+            background: none;
+            border: none;
+            color: #718096;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            display: none;
+        }
+        #topbar .topbar-toggle:hover { background: #f7fafc; }
+
+        #topbar .topbar-spacer { flex: 1; }
+
+        #topbar .topbar-user {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 8px;
+            transition: background 0.15s;
+        }
+        #topbar .topbar-user:hover { background: #f7fafc; }
+        #topbar .topbar-user img {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        #topbar .topbar-user .uname {
+            font-size: 13px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        /* ── MAIN CONTENT ── */
+        #main-content {
+            margin-left: var(--sidebar-width);
+            padding-top: var(--topbar-height);
+           
+            min-height: calc(100vh - var(--topbar-height));
+        }
+
+        /* ── OVERLAY (mobile) ── */
+        #sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+
+        /* ── CARDS / BOXES ── */
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .card-header {
+            background: #fff;
+            border-bottom: 1px solid #edf2f7;
+            border-radius: 10px 10px 0 0 !important;
+            padding: 14px 20px;
+            font-weight: 600;
+            font-size: 15px;
+        }
+        .card-body { padding: 20px; }
+
+        /* ── DATATABLES ── */
+        .dataTables_wrapper .dataTables_length select,
+        .dataTables_wrapper .dataTables_filter input {
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 13px;
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button {
+            border-radius: 6px !important;
+        }
+
+        /* ── BUTTONS ── */
+        .btn-xs { padding: 2px 8px; font-size: 12px; }
+
+        /* ── BADGES (Bootstrap 3 label → Bootstrap 5 badge) ── */
+        .badge { font-weight: 600; }
+
+        /* ── FOOTER ── */
+        #footer {
+            margin-left: var(--sidebar-width);
+            padding: 14px 24px;
+            background: #fff;
+            border-top: 1px solid #e2e8f0;
+            font-size: 12px;
+            color: #a0aec0;
+        }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 768px) {
+            #sidebar {
+                transform: translateX(-100%);
+            }
+            #sidebar.open {
+                transform: translateX(0);
+            }
+            #sidebar-overlay.show { display: block; }
+            #topbar, #main-content, #footer {
+                left: 0;
+                margin-left: 0;
+                width: 100%; 
+            }
+            #topbar .topbar-toggle { display: block; }
+        }
+
+        /* ── MODALS Bootstrap 5 ── */
+        .modal-header { border-bottom: 1px solid #edf2f7; }
+        .modal-footer { border-top: 1px solid #edf2f7; }
+    </style>
+
     @yield('top')
-
-    <link rel="stylesheet"
-          href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600,700,300italic,400italic,600italic">
 </head>
-<body class="hold-transition skin-green sidebar-mini sidebar-collapse">
-<div class="wrapper">
+<body>
 
-    <!-- Main Header -->
-    <header class="main-header">
-
-        <!-- Logo -->
-        <a href="index2.html" class="logo">
-            <!-- mini logo for sidebar mini 50x50 pixels -->
-            <span class="logo-mini"><b>100%</b></span>
-            <!-- logo for regular state and mobile devices -->
-            <span class="logo-lg"><b>ORIGINAL 100%</b></span>
-        </a>
-
-        <!-- Header Navbar -->
-        <nav class="navbar navbar-static-top" role="navigation">
-            <!-- Sidebar toggle button-->
-            <a href="#" class="sidebar-toggle" data-toggle="push-menu" role="button">
-                <span class="sr-only">Toggle navigation</span>
-            </a>
-            <!-- Navbar Right Menu -->
-            <div class="navbar-custom-menu">
-                <ul class="nav navbar-nav">
-                    <!-- Messages: style can be found in dropdown.less-->
-                    <!-- User Account Menu -->
-                    <li class="dropdown user user-menu">
-                        <!-- Menu Toggle Button -->
-                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">
-                            <!-- The user image in the navbar-->
-                            <img src="{{ asset('user-profile.png') }}" class="user-image" alt="User Image">
-                            <!-- hidden-xs hides the username on small devices so only the image appears. -->
-                            <span class="hidden-xs">{{ \Auth::user()->name  }}</span>
-                        </a>
-                        <ul class="dropdown-menu">
-                            <!-- The user image in the menu -->
-                            <li class="user-header">
-                                <img src="{{ asset('user-profile.png') }} " class="img-circle" alt="User Image">
-
-                                <p>
-                                    {{ \Auth::user()->name  }}
-                                    <small>{{ \Auth::user()->email  }}</small>
-                                </p>
-                            </li>
-                            <!-- Menu Footer-->
-                            <li class="user-footer">
-                                {{--<div class="pull-left">--}}
-                                {{--<a href="#" class="btn btn-default btn-flat">Profile</a>--}}
-                                {{--</div>--}}
-                                <div class="pull-right">
-                                    <a class="btn btn-danger btn-flat" href="{{ route('logout') }}"
-                                       onclick="event.preventDefault();
-                                                     document.getElementById('logout-form').submit();">
-                                        {{ __('Logout') }}
-                                    </a>
-                                    <a class="btn btn-warning btn-flat" href="{{ route('user.change-password') }}">პაროლის შეცვლა</a>
-
-                                    <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
-                                        @csrf
-                                    </form>
-                                </div>
-                            </li>
-                        </ul>
-                    </li>
-                    <!-- Control Sidebar Toggle Button -->
-                    <!-- <li>
-                        <a href="#" data-toggle="control-sidebar"><i class="fa fa-gears"></i></a>
-                    </li> -->
-                </ul>
-            </div>
-        </nav>
-    </header>
-    <!-- Left side column. contains the logo and sidebar -->
-@include('layouts.sidebar')
-
-    <div class="content-wrapper">
-        <section class="content container-fluid">
-
-            @yield('content')
-
-
-        </section>
-        <!-- /.content -->
+{{-- SIDEBAR --}}
+<div id="sidebar-overlay" onclick="closeSidebar()"></div>
+<nav id="sidebar">
+    <div class="sidebar-brand">
+        <span>🏭 ORIGINAL 100%</span>
+        <small>Warehouse Management</small>
     </div>
-    <!-- /.content-wrapper -->
 
-    <!-- Main Footer -->
-    <footer class="main-footer">
-        <!-- To the right -->
-        <div class="pull-right hidden-xs">
-            Developed by Ghvedashvili
+    <div class="sidebar-user">
+        <img src="{{ asset('user-profile.png') }}" alt="User">
+        <div class="user-info">
+            <div class="name">{{ Auth::user()->name }}</div>
+            <div class="status"><i class="fa fa-circle" style="font-size:8px;"></i> Online</div>
         </div>
-        <!-- Default to the left -->
-        <?php $date = date('Y')?>
-        <strong>&copy; {{$date}} - Warehouse Management System </strong>
-    </footer>
+    </div>
 
-    <!-- Control Sidebar -->
+    <div class="sidebar-nav">
+        @include('layouts.sidebar')
+    </div>
+</nav>
 
-    <!-- /.control-sidebar -->
-    <!-- Add the sidebar's background. This div must be placed
-    immediately after the control sidebar -->
-    <div class="control-sidebar-bg"></div>
-</div>
-<!-- ./wrapper -->
+{{-- TOPBAR --}}
+<header id="topbar">
+    <button class="topbar-toggle" onclick="toggleSidebar()">
+        <i class="fa fa-bars"></i>
+    </button>
 
-<!-- REQUIRED JS SCRIPTS -->
+    <div class="topbar-spacer"></div>
 
-<!-- jQuery 3 -->
-<script src="{{  asset('assets/bower_components/jquery/dist/jquery.min.js') }} "></script>
-<!-- Bootstrap 3.3.7 -->
-<script src="{{  asset('assets/bower_components/bootstrap/dist/js/bootstrap.min.js') }} "></script>
-<!-- AdminLTE App -->
-<script src="{{  asset('assets/dist/js/adminlte.min.js') }}"></script>
+    <div class="dropdown">
+        <div class="topbar-user dropdown-toggle" data-bs-toggle="dropdown">
+            <img src="{{ asset('user-profile.png') }}" alt="User">
+            <span class="uname">{{ Auth::user()->name }}</span>
+        </div>
+        <ul class="dropdown-menu dropdown-menu-end" style="min-width:180px; border-radius:10px; border:none; box-shadow:0 8px 24px rgba(0,0,0,0.12);">
+            <li>
+                <a class="dropdown-item" href="{{ route('user.change-password') }}">
+                    <i class="fa fa-key me-2 text-muted"></i> პაროლის შეცვლა
+                </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item text-danger" href="{{ route('logout') }}"
+                   onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+                    <i class="fa fa-right-from-bracket me-2"></i> გასვლა
+                </a>
+            </li>
+        </ul>
+        <form id="logout-form" action="{{ route('logout') }}" method="POST" class="d-none">@csrf</form>
+    </div>
+</header>
 
- <script src=" {{ asset('assets/bower_components/datatables.net/js/jquery.dataTables.min.js') }} "></script>
-    <script src="{{ asset('assets/bower_components/datatables.net-bs/js/dataTables.bootstrap.min.js') }} "></script>
+{{-- MAIN CONTENT --}}
+<main id="main-content">
+    @yield('content')
+</main>
+
+{{-- FOOTER --}}
+<footer id="footer">
+    <strong>&copy; {{ date('Y') }} Warehouse Management System</strong>
+    <span class="float-end">Developed by Ghvedashvili</span>
+</footer>
+
+{{-- SCRIPTS --}}
+{{-- jQuery (DataTables, Select2, Ajax-ისთვის) --}}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+{{-- Bootstrap 5 --}}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{{-- DataTables + Bootstrap 5 --}}
+<script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
+{{-- SweetAlert2 --}}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+
+<script>
+// ── Bootstrap 3 modal API → Bootstrap 5 shim ──────────────────────────
+// ამით ძველი $.fn.modal('show') კოდი კვლავ მუშაობს
+(function($) {
+    var _modal = $.fn.modal;
+    $.fn.modal = function(option) {
+        var $el = this;
+        if (typeof option === 'string') {
+            $el.each(function() {
+                var el = this;
+                var instance = bootstrap.Modal.getOrCreateInstance(el);
+                if (option === 'show')   instance.show();
+                if (option === 'hide')   instance.hide();
+                if (option === 'toggle') instance.toggle();
+                if (option === 'dispose') instance.dispose();
+            });
+        } else if (typeof option === 'object' || option === undefined) {
+            $el.each(function() {
+                var opts = $.extend({ backdrop: 'static', keyboard: false }, option || {});
+                if ($(this).data('bs-backdrop') === 'static' ||
+                    $(this).attr('data-backdrop') === 'static') {
+                    opts.backdrop = 'static';
+                }
+                new bootstrap.Modal(this, opts);
+            });
+        }
+        return $el;
+    };
+
+    // Bootstrap 3 events → Bootstrap 5 events shim
+    $(document).on('show.bs.modal', '.modal', function() {
+        $(this).trigger('show.bs.modal.bs3');
+    });
+    $(document).on('hidden.bs.modal', '.modal', function() {
+        // Bootstrap 5-ში backdrop ავტომატურად იშლება
+        // body-ს overflow ავტომატურად ბრუნდება
+    });
+}(jQuery));
+
+// ── swal shim (SweetAlert2) ────────────────────────────────────────────
+// ძველი swal({type:...}) → swal({icon:...})
+window.swal = function(titleOrObj, text, type) {
+    var opts = {};
+    if (typeof titleOrObj === 'object') {
+        opts = $.extend({}, titleOrObj);
+        // type → icon
+        if (opts.type && !opts.icon) { opts.icon = opts.type; delete opts.type; }
+        // buttons → showCancelButton
+        if (opts.showCancelButton === undefined && opts.buttons === true) {
+            opts.showCancelButton = true;
+        }
+    } else {
+        opts = { title: titleOrObj, text: text, icon: type };
+    }
+    // timer-ის string → number
+    if (opts.timer && typeof opts.timer === 'string') {
+        opts.timer = parseInt(opts.timer);
+    }
+    // willDelete / willRestore pattern → .then(result => result.isConfirmed)
+    return Swal.fire(opts);
+};
+
+// ── Sidebar toggle ─────────────────────────────────────────────────────
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebar-overlay').classList.toggle('show');
+}
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').classList.remove('show');
+}
+
+// ── Active sidebar link ────────────────────────────────────────────────
+$(function() {
+    var path = window.location.pathname;
+    $('#sidebar .sidebar-nav a').each(function() {
+        var href = $(this).attr('href');
+        if (href && path.startsWith(href) && href !== '/') {
+            $(this).addClass('active');
+        } else if (href === path) {
+            $(this).addClass('active');
+        }
+    });
+});
+</script>
+
 @yield('bot')
 </body>
 </html>

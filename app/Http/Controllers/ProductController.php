@@ -28,38 +28,34 @@ class ProductController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-   public function store(Request $request)
+public function store(Request $request)
 {
     $this->validate($request, [
         'product_code' => 'required|string|unique:products,product_code',
         'name'         => 'required|string',
-        'Price_geo'    => 'required',
+        'price_geo'    => 'required', // შეიცვალა პატარა ასოზე
         'category_id'  => 'required|exists:categories,id',
         'image'        => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-        'sizes'        => 'nullable|array',
+        'product_sizes'=> 'nullable|array', // Blade-ში სახელია product_sizes[]
     ]);
 
     $input = $request->all();
 
-    $input['price_geo'] = $request->Price_geo;
+    // ველების სინქრონიზაცია ბაზის სვეტებთან
+    $input['price_geo'] = $request->price_geo; 
     $input['product_status'] = $request->has('product_status') ? 1 : 0;
     $input['in_warehouse']   = $request->has('in_warehouse') ? 1 : 0;
 
-    // 3. ზომების დამუშავება (მასივი -> სტრიქონი)
-    $input['sizes'] = $request->has('sizes') ? implode(',', $request->sizes) : null;
+    // ზომების დამუშავება (Blade-დან მოდის product_sizes სახელით)
+    $input['sizes'] = $request->has('product_sizes') ? implode(',', $request->product_sizes) : null;
 
-    // 4. სურათის ატვირთვა product_code-ის სახელით
+    // სურათის ატვირთვა...
     if ($request->hasFile('image')) {
-        // ვიყენებთ product_code-ს და დროს უნიკალურობისთვის
         $filename = Str::slug($request->product_code, '-') . '-' . time() . '.' . $request->image->getClientOriginalExtension();
-        
         $input['image'] = '/upload/products/' . $filename;
         $request->image->move(public_path('/upload/products/'), $filename);
-    } else {
-        $input['image'] = null;
     }
 
-    // 5. შენახვა ბაზაში
     Product::create($input);
 
     return response()->json([
@@ -95,37 +91,26 @@ class ProductController extends Controller
     $this->validate($request, [
         'product_code' => 'required|string|unique:products,product_code,' . $id,
         'name'         => 'required|string',
-        'Price_geo'    => 'required',
+        'price_geo'    => 'required', // შეიცვალა პატარა ასოზე
         'category_id'  => 'required|exists:categories,id',
         'image'        => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-        'sizes'        => 'nullable|array',
+        'product_sizes'=> 'nullable|array',
     ]);
 
     $input = $request->all();
-
-    $input['price_geo'] = $request->Price_geo;
+    $input['price_geo'] = $request->price_geo;
     $input['product_status'] = $request->has('product_status') ? 1 : 0;
     $input['in_warehouse']   = $request->has('in_warehouse') ? 1 : 0;
+    $input['sizes'] = $request->has('product_sizes') ? implode(',', $request->product_sizes) : null;
 
-    // ზომების დამუშავება
-    $input['sizes'] = $request->has('sizes') ? implode(',', $request->sizes) : null;
-
-    // სურათის დამუშავება
+    // სურათის დამუშავება...
     if ($request->hasFile('image')) {
-        // 1. თუ ძველი სურათი არსებობს, ვშლით ფიზიკურ ფაილს
         if ($product->image && file_exists(public_path($product->image))) {
             unlink(public_path($product->image));
         }
-
-        // 2. ახალი სახელი product_code-ის მიხედვით + დროის შტამპი (ქეშირებისთვის)
         $filename = Str::slug($request->product_code, '-') . '-' . time() . '.' . $request->image->getClientOriginalExtension();
-        
-        // 3. შენახვა
         $input['image'] = '/upload/products/' . $filename;
         $request->image->move(public_path('/upload/products/'), $filename);
-    } else {
-        // თუ სურათი არ იცვლება, ვინარჩუნებთ ძველ გზას
-        $input['image'] = $product->image;
     }
 
     $product->update($input);
@@ -194,10 +179,15 @@ public function apiDeletedProducts(Request $request)
         ->addColumn('category_name', function ($product) {
             return $product->category ? $product->category->name : '<span class="label label-default">N/A</span>';
         })
-        ->addColumn('show_photo', function ($product) {
-            if (!$product->image) return '<span class="label label-default">No Image</span>';
-            return '<img src="'.url($product->image).'" class="img-thumbnail img-zoom-trigger" style="width:50px; height:50px; object-fit:cover; cursor:pointer;">';
-        })
+       ->addColumn('show_photo', function ($product) {
+        if (!$product->image) {
+            return '<span class="label label-default">No Image</span>';
+        }
+        // დავამატოთ asset() ან url(), რომ სურათი გაიხსნას
+        return '<img src="'.asset($product->image).'" class="img-thumbnail img-thumb" 
+                 style="width:50px; height:50px; object-fit:cover; cursor:pointer;" 
+                 data-src="'.asset($product->image).'">';
+    })
         ->addColumn('format_sizes', function ($product) {
             if (!$product->sizes) return '<span class="text-muted">-</span>';
             $html = '';

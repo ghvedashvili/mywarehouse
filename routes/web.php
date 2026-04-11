@@ -51,25 +51,13 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/exportCustomersAll', [CustomerController::class, 'exportCustomersAll'])->name('exportPDF.customersAll');
     Route::get('/exportCustomersAllExcel', [CustomerController::class, 'exportExcel'])->name('exportExcel.customersAll');
 
-    // ── Sales ─────────────────────────────────────────────────────────
-    Route::resource('sales', SaleController::class);
-    Route::get('/apiSales', [SaleController::class, 'apiSales'])->name('api.sales');
-    Route::post('/importSales', [SaleController::class, 'ImportExcel'])->name('import.sales');
-    Route::get('/exportSalesAll', [SaleController::class, 'exportSalesAll'])->name('exportPDF.salesAll');
-    Route::get('/exportSalesAllExcel', [SaleController::class, 'exportExcel'])->name('exportExcel.salesAll');
-
+   
     // ── Finance ───────────────────────────────────────────────────────
     Route::get('/finance',           [FinanceController::class, 'index'])->name('finance.index');
     Route::post('/finance',          [FinanceController::class, 'store'])->name('finance.store');
     Route::delete('/finance/{id}',   [FinanceController::class, 'destroy'])->name('finance.destroy');
     Route::get('/finance/api-stats', [FinanceController::class, 'apiStats'])->name('finance.apiStats');
 
-    // ── Suppliers ─────────────────────────────────────────────────────
-    Route::resource('suppliers', SupplierController::class);
-    Route::get('/apiSuppliers', [SupplierController::class, 'apiSuppliers'])->name('api.suppliers');
-    Route::post('/importSuppliers', [SupplierController::class, 'ImportExcel'])->name('import.suppliers');
-    Route::get('/exportSupplierssAll', [SupplierController::class, 'exportSuppliersAll'])->name('exportPDF.suppliersAll');
-    Route::get('/exportSuppliersAllExcel', [SupplierController::class, 'exportExcel'])->name('exportExcel.suppliersAll');
 
     // ── Products ──────────────────────────────────────────────────────
     Route::resource('products', ProductController::class);

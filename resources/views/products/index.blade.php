@@ -1,473 +1,256 @@
 @extends('layouts.master')
 
-
 @section('top')
-    <!-- DataTables -->
-     
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css" rel="stylesheet">
 <style>
-.switch-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: -2px;
-}
-.switch-wrapper label {
-    font-size: 13px;
-    color: #666;
-    margin: 0;
-    cursor: pointer;
-}
-.switch {
-    position: relative;
-    display: inline-block;
-    width: 46px;
-    height: 24px;
-    margin: 0;
-}
-.switch input { opacity: 0; width: 0; height: 0; }
-.switch-slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background-color: #ccc;
-    border-radius: 24px;
-    transition: .3s;
-}
-.switch-slider:before {
-    position: absolute;
-    content: "";
-    height: 18px;
-    width: 18px;
-    left: 3px;
-    bottom: 3px;
-    background: white;
+/* Select2 */
+.select2-container--default .select2-selection--single { height: 38px; border: 1px solid #dee2e6; border-radius: 6px; }
+.select2-container--default .select2-selection--single .select2-selection__rendered { line-height: 38px; padding-left: 10px; }
+.select2-container--default .select2-selection--single .select2-selection__arrow { height: 38px; }
+/* Toggle */
+.form-switch .form-check-input { width: 2.5em; height: 1.3em; cursor: pointer; }
+/* Image thumb */
+.img-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 6px; cursor: zoom-in; transition: transform 0.15s; border: 1px solid #dee2e6; }
+.img-thumb:hover { transform: scale(1.1); }
+/* Responsive expand row */
+table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before,
+table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
+    background-color: #0d6efd;
     border-radius: 50%;
-    transition: .3s;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
-.switch input:checked + .switch-slider { background-color: #e74c3c; }
-.switch input:checked + .switch-slider:before { transform: translateX(22px); }
 </style>
-
-    @endsection
+@endsection
 
 @section('content')
-    <div class="box box-success">
- @if(auth()->user()->role == 'admin')
-
-        <div class="box-header">
-    <h3 class="box-title">List of Products</h3>
-
-    <a onclick="addForm()" class="btn btn-success pull-right" style="margin-top:-8px;">
-        <i class="fa fa-plus"></i> Add Products
-    </a>
-
-    <div class="pull-right switch-wrapper" style="margin-right:10px;">
-    <label for="toggle-deleted">Deleted</label>
-    <label class="switch">
-        <input type="checkbox" id="toggle-deleted">
-        <span class="switch-slider"></span>
-    </label>
-</div>
-</div>
-
-@endif
-
-        <!-- /.box-header -->
-        <div class="box-body">
-            <div class="row" style="margin-bottom: 20px;">
-    <div class="col-md-3">
-        <label>Filter by Category</label>
-        <select id="filter_category" class="form-control">
-            <option value="">All Categories</option>
-            @foreach($category as $id => $name)
-                <option value="{{ $id }}">{{ $name }}</option>
-            @endforeach
-        </select>
+<div class="card shadow-sm">
+    <div class="card-header py-3">
+        <div class="row align-items-center g-2">
+            <div class="col-12 col-sm-auto">
+                <h5 class="mb-0 fw-bold">
+                    <i class="fa fa-cubes me-2 text-primary"></i>Products
+                </h5>
+            </div>
+            @if(Auth::user()->role === 'admin')
+            <div class="col-12 col-sm-auto ms-sm-auto d-flex align-items-center gap-2 flex-wrap">
+                <button onclick="addForm()" class="btn btn-success btn-sm">
+                    <i class="fa fa-plus me-1"></i> Add Product
+                </button>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="text-muted small">Deleted</span>
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="toggle-deleted" role="switch">
+                    </div>
+                </div>
+            </div>
+            @endif
+        </div>
     </div>
-    <div class="col-md-3">
-        <label>Filter by Status</label>
-        <select id="filter_status" class="form-control">
-            <option value="">All Statuses</option>
-            <option value="1">Active</option>
-            <option value="0">Inactive</option>
-        </select>
-    </div>
-    <div class="col-md-3">
-        <label>Filter by Stock</label>
-        <select id="filter_stock" class="form-control">
-            <option value="">All Stock</option>
-            <option value="1">In Stock</option>
-            <option value="0">Out of Stock</option>
-        </select>
-    </div>
-</div>
-            <table id="products-table" class="table table-bordered table-hover table-striped">
-                <thead>
-<tr>
-    <th>Code</th>
-    <th>Image</th>
-    <th>Name</th>
-    <th>Category</th>
-    <th>Sizes</th>
-    <th>Price GEO</th>
-    <th>Status / Stock</th>
-    @if(auth()->user()->role == 'admin')
-<th>Actions</th>
-@endif
-</tr>
-</thead>
+    <div class="card-body p-0 p-md-3">
+        <div class="table-responsive">
+            <table id="products-table" class="table table-bordered table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="text-center" style="width:50px;">ID</th>
+                        <th class="text-center" style="width:70px;">Image</th>
+                        <th>Name</th>
+                        <th>Code</th>
+                        <th>Category</th>
+                        <th class="text-end">Price</th>
+                        <th>Sizes</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center" style="width:100px;">Actions</th>
+                    </tr>
+                </thead>
                 <tbody></tbody>
             </table>
         </div>
-        <!-- /.box-body -->
     </div>
+</div>
 
-    @include('products.form')
-
+@include('products.form')
 @endsection
 
 @section('bot')
-
-    <!-- DataTables -->
-    <script src=" {{ asset('assets/bower_components/datatables.net/js/jquery.dataTables.min.js') }} "></script>
-    <script src="{{ asset('assets/bower_components/datatables.net-bs/js/dataTables.bootstrap.min.js') }} "></script>
-
-    {{-- Validator --}}
-    <script src="{{ asset('assets/validator/validator.min.js') }}"></script>
-
-    {{--<script>--}}
-    {{--$(function () {--}}
-    {{--$('#items-table').DataTable()--}}
-    {{--$('#example2').DataTable({--}}
-    {{--'paging'      : true,--}}
-    {{--'lengthChange': false,--}}
-    {{--'searching'   : false,--}}
-    {{--'ordering'    : true,--}}
-    {{--'info'        : true,--}}
-    {{--'autoWidth'   : false--}}
-    {{--})--}}
-    {{--})--}}
-    {{--</script>--}}
-
-   <script type="text/javascript">
-    // DataTable-ის ინიციალიზაცია
-   var isAdmin = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
-
-var columns = [
-    {data: 'product_code', name: 'product_code'},
-    {data: 'show_photo', name: 'show_photo', orderable: false, searchable: false},
-    {data: 'name', name: 'name'},
-    {data: 'category_name', name: 'category_name'},
-    {data: 'format_sizes', name: 'format_sizes', orderable: false},
-    {data: 'price_geo', name: 'price_geo'},
-];
-
-columns.push({data: 'status_stock', name: 'status_stock', orderable: false, searchable: false});
-
-if (isAdmin) {
-    columns.push({data: 'action', name: 'action', orderable: false, searchable: false});
-}
-
-var table = $('#products-table').DataTable({
-    processing: true,
-    serverSide: true,
-    lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
-    pageLength: 10,
-    ajax: {
-        url: "{{ route('api.products') }}", // active products პირველი
-        data: function (d) {
-            d.category_id = $('#filter_category').val();
-            d.product_status = $('#filter_status').val();
-            d.in_warehouse = $('#filter_stock').val();
-            d.is_admin = isAdmin ? 1 : 0;
-        }
-    },
-    columns: columns
-});
-
-// ფილტრების შეცვლისას ცხრილის ავტომატური განახლება
-$('#filter_category, #filter_status, #filter_stock').change(function(){
-    table.draw();
-});
-
-    function addForm() {
-    save_method = "add";
-    $('input[name=_method]').val('POST');
-    $('#modal-form').modal('show');
-    $('#modal-form form')[0].reset();
-    $('.modal-title').text('Add Products');
-    $('#image-preview').html('<span class="text-muted">No Preview</span>');
-    
-    // sizes კონტეინერის გასუფთავება
-    $('#size-checkboxes').empty().append(
-        '<span class="text-muted" style="font-size:12px; color:#aaa;">Choose a category first</span>'
-    );
-}
-
-    function editForm(id) {
-    save_method = 'edit';
-    $('input[name=_method]').val('PATCH');
-    $('#modal-form form')[0].reset();
-    $('#image-preview').empty();
-
-    $.ajax({
-        url: "{{ url('products') }}" + '/' + id + "/edit",
-        type: "GET",
-        dataType: "JSON",
-        success: function(data) {
-            $('#modal-form').modal('show');
-
-            // თუ product_status == 0, სათაურში ვამატებთ (Inactive) ეტიკეტს
-            if (data.product_status == 0) {
-                $('.modal-title').html('Edit Product <span class="label label-danger" style="font-size:13px; vertical-align:middle;">(Inactive)</span>');
-            } else {
-                $('.modal-title').text('Edit Product');
-            }
-
-            // ძირითადი ინპუტების შევსება
-            $('#id').val(data.id);
-            $('#product_code').val(data.product_code);
-            $('#name').val(data.name);
-            $('#price_geo').val(data.price_geo);
-            $('#category_id').val(data.category_id);
-
-            // სტატუსების მონიშვნა (Prop მეთოდი საუკეთესოა ჩეკბოქსებისთვის)
-            $('#product_status').prop('checked', data.product_status == 1);
-            $('#in_warehouse').prop('checked', data.in_warehouse == 1);
-
-            // ზომების დამუშავება
-            // ბაზიდან მოდის სტრიქონი "S,M", ვაქცევთ მასივად ["S", "M"]
-            var currentSizes = [];
-            if (data.sizes) {
-                currentSizes = data.sizes.split(',').map(function(item) {
-                    return item.trim();
-                });
-            }
-            
-            // ვიძახებთ ზომების ფილტრაციას და გადავცემთ არჩეულ ზომებს მოსანიშნად
-            filterSizes(currentSizes);
-
-            // სურათის ჩვენების ლოგიკა
-            if (data.image) {
-                // რადგან ბაზაში გზა იწყება /upload-ით, url('') პირდაპირ დაემატება
-                var imageUrl = "{{ url('') }}" + data.image; 
-                
-                $('#image-preview').html(
-    '<img src="' + imageUrl + '" ' +
-    'class="img-thumbnail img-zoom-trigger" ' +
-    'style="width:100%; height:100%; object-fit:cover; cursor:pointer; display:block;">'
-);
-            }
-        },
-        error: function() {
-            swal({
-                title: 'Error',
-                text: 'მონაცემების წამოღება ვერ მოხერხდა!',
-                type: 'error',
-                timer: '1500'
-            });
-        }
-    });
-}
-
-    function deleteData(id) {
-        var csrf_token = $('meta[name="csrf-token"]').attr('content');
-        swal({
-            title: 'Are you sure?',
-            text: "You won't be able to revert this!",
-            type: 'warning',
-            showCancelButton: true,
-            cancelButtonColor: '#d33',
-            confirmButtonColor: '#3085d6',
-            confirmButtonText: 'Yes, delete it!'
-        }).then(function () {
-            $.ajax({
-                url: "{{ url('products') }}" + '/' + id,
-                type: "POST",
-                data: {'_method': 'DELETE', '_token': csrf_token},
-                success: function(data) {
-                    table.ajax.reload();
-                    swal("Success!", data.message, "success");
-                },
-                error: function(xhr) {
-                    var data = xhr.responseJSON;
-                    if (data && data.cant_delete) {
-                        table.ajax.reload();
-                        swal({
-                            title: 'წაშლა შეუძლებელია!',
-                            text: data.message,
-                            type: 'warning',
-                            confirmButtonText: 'გასაგებია'
-                        });
-                    } else {
-                        swal("Oops...", "Something went wrong!", "error");
-                    }
-                }
-            });
-        });
-    }
-
-    $(function() {
-        $('#modal-form form').validator().on('submit', function (e) {
-            if (!e.isDefaultPrevented()) {
-                var id = $('#id').val();
-                var url = (save_method == 'add') ? "{{ url('products') }}" : "{{ url('products') }}/" + id;
-
-                $.ajax({
-                    url: url,
-                    type: "POST",
-                    data: new FormData($("#modal-form form")[0]),
-                    contentType: false,
-                    processData: false,
-                    success: function(data) {
-                        $('#modal-form').modal('hide');
-                        table.ajax.reload();
-                        swal("Success!", data.message, "success");
-                    },
-                    error: function(data) {
-                        swal("Error", "Could not save data!", "error");
-                    }
-                });
-                return false;
-            }
-        });
-    });
-
-   {{-- ეს ჩაანაცვლე index.blade.php-ში არსებული filterSizes() ფუნქცია --}}
-function filterSizes(selectedSizes = []) {
-    var categoryId = $('#category_id').val();
-    var container = $('#size-checkboxes');
-
-    // ვასუფთავებთ
-    container.empty();
-
-    if (!categoryId) {
-        container.append('<span class="text-muted" style="font-size:12px; color:#aaa;">Choose a category first</span>');
-        return;
-    }
-
-    $.ajax({
-        url: "{{ url('get-sizes') }}/" + categoryId,
-        type: "GET",
-        dataType: "JSON",
-        success: function(data) {
-            if (data.length > 0) {
-                data.forEach(function(size) {
-                    var isChecked = selectedSizes.includes(size.name.trim()) ? 'checked' : '';
-                    var checkbox = `
-                        <label style="font-weight:normal; margin:0; cursor:pointer; font-size:13px; white-space:nowrap;">
-                            <input type="checkbox" name="sizes[]" value="${size.name}" ${isChecked} class="size-checkbox">
-                            ${size.name}
-                        </label>`;
-                    container.append(checkbox);
-                });
-            } else {
-                container.append('<span class="text-muted" style="font-size:12px; color:#aaa;">No sizes for this category</span>');
-            }
-        },
-        error: function() {
-            console.error("ზომების წამოღება ვერ მოხერხდა");
-        }
-    });
-}
-
-$(document).ready(function() {
-    // 1. პროდუქტის არჩევისას ფასების შევსება
-    $('#product_id').on('change', function() {
-        var productId = $(this).val();
-        if (productId) {
-            $.ajax({
-                url: "{{ url('products') }}/" + productId + "/edit", // ვიყენებთ არსებულ edit მეთოდს
-                type: "GET",
-                dataType: "JSON",
-                success: function(data) {
-                    // ვავსებთ ფასებს
-                    $('#price_georgia').val(data.price_georgia || 0);
-                    calculateBalance(); // გადავთვალოთ ბალანსი
-                }
-            });
-        }
-    });
-
-    // 2. ბალანსის დათვლის ფუნქცია
-    function calculateBalance() {
-        var totalPrice = parseFloat($('#price_georgia').val()) || 0;
-        
-        var tbc = parseFloat($('#paid_tbc').val()) || 0;
-        var bog = parseFloat($('#paid_bog').val()) || 0;
-        var lib = parseFloat($('#paid_lib').val()) || 0;
-        var cash = parseFloat($('#paid_cash').val()) || 0;
-
-        var paidTotal = tbc + bog + lib + cash;
-        var balance = totalPrice - paidTotal;
-
-        // გამოჩენა და ფერის შეცვლა
-        var balanceDisplay = $('#balance_display');
-        balanceDisplay.text(balance.toFixed(2));
-
-        if (balance > 0) {
-            balanceDisplay.css('color', 'red'); // თუ დასამატებელია თანხა
-        } else if (balance < 0) {
-            balanceDisplay.css('color', 'blue'); // თუ ზედმეტია გადახდილი
-        } else {
-            balanceDisplay.css('color', 'green'); // თუ ნულია
-        }
-    }
-
-    // მოვუსმინოთ ყველა ციფრული ველის ცვლილებას
-    $('#price_georgia, #paid_tbc, #paid_bog, #paid_lib, #paid_cash').on('input', function() {
-        calculateBalance();
-    });
-});
-
-
-$(document).on('click', '.img-zoom-trigger', function() {
-    $('#img-lightbox-img').attr('src', $(this).attr('src'));
-    $('#img-lightbox').modal('show');
-});
-
-$(document).on('keydown', function(e) {
-    if (e.key === 'Escape') $('#img-lightbox').modal('hide');
-});
-
-var showingDeleted = false; // იტვირთება deleted-ით დასაწყისში
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="{{ asset('assets/validator/validator.min.js') }}"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
+<script>
+var save_method;
+var table;
 
 $(function() {
+    table = $('#products-table').DataTable({
+        processing: true,
+        serverSide: true,
+        responsive: true,
+        ajax: "{{ route('api.products') }}",
+        columns: [
+            { data: 'id',           className: 'text-center',                    responsivePriority: 6 },
+            { data: 'show_photo',   orderable: false, searchable: false, className: 'text-center', responsivePriority: 4 },
+            { data: 'name',                                                       responsivePriority: 1 }, // ყოველთვის ჩანს
+            { data: 'product_code',                                               responsivePriority: 3 },
+            { data: 'category_name',orderable: false, searchable: false,          responsivePriority: 5 },
+            { data: 'price_geo',    className: 'text-end',                        responsivePriority: 2 }, // ყოველთვის ჩანს
+            { data: 'format_sizes', orderable: false, searchable: false,          responsivePriority: 7 },
+            { data: 'status_stock', orderable: false, searchable: false, className: 'text-center', responsivePriority: 3 },
+            { data: 'action',       orderable: false, searchable: false, className: 'text-center', responsivePriority: 1 } // ყოველთვის ჩანს
+        ],
+        language: {
+            processing:      '<div class="spinner-border spinner-border-sm text-primary" role="status"></div>',
+            search:          '',
+            searchPlaceholder: 'Search...',
+            lengthMenu:      '_MENU_ per page',
+            info:            '_START_–_END_ of _TOTAL_',
+            paginate:        { previous: '‹', next: '›' }
+        },
+        dom: '<"row align-items-center mb-3"<"col-12 col-sm-6"l><"col-12 col-sm-6"f>>rt<"row align-items-center mt-3"<"col-12 col-sm-6"i><"col-12 col-sm-6 d-flex justify-content-sm-end"p>>',
+        pageLength: 25,
+    });
+
     $('#toggle-deleted').on('change', function() {
-        showingDeleted = $(this).is(':checked');
-        if (showingDeleted) {
-            table.ajax.url("{{ route('api.deleted-products') }}").load();
-        } else {
-            table.ajax.url("{{ route('api.products') }}").load();
-        }
+        var url = $(this).is(':checked')
+            ? "{{ route('api.deleted-products') }}"
+            : "{{ route('api.products') }}";
+        table.ajax.url(url).load();
     });
 });
 
-function restoreData(id) {
-    var csrf_token = $('meta[name="csrf-token"]').attr('content');
-    swal({
-        title: 'Restore Product?',
-        text: 'პროდუქტი დაბრუნდება Active სტატუსით',
-        type: 'info',
-        showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        confirmButtonText: 'Yes, restore it!'
-    }).then(function () {
+// ── ADD ──────────────────────────────────────────────────────
+function addForm() {
+    save_method = 'add';
+    $('input[name=_method]').val('POST');
+    $('#form-item')[0].reset();
+    $('#id').val('');
+    $('#image-preview').html('<span class="text-muted">No Preview</span>');
+    $('#size-checkboxes').html('<span class="text-muted" id="sizes-placeholder" style="font-size:12px;">Choose a category first</span>');
+    $('.modal-title').text('Add Product');
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-form')).show();
+}
+
+// ── EDIT ─────────────────────────────────────────────────────
+function editForm(id) {
+    save_method = 'edit';
+    $('input[name=_method]').val('PATCH');
+    $('#form-item')[0].reset();
+
+    $.ajax({
+        url: "{{ url('products') }}/" + id + "/edit",
+        type: "GET", dataType: "JSON",
+        success: function(data) {
+            $('.modal-title').text('Edit Product');
+            $('#id').val(data.id);
+            $('#name').val(data.name);
+            $('#product_code').val(data.product_code);
+            $('#price_geo').val(data.price_geo || data.Price_geo);
+            $('#product_status').prop('checked', data.product_status == 1);
+            $('#in_warehouse').prop('checked', data.in_warehouse == 1);
+            $('#category_id').val(data.category_id);
+
+            var currentSizes = data.sizes ? data.sizes.split(',').map(s => s.trim()) : [];
+            filterSizes(currentSizes);
+
+            if (data.image) {
+                $('#image-preview').html('<img src="' + data.image + '" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">');
+            } else {
+                $('#image-preview').html('<span class="text-muted">No Preview</span>');
+            }
+
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-form')).show();
+        },
+        error: function() {
+            swal({ title: 'Error', text: 'Could not fetch data', icon: 'error' });
+        }
+    });
+}
+
+// ── SIZES ────────────────────────────────────────────────────
+function filterSizes(selectedSizes) {
+    selectedSizes = selectedSizes || [];
+    var catId = $('#category_id').val();
+    if (!catId) {
+        $('#size-checkboxes').html('<span class="text-muted" style="font-size:12px;">Choose a category first</span>');
+        return;
+    }
+    $.get("{{ url('get-sizes') }}/" + catId, function(data) {
+        if (!data || !data.length) {
+            $('#size-checkboxes').html('<span class="text-muted" style="font-size:12px;">No sizes</span>');
+            return;
+        }
+        var html = '';
+        data.forEach(function(size) {
+            var label   = typeof size === 'object' ? size.name : size;
+            var checked = selectedSizes.includes(label) ? 'checked' : '';
+            html += '<div class="form-check form-check-inline mb-1">'
+                  + '<input class="form-check-input" type="checkbox" name="product_sizes[]" value="' + label + '" id="sz_' + label + '" ' + checked + '>'
+                  + '<label class="form-check-label small" for="sz_' + label + '">' + label + '</label></div>';
+        });
+        $('#size-checkboxes').html(html);
+    });
+}
+
+// ── SAVE ─────────────────────────────────────────────────────
+$(function() {
+    $('#form-item').on('submit', function(e) {
+        e.preventDefault();
+        var id  = $('#id').val();
+        var url = (save_method == 'add') ? "{{ url('products') }}" : "{{ url('products') }}/" + id;
+
+        var btn = $(this).find('[type=submit]').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Saving...');
+
         $.ajax({
-            url: "{{ url('products') }}/" + id + "/restore",
-            type: "POST",
-            data: {'_token': csrf_token},
+            url: url, type: 'POST',
+            data: new FormData(this),
+            contentType: false, processData: false,
             success: function(data) {
+                bootstrap.Modal.getInstance(document.getElementById('modal-form')).hide();
                 table.ajax.reload();
-                swal("Restored!", data.message, "success");
+                swal({ title: 'Success!', text: data.message || 'Saved', icon: 'success', timer: 1500 });
             },
-            error: function() {
-                swal("Oops...", "Something went wrong!", "error");
+            error: function(xhr) {
+                var msg = xhr.responseJSON ? xhr.responseJSON.message : 'Error';
+                swal({ title: 'Error', text: msg, icon: 'error' });
+            },
+            complete: function() {
+                btn.prop('disabled', false).html('<i class="fa fa-save me-1"></i>Save Changes');
             }
         });
     });
+});
+
+// ── DELETE ───────────────────────────────────────────────────
+function deleteData(id) {
+    swal({ title: 'Are you sure?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete', confirmButtonColor: '#dc3545' })
+    .then(function(result) {
+        if (result.value) {
+            $.ajax({
+                url: "{{ url('products') }}/" + id, type: 'POST',
+                data: { _method: 'DELETE', _token: '{{ csrf_token() }}' },
+                success: function(data) { table.ajax.reload(); swal({ title: 'Deleted!', icon: 'success', timer: 1500 }); },
+                error: function(xhr) { swal({ title: 'Error', text: xhr.responseJSON ? xhr.responseJSON.message : 'Error', icon: 'error' }); }
+            });
+        }
+    });
 }
+
+// ── RESTORE ──────────────────────────────────────────────────
+function restoreData(id) {
+    swal({ title: 'Restore?', icon: 'info', showCancelButton: true, confirmButtonText: 'Restore' })
+    .then(function(result) {
+        if (result.value) {
+            $.post("{{ url('products') }}/" + id + "/restore", { _token: '{{ csrf_token() }}' }, function() {
+                table.ajax.reload();
+                swal({ title: 'Restored!', icon: 'success', timer: 1500 });
+            });
+        }
+    });
+}
+
+// ── LIGHTBOX ─────────────────────────────────────────────────
+$(document).on('click', '.img-thumb', function() {
+    document.getElementById('img-lightbox-img').src = $(this).data('src') || this.src;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('img-lightbox')).show();
+});
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-toggle/2.2.2/js/bootstrap-toggle.min.js"></script>
 @endsection

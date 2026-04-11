@@ -2,78 +2,92 @@
 
 @section('top')
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('assets/bower_components/datatables.net-bs/css/dataTables.bootstrap.min.css') }}">
+<link href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css" rel="stylesheet">
 <style>
-.select2-container--default .select2-selection--single {
-    height: 34px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+/* ── Pagination ── */
+.dataTables_wrapper .dataTables_paginate .paginate_button { padding:4px 10px!important; font-size:13px!important; border-radius:6px!important; margin:0 2px!important; border:1px solid #dee2e6!important; background:#fff!important; color:#333!important; }
+.dataTables_wrapper .dataTables_paginate .paginate_button.current,
+.dataTables_wrapper .dataTables_paginate .paginate_button.current:hover { background:#0d6efd!important; color:#fff!important; border-color:#0d6efd!important; }
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover { background:#e9ecef!important; color:#333!important; }
+.dataTables_wrapper .dataTables_paginate .paginate_button.disabled { color:#aaa!important; }
+
+/* ── Table font ── */
+#products-out-table th, #products-out-table td { font-size:13px; vertical-align:middle; }
+table.dataTable thead th { font-size:12px; }
+
+/* ── Action buttons ── */
+.btn-xs { padding:3px 7px!important; font-size:12px!important; line-height:1.4!important; border-radius:5px!important; }
+.btn-xs i { font-size:12px; }
+
+/* ── Select2 ── */
+.select2-container--default .select2-selection--single { height:34px; border:1px solid #dee2e6; border-radius:6px; }
+.select2-container--default .select2-selection--single .select2-selection__rendered { line-height:34px; padding-left:8px; color:#333; }
+.select2-container--default .select2-selection--single .select2-selection__arrow { height:34px; }
+
+/* ── Nested modal ── */
+#modal-form { z-index:1060; }
+#modal-form + .modal-backdrop { z-index:1055; }
+
+/* ── Bootstrap 3 compat ── */
+.label { display:inline-block; padding:2px 7px; font-size:11px; font-weight:600; border-radius:4px; color:#fff; }
+.label-default { background:#6c757d; } .label-primary { background:#0d6efd; }
+.label-success  { background:#198754; } .label-info    { background:#0dcaf0; color:#000; }
+.label-warning  { background:#ffc107; color:#000; } .label-danger { background:#dc3545; }
+.label-purple   { background:#6f42c1; }
+.box { background:#fff; border-radius:10px; box-shadow:0 1px 4px rgba(0,0,0,.06); margin-bottom:20px; }
+.box-title { font-size:15px; font-weight:600; margin:0; }
+
+/* ── Responsive expand button ── */
+table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
+    background-color:#0d6efd; border-radius:50%; font-size:11px;
 }
-.select2-container--default .select2-selection--single .select2-selection__rendered {
-    line-height: 34px;
-    padding-left: 8px;
-    color: #333;
+
+/* ── Header mobile ── */
+@media (max-width:576px) {
+    .card-header .btn { font-size:12px; padding:4px 8px; }
+    .card-header { gap:6px!important; }
 }
-.select2-container--default .select2-selection--single .select2-selection__arrow {
-    height: 34px;
-}
-.select2-container--default .select2-selection--single .select2-selection__placeholder {
-    color: #999;
-}
-/* nested modal fix — customer form modal-sale-ის თავზე */
-#modal-form { z-index: 1060; }
-#modal-form + .modal-backdrop { z-index: 1055; }
 </style>
-    @endsection
+@endsection
 
 @section('content')
-    <div class="box box-success">
-        <div class="box-header">
-    <h3 class="box-title">Outgoing Products</h3>
-    <div class="pull-right" style="display:flex; align-items:center; gap:12px;">
+    <div class="card">
+        <div class="card-header">
+            <div class="row align-items-center g-2">
+                <div class="col-12 col-sm-auto">
+                    <h5 class="box-title mb-0">Outgoing Products</h5>
+                </div>
+                <div class="col-12 col-sm-auto ms-sm-auto d-flex align-items-center gap-2 flex-wrap">
 
-        {{-- Deleted სვიჩერი --}}
-        <div style="display:inline-flex; align-items:center; gap:8px; vertical-align:middle;">
-            <label for="toggle-show-deleted" style="font-size:13px; color:#666; margin:0; cursor:pointer;">წაშლილი</label>
-            <label style="position:relative; display:inline-block; width:42px; height:24px; margin:0; cursor:pointer;">
-                <input type="checkbox" id="toggle-show-deleted" style="opacity:0; width:0; height:0;">
-                <span id="toggle-track-deleted" style="position:absolute; top:0; left:0; right:0; bottom:0; background:#ccc; border-radius:24px; transition:.3s;"></span>
-                <span id="toggle-thumb-deleted" style="position:absolute; height:18px; width:18px; left:3px; bottom:3px; background:white; border-radius:50%; transition:.3s; box-shadow:0 1px 3px rgba(0,0,0,0.3);"></span>
-            </label>
+                    {{-- წაშლილი toggle --}}
+                    <div class="d-flex align-items-center gap-2">
+                        <label for="toggle-show-deleted" class="mb-0 text-muted small" style="cursor:pointer;">წაშლილი</label>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="toggle-show-deleted" role="switch">
+                        </div>
+                    </div>
+
+                    <button onclick="addSaleForm()" class="btn btn-success btn-sm">
+                        <i class="fa fa-plus"></i> <span class="d-none d-sm-inline">Add Sale</span>
+                    </button>
+                    <button onclick="exportFilteredPDF()" class="btn btn-warning btn-sm">
+                        <i class="fa fa-file-pdf"></i> <span class="d-none d-md-inline">Filtered PDF</span>
+                    </button>
+                    <a href="{{ route('exportPDF.productOrderAll') }}" class="btn btn-danger btn-sm">
+                        <i class="fa fa-file-pdf"></i> <span class="d-none d-md-inline">All PDF</span>
+                    </a>
+                    <button onclick="mergeSelected()" class="btn btn-info btn-sm" id="btn-merge" style="display:none;">
+                        <i class="fa fa-link"></i> <span class="d-none d-sm-inline">გაერთიანება</span>
+                    </button>
+                </div>
+            </div>
         </div>
-
-        <a onclick="addSaleForm()" class="btn btn-success"><i class="fa fa-plus"></i> Add New Sale</a>
-        <a onclick="exportFilteredPDF()" class="btn btn-warning"><i class="fa fa-file-pdf-o"></i> Export Filtered PDF</a>
-        <a href="{{ route('exportPDF.productOrderAll') }}" class="btn btn-danger">Export PDF</a>
-    <a onclick="mergeSelected()" class="btn btn-info" id="btn-merge" style="display:none;">
-    <i class="fa fa-link"></i> გაერთიანება
-</a>
-    </div>
-</div>
-        <!-- <div class="box-header">
-    <div style="display:inline-flex; align-items:center; gap:8px; margin-left:10px; vertical-align:middle;">
-    <label for="toggle-deleted" style="font-size:13px; color:#666; margin:0; cursor:pointer;">დავალიანება</label>
-    <label style="position:relative; display:inline-block; width:42px; height:24px; margin:0; cursor:pointer;">
-        <input type="checkbox" id="toggle-deleted" style="opacity:0; width:0; height:0;">
-        <span id="toggle-track" style="
-            position:absolute; top:0; left:0; right:0; bottom:0;
-            background:#ccc; border-radius:24px; transition:.3s;
-        "></span>
-        <span id="toggle-thumb" style="
-            position:absolute; height:18px; width:18px;
-            left:3px; bottom:3px; background:white;
-            border-radius:50%; transition:.3s;
-            box-shadow:0 1px 3px rgba(0,0,0,0.3);
-        "></span>
-    </label>
-</div>
-</div> -->
-        <div class="box-body">
+        <div class="card-body p-3">
             <table id="products-out-table" class="table table-bordered table-striped">
                 <thead class="fs-1">
     <tr>
         <th style="width:110px;">№ / <input type="checkbox" id="check-all" title="ყველას მონიშვნა"></th>
-        <th style="width:40px;"></th>  {{-- expand ღილაკი --}}
+        <!-- <th style="width:40px;"></th>  {{-- expand ღილაკი --}} -->
         <th style="width:80px;">თარიღი</th>
         <th>სტატუსი</th>
         <th style="width:70px;">Picture</th>
@@ -95,7 +109,7 @@
 <div class="modal fade" id="modal-status" tabindex="-1" role="dialog">
     <div class="modal-dialog modal-sm"> <div class="modal-content" style="border-radius: 8px;">
             <div class="modal-header bg-gray">
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span></button>
                 <h4 class="modal-title">Change Status</h4>
             </div>
@@ -111,7 +125,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-default pull-left" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-default pull-left" data-bs-dismiss="modal">Close</button>
                 <button type="button" onclick="saveQuickStatus()" class="btn btn-primary">Update Status</button>
             </div>
         </div>
@@ -122,7 +136,7 @@
     <div class="modal-dialog modal-lg" style="text-align: center; margin-top: 50px;">
         <div class="modal-content" style="background: transparent; border: none; box-shadow: none;">
             <div class="modal-body" style="position: relative; padding: 0;">
-                <button type="button" class="close" data-dismiss="modal" 
+                <button type="button" class="close" data-bs-dismiss="modal" 
                         style="color: #fff; opacity: 1; font-size: 45px; position: absolute; top: -45px; right: 0;">&times;</button>
                 <img id="preview-img-full" src="" 
                      style="max-width: 100%; max-height: 85vh; border: 3px solid #fff; border-radius: 4px; box-shadow: 0 0 30px rgba(0,0,0,0.6);">
@@ -134,7 +148,7 @@
     <div class="modal-dialog modal-sm">
         <div class="modal-content" style="border-radius:8px;">
             <div class="modal-header bg-gray">
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
                 <h4 class="modal-title"><i class="fa fa-envelope"></i> მეილის გაგზავნა</h4>
             </div>
            <div class="modal-body">
@@ -162,7 +176,7 @@
     </div>
 </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-default pull-left" data-dismiss="modal">გაუქმება</button>
+                <button type="button" class="btn btn-default pull-left" data-bs-dismiss="modal">გაუქმება</button>
               <button type="button" id="btn-send-mail" onclick="sendMail()" class="btn btn-success">
     <i class="fa fa-paper-plane"></i> გაგზავნა
 </button>
@@ -176,7 +190,7 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header bg-gray">
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
                 <h4 class="modal-title"><i class="fa fa-history"></i> სტატუსის ისტორია</h4>
             </div>
             <div class="modal-body">
@@ -202,7 +216,7 @@
 {{-- ═══════════════════════════════════════════════════════════ --}}
 {{-- 🔄 Change Order Modal                                       --}}
 {{-- ═══════════════════════════════════════════════════════════ --}}
-<div class="modal fade" id="modal-change" tabindex="-1" role="dialog" data-backdrop="static">
+<div class="modal fade" id="modal-change" tabindex="-1" role="dialog" data-bs-backdrop="static">
     <div class="modal-dialog modal-md">
         <div class="modal-content" style="border-radius:8px;">
             <form id="form-change">
@@ -210,7 +224,7 @@
                 <input type="hidden" name="original_sale_id" id="change_original_sale_id">
 
                 <div class="modal-header" style="background:#f39c12; color:#fff; border-radius:8px 8px 0 0;">
-                    <button type="button" class="close" data-dismiss="modal" style="color:#fff; opacity:1;">&times;</button>
+                    <button type="button" class="close" data-bs-dismiss="modal" style="color:#fff; opacity:1;">&times;</button>
                     <h4 class="modal-title"><i class="fa fa-refresh"></i> გაცვლა / დაბრუნება</h4>
                 </div>
 
@@ -330,7 +344,7 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-default" data-dismiss="modal">გაუქმება</button>
+                    <button type="button" class="btn btn-default" data-bs-dismiss="modal">გაუქმება</button>
                     <button type="submit" class="btn btn-warning">
                         <i class="fa fa-refresh"></i> დარეგისტრირება
                     </button>
@@ -343,10 +357,10 @@
 @endsection
 
 @section('bot')
-    <script src="{{ asset('assets/bower_components/datatables.net/js/jquery.dataTables.min.js') }}"></script>
-    <script src="{{ asset('assets/bower_components/datatables.net-bs/js/dataTables.bootstrap.min.js') }}"></script>
-    <script src="{{ asset('assets/validator/validator.min.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="{{ asset('assets/validator/validator.min.js') }}"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
 
     <script type="text/javascript">
 
@@ -441,7 +455,7 @@ var columns = [
         }
     },
     // სვეტი 4: სტატუსი
-    {data: 'status_label', name: 'status_label', orderable: false, searchable: false},
+    {data: 'status_label', name: 'status_label', orderable: false, searchable: false, responsivePriority: 1},
     // სვეტი 5: Picture
     {data: 'show_photo',   name: 'show_photo',   orderable: false, searchable: false},
     // სვეტი 6: Product
@@ -459,7 +473,7 @@ var columns = [
 ];
 
 if (isAdmin) {
-    columns.push({data: 'action', name: 'action', orderable: false, searchable: false});
+    columns.push({data: 'action', name: 'action', orderable: false, searchable: false, responsivePriority: 1});
 }
 
 // if (isAdmin) {
@@ -469,6 +483,7 @@ if (isAdmin) {
 var table = $('#products-out-table').DataTable({
     processing: true,
     serverSide: true,
+    responsive: true,
     ajax: "{{ route('api.productsOut') }}",
     columns: columns,
     order: [[2, 'desc']],
@@ -1161,13 +1176,6 @@ $(document).on('change', '.status-filter-check', function() {
 });
 
 $(document).on('change', '#toggle-show-deleted', function() {
-    if ($(this).is(':checked')) {
-        $('#toggle-track-deleted').css('background', '#e74c3c');
-        $('#toggle-thumb-deleted').css('transform', 'translateX(18px)');
-    } else {
-        $('#toggle-track-deleted').css('background', '#ccc');
-        $('#toggle-thumb-deleted').css('transform', 'translateX(0)');
-    }
     reloadTableWithFilters();
 });
 function reloadTableWithFilters() {

@@ -977,13 +977,13 @@ class ProductOrderController extends Controller
                                 $html .= '<br><button class="btn btn-xs btn-success"
                                               onclick="mergeUpdateStatus(' . $item->id . ', ' . $item->merged_id . ')"
                                               style="margin-top:3px;">
-                                              <i class="fa fa-truck"></i> კურიერთან
+                                              <i class="fa fa-truck"></i> გაგზავნა
                                           </button>';
                             } else {
                                 $html .= '<br><span class="btn btn-xs btn-default disabled"
                                               title="დავალიანება არ არის დახურული"
                                               style="margin-top:3px; opacity:0.5; cursor:not-allowed;">
-                                              <i class="fa fa-truck"></i> კურიერთან
+                                              <i class="fa fa-truck"></i> გაგზავნა
                                           </span>';
                             }
                         }
@@ -1000,13 +1000,13 @@ class ProductOrderController extends Controller
                             $html .= '<br><button class="btn btn-xs btn-success" 
                                           onclick="sendSingleToCourier(' . $item->id . ')"
                                           style="margin-top:3px;">
-                                          <i class="fa fa-truck"></i> კურიერთან
+                                          <i class="fa fa-truck"></i> გაგზავნა
                                       </button>';
                         } else {
                             $html .= '<br><span class="btn btn-xs btn-default disabled"
                                           title="დავალიანება არ არის დახურული"
                                           style="margin-top:3px; opacity:0.5; cursor:not-allowed;">
-                                          <i class="fa fa-truck"></i> კურიერთან
+                                          <i class="fa fa-truck"></i> გაგზავნა
                                       </span>';
                         }
                     }
@@ -1023,62 +1023,52 @@ class ProductOrderController extends Controller
                 if (!$isAdmin) return '';
 
                 if ($item->status === 'deleted') {
-                    return '<center>' .
-                        '<a onclick="restoreData(' . $item->id . ')" class="btn btn-success btn-xs" title="Restore"><i class="fa fa-refresh"></i> აღდგენა</a>' .
-                        '</center>';
+                    return '<div class="d-flex justify-content-center">' .
+                        '<a onclick="restoreData(' . $item->id . ')" class="btn btn-success btn-xs" title="აღდგენა">'.
+                        '<i class="fa fa-rotate-right"></i></a>' .
+                        '</div>';
                 }
 
-              $exportPdfUrl = $item->order_type === 'change'
-    ? route('exportPDF.changeOrder', ['id' => $item->id])
-    : route('exportPDF.productOrder', ['id' => $item->id]);
-    
-                $email        = e($item->customer->email ?? '');
-                $customerId   = $item->customer_id;
+                $exportPdfUrl = $item->order_type === 'change'
+                    ? route('exportPDF.changeOrder', ['id' => $item->id])
+                    : route('exportPDF.productOrder', ['id' => $item->id]);
+
+                $email      = e($item->customer->email ?? '');
+                $customerId = $item->customer_id;
+                $id         = $item->id;
 
                 $canDelete = $item->status_id != 4;
                 $deleteBtn = $canDelete
-                    ? '<a onclick="deleteData(' . $item->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a> '
-                    : '<span class="btn btn-danger btn-xs disabled" title="კურიერთანაა — წაშლა შეუძლებელია" style="opacity:0.4;"><i class="fa fa-trash"></i></span> ';
+                    ? '<a onclick="deleteData(' . $id . ')" class="btn btn-danger btn-xs" title="წაშლა"><i class="fa fa-trash"></i></a>'
+                    : '<span class="btn btn-danger btn-xs" style="opacity:0.35; cursor:not-allowed;" title="კურიერთანაა"><i class="fa fa-trash"></i></span>';
 
-                // სტატუს 5 (დაბრუნებული) ან 6 (გაცვლილი) — მხოლოდ PDF, Mail, History
-                if (in_array($item->status_id, [5, 6])) {
-                    $baseButtons =
-                        '<a href="' . $exportPdfUrl . '" target="_blank" class="btn btn-info btn-xs" title="PDF"><i class="fa fa-file-pdf-o"></i></a> ' .
-                        '<a onclick="openMailModal(' . $item->id . ', ' . $customerId . ', \'' . $email . '\')" class="btn btn-default btn-xs" title="Mail"><i class="fa fa-envelope"></i></a> ' .
-                        '<a onclick="showStatusLog(' . $item->id . ')" class="btn btn-warning btn-xs" title="ისტორია"><i class="fa fa-history"></i></a>';
-                    return '<center>' . $baseButtons . '</center>';
-                }
+                $editBtn    = '<a onclick="editForm(' . $id . ')" class="btn btn-primary btn-xs" title="რედაქტირება"><i class="fa fa-pen"></i></a>';
+                $pdfBtn     = '<a href="' . $exportPdfUrl . '" target="_blank" class="btn btn-info btn-xs" title="PDF"><i class="fa fa-file-pdf"></i></a>';
+                $mailBtn    = '<a onclick="openMailModal(' . $id . ',' . $customerId . ',\'' . $email . '\')" class="btn btn-secondary btn-xs" title="მეილი"><i class="fa fa-envelope"></i></a>';
+                $histBtn    = '<a onclick="showStatusLog(' . $id . ')" class="btn btn-warning btn-xs" title="ისტორია"><i class="fa fa-clock-rotate-left"></i></a>';
+                $unmergeBtn = '<a onclick="unmergeOrder(' . $id . ')" class="btn btn-outline-secondary btn-xs" title="გაყოფა"><i class="fa fa-link-slash"></i></a>';
 
                 $exchangeBtn = '';
-                if ($item->status_id == 4 && in_array($item->order_type, ['sale', 'change'])) {
-                    $hasActiveChange = $item->changeOrders->isNotEmpty();
-                    if (!$hasActiveChange) {
-                        $exchangeBtn = '<a onclick="openChangeModal(' . $item->id . ')" class="btn btn-warning btn-xs" title="გაცვლა/დაბრუნება" style="background:#f39c12;"><i class="fa fa-refresh"></i></a> ';
+                if ($item->status_id == 4 && in_array($item->order_type, ['sale', 'change']) && !$item->is_primary) {
+                    if ($item->changeOrders->isEmpty()) {
+                        $exchangeBtn = '<a onclick="openChangeModal(' . $id . ')" class="btn btn-warning btn-xs" title="გაცვლა/დაბრუნება"><i class="fa fa-arrow-right-arrow-left"></i></a>';
                     } else {
-                        $exchangeBtn = '<span class="btn btn-warning btn-xs disabled" title="უკვე არსებობს გაცვლა" style="opacity:0.5;"><i class="fa fa-refresh"></i></span> ';
+                        $exchangeBtn = '<span class="btn btn-warning btn-xs" style="opacity:0.4; cursor:not-allowed;" title="გაცვლა უკვე არსებობს"><i class="fa fa-arrow-right-arrow-left"></i></span>';
                     }
                 }
 
-                if ($item->is_primary) {
-                    return '<center>' .
-                        '<a onclick="editForm(' . $item->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a> ' .
-                        $deleteBtn .
-                        $exchangeBtn .
-                        '<a href="' . $exportPdfUrl . '" target="_blank" class="btn btn-info btn-xs" title="PDF"><i class="fa fa-file-pdf-o"></i></a> ' .
-                        '<a onclick="openMailModal(' . $item->id . ', ' . $customerId . ', \'' . $email . '\')" class="btn btn-default btn-xs" title="Mail"><i class="fa fa-envelope"></i></a> ' .
-                        '<a onclick="showStatusLog(' . $item->id . ')" class="btn btn-warning btn-xs" title="ისტორია"><i class="fa fa-history"></i></a> ' .
-                        '<a onclick="unmergeOrder(' . $item->id . ')" class="btn btn-default btn-xs" title="გაყოფა"><i class="fa fa-unlink"></i></a>' .
-                        '</center>';
+                $wrap = '<div class="d-flex justify-content-center flex-wrap gap-1">';
+
+                // სტატუს 5,6 — მხოლოდ PDF, Mail, History
+                if (in_array($item->status_id, [5, 6])) {
+                    return $wrap . $pdfBtn . $mailBtn . $histBtn . '</div>';
                 }
 
-                return '<center>' .
-                    '<a onclick="editForm(' . $item->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a> ' .
-                    $deleteBtn .
-                    $exchangeBtn .
-                    '<a href="' . $exportPdfUrl . '" target="_blank" class="btn btn-info btn-xs" title="PDF"><i class="fa fa-file-pdf-o"></i></a> ' .
-                    '<a onclick="openMailModal(' . $item->id . ', ' . $customerId . ', \'' . $email . '\')" class="btn btn-default btn-xs" title="Mail"><i class="fa fa-envelope"></i></a> ' .
-                    '<a onclick="showStatusLog(' . $item->id . ')" class="btn btn-warning btn-xs" title="ისტორია"><i class="fa fa-history"></i></a>' .
-                    '</center>';
+                if ($item->is_primary) {
+                    return $wrap . $editBtn . $deleteBtn . $exchangeBtn . $pdfBtn . $mailBtn . $histBtn . $unmergeBtn . '</div>';
+                }
+
+                return $wrap . $editBtn . $deleteBtn . $exchangeBtn . $pdfBtn . $mailBtn . $histBtn . '</div>';
             })
             ->rawColumns(['order_id', 'has_mergeable', 'cross_ref_html', 'show_photo', 'product_info', 'payment', 'customer_name', 'status_label', 'action'])
             ->make(true);

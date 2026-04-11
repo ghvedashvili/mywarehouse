@@ -1,76 +1,47 @@
 @extends('layouts.master')
 
 @section('content')
-<div class="box box-success">
-    <div class="box-header with-border">
-        <h3 class="box-title">პაროლის შეცვლა</h3>
-    </div>
-
-    <div class="box-body">
-        <div class="row">
-            <div class="col-md-6 col-md-offset-3">
-
-                {{-- Success message --}}
-                @if (session('success'))
-                    <div class="alert alert-success alert-dismissible">
-                        <button type="button" class="close" data-dismiss="alert">&times;</button>
-                        <i class="fa fa-check"></i> {{ session('success') }}
-                    </div>
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fa fa-key me-2 text-muted"></i> პაროლის შეცვლა
+            </div>
+            <div class="card-body p-4">
+                @if(session('success'))
+                <div class="alert alert-success alert-dismissible fade show">
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    <i class="fa fa-check me-1"></i> {{ session('success') }}
+                </div>
                 @endif
 
                 <form method="POST" action="{{ route('user.change-password') }}">
                     @csrf
-
-                    {{-- Current password --}}
-                    <div class="form-group {{ $errors->has('current_password') ? 'has-error' : '' }}">
-                        <label>მიმდინარე პაროლი</label>
-                        <input type="password"
-                               name="current_password"
-                               class="form-control"
-                               placeholder="შეიყვანეთ მიმდინარე პაროლი"
-                               required>
-                        @if ($errors->has('current_password'))
-                            <span class="help-block text-danger">
-                                {{ $errors->first('current_password') }}
-                            </span>
+                    <div class="mb-3 {{ $errors->has('current_password') ? 'has-validation' : '' }}">
+                        <label class="form-label fw-semibold">მიმდინარე პაროლი</label>
+                        <input type="password" name="current_password" class="form-control {{ $errors->has('current_password') ? 'is-invalid' : '' }}" placeholder="მიმდინარე პაროლი" required>
+                        @if($errors->has('current_password'))
+                        <div class="invalid-feedback">{{ $errors->first('current_password') }}</div>
                         @endif
                     </div>
-
-                    {{-- New password --}}
-                    <div class="form-group {{ $errors->has('password') ? 'has-error' : '' }}">
-                        <label>ახალი პაროლი</label>
-                        <input type="password"
-                               name="password"
-                               class="form-control"
-                               placeholder="მინიმუმ 6 სიმბოლო"
-                               required>
-                        @if ($errors->has('password'))
-                            <span class="help-block text-danger">
-                                {{ $errors->first('password') }}
-                            </span>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">ახალი პაროლი</label>
+                        <input type="password" name="password" class="form-control {{ $errors->has('password') ? 'is-invalid' : '' }}" placeholder="მინიმუმ 6 სიმბოლო" required>
+                        @if($errors->has('password'))
+                        <div class="invalid-feedback">{{ $errors->first('password') }}</div>
                         @endif
                     </div>
-
-                    {{-- Confirm new password --}}
-                    <div class="form-group">
-                        <label>გაიმეორეთ ახალი პაროლი</label>
-                        <input type="password"
-                               name="password_confirmation"
-                               class="form-control"
-                               placeholder="გაიმეორეთ ახალი პაროლი"
-                               required>
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">გაიმეორეთ ახალი პაროლი</label>
+                        <input type="password" name="password_confirmation" class="form-control" placeholder="გაიმეორეთ" required>
                     </div>
-
-                    <div class="form-group">
+                    <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-primary">
-                            <i class="fa fa-save"></i> შეცვლა
+                            <i class="fa fa-save me-1"></i> შეცვლა
                         </button>
-                        <a href="{{ url()->previous() }}" class="btn btn-default">
-                            გაუქმება
-                        </a>
+                        <a href="{{ url()->previous() }}" class="btn btn-secondary">გაუქმება</a>
                     </div>
                 </form>
-
             </div>
         </div>
     </div>
