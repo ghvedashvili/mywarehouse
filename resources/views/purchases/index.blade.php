@@ -105,18 +105,18 @@
 </div>
 
 {{-- Status Modal --}}
-<div class="modal fade" id="modal-status" tabindex="-1" role="dialog" data-backdrop="static">
+<div class="modal fade" id="modal-status" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-sm">
         <div class="modal-content">
-            <div class="modal-header bg-gray-light">
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
-                <h4 class="modal-title" style="font-weight:bold;">სტატუსის შეცვლა</h4>
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold">სტატუსის შეცვლა</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="status_order_id">
-                <div class="form-group">
-                    <label>ახალი სტატუსი</label>
-                    <select id="new_status_id" class="form-control">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">ახალი სტატუსი</label>
+                    <select id="new_status_id" class="form-select">
                         @foreach($statuses as $s)
                             <option value="{{ $s->id }}">{{ $s->name }}</option>
                         @endforeach
@@ -124,7 +124,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-default" data-dismiss="modal">გაუქმება</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">გაუქმება</button>
                 <button type="button" class="btn btn-primary" onclick="submitStatus()">შენახვა</button>
             </div>
         </div>
@@ -132,12 +132,12 @@
 </div>
 
 {{-- Partial Receive Modal --}}
-<div class="modal fade" id="modal-partial-receive" tabindex="-1" role="dialog" data-backdrop="static">
+<div class="modal fade" id="modal-partial-receive" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-sm">
         <div class="modal-content" style="border-radius:8px;">
             <div class="modal-header" style="background:#f39c12; color:#fff; border-radius:8px 8px 0 0;">
-                <button type="button" class="close" data-dismiss="modal" style="color:#fff; opacity:1;">&times;</button>
-                <h4 class="modal-title" style="font-weight:700;">📦 საწყობში მიღება</h4>
+                <h5 class="modal-title fw-bold">📦 საწყობში მიღება</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="partial_purchase_id">
@@ -150,15 +150,15 @@
                         ზომა: <strong id="partial_size">—</strong>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label style="font-weight:600;">რამდენი ჩამოვიდა?</label>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">რამდენი ჩამოვიდა?</label>
                     <input type="number" id="partial_received_qty" class="form-control"
                            min="1" placeholder="0" style="font-size:18px; font-weight:700; text-align:center;">
                     <small class="text-muted" id="partial_remaining_text" style="display:block; margin-top:6px;"></small>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-default" data-dismiss="modal">გაუქმება</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">გაუქმება</button>
                 <button type="button" class="btn btn-success" onclick="submitPartialReceive()" id="btn-partial-save">
                     <i class="fa fa-check"></i> დადასტურება
                 </button>
@@ -506,11 +506,11 @@ $(function() {
                 $('#partial_total_qty').text(data.quantity);
                 $('#partial_received_qty').val(data.quantity).attr('max', data.quantity);
                 updatePartialRemaining(data.quantity, data.quantity);
-                $('#modal-partial-receive').modal('show');
+                new bootstrap.Modal(document.getElementById('modal-partial-receive')).show();
             } else {
                 $('#status_order_id').val(orderId);
                 $('#new_status_id').val(currentStatus);
-                $('#modal-status').modal('show');
+                new bootstrap.Modal(document.getElementById('modal-status')).show();
             }
         });
     };
@@ -547,7 +547,7 @@ $(function() {
             type: 'POST',
             data: { received_qty: qty, _token: "{{ csrf_token() }}" },
             success: function(res) {
-                $('#modal-partial-receive').modal('hide');
+                bootstrap.Modal.getInstance(document.getElementById('modal-partial-receive')).hide();
                 purchasesTable.ajax.reload();
                 returnsTable.ajax.reload();
                 swal({ title: '✅', text: res.message, type: 'success', timer: 2500 });
@@ -570,7 +570,7 @@ $(function() {
             type: 'POST',
             data: { status_id: status, _token: "{{ csrf_token() }}" },
             success: function(res) {
-                $('#modal-status').modal('hide');
+                bootstrap.Modal.getInstance(document.getElementById('modal-status')).hide();
                 purchasesTable.ajax.reload();
                 returnsTable.ajax.reload();
                 swal({ title: '✅', text: res.message, type: 'success', timer: 1500 });

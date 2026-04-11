@@ -228,7 +228,8 @@ class PurchaseOrderController extends Controller
                     ->get();
 
                 foreach ($boundSales as $sale) {
-                    $nextPurchase = FifoService::getNextPurchase($oldProduct, $oldSize, $order->id);
+                    $oldSaleStatus = $sale->status_id;
+                    $nextPurchase  = FifoService::getNextPurchase($oldProduct, $oldSize, $order->id);
 
                     if ($nextPurchase) {
                         $newSaleStatus           = $nextPurchase->status_id;
@@ -237,23 +238,28 @@ class PurchaseOrderController extends Controller
                         $sale->status_id         = $newSaleStatus;
                         $sale->save();
 
+                        Warehouse::where('product_id', $oldProduct)
+                            ->where('size', $oldSize)
+                            ->increment('reserved_qty', 1);
+
                         StatusChangeLog::create([
                             'order_id'       => $sale->id,
                             'user_id'        => auth()->id(),
-                            'status_id_from' => $sale->getOriginal('status_id'),
+                            'status_id_from' => $oldSaleStatus,
                             'status_id_to'   => $newSaleStatus,
                             'changed_at'     => now(),
                         ]);
                     } else {
                         if ($oldStock) $oldStock->decrement('reserved_qty', 1);
                         $sale->purchase_order_id = null;
+                        $sale->price_usa         = 0;
                         $sale->status_id         = 1;
                         $sale->save();
 
                         StatusChangeLog::create([
                             'order_id'       => $sale->id,
                             'user_id'        => auth()->id(),
-                            'status_id_from' => $sale->getOriginal('status_id'),
+                            'status_id_from' => $oldSaleStatus,
                             'status_id_to'   => 1,
                             'changed_at'     => now(),
                         ]);
@@ -266,15 +272,21 @@ class PurchaseOrderController extends Controller
                     ->whereIn('status_id', [2, 3])->get();
 
                 foreach ($nullSales as $sale) {
-                    $nextPurchase = FifoService::getNextPurchase($oldProduct, $oldSize, $order->id);
+                    $oldSaleStatus = $sale->status_id;
+                    $nextPurchase  = FifoService::getNextPurchase($oldProduct, $oldSize, $order->id);
                     if ($nextPurchase) {
                         $sale->purchase_order_id = $nextPurchase->id;
                         $sale->price_usa         = (float) $nextPurchase->cost_price;
                         $sale->status_id         = $nextPurchase->status_id;
                         $sale->save();
+
+                        Warehouse::where('product_id', $oldProduct)
+                            ->where('size', $oldSize)
+                            ->increment('reserved_qty', 1);
                     } else {
                         if ($oldStock) $oldStock->decrement('reserved_qty', 1);
                         $sale->purchase_order_id = null;
+                        $sale->price_usa         = 0;
                         $sale->status_id         = 1;
                         $sale->save();
                     }
@@ -357,7 +369,9 @@ class PurchaseOrderController extends Controller
                             foreach ($reservedFromThis as $sale) {
                                 if ($kept < $capacity) { $kept++; continue; }
 
-                                $nextPurchase = FifoService::getNextPurchase($newProduct, $newSize, $order->id);
+                                // ამ sale-ს ეს purchase-ი ვეღარ იტევს — სხვა purchase-ზე გადავწეროთ
+                                $oldSaleStatus   = $sale->status_id;
+                                $nextPurchase    = FifoService::getNextPurchase($newProduct, $newSize, $order->id);
 
                                 if ($nextPurchase) {
                                     $sale->purchase_order_id = $nextPurchase->id;
@@ -365,24 +379,33 @@ class PurchaseOrderController extends Controller
                                     $sale->status_id         = $nextPurchase->status_id;
                                     $sale->save();
 
+                                    // ახალ purchase-ზე reserved_qty გაზარდეთ
+                                    Warehouse::where('product_id', $newProduct)
+                                        ->where('size', $newSize)
+                                        ->increment('reserved_qty', 1);
+
+                                    // ამ purchase-ის stock-ში reserved_qty შემცირდება (sale გავიდა)
+                                    $stock->decrement('reserved_qty', 1);
+
                                     StatusChangeLog::create([
                                         'order_id'       => $sale->id,
                                         'user_id'        => auth()->id(),
-                                        'status_id_from' => $sale->getOriginal('status_id'),
+                                        'status_id_from' => $oldSaleStatus,
                                         'status_id_to'   => $nextPurchase->status_id,
                                         'changed_at'     => now(),
                                     ]);
                                 } else {
+                                    // სხვა purchase არ არის — status 1-ზე (მოლოდინი)
                                     $stock->decrement('reserved_qty', 1);
-                                    $oldStatus               = $sale->status_id;
                                     $sale->purchase_order_id = null;
+                                    $sale->price_usa         = 0;
                                     $sale->status_id         = 1;
                                     $sale->save();
 
                                     StatusChangeLog::create([
                                         'order_id'       => $sale->id,
                                         'user_id'        => auth()->id(),
-                                        'status_id_from' => $oldStatus,
+                                        'status_id_from' => $oldSaleStatus,
                                         'status_id_to'   => 1,
                                         'changed_at'     => now(),
                                     ]);
@@ -437,7 +460,8 @@ class PurchaseOrderController extends Controller
                     ->whereIn('status_id', [2, 3])->get();
 
                 foreach ($boundSales as $sale) {
-                    $nextPurchase = FifoService::getNextPurchase(
+                    $oldSaleStatus = $sale->status_id;
+                    $nextPurchase  = FifoService::getNextPurchase(
                         $order->product_id,
                         $order->product_size,
                         $order->id
@@ -450,23 +474,28 @@ class PurchaseOrderController extends Controller
                         $sale->status_id         = $newSaleStatus;
                         $sale->save();
 
+                        Warehouse::where('product_id', $order->product_id)
+                            ->where('size', $order->product_size)
+                            ->increment('reserved_qty', 1);
+
                         StatusChangeLog::create([
                             'order_id'       => $sale->id,
                             'user_id'        => auth()->id(),
-                            'status_id_from' => $sale->getOriginal('status_id'),
+                            'status_id_from' => $oldSaleStatus,
                             'status_id_to'   => $newSaleStatus,
                             'changed_at'     => now(),
                         ]);
                     } else {
                         if ($stock) $stock->decrement('reserved_qty', 1);
                         $sale->purchase_order_id = null;
+                        $sale->price_usa         = 0;
                         $sale->status_id         = 1;
                         $sale->save();
 
                         StatusChangeLog::create([
                             'order_id'       => $sale->id,
                             'user_id'        => auth()->id(),
-                            'status_id_from' => $sale->getOriginal('status_id'),
+                            'status_id_from' => $oldSaleStatus,
                             'status_id_to'   => 1,
                             'changed_at'     => now(),
                         ]);
@@ -491,6 +520,23 @@ class PurchaseOrderController extends Controller
 
                 if ($oldStatusId === $newStatusId)
                     return response()->json(['success' => false, 'message' => 'სტატუსი უკვე ამ მდგომარეობაშია'], 422);
+
+                // საწყობიდან უკან დაბრუნება — მხოლოდ თუ კურიერთან გადაცემული sale არ არის
+                if ($oldStatusId === 3 && in_array($newStatusId, [1, 2])) {
+                    $soldCount = Product_Order::withoutGlobalScope('active')
+                        ->where('purchase_order_id', $id)
+                        ->whereIn('status_id', [4, 5, 6])
+                        ->count();
+
+                    if ($soldCount > 0)
+                        return response()->json(['success' => false,
+                            'message' => 'დაბრუნება შეუძლებელია: ამ შესყიდვიდან ' . $soldCount . ' გაყიდვა უკვე კურიერთანაა გადაცემული ან დასრულებული.'], 422);
+                }
+
+                // 1-ზე პირდაპირ 3-დან ვერ დაბრუნდება (საწყობი → ახალი გვერდი ავლით)
+                if ($oldStatusId === 3 && $newStatusId === 1)
+                    return response()->json(['success' => false,
+                        'message' => 'შეცდომა: საწყობიდან პირდაპირ "ახალ" სტატუსზე ვერ დაბრუნდება — ჯერ "გზაშია"-ზე გადაიყვანეთ.'], 422);
 
                 PurchaseService::handleStockForPurchase($id, $newStatusId);
                 $order->status_id = $newStatusId;
