@@ -133,7 +133,7 @@
 
 {{-- Partial Receive Modal --}}
 <div class="modal fade" id="modal-partial-receive" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-sm">
+    <div class="modal-dialog modal-md">
         <div class="modal-content" style="border-radius:8px;">
             <div class="modal-header" style="background:#f39c12; color:#fff; border-radius:8px 8px 0 0;">
                 <h5 class="modal-title fw-bold">📦 საწყობში მიღება</h5>
@@ -141,20 +141,51 @@
             </div>
             <div class="modal-body">
                 <input type="hidden" id="partial_purchase_id">
-                <div style="background:#f9f9f9; border:1px solid #ddd; border-radius:6px;
-                            padding:10px 14px; margin-bottom:14px; font-size:13px;">
+
+                {{-- პროდუქტის ინფო --}}
+                <div style="background:#f9f9f9; border:1px solid #ddd; border-radius:6px; padding:10px 14px; margin-bottom:14px; font-size:13px;">
                     <div><strong id="partial_product_name">—</strong></div>
                     <div style="margin-top:4px; color:#666;">
                         შეკვეთილი: <strong id="partial_total_qty">—</strong> ერთ.
-                        &nbsp;|&nbsp;
-                        ზომა: <strong id="partial_size">—</strong>
+                        &nbsp;|&nbsp; ზომა: <strong id="partial_size">—</strong>
                     </div>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">რამდენი ჩამოვიდა?</label>
-                    <input type="number" id="partial_received_qty" class="form-control"
-                           min="1" placeholder="0" style="font-size:18px; font-weight:700; text-align:center;">
-                    <small class="text-muted" id="partial_remaining_text" style="display:block; margin-top:6px;"></small>
+
+                {{-- სამი ველი გვერდიგვერდ --}}
+                <div class="row g-2 mb-2">
+                    <div class="col-4">
+                        <label class="form-label fw-semibold text-success" style="font-size:12px; text-transform:uppercase; letter-spacing:.4px;">✅ მიღებული</label>
+                        <input type="number" id="partial_received_qty" class="form-control text-center fw-bold partial-qty-input"
+                               min="0" value="0" style="font-size:20px; border-color:#00a65a; border-width:2px;">
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label fw-semibold" style="font-size:12px; color:#f39c12; text-transform:uppercase; letter-spacing:.4px;">⚠️ წუნი</label>
+                        <input type="number" id="partial_defect_qty" class="form-control text-center fw-bold partial-qty-input"
+                               min="0" value="0" style="font-size:20px; border-color:#f39c12; border-width:2px;">
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label fw-semibold text-danger" style="font-size:12px; text-transform:uppercase; letter-spacing:.4px;">❌ დაკარგული</label>
+                        <input type="number" id="partial_lost_qty" class="form-control text-center fw-bold partial-qty-input"
+                               min="0" value="0" style="font-size:20px; border-color:#dd4b39; border-width:2px;">
+                    </div>
+                </div>
+
+                {{-- შენიშვნები (ჩნდება თუ > 0) --}}
+                <div id="partial_defect_note_wrap" style="display:none;" class="mb-2">
+                    <input type="text" id="partial_defect_note" class="form-control form-control-sm"
+                           placeholder="⚠️ წუნის შენიშვნა (სურვილისამებრ)">
+                </div>
+                <div id="partial_lost_note_wrap" style="display:none;" class="mb-2">
+                    <input type="text" id="partial_lost_note" class="form-control form-control-sm"
+                           placeholder="❌ დაკარგულის შენიშვნა (სურვილისამებრ)">
+                </div>
+
+                {{-- Summary --}}
+                <div style="background:#f4f4f4; border-radius:6px; padding:10px 14px; font-size:13px; margin-top:4px;">
+                    ჯამი: <strong id="partial_sum_display">0</strong>
+                    / <strong id="partial_total_display">—</strong> ერთ.
+                    &nbsp;&nbsp;
+                    <span id="partial_remaining_text" class="fw-bold"></span>
                 </div>
             </div>
             <div class="modal-footer">
@@ -500,12 +531,19 @@ $(function() {
     window.openStatusModal = function(orderId, currentStatus) {
         $.get("{{ url('purchases') }}/" + orderId + "/edit", function(data) {
             if (currentStatus == 2) {
+                var total = data.quantity;
                 $('#partial_purchase_id').val(orderId);
                 $('#partial_product_name').text(data.product_name || 'Purchase #' + orderId);
                 $('#partial_size').text(data.product_size || '');
-                $('#partial_total_qty').text(data.quantity);
-                $('#partial_received_qty').val(data.quantity).attr('max', data.quantity);
-                updatePartialRemaining(data.quantity, data.quantity);
+                $('#partial_total_qty').text(total);
+                $('#partial_total_display').text(total);
+                // ველების reset
+                $('#partial_received_qty').val(total);
+                $('#partial_defect_qty').val(0);
+                $('#partial_lost_qty').val(0);
+                $('#partial_defect_note, #partial_lost_note').val('');
+                $('#partial_defect_note_wrap, #partial_lost_note_wrap').hide();
+                updatePartialSummary();
                 new bootstrap.Modal(document.getElementById('modal-partial-receive')).show();
             } else {
                 $('#status_order_id').val(orderId);
@@ -515,37 +553,61 @@ $(function() {
         });
     };
 
-    $('#partial_received_qty').on('input', function() {
-        var total = parseInt($('#partial_total_qty').text()) || 0;
-        var got   = parseInt($(this).val()) || 0;
-        updatePartialRemaining(total, got);
+    // ══ PARTIAL RECEIVE — input listeners ══
+    $(document).on('input', '.partial-qty-input', function() {
+        updatePartialSummary();
+        // შენიშვნის ველების ჩვენება/დამალვა
+        $('#partial_defect_note_wrap').toggle((parseInt($('#partial_defect_qty').val()) || 0) > 0);
+        $('#partial_lost_note_wrap').toggle((parseInt($('#partial_lost_qty').val()) || 0) > 0);
     });
 
-    function updatePartialRemaining(total, got) {
-        var rem = total - got;
+    function updatePartialSummary() {
+        var total   = parseInt($('#partial_total_qty').text()) || 0;
+        var got     = parseInt($('#partial_received_qty').val()) || 0;
+        var defect  = parseInt($('#partial_defect_qty').val())  || 0;
+        var lost    = parseInt($('#partial_lost_qty').val())    || 0;
+        var sum     = got + defect + lost;
+        var rem     = total - sum;
+
+        $('#partial_sum_display').text(sum);
+
         var txt = '';
-        if (got >= total) {
-            txt = '<span style="color:#00a65a; font-weight:700;">✅ სრული მიღება — ყველა ' + total + ' ერთ. ჩამოვა</span>';
-        } else if (got > 0) {
-            txt = '<span style="color:#f39c12; font-weight:700;">⚠️ ' + rem + ' ერთ. კვლავ გზაში დარჩება (ახალი Purchase შეიქმნება)</span>';
+        if (sum > total) {
+            txt = '<span style="color:#dd4b39;">❌ ჯამი აღემატება შეკვეთილს!</span>';
+        } else if (rem === 0 && got > 0) {
+            txt = '<span style="color:#00a65a;">✅ სრულად დათვლილია</span>';
+        } else if (rem === 0 && got === 0) {
+            txt = '<span style="color:#f39c12;">⚠️ ყველა წუნი/დაკარგულია</span>';
+        } else if (rem > 0) {
+            txt = '<span style="color:#f39c12;">⚠️ ' + rem + ' ერთ. კვლავ გზაში დარჩება</span>';
         }
         $('#partial_remaining_text').html(txt);
     }
 
     window.submitPartialReceive = function() {
-        var id  = $('#partial_purchase_id').val();
-        var qty = parseInt($('#partial_received_qty').val());
-        var max = parseInt($('#partial_total_qty').text());
+        var id     = $('#partial_purchase_id').val();
+        var got    = parseInt($('#partial_received_qty').val()) || 0;
+        var defect = parseInt($('#partial_defect_qty').val())   || 0;
+        var lost   = parseInt($('#partial_lost_qty').val())     || 0;
+        var max    = parseInt($('#partial_total_qty').text())   || 0;
+        var sum    = got + defect + lost;
 
-        if (!qty || qty < 1) { swal('შეცდომა', 'შეიყვანეთ მიღებული რაოდენობა', 'error'); return; }
-        if (qty > max)       { swal('შეცდომა', 'მიღებული (' + qty + ') მეტია შეკვეთილზე (' + max + ')', 'error'); return; }
+        if (sum < 1)    { swal('შეცდომა', 'შეიყვანეთ მინიმუმ 1 ერთეული', 'error'); return; }
+        if (sum > max)  { swal('შეცდომა', 'ჯამი (' + sum + ') აღემატება შეკვეთილ რაოდენობას (' + max + ')', 'error'); return; }
 
         $('#btn-partial-save').prop('disabled', true).text('...');
 
         $.ajax({
             url: "{{ url('purchases') }}/" + id + "/partial-receive",
             type: 'POST',
-            data: { received_qty: qty, _token: "{{ csrf_token() }}" },
+            data: {
+                received_qty: got,
+                defect_qty:   defect,
+                lost_qty:     lost,
+                defect_note:  $('#partial_defect_note').val() || '',
+                lost_note:    $('#partial_lost_note').val()   || '',
+                _token: "{{ csrf_token() }}"
+            },
             success: function(res) {
                 bootstrap.Modal.getInstance(document.getElementById('modal-partial-receive')).hide();
                 purchasesTable.ajax.reload();

@@ -20,7 +20,8 @@ return new class extends Migration
         $table->integer('physical_qty')->default(0);  // რაც ფიზიკურად გაქვს თაროზე
         $table->integer('incoming_qty')->default(0);  // რაც ქარხნიდან მოდის (In Transit)
         $table->integer('reserved_qty')->default(0);  // რაც მომხმარებელმა უკვე იყიდა (Reserved)
-        
+         $table->unsignedInteger('defect_qty')->default(0);
+            $table->unsignedInteger('lost_qty')->default(0);
         $table->timestamps();
 
         // კავშირი products ცხრილთან

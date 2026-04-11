@@ -89,6 +89,14 @@ Route::middleware(['auth'])->group(function () {
     Route::get('warehouse/api-stock',   [WarehouseController::class, 'apiStock'])->name('warehouse.apiStock');
     Route::get('warehouse/stock-info',  [WarehouseController::class, 'stockInfo'])->name('warehouse.stockInfo');
     Route::get('api/fifo-prices',       [WarehouseController::class, 'fifoPrices'])->name('warehouse.fifoPrices');
+Route::get('warehouse',            [WarehouseController::class, 'index'])     ->name('warehouse.index');
+Route::get('warehouse/logs',       [WarehouseController::class, 'logsPage'])  ->name('warehouse.logs');
+Route::get('warehouse/api-stock',  [WarehouseController::class, 'apiStock'])  ->name('warehouse.apiStock');
+Route::get('warehouse/api-logs',   [WarehouseController::class, 'apiLogs'])   ->name('warehouse.apiLogs');
+Route::get('warehouse/stock-info', [WarehouseController::class, 'stockInfo']) ->name('warehouse.stockInfo');
+Route::get('warehouse/fifo-prices',[WarehouseController::class, 'fifoPrices'])->name('warehouse.fifoPrices');
+Route::get('warehouse/available-stock', [WarehouseController::class, 'availableStock'])->name('warehouse.availableStock');
+Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff'])      ->name('warehouse.writeOff');
 
     // ── Purchase Orders (შესყიდვები) ──────────────────────────────────
     Route::get('purchases',                       [PurchaseOrderController::class, 'index'])->name('purchases.index');

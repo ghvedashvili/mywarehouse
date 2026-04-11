@@ -6,34 +6,36 @@ use Illuminate\Database\Eloquent\Model;
 
 class Warehouse extends Model
 {
-    // მიუთითე ცხრილის სახელი, რადგან მხოლობითში გაქვს (warehouse)
+    // Laravel ავტომატურად 'warehouses'-ს ეძებს, მაგრამ ცხრილი 'warehouse'-ია
     protected $table = 'warehouse';
 
     protected $fillable = [
-        'product_id', 
-        'size', 
-        'physical_qty', 
-        'incoming_qty', 
-        'reserved_qty'
+        'product_id',
+        'size',
+        'physical_qty',
+        'incoming_qty',
+        'reserved_qty',
+        'defect_qty',
+        'lost_qty',
     ];
 
-    // კავშირი პროდუქტთან
     public function product()
     {
         return $this->belongsTo(Product::class);
     }
 
-    // Accessor: გამოსათვლელი ველი "ხელმისაწვდომი ნაშთი"
-    // (Physical + Incoming) - Reserved
-    public function getAvailableQtyAttribute()
+    /**
+     * ხელმისაწვდომი ნაშთი:
+     *   physical_qty — ყველაფერი ფიზიკურად საწყობში (ჯანმრთელი + წუნი)
+     *   defect_qty   — წუნი (physical-ში შედის, გასაყიდი არ არის)
+     *   reserved_qty — დაჯავშნული გაყიდვებზე
+     *
+     *   available = physical - defect - reserved
+     *
+     *   lost_qty — დაკარგული (physical-ში არ შედის, მხოლოდ სტატისტიკა)
+     */
+    public function getAvailableQtyAttribute(): int
     {
-        return ($this->physical_qty + $this->incoming_qty) - $this->reserved_qty;
+        return max(0, $this->physical_qty - $this->defect_qty - $this->reserved_qty);
     }
-    public static function getStock($productId, $size)
-{
-    return self::firstOrCreate(
-        ['product_id' => $productId, 'size' => $size],
-        ['physical_qty' => 0, 'incoming_qty' => 0, 'reserved_qty' => 0]
-    );
-}
 }

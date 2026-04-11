@@ -39,6 +39,12 @@
         <a href="{{ route('warehouse.index') }}" class="sidebar-link {{ request()->is('warehouse*') ? 'active' : '' }}">
             <i class="fa fa-warehouse"></i> საწყობი
         </a>
+        <li>
+    <a href="{{ route('warehouse.logs') }}">
+        <i class="fa fa-history"></i>
+        <span>საწყობის ლოგი</span>
+    </a>
+</li>
         <a href="{{ route('purchases.index') }}" class="sidebar-link {{ request()->is('purchases*') ? 'active' : '' }}">
             <i class="fa fa-cart-shopping"></i> შესყიდვები
         </a>

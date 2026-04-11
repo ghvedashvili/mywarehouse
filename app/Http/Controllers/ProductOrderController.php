@@ -12,6 +12,7 @@ use App\Models\StatusChangeLog;
 use App\Exports\ExportProdukOrder;
 
 use App\Services\FifoService;
+use App\Services\WarehouseLogService;
 
 use Illuminate\Http\Request;
 use Yajra\DataTables\DataTables;
@@ -1122,6 +1123,24 @@ class ProductOrderController extends Controller
                 'changed_at'     => now(),
             ]);
 
+            // ─── Warehouse Log: sale_out ───────────────────────────────
+            // handleStockChange-მა physical_qty უკვე შეამცირა,
+            // qty_before = physical_qty + quantity (შემცირებამდე)
+            $saleStock = \App\Models\Warehouse::where('product_id', $order->product_id)
+                ->where('size', $order->product_size)->first();
+            $saleQtyBefore = ($saleStock->physical_qty ?? 0) + ($order->quantity ?? 1);
+            WarehouseLogService::log(
+                'sale_out',
+                $order->product_id,
+                $order->product_size ?? '',
+                -($order->quantity ?? 1),
+                'sale_order',
+                $order->id,
+                null,
+                $saleQtyBefore
+            );
+            // ──────────────────────────────────────────────────────────
+
             return response()->json([
                 'success' => true,
                 'message' => 'ორდერი კურიერს გადაეცა! ✅'
@@ -1707,9 +1726,14 @@ class ProductOrderController extends Controller
             }
 
             // ─── 5. original sale → სტატუსი 6 (გაცვლილი) + cross-ref ──
-            $originalSale->status_id         = 6;
+            $originalSale->status_id           = 6;
             $originalSale->changed_to_order_id = $changeOrder->id;
             $originalSale->save();
+
+            // sourcePurchase-საც მივანიჭოთ original_sale_id —
+            // რათა returns tab-ზე გამოჩნდეს შესყიდვების გვერდზე
+            $sourcePurchase->original_sale_id = $originalSale->id;
+            $sourcePurchase->save();
 
             StatusChangeLog::create([
                 'order_id'       => $originalSale->id,
