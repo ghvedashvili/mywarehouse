@@ -32,13 +32,20 @@
             </div>
             <div class="modal-body">
                 <input type="hidden" id="role-user-id">
-                <p class="text-muted mb-3">აირჩიე ახალი როლი:</p>
-                <div class="d-flex gap-2">
-                    <button onclick="submitRole('admin')" class="btn btn-danger flex-fill">
-                        <i class="fa fa-shield me-1"></i> ADMIN
+                <p class="text-muted mb-2" id="role-current-name" style="font-weight:600;"></p>
+                <p class="text-muted mb-3" style="font-size:12px;">აირჩიე ახალი როლი:</p>
+                <div class="d-grid gap-2">
+                    <button onclick="submitRole('admin')" class="btn btn-danger">
+                        <i class="fa fa-shield me-1"></i> Admin — სრული წვდომა
                     </button>
-                    <button onclick="submitRole('staff')" class="btn btn-primary flex-fill">
-                        <i class="fa fa-user me-1"></i> STAFF
+                    <button onclick="submitRole('staff')" class="btn btn-primary">
+                        <i class="fa fa-user me-1"></i> Staff — ძირითადი წვდომა
+                    </button>
+                    <button onclick="submitRole('sale_operator')" class="btn btn-success">
+                        <i class="fa fa-shopping-cart me-1"></i> Sale Operator — გაყიდვები
+                    </button>
+                    <button onclick="submitRole('warehouse_operator')" class="btn btn-warning">
+                        <i class="fa fa-archive me-1"></i> Warehouse Operator — საწყობი
                     </button>
                 </div>
             </div>
@@ -87,7 +94,10 @@ var table = $('#user-table').DataTable({
 });
 
 function changeRole(id) {
+    // find name from datatable row
+    var row = table.rows().data().toArray().find(function(r){ return r.id == id; });
     $('#role-user-id').val(id);
+    $('#role-current-name').text(row ? row.name : '');
     bootstrap.Modal.getOrCreateInstance(document.getElementById('role-modal')).show();
 }
 

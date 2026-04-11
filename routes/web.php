@@ -15,6 +15,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\FinanceController;
+use App\Http\Controllers\SalaryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -57,6 +58,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/finance',          [FinanceController::class, 'store'])->name('finance.store');
     Route::delete('/finance/{id}',   [FinanceController::class, 'destroy'])->name('finance.destroy');
     Route::get('/finance/api-stats', [FinanceController::class, 'apiStats'])->name('finance.apiStats');
+
+    // ── Salary ────────────────────────────────────────────────────────
+    Route::get('/salary/calculate',  [SalaryController::class, 'calculate'])->name('salary.calculate');
+    Route::post('/salary/record',    [SalaryController::class, 'record'])->name('salary.record');
+    Route::get('/salary/history',    [SalaryController::class, 'history'])->name('salary.history');
 
 
     // ── Products ──────────────────────────────────────────────────────

@@ -103,15 +103,28 @@ class UserController extends Controller
                 return $btn;
             })
             ->addColumn('role', function ($user) use ($isAdmin) {
-                $badge  = $user->role === 'admin' ? 'danger' : 'primary';
-                $click  = $isAdmin ? 'onclick="changeRole(' . $user->id . ', \'' . $user->role . '\')"' : '';
+                $badgeMap = [
+                    'admin'               => 'danger',
+                    'staff'               => 'primary',
+                    'sale_operator'       => 'success',
+                    'warehouse_operator'  => 'warning',
+                ];
+                $labelMap = [
+                    'admin'               => 'ADMIN',
+                    'staff'               => 'STAFF',
+                    'sale_operator'       => 'SALE OPS',
+                    'warehouse_operator'  => 'WH OPS',
+                ];
+                $badge  = $badgeMap[$user->role]  ?? 'secondary';
+                $label  = $labelMap[$user->role]   ?? strtoupper($user->role);
+                $click  = $isAdmin ? 'onclick="changeRole(' . $user->id . ')"' : '';
                 $cursor = $isAdmin ? 'cursor:pointer;' : 'cursor:default;';
                 $title  = $isAdmin ? 'title="კლიკი როლის შესაცვლელად"' : '';
 
                 return '<span ' . $click . ' ' . $title . '
                             class="badge badge-' . $badge . '"
                             style="font-size:12px; padding:5px 10px; ' . $cursor . '">
-                            ' . strtoupper($user->role) . '
+                            ' . $label . '
                         </span>';
             })
             ->rawColumns(['action', 'role'])
@@ -121,7 +134,7 @@ class UserController extends Controller
     public function updateRole(Request $request, $id)
     {
         $request->validate([
-            'role' => 'required|in:admin,staff',
+            'role' => 'required|in:admin,staff,sale_operator,warehouse_operator',
         ]);
 
         if (Auth::id() == $id) {

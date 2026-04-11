@@ -1652,8 +1652,9 @@ class ProductOrderController extends Controller
             // ─── დაბრუნება: original sale → სტატუსი 5, purchase მიაბი ───
             if ($changeType === 'return') {
                 // 1. original sale-ის სტატუსი → 5 (დაბრუნებული)
-                $originalSale->status_id           = 5;
+                $originalSale->status_id            = 5;
                 $originalSale->returned_purchase_id = $sourcePurchase->id;
+                $originalSale->cancelled_at         = now();
                 $originalSale->save();
 
                 // 2. purchase-ს ჩავუწეროთ რომელი ორდერი დაბრუნდა

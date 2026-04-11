@@ -353,12 +353,105 @@
         </div>
     </div>
 
+    {{-- ══ SALARY SECTION ══ --}}
+    @if(auth()->user()->role === 'admin')
+    <div class="entries-section" id="salary-section">
+        <div class="entries-header">
+            <div class="title">👤 თანამშრომელთა ხელფასები</div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <input type="month" id="salary-month" value="{{ now()->format('Y-m') }}"
+                       style="border:1.5px solid #dfe6e9; border-radius:6px; padding:4px 10px; font-size:13px;">
+                <button class="btn-add-entry" onclick="loadSalary()" style="background:var(--blue);">
+                    <i class="fa fa-calculator"></i> გათვლა
+                </button>
+            </div>
+        </div>
+
+        <div id="salary-result" style="display:none;">
+
+            {{-- Sale Operators --}}
+            <div style="margin-bottom:16px;">
+                <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:#636e72;
+                            letter-spacing:.5px; margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid #f0f0f0;">
+                    💼 Sale Operators
+                </div>
+                <div class="table-responsive">
+                <table class="entries-table" id="salary-sale-table" style="min-width:600px;">
+                    <thead>
+                        <tr>
+                            <th>სახელი</th>
+                            <th>ორდერები</th>
+                            <th>ბაზა (×3₾)</th>
+                            <th>ბონუსი (1%)</th>
+                            <th>გამოქვ.</th>
+                            <th>სულ</th>
+                            <th>ჩანიშვნა</th>
+                            <th>სტატუსი</th>
+                        </tr>
+                    </thead>
+                    <tbody id="salary-sale-body"></tbody>
+                </table>
+                </div>
+            </div>
+
+            {{-- Warehouse Operators --}}
+            <div style="margin-bottom:16px;">
+                <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:#636e72;
+                            letter-spacing:.5px; margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid #f0f0f0;">
+                    🏭 Warehouse Operators
+                </div>
+                <div class="table-responsive">
+                <table class="entries-table" id="salary-wh-table" style="min-width:500px;">
+                    <thead>
+                        <tr>
+                            <th>სახელი</th>
+                            <th>ყველა ორდ.</th>
+                            <th>გათვლილი</th>
+                            <th>ხელით თანხა</th>
+                            <th>ჩანიშვნა</th>
+                            <th>სტატუსი</th>
+                        </tr>
+                    </thead>
+                    <tbody id="salary-wh-body"></tbody>
+                </table>
+                </div>
+            </div>
+
+            {{-- Admins --}}
+            <div style="margin-bottom:16px;">
+                <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:#636e72;
+                            letter-spacing:.5px; margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid #f0f0f0;">
+                    🔑 Admins
+                </div>
+                <div class="table-responsive">
+                <table class="entries-table" style="min-width:400px;">
+                    <thead>
+                        <tr><th>სახელი</th><th>ხელით თანხა</th><th>ჩანიშვნა</th><th>სტატუსი</th></tr>
+                    </thead>
+                    <tbody id="salary-admin-body"></tbody>
+                </table>
+                </div>
+            </div>
+
+            <div style="text-align:right; margin-top:10px;">
+                <button class="btn-add-entry" onclick="recordSalaries()" id="btn-record-salary">
+                    <i class="fa fa-save"></i> ხელფასების ჩაფიქსირება
+                </button>
+            </div>
+        </div>
+
+        <div id="salary-loading" style="display:none; text-align:center; padding:20px; color:#b2bec3;">
+            <i class="fa fa-spinner fa-spin"></i> გათვლა...
+        </div>
+    </div>
+    @endif
+
     {{-- ══ ENTRIES TABLE ══ --}}
     <div class="entries-section">
         <div class="entries-header">
             <div class="title">📋 დამატებითი ჩანაწერები</div>
             @if(auth()->user()->role === 'admin')
-            <button class="btn-add-entry" data-toggle="modal" data-target="#modal-entry">
+            <button class="btn-add-entry" data-bs-toggle="modal" data-bs-target="#modal-entry">
                 + ჩანაწერის დამატება
             </button>
             @endif
@@ -416,7 +509,7 @@
             <form id="form-entry">
                 @csrf
                 <div class="modal-header fin-modal-header">
-                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     <h4 class="modal-title" style="font-weight:700;">+ ჩანაწერის დამატება</h4>
                 </div>
                 <div class="modal-body">
@@ -468,7 +561,7 @@
 
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-default" data-dismiss="modal">გაუქმება</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">გაუქმება</button>
                     <button type="submit" class="btn btn-success" id="btn-save-entry">
                         <i class="fa fa-save"></i> შენახვა
                     </button>
@@ -640,7 +733,7 @@ document.getElementById('form-entry')?.addEventListener('submit', function(e) {
     .then(r => r.json())
     .then(res => {
         if (res.success) {
-            $('#modal-entry').modal('hide');
+            bootstrap.Modal.getInstance(document.getElementById('modal-entry'))?.hide();
             this.reset();
             // გვერდი განახლდება ახალ ჩანაწერს დასამატებლად
             window.location.reload();
@@ -650,6 +743,180 @@ document.getElementById('form-entry')?.addEventListener('submit', function(e) {
     })
     .finally(() => { btn.disabled = false; btn.innerHTML = '<i class="fa fa-save"></i> შენახვა'; });
 });
+
+// ══════════════════════════════════════════════════════════
+// SALARY CALCULATOR
+// ══════════════════════════════════════════════════════════
+let salaryData = null;
+
+function loadSalary() {
+    const month = document.getElementById('salary-month').value;
+    if (!month) { alert('აირჩიეთ თვე'); return; }
+
+    document.getElementById('salary-result').style.display  = 'none';
+    document.getElementById('salary-loading').style.display = 'block';
+
+    fetch(`{{ route('salary.calculate') }}?month=${month}`, {
+        headers: { 'Accept': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        salaryData = data;
+
+        // ── Sale Operators ────────────────────────────────
+        const saleBody = document.getElementById('salary-sale-body');
+        saleBody.innerHTML = '';
+        (data.sale_operators || []).forEach(op => {
+            const recorded  = op.recorded !== null ? parseFloat(op.recorded) : null;
+            const statusHtml = recorded !== null
+                ? `<span class="badge-type badge-income">✔ ${recorded.toFixed(2)} ₾</span>`
+                : `<span style="color:#b2bec3; font-size:11px;">—</span>`;
+
+            saleBody.insertAdjacentHTML('beforeend', `
+                <tr data-uid="${op.user_id}" data-role="sale_operator"
+                    data-orders="${op.order_count}" data-deductions="${op.deduction_count}"
+                    data-base="${op.base_amount}" data-bonus="${op.bonus_amount}"
+                    data-deduction="${op.deduction_amount}">
+                    <td style="font-weight:600;">${op.name}</td>
+                    <td>${op.order_count} <small class="text-muted">(−${op.deduction_count})</small></td>
+                    <td>${parseFloat(op.base_amount).toFixed(2)} ₾</td>
+                    <td>${parseFloat(op.bonus_amount).toFixed(2)} ₾</td>
+                    <td style="color:var(--red);">−${parseFloat(op.deduction_amount).toFixed(2)} ₾</td>
+                    <td style="font-weight:700; color:var(--green);">
+                        <input type="number" class="salary-amount-input" step="0.01" min="0"
+                               value="${parseFloat(op.total_amount).toFixed(2)}"
+                               style="width:90px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
+                    </td>
+                    <td>
+                        <input type="text" class="salary-note-input" placeholder="ჩანიშვნა..."
+                               style="width:120px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
+                    </td>
+                    <td>${statusHtml}</td>
+                </tr>`);
+        });
+
+        // ── Warehouse Operators ───────────────────────────
+        const whBody = document.getElementById('salary-wh-body');
+        whBody.innerHTML = '';
+        (data.warehouse_operators || []).forEach(op => {
+            const recorded  = op.recorded !== null ? parseFloat(op.recorded) : null;
+            const statusHtml = recorded !== null
+                ? `<span class="badge-type badge-income">✔ ${recorded.toFixed(2)} ₾</span>`
+                : `<span style="color:#b2bec3; font-size:11px;">—</span>`;
+
+            whBody.insertAdjacentHTML('beforeend', `
+                <tr data-uid="${op.user_id}" data-role="warehouse_operator"
+                    data-orders="${op.order_count}">
+                    <td style="font-weight:600;">${op.name}</td>
+                    <td>${op.order_count}</td>
+                    <td>${parseFloat(op.suggested_amount).toFixed(2)} ₾</td>
+                    <td>
+                        <input type="number" class="salary-amount-input" step="0.01" min="0"
+                               value="${parseFloat(op.suggested_amount).toFixed(2)}"
+                               style="width:90px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
+                    </td>
+                    <td>
+                        <input type="text" class="salary-note-input" placeholder="ჩანიშვნა..."
+                               style="width:120px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
+                    </td>
+                    <td>${statusHtml}</td>
+                </tr>`);
+        });
+
+        // ── Admins ────────────────────────────────────────
+        const adminBody = document.getElementById('salary-admin-body');
+        adminBody.innerHTML = '';
+        (data.admins || []).forEach(op => {
+            const recorded  = op.recorded !== null ? parseFloat(op.recorded) : null;
+            const statusHtml = recorded !== null
+                ? `<span class="badge-type badge-income">✔ ${recorded.toFixed(2)} ₾</span>`
+                : `<span style="color:#b2bec3; font-size:11px;">—</span>`;
+
+            adminBody.insertAdjacentHTML('beforeend', `
+                <tr data-uid="${op.user_id}" data-role="admin">
+                    <td style="font-weight:600;">${op.name}</td>
+                    <td>
+                        <input type="number" class="salary-amount-input" step="0.01" min="0"
+                               value="${recorded !== null ? recorded.toFixed(2) : '0.00'}"
+                               style="width:90px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
+                    </td>
+                    <td>
+                        <input type="text" class="salary-note-input" placeholder="ჩანიშვნა..."
+                               style="width:120px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
+                    </td>
+                    <td>${statusHtml}</td>
+                </tr>`);
+        });
+
+        document.getElementById('salary-loading').style.display = 'none';
+        document.getElementById('salary-result').style.display  = 'block';
+    })
+    .catch(() => {
+        document.getElementById('salary-loading').style.display = 'none';
+        alert('შეცდომა მონაცემების ჩატვირთვისას');
+    });
+}
+
+function recordSalaries() {
+    const month = document.getElementById('salary-month').value;
+    if (!month) { alert('თვე არ არის არჩეული'); return; }
+
+    const payments = [];
+
+    // collect all rows from all three tables
+    document.querySelectorAll('#salary-sale-body tr, #salary-wh-body tr, #salary-admin-body tr').forEach(row => {
+        const uid    = parseInt(row.dataset.uid);
+        const role   = row.dataset.role;
+        const amount = parseFloat(row.querySelector('.salary-amount-input')?.value || 0);
+        const note   = row.querySelector('.salary-note-input')?.value || '';
+
+        if (!uid || isNaN(amount)) return;
+
+        const entry = {
+            user_id:          uid,
+            role:             role,
+            total_amount:     amount,
+            note:             note,
+            order_count:      parseInt(row.dataset.orders     || 0),
+            deduction_count:  parseInt(row.dataset.deductions || 0),
+            base_amount:      parseFloat(row.dataset.base      || 0),
+            bonus_amount:     parseFloat(row.dataset.bonus     || 0),
+            deduction_amount: parseFloat(row.dataset.deduction || 0),
+        };
+
+        payments.push(entry);
+    });
+
+    if (!payments.length) { alert('ჩასაფიქსირებელი მონაცემები არ არის'); return; }
+
+    const btn = document.getElementById('btn-record-salary');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> ინახება...';
+
+    fetch('{{ route("salary.record") }}', {
+        method:  'POST',
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Content-Type': 'application/json',
+            'Accept':       'application/json',
+        },
+        body: JSON.stringify({ month, payments }),
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            alert('✔ ' + (res.message || 'ხელფასები ჩაფიქსირდა'));
+            loadSalary(); // refresh to show recorded badges
+        } else {
+            alert(res.message || 'შეცდომა');
+        }
+    })
+    .catch(() => alert('სერვერის შეცდომა'))
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa fa-save"></i> ხელფასების ჩაფიქსირება';
+    });
+}
 
 // ══════════════════════════════════════════════════════════
 // DELETE ENTRY

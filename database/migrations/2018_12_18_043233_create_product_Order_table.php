@@ -49,6 +49,7 @@ $table->unsignedInteger('original_sale_id')->nullable()->index();
             $table->text('comment')->nullable();
             $table->string('order_address', 500)->nullable();
             $table->string('order_alt_tel', 50)->nullable();
+            $table->timestamp('cancelled_at')->nullable(); // გაუქმების/დაბრუნების ზუსტი თარიღი
             $table->timestamps();
 
             $table->foreign('product_id')->references('id')->on('products')->onDelete('cascade');

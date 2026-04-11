@@ -19,9 +19,14 @@ class Product_Order extends Model
         'merged_id', 'is_primary',
         'changed_to_order_id', 'returned_purchase_id',
         'order_address', 'order_alt_tel',
+        'cancelled_at',
     ];
 
     protected $hidden = ['created_at', 'updated_at'];
+
+    protected $casts = [
+        'cancelled_at' => 'datetime',
+    ];
 
     protected static function booted()
     {
@@ -49,7 +54,8 @@ class Product_Order extends Model
 
     public function delete()
     {
-        $this->status = 'deleted';
+        $this->status       = 'deleted';
+        $this->cancelled_at = now();
         return $this->save();
     }
 
