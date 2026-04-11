@@ -364,7 +364,8 @@
             @endif
         </div>
 
-        <table class="entries-table">
+        <div class="table-responsive">
+        <table class="entries-table" style="min-width:500px;">
             <thead>
                 <tr>
                     <th>თარიღი</th>
@@ -402,14 +403,15 @@
                 @endforelse
             </tbody>
         </table>
+        </div>{{-- /table-responsive --}}
     </div>
 
 </div>{{-- /fin-wrap --}}
 
 {{-- ══ MODAL: ADD ENTRY ══ --}}
 @if(auth()->user()->role === 'admin')
-<div class="modal fade" id="modal-entry" tabindex="-1" data-backdrop="static">
-    <div class="modal-dialog">
+<div class="modal fade" id="modal-entry" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content" style="border-radius:10px;">
             <form id="form-entry">
                 @csrf

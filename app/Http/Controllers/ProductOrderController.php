@@ -1071,6 +1071,9 @@ class ProductOrderController extends Controller
 
                 return $wrap . $editBtn . $deleteBtn . $exchangeBtn . $pdfBtn . $mailBtn . $histBtn . '</div>';
             })
+            ->addColumn('status_color', function ($item) {
+                return $item->orderStatus->color ?? 'default';
+            })
             ->rawColumns(['order_id', 'has_mergeable', 'cross_ref_html', 'show_photo', 'product_info', 'payment', 'customer_name', 'status_label', 'action'])
             ->make(true);
     }

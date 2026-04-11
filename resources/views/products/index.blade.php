@@ -23,6 +23,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
 @endsection
 
 @section('content')
+<div class="p-2 p-md-3">
 <div class="card shadow-sm">
     <div class="card-header py-3">
         <div class="row align-items-center g-2">
@@ -67,6 +68,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
         </div>
     </div>
 </div>
+</div>{{-- /p-2 p-md-3 --}}
 
 @include('products.form')
 @endsection

@@ -12,10 +12,11 @@
 @endsection
 
 @section('content')
+<div class="p-2 p-md-3">
 <div class="card">
-    <div class="card-header d-flex align-items-center justify-content-between">
-        <span>List of Categories</span>
-        <div class="d-flex align-items-center gap-2">
+    <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <span class="fw-bold">List of Categories</span>
+        <div class="d-flex align-items-center flex-wrap gap-2">
             @if(Auth::user()->role === 'admin')
             <button onclick="addForm()" class="btn btn-success btn-sm">
                 <i class="fa fa-plus"></i> Add New
@@ -36,8 +37,9 @@
             </a>
         </div>
     </div>
-    <div class="card-body">
-        <table id="categories-table" class="table table-bordered table-hover table-striped">
+    <div class="card-body p-2 p-md-3">
+        <div class="table-responsive">
+        <table id="categories-table" class="table table-bordered table-hover table-striped w-100">
             <thead>
                 <tr>
                     <th>ID</th>
@@ -49,8 +51,10 @@
             </thead>
             <tbody></tbody>
         </table>
+        </div>{{-- /table-responsive --}}
     </div>
 </div>
+</div>{{-- /p-2 p-md-3 --}}
 
 @include('categories.form')
 @endsection

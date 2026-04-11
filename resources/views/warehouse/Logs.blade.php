@@ -2,10 +2,15 @@
 
 @section('top')
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
-<link rel="stylesheet" href="{{ asset('assets/bower_components/datatables.net-bs/css/dataTables.bootstrap.min.css') }}">
+<link href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css" rel="stylesheet">
 <style>
+/* Responsive expand control */
+table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before {
+    background-color: #357ca5;
+    border-radius: 50%;
+}
 :root { --wh-dark:#222d32; --wh-border:#dee2e6; }
-.wh-header { background:var(--wh-dark); color:#fff; padding:18px 25px 14px; border-radius:6px 6px 0 0; display:flex; align-items:center; justify-content:space-between; }
+.wh-header { background:var(--wh-dark); color:#fff; padding:14px 20px; border-radius:6px 6px 0 0; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
 .wh-header h3 { margin:0; font-size:17px; font-weight:700; }
 .wh-header .wh-subtitle { font-size:11px; color:#aaa; margin-top:2px; }
 .wh-table thead th { background:#f4f4f4; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:#555; border-bottom:2px solid var(--wh-border)!important; white-space:nowrap; }
@@ -14,7 +19,7 @@
 @endsection
 
 @section('content')
-<div class="pb-3">
+<div class="py-3 px-3 px-md-4">
     <div class="wh-header">
         <div>
             <h3>📋 საწყობის ლოგი</h3>
@@ -70,25 +75,25 @@
 
     {{-- ჯამური სტატისტიკა --}}
     <div class="row g-2 mb-3">
-        <div class="col-3">
+        <div class="col-6 col-md-3">
             <div class="small-box bg-green mb-0">
                 <div class="inner"><h3 id="stat-in">—</h3><p>📦 შემოსული</p></div>
                 <div class="icon"><i class="fa fa-arrow-down"></i></div>
             </div>
         </div>
-        <div class="col-3">
+        <div class="col-6 col-md-3">
             <div class="small-box bg-blue mb-0">
                 <div class="inner"><h3 id="stat-out">—</h3><p>🚚 გასული</p></div>
                 <div class="icon"><i class="fa fa-arrow-up"></i></div>
             </div>
         </div>
-        <div class="col-3">
+        <div class="col-6 col-md-3">
             <div class="small-box bg-yellow mb-0">
                 <div class="inner"><h3 id="stat-defect">—</h3><p>⚠️ წუნი</p></div>
                 <div class="icon"><i class="fa fa-warning"></i></div>
             </div>
         </div>
-        <div class="col-3">
+        <div class="col-6 col-md-3">
             <div class="small-box bg-red mb-0">
                 <div class="inner"><h3 id="stat-lost">—</h3><p>❌ დაკარგული</p></div>
                 <div class="icon"><i class="fa fa-times"></i></div>
@@ -96,7 +101,7 @@
         </div>
     </div>
 
-    <table id="logs-table" class="table wh-table table-hover table-bordered">
+    <table id="logs-table" class="table wh-table table-hover table-bordered w-100">
         <thead>
             <tr>
                 <th>თარიღი</th>
@@ -116,8 +121,8 @@
 
 @section('bot')
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script src="{{ asset('assets/bower_components/datatables.net/js/jquery.dataTables.min.js') }}"></script>
-<script src="{{ asset('assets/bower_components/datatables.net-bs/js/dataTables.bootstrap.min.js') }}"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
 <script>
 $(function() {
 
@@ -125,6 +130,7 @@ $(function() {
 
     var logsTable = $('#logs-table').DataTable({
         processing: true, serverSide: true,
+        responsive: true,
         order: [[0, 'desc']],
         pageLength: 25,
         ajax: {
@@ -137,24 +143,24 @@ $(function() {
             }
         },
         columns: [
-            { data: 'created_at',   width: '130px' },
-            { data: 'product_name' },
-            { data: 'product_size', defaultContent: '—', width: '60px' },
-            { data: 'action_badge', orderable: false },
-            { data: 'qty_badge',    orderable: false },
-            { data: 'qty_badge',    orderable: false,
+            { data: 'created_at',   width: '130px', responsivePriority: 2 },
+            { data: 'product_name',                 responsivePriority: 1 },
+            { data: 'product_size', defaultContent: '—', width: '60px', responsivePriority: 3 },
+            { data: 'action_badge', orderable: false, responsivePriority: 4 },
+            { data: 'qty_badge',    orderable: false, responsivePriority: 5 },
+            { data: 'qty_badge',    orderable: false, responsivePriority: 8,
               render: function(data, type, row) {
                   return '<span class="text-muted" style="font-size:12px;">'
                        + row.qty_before + ' → ' + row.qty_after + '</span>';
               }
             },
-            { data: 'note',         orderable: false, defaultContent: '—',
+            { data: 'note',         orderable: false, defaultContent: '—', responsivePriority: 7,
               render: function(v) {
                   if (!v) return '—';
                   return v.length > 40 ? '<span title="' + v + '">' + v.substring(0,40) + '…</span>' : v;
               }
             },
-            { data: 'user_name',    orderable: false, width: '90px' },
+            { data: 'user_name',    orderable: false, width: '90px', responsivePriority: 6 },
         ],
         drawCallback: function() {
             // სტატისტიკა — მიმდინარე გვერდის მონაცემებიდან

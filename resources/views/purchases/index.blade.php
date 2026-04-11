@@ -2,8 +2,13 @@
 
 @section('top')
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
-<link rel="stylesheet" href="{{ asset('assets/bower_components/datatables.net-bs/css/dataTables.bootstrap.min.css') }}">
+<link href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css" rel="stylesheet">
 <style>
+/* Responsive expand control */
+table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before {
+    background-color: #00a65a;
+    border-radius: 50%;
+}
 :root {
     --wh-green:  #00a65a;
     --wh-orange: #f39c12;
@@ -14,53 +19,66 @@
 }
 .wh-header {
     background: var(--wh-dark); color: #fff;
-    padding: 18px 25px 14px; border-radius: 6px 6px 0 0;
+    padding: 14px 20px; border-radius: 6px 6px 0 0;
     display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px;
 }
-.wh-header h3 { margin:0; font-size:17px; font-weight:700; }
+.wh-header h3 { margin:0; font-size:16px; font-weight:700; }
 .wh-header .wh-subtitle { font-size:11px; color:#aaa; margin-top:2px; }
 .wh-table thead th {
     background:#f4f4f4; font-size:11px; text-transform:uppercase;
     letter-spacing:0.5px; color:#555;
     border-bottom:2px solid var(--wh-border) !important; white-space:nowrap;
 }
+
+/* ── Tab nav customisation ── */
+#purchaseTabs .nav-link {
+    font-size: 13px;
+    font-weight: 600;
+    color: #666;
+    padding: 9px 18px;
+}
+#purchaseTabs .nav-link.active {
+    color: var(--wh-green);
+    border-bottom-color: var(--wh-green);
+}
 </style>
 @endsection
 
 @section('content')
-<div style="padding:15px 0;">
+<div class="py-3 px-3 px-md-4">
 
     <div class="wh-header">
         <div>
             <h3>📦 შესყიდვების ორდერები</h3>
             <div class="wh-subtitle">Purchase Orders Management</div>
         </div>
-        <button id="btn-new-purchase" onclick="openPurchaseModal()" class="btn btn-success btn-sm" style="font-weight:700;">
-            <i class="fa fa-plus"></i> ახალი შესყიდვა
+        <button id="btn-new-purchase" onclick="openPurchaseModal()" class="btn btn-success btn-sm fw-bold">
+            <i class="fa fa-plus me-1"></i> ახალი შესყიდვა
         </button>
     </div>
 
-    <div style="margin-top:15px;">
+    <div class="mt-3">
 
         {{-- ══ TABS ══ --}}
-        <div style="display:flex; border-bottom:2px solid #dee2e6; margin-bottom:15px;">
-            <div id="tab-btn-regular"
-                 onclick="switchPurchaseTab('regular')"
-                 style="padding:10px 22px; cursor:pointer; font-size:13px; font-weight:600;
-                        color:#00a65a; border-bottom:3px solid #00a65a; margin-bottom:-2px;">
-                🛒 შესყიდვები
-            </div>
-            <div id="tab-btn-returns"
-                 onclick="switchPurchaseTab('returns')"
-                 style="padding:10px 22px; cursor:pointer; font-size:13px; font-weight:600;
-                        color:#666; border-bottom:3px solid transparent; margin-bottom:-2px;">
-                ↩ დაბრუნება / გაცვლა
-            </div>
-        </div>
+        <ul class="nav nav-tabs mb-3" id="purchaseTabs" role="tablist">
+            <li class="nav-item">
+                <button class="nav-link active" id="tab-btn-regular"
+                        onclick="switchPurchaseTab('regular')" type="button">
+                    🛒 შესყიდვები
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" id="tab-btn-returns"
+                        onclick="switchPurchaseTab('returns')" type="button">
+                    ↩ დაბრუნება / გაცვლა
+                </button>
+            </li>
+        </ul>
 
         {{-- ══ ჩვეულებრივი შესყიდვები ══ --}}
         <div id="tab-regular">
-            <table id="purchases-table" class="table wh-table table-hover table-bordered">
+            <table id="purchases-table" class="table wh-table table-hover table-bordered w-100">
                 <thead>
                     <tr>
                         <th>ნომერი</th>
@@ -81,7 +99,7 @@
 
         {{-- ══ დაბრუნება / გაცვლა ══ --}}
         <div id="tab-returns" style="display:none;">
-            <table id="returns-table" class="table wh-table table-hover table-bordered">
+            <table id="returns-table" class="table wh-table table-hover table-bordered w-100">
                 <thead>
                     <tr>
                         <th>ნომერი</th>
@@ -106,7 +124,7 @@
 
 {{-- Status Modal --}}
 <div class="modal fade" id="modal-status" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-sm">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-light">
                 <h5 class="modal-title fw-bold">სტატუსის შეცვლა</h5>
@@ -133,7 +151,7 @@
 
 {{-- Partial Receive Modal --}}
 <div class="modal fade" id="modal-partial-receive" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-md">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content" style="border-radius:8px;">
             <div class="modal-header" style="background:#f39c12; color:#fff; border-radius:8px 8px 0 0;">
                 <h5 class="modal-title fw-bold">📦 საწყობში მიღება</h5>
@@ -143,9 +161,9 @@
                 <input type="hidden" id="partial_purchase_id">
 
                 {{-- პროდუქტის ინფო --}}
-                <div style="background:#f9f9f9; border:1px solid #ddd; border-radius:6px; padding:10px 14px; margin-bottom:14px; font-size:13px;">
+                <div class="p-3 mb-3 rounded border bg-light" style="font-size:13px;">
                     <div><strong id="partial_product_name">—</strong></div>
-                    <div style="margin-top:4px; color:#666;">
+                    <div class="mt-1 text-muted">
                         შეკვეთილი: <strong id="partial_total_qty">—</strong> ერთ.
                         &nbsp;|&nbsp; ზომა: <strong id="partial_size">—</strong>
                     </div>
@@ -154,17 +172,17 @@
                 {{-- სამი ველი გვერდიგვერდ --}}
                 <div class="row g-2 mb-2">
                     <div class="col-4">
-                        <label class="form-label fw-semibold text-success" style="font-size:12px; text-transform:uppercase; letter-spacing:.4px;">✅ მიღებული</label>
+                        <label class="form-label fw-semibold text-success" style="font-size:11px; text-transform:uppercase; letter-spacing:.4px;">✅ მიღებული</label>
                         <input type="number" id="partial_received_qty" class="form-control text-center fw-bold partial-qty-input"
                                min="0" value="0" style="font-size:20px; border-color:#00a65a; border-width:2px;">
                     </div>
                     <div class="col-4">
-                        <label class="form-label fw-semibold" style="font-size:12px; color:#f39c12; text-transform:uppercase; letter-spacing:.4px;">⚠️ წუნი</label>
+                        <label class="form-label fw-semibold" style="font-size:11px; color:#f39c12; text-transform:uppercase; letter-spacing:.4px;">⚠️ წუნი</label>
                         <input type="number" id="partial_defect_qty" class="form-control text-center fw-bold partial-qty-input"
                                min="0" value="0" style="font-size:20px; border-color:#f39c12; border-width:2px;">
                     </div>
                     <div class="col-4">
-                        <label class="form-label fw-semibold text-danger" style="font-size:12px; text-transform:uppercase; letter-spacing:.4px;">❌ დაკარგული</label>
+                        <label class="form-label fw-semibold text-danger" style="font-size:11px; text-transform:uppercase; letter-spacing:.4px;">❌ დაკარგ.</label>
                         <input type="number" id="partial_lost_qty" class="form-control text-center fw-bold partial-qty-input"
                                min="0" value="0" style="font-size:20px; border-color:#dd4b39; border-width:2px;">
                     </div>
@@ -181,7 +199,7 @@
                 </div>
 
                 {{-- Summary --}}
-                <div style="background:#f4f4f4; border-radius:6px; padding:10px 14px; font-size:13px; margin-top:4px;">
+                <div class="p-3 rounded bg-light" style="font-size:13px;">
                     ჯამი: <strong id="partial_sum_display">0</strong>
                     / <strong id="partial_total_display">—</strong> ერთ.
                     &nbsp;&nbsp;
@@ -191,7 +209,7 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">გაუქმება</button>
                 <button type="button" class="btn btn-success" onclick="submitPartialReceive()" id="btn-partial-save">
-                    <i class="fa fa-check"></i> დადასტურება
+                    <i class="fa fa-check me-1"></i> დადასტურება
                 </button>
             </div>
         </div>
@@ -204,8 +222,8 @@
 
 @section('bot')
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script src="{{ asset('assets/bower_components/datatables.net/js/jquery.dataTables.min.js') }}"></script>
-<script src="{{ asset('assets/bower_components/datatables.net-bs/js/dataTables.bootstrap.min.js') }}"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
 
 <script>
 $(function() {
@@ -218,15 +236,9 @@ $(function() {
     window.switchPurchaseTab = function(tab) {
         currentTab = tab;
 
-        // tab buttons
-        $('#tab-btn-regular, #tab-btn-returns').css({
-            'color': '#666',
-            'border-bottom-color': 'transparent'
-        });
-        $('#tab-btn-' + tab).css({
-            'color': '#00a65a',
-            'border-bottom-color': '#00a65a'
-        });
+        // Bootstrap 5 nav-link active classes
+        $('#tab-btn-regular, #tab-btn-returns').removeClass('active');
+        $('#tab-btn-' + tab).addClass('active');
 
         // tab content
         $('#tab-regular, #tab-returns').hide();
@@ -245,21 +257,22 @@ $(function() {
     // ══ PURCHASES TABLE (ჩვეულებრივი) ══
     var purchasesTable = $('#purchases-table').DataTable({
         processing: true, serverSide: true,
+        responsive: true,
         ajax: {
             url: "{{ route('purchases.api') }}",
             data: { type: 'regular' }
         },
         columns: [
-            { data: 'order_number',       name: 'order_number' },
-            { data: 'product_name',       name: 'product_name' },
-            { data: 'product_code',       name: 'product_code' },
-            { data: 'product_size',       name: 'product_size' },
-            { data: 'quantity',           name: 'quantity' },
-            { data: 'payment',            name: 'payment',      orderable: false },
-            { data: 'price_paid',         name: 'price_paid',   orderable: false },
-            { data: 'status_name',        name: 'status_name',  orderable: false },
-            { data: 'created_at',         name: 'created_at' },
-            { data: 'action',             name: 'action',       orderable: false },
+            { data: 'order_number',       name: 'order_number',       responsivePriority: 2 },
+            { data: 'product_name',       name: 'product_name',       responsivePriority: 1 },
+            { data: 'product_code',       name: 'product_code',       responsivePriority: 9 },
+            { data: 'product_size',       name: 'product_size',       responsivePriority: 3 },
+            { data: 'quantity',           name: 'quantity',           responsivePriority: 4 },
+            { data: 'payment',            name: 'payment',            orderable: false, responsivePriority: 7 },
+            { data: 'price_paid',         name: 'price_paid',         orderable: false, responsivePriority: 8 },
+            { data: 'status_name',        name: 'status_name',        orderable: false, responsivePriority: 5 },
+            { data: 'created_at',         name: 'created_at',         responsivePriority: 6 },
+            { data: 'action',             name: 'action',             orderable: false, responsivePriority: 2 },
             { data: 'is_return_purchase', name: 'is_return_purchase', visible: false },
         ]
     });
@@ -267,21 +280,22 @@ $(function() {
     // ══ RETURNS TABLE (დაბრუნება / გაცვლა) ══
     var returnsTable = $('#returns-table').DataTable({
         processing: true, serverSide: true,
+        responsive: true,
         ajax: {
             url: "{{ route('purchases.api') }}",
             data: { type: 'returns' }
         },
         columns: [
-            { data: 'order_number',       name: 'order_number' },
-            { data: 'product_name',       name: 'product_name' },
-            { data: 'product_code',       name: 'product_code' },
-            { data: 'product_size',       name: 'product_size' },
-            { data: 'quantity',           name: 'quantity' },
-            { data: 'payment',            name: 'payment',      orderable: false },
-            { data: 'price_paid',         name: 'price_paid',   orderable: false },
-            { data: 'status_name',        name: 'status_name',  orderable: false },
-            { data: 'created_at',         name: 'created_at' },
-            { data: 'action',             name: 'action',       orderable: false },
+            { data: 'order_number',       name: 'order_number',       responsivePriority: 2 },
+            { data: 'product_name',       name: 'product_name',       responsivePriority: 1 },
+            { data: 'product_code',       name: 'product_code',       responsivePriority: 9 },
+            { data: 'product_size',       name: 'product_size',       responsivePriority: 3 },
+            { data: 'quantity',           name: 'quantity',           responsivePriority: 4 },
+            { data: 'payment',            name: 'payment',            orderable: false, responsivePriority: 7 },
+            { data: 'price_paid',         name: 'price_paid',         orderable: false, responsivePriority: 8 },
+            { data: 'status_name',        name: 'status_name',        orderable: false, responsivePriority: 5 },
+            { data: 'created_at',         name: 'created_at',         responsivePriority: 6 },
+            { data: 'action',             name: 'action',             orderable: false, responsivePriority: 2 },
             { data: 'is_return_purchase', name: 'is_return_purchase', visible: false },
         ],
         createdRow: function(row) {
@@ -619,7 +633,7 @@ $(function() {
                 swal({ title: 'შეცდომა', text: msg, type: 'error' });
             },
             complete: function() {
-                $('#btn-partial-save').prop('disabled', false).html('<i class="fa fa-check"></i> დადასტურება');
+                $('#btn-partial-save').prop('disabled', false).html('<i class="fa fa-check me-1"></i> დადასტურება');
             }
         });
     };

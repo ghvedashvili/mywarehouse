@@ -25,7 +25,7 @@
 
 <div class="container-fluid py-3 app-container">
     <div class="card border-0 shadow-sm" style="border-radius: 10px;">
-        <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between border-bottom">
+        <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between flex-wrap gap-2 border-bottom">
             <h6 class="mb-0 fw-bold text-dark"><i class="fa fa-users me-2 text-primary"></i> კლიენტების მართვა</h6>
             <div class="d-flex gap-2">
                 <button onclick="addForm()" class="btn btn-success btn-sm rounded-pill px-3 shadow-sm">

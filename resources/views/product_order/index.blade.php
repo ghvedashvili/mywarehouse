@@ -51,6 +51,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 @endsection
 
 @section('content')
+<div class="p-2 p-md-3">
     <div class="card">
         <div class="card-header">
             <div class="row align-items-center g-2">
@@ -82,30 +83,26 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                 </div>
             </div>
         </div>
-        <div class="card-body p-3">
-            <table id="products-out-table" class="table table-bordered table-striped">
+        <div class="card-body p-2 p-md-3">
+            <div class="table-responsive">
+            <table id="products-out-table" class="table table-bordered table-striped w-100">
                 <thead class="fs-1">
     <tr>
         <th style="width:110px;">№ / <input type="checkbox" id="check-all" title="ყველას მონიშვნა"></th>
-        <!-- <th style="width:40px;"></th>  {{-- expand ღილაკი --}} -->
-        <th style="width:80px;">თარიღი</th>
-        <th>სტატუსი</th>
-        <th style="width:70px;">Picture</th>
-        <th>Product</th>
-        <th>Customer</th>
-        <th>Payment</th>
-        <th style="display:none;"></th> {{-- cross_ref_html hidden --}}
-        <th style="display:none;"></th> {{-- has_mergeable hidden --}}
-        <th style="display:none;"></th> {{-- children_by_status hidden --}}
-        @if(auth()->user()->role == 'admin')
-        <th>Actions</th>
-        @endif
+        <th style="display:none;"></th> {{-- created_at — sort only --}}
+        <th>ორდერები</th>
+        <th style="display:none;"></th> {{-- cross_ref_html --}}
+        <th style="display:none;"></th> {{-- has_mergeable --}}
+        <th style="display:none;"></th> {{-- children_by_status --}}
     </tr>
 </thead>
                 <tbody></tbody>
             </table>
+            </div>{{-- /table-responsive --}}
         </div>
     </div>
+</div>{{-- /p-2 p-md-3 --}}
+
 <div class="modal fade" id="modal-status" tabindex="-1" role="dialog">
     <div class="modal-dialog modal-sm"> <div class="modal-content" style="border-radius: 8px;">
             <div class="modal-header bg-gray">
@@ -370,115 +367,126 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
         var save_method;
         var isAdmin = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
 
+// სტატუს ფერების map: Bootstrap label class → CSS color
+var statusColorMap = {
+    success: '#198754', warning: '#e67e22', danger: '#dc3545',
+    info: '#17a2b8',  primary: '#0d6efd', default: '#6c757d', purple: '#6f42c1'
+};
+
+function fmtDate(dt) {
+    if (!dt) return '';
+    var d = new Date(dt);
+    return ('0'+d.getDate()).slice(-2) + '.' + ('0'+(d.getMonth()+1)).slice(-2) + '.' + d.getFullYear();
+}
+
+// card helper — მშობელი და შვილი ორდერისთვის
+function buildOrderCard(bc, headerLeft, headerRight, img, productHtml, customerHtml, paymentHtml) {
+    return '<div style="border-left:3px solid ' + bc + '; padding:4px 8px;">'
+        // header: სტატუსი + თარიღი + ბეჯები + cross_ref —— ღილაკები მარჯვნივ
+        + '<div style="display:flex; flex-wrap:wrap; align-items:flex-start; gap:4px; margin-bottom:5px;">'
+        + '<div style="flex:1; display:flex; flex-wrap:wrap; align-items:center; gap:4px; min-width:0;">'
+        + headerLeft
+        + '</div>'
+        + (headerRight ? '<div style="flex-shrink:0;">' + headerRight + '</div>' : '')
+        + '</div>'
+        // body: სურათი + პროდუქტი + კლიენტი + გადახდა
+        + '<div style="display:flex; flex-wrap:wrap; gap:8px; align-items:flex-start;">'
+        + (img ? '<div style="flex-shrink:0;">' + img + '</div>' : '')
+        + '<div style="flex:1; min-width:100px; font-size:12px;">' + productHtml + '</div>'
+        + '<div style="flex:1; min-width:100px; font-size:12px;">' + customerHtml + '</div>'
+        + '<div style="min-width:90px; font-size:12px;">' + paymentHtml + '</div>'
+        + '</div>'
+        + '</div>';
+}
+
 var columns = [
-    // სვეტი 1: ორდერის ნომერი + checkbox
-    // სვეტი 1: ორდერის ნომერი, შემდეგ checkbox + 📦 ერთ ხაზზე
+    // Col 0: checkbox + ნომერი + expand chevron (ვიწრო, მხოლოდ იდენტობა)
     {
         data: null,
         orderable: false,
         searchable: false,
+        width: '85px',
         render: function(data) {
             var orderNo = data.order_number || ('S' + data.id);
 
-            // 1. ჩეკბოქსი და ნომერი
             var cb = (data.merged_id && !data.is_primary)
                 ? ''
-                : '<input type="checkbox" class="row-check" data-id="' + data.id + '" data-status="' + data.status_id + '" style="margin:0;">';
+                : '<input type="checkbox" class="row-check" data-id="' + data.id + '" data-status="' + data.status_id + '" style="margin:0; vertical-align:middle;">';
 
-            // 🔍 გასაერთიანებელი ორდერების მინიშნება
             var mergeHint = '';
             if (data.has_mergeable && data.customer_id && data.status !== 'deleted') {
-                mergeHint = '&nbsp;<span class="merge-search-btn" data-customer-id="' + data.customer_id + '" ' +
-                    'title="ამ კლიენტის სხვა ორდერებიც არსებობს — დააჭირეთ გასაფილტრად და მოსანიშნად" ' +
-                    'style="cursor:pointer; color:#e67e22;">' +
-                    '<i class="fa fa-search"></i></span>';
+                mergeHint = ' <span class="merge-search-btn" data-customer-id="' + data.customer_id + '" '
+                    + 'title="ამ კლიენტის სხვა ორდერებიც — დააჭირეთ გასაფილტრად" '
+                    + 'style="cursor:pointer; color:#e67e22; font-size:10px;"><i class="fa fa-search"></i></span>';
             }
 
-            var headerRow = '<div style="display:flex; align-items:center; gap:5px;">' +
-                                cb +
-                                '<small style="font-weight:600; color:#333; white-space:nowrap;">' + orderNo + mergeHint + '</small>' +
-                            '</div>';
-
-            // 2. cross-reference ბეჯი (გაცვლა / დაბრუნება)
-            var crossRef = (data.cross_ref_html && data.cross_ref_html.length > 0)
-                ? '<div style="margin-top:2px;">' + data.cross_ref_html + '</div>'
-                : '';
-
-            // 3. Expand ბეჯები სტატუსების მიხედვით + ცალკე expand ღილაკი
-            var expandSection = '';
+            // expand/child indicator — პატარა ხაზი ნომრის ქვემოთ
+            var below = '';
             if (data.is_primary && data.children_count > 0) {
                 window._childrenStore = window._childrenStore || {};
                 window._childrenStore[data.id] = Array.isArray(data.children_json)
                     ? data.children_json
                     : (typeof data.children_json === 'string' ? JSON.parse(data.children_json || '[]') : []);
 
+                below = '<div style="margin-top:3px;">'
+                    + '<span class="expand-btn" data-id="' + data.id + '" style="cursor:pointer; color:#aaa; font-size:11px;">'
+                    + '<i class="fa fa-chevron-right"></i> <small style="font-size:10px; color:#bbb;">'
+                    + data.children_count + '</small>'
+                    + '</span>'
+                    + '</div>';
+            } else if (!data.is_primary && data.merged_id) {
+                below = '<div style="margin-top:3px; color:#bbb; font-size:11px;"><i class="fa fa-level-up fa-rotate-90"></i></div>';
+            }
+
+            return '<div>'
+                + '<div style="display:flex; align-items:center; gap:4px; flex-wrap:nowrap;">'
+                + cb
+                + '<small style="font-weight:700; color:#333; white-space:nowrap; font-size:11px;">' + orderNo + mergeHint + '</small>'
+                + '</div>'
+                + below
+                + '</div>';
+        }
+    },
+    // Col 1: created_at — hidden, for server-side sort only
+    { data: 'created_at', name: 'created_at', visible: false },
+    // Col 2: CARD — ყველა შინაარსი (status-colored left border)
+    {
+        data: null,
+        orderable: false,
+        searchable: false,
+        render: function(data) {
+            var bc       = statusColorMap[data.status_color] || '#6c757d';
+            var dt       = fmtDate(data.created_at);
+            var crossRef = data.cross_ref_html || '';
+
+            // ჯგუფ-სტატუს ბეჯები (merged parent-ისთვის)
+            var groupBadges = '';
+            if (data.is_primary && data.children_count > 0) {
                 var groups = Array.isArray(data.children_by_status)
                     ? data.children_by_status
                     : (typeof data.children_by_status === 'string' ? JSON.parse(data.children_by_status || '[]') : []);
-
-                var badgesHtml = '';
                 groups.forEach(function(g) {
-                    badgesHtml +=
-                        '<span class="label label-' + g.color + '" ' +
-                        'style="font-size:11px; display:inline-block; margin-right:3px;">' +
-                        '<i class="fa fa-cube" style="font-size:9px; margin-right:2px;"></i>' + g.count +
-                        '</span>';
+                    groupBadges += '<span class="label label-' + g.color + '" style="font-size:10px; margin-right:2px;">'
+                        + '<i class="fa fa-cube" style="font-size:9px;"></i> ' + g.count + '</span>';
                 });
-
-                expandSection =
-                    '<div style="margin-top:4px; display:flex; align-items:center; gap:4px;">' +
-                        badgesHtml +
-                        '<span class="expand-btn" data-id="' + data.id + '" ' +
-                        'style="cursor:pointer; color:#999; font-size:11px; margin-left:2px;">' +
-                        '<i class="fa fa-chevron-right"></i>' +
-                        '</span>' +
-                    '</div>';
-            } else if (!data.is_primary && data.merged_id) {
-                expandSection = '<div style="margin-top:4px; padding-left:5px; color:#bbb;"><i class="fa fa-level-up fa-rotate-90"></i></div>';
             }
 
-            return '<div style="display:flex; flex-direction:column; justify-content:center;">' + 
-                        headerRow + 
-                        crossRef +
-                        expandSection + 
-                   '</div>';
+            var headerLeft = '<div>' + data.status_label + '</div>'
+                + (groupBadges ? '<span>' + groupBadges + '</span>' : '')
+                + '<small class="text-muted" style="white-space:nowrap;">' + dt + '</small>'
+                + (crossRef ? '<span>' + crossRef + '</span>' : '');
+
+            var headerRight = data.action || '';
+
+            return buildOrderCard(bc, headerLeft, headerRight,
+                data.show_photo, data.product_info, data.customer_name, data.payment);
         }
     },
-    // სვეტი 3: თარიღი
-    {data: 'created_at', name: 'created_at',
-        render: function(data) {
-            if (data) {
-                let d = new Date(data);
-                return ("0"+d.getDate()).slice(-2) + '.' + ("0"+(d.getMonth()+1)).slice(-2) + '.' + d.getFullYear();
-            }
-            return '';
-        }
-    },
-    // სვეტი 4: სტატუსი
-    {data: 'status_label', name: 'status_label', orderable: false, searchable: false, responsivePriority: 1},
-    // სვეტი 5: Picture
-    {data: 'show_photo',   name: 'show_photo',   orderable: false, searchable: false},
-    // სვეტი 6: Product
-    {data: 'product_info', name: 'product_info', orderable: false, searchable: false},
-    // სვეტი 7: Customer + Contact
-    {data: 'customer_name', name: 'customer_name'},
-    // სვეტი 8: Payment + Prices
-    {data: 'payment',      name: 'payment',      orderable: false, searchable: false},
-    // hidden: cross-reference (გაცვლა/დაბრუნების ბმული) — render-ში გამოიყენება
-    {data: 'cross_ref_html', name: 'cross_ref_html', orderable: false, searchable: false, visible: false},
-    // hidden: გასაერთიანებელი customer flag
-    {data: 'has_mergeable', name: 'has_mergeable', orderable: false, searchable: false, visible: false},
-    // hidden: children სტატუსებით
-    {data: 'children_by_status', name: 'children_by_status', orderable: false, searchable: false, visible: false},
+    // Hidden cols — სერვერის მონაცემები
+    { data: 'cross_ref_html',     name: 'cross_ref_html',     orderable: false, searchable: false, visible: false },
+    { data: 'has_mergeable',      name: 'has_mergeable',      orderable: false, searchable: false, visible: false },
+    { data: 'children_by_status', name: 'children_by_status', orderable: false, searchable: false, visible: false },
 ];
-
-if (isAdmin) {
-    columns.push({data: 'action', name: 'action', orderable: false, searchable: false, responsivePriority: 1});
-}
-
-// if (isAdmin) {
-//     columns.push({data: 'action', name: 'action', orderable: false, searchable: false});
-// }
 
 var table = $('#products-out-table').DataTable({
     processing: true,
@@ -486,7 +494,7 @@ var table = $('#products-out-table').DataTable({
     responsive: true,
     ajax: "{{ route('api.productsOut') }}",
     columns: columns,
-    order: [[2, 'desc']],
+    order: [[1, 'desc']],
     createdRow: function(row, data) {
         // გაცვლილი (status=6) — ღია მოიისფერი ფონი
         if (data.status_id == 6) {
@@ -701,11 +709,14 @@ function editForm(id) {
             $('#status_id_sale').val(data.status_id);
 
             // ─── order_address / order_alt_tel ────────────────────────
+            // null-ის შემთხვევაში customer-ის მისამართს არ ვაეწეროთ
             setTimeout(function() {
-                var orderAddr   = data.order_address || '';
-                var orderAltTel = data.order_alt_tel  || '';
-                $('#customer_address_input').val(orderAddr).data('original', orderAddr);
-                $('#customer_alt_tel_input').val(orderAltTel).data('original', orderAltTel);
+                if (data.order_address != null) {
+                    $('#customer_address_input').val(data.order_address).data('original', data.order_address);
+                }
+                if (data.order_alt_tel != null) {
+                    $('#customer_alt_tel_input').val(data.order_alt_tel).data('original', data.order_alt_tel);
+                }
             }, 80);
             // ─────────────────────────────────────────────────────────
 
@@ -1494,65 +1505,58 @@ $(document).on('click', '.expand-btn', function() {
 
     if (!children || children.length === 0) return;
 
+    var totalCols = columns.length;
+
     children.forEach(function(child) {
+        var bc = statusColorMap[child.status_color] || '#f39c12';
+
         var img = child.product_image
-            ? '<img src="' + child.product_image + '" style="width:45px;height:45px;object-fit:cover;border-radius:3px;">'
-            : '<span class="label label-default">No Img</span>';
-
-        var statusBadge = '<span class="label label-' + child.status_color + '">' + child.status_name + '</span>';
-// შვილ ორდერებს სტატუსის ხელით შეცვლა არ შეიძლება
-
-        // payment + prices გაერთიანება
-        var paymentPrices = '<span style="color:' + child.payment_color + '; font-weight:bold;">' + child.payment + '</span>'
-            + '<hr style="margin:4px 0;">'
-            + '<small><b>GE:</b> ' + child.price_georgia + ' ₾';
-        if (isAdmin) paymentPrices += ' &nbsp; <b>US:</b> ' + child.price_usa + ' $';
-        paymentPrices += '</small>';
-
-        // customer + contact გაერთიანება
-        var customerInfo = '<strong>' + child.customer_name + '</strong>'
-            + '<hr style="margin:3px 0;">'
-            + '<small>'
-            + '<i class="fa fa-map-marker"></i> ' + child.customer_city + ', ' + child.customer_address + '<br>'
-            + '<i class="fa fa-phone"></i> ' + child.customer_tel
-            + (child.customer_alt ? ' / ' + child.customer_alt : '')
-            + '</small>';
-
-        // actions
-        var deleteBtn2 = child.status_id == 4
-            ? '<span class="btn btn-danger btn-xs disabled" style="opacity:0.4;"><i class="fa fa-trash"></i></span> '
-            : '<a onclick="deleteData(' + child.id + ')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i></a> ';
-
-        var actions = isAdmin
-            ? '<a onclick="editForm(' + child.id + ')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i></a> ' +
-              deleteBtn2 +
-              '<a onclick="showStatusLog(' + child.id + ')" class="btn btn-warning btn-xs"><i class="fa fa-history"></i></a>'
+            ? '<img src="' + child.product_image + '" style="width:42px;height:42px;object-fit:cover;border-radius:4px;">'
             : '';
 
-        var crossRefHtml = '';
-        if (child.cross_ref && child.cross_ref.length > 0) {
-            crossRefHtml = '<div style="margin-top:2px;"><small style="color:#31708f; font-style:italic;">' + child.cross_ref + '</small></div>';
-        }
+        var productHtml = '<div style="font-weight:600;">' + child.product_name + '</div>'
+            + (child.product_code ? '<div style="color:#888; font-size:11px;">' + child.product_code + '</div>' : '')
+            + (child.product_size ? '<span class="label label-info" style="margin-top:2px;display:inline-block;">' + child.product_size + '</span>' : '');
 
-        var row = '<tr class="child-row-' + parentId + '" style="background:#fffde7;">' +
-            '<td style="padding-left:20px;"><i class="fa fa-level-up fa-rotate-90" style="color:#aaa;"></i>' +
-                '<div style="font-weight:600; color:#333; font-size:12px; margin-top:3px;">' + (child.order_number || ('#' + child.id)) + '</div>' +
-                crossRefHtml +
-            '</td>' +
-            '<td>' + child.created_at + '</td>' +
-            '<td>' + statusBadge + '</td>' +
-            '<td>' + img + '</td>' +
-            '<td><div>' + child.product_name + '</div>' +
-                '<small class="text-muted">' + child.product_code + '</small>' +
-                (child.product_size ? ' <span class="label label-info">' + child.product_size + '</span>' : '') +
-            '</td>' +
-            '<td>' + customerInfo + '</td>' +
-            '<td>' + paymentPrices + '</td>' +
-            '<td style="display:none;"></td>' + // cross_ref_html
-            '<td style="display:none;"></td>' + // has_mergeable
-            '<td style="display:none;"></td>' + // children_by_status
-            (isAdmin ? '<td>' + actions + '</td>' : '') +
-        '</tr>';
+        var customerHtml = '<strong>' + child.customer_name + '</strong><br>'
+            + '<i class="fa fa-map-marker"></i> ' + child.customer_city + ', ' + child.customer_address + '<br>'
+            + '<i class="fa fa-phone"></i> ' + child.customer_tel
+            + (child.customer_alt ? ' / ' + child.customer_alt : '');
+
+        var paymentHtml = '<span style="color:' + child.payment_color + '; font-weight:700;">' + child.payment + '</span>'
+            + '<br><small><b>GE:</b> ' + child.price_georgia + ' ₾';
+        if (isAdmin) paymentHtml += ' <b>US:</b> ' + child.price_usa + ' $';
+        paymentHtml += '</small>';
+
+        var deleteBtn2 = child.status_id == 4
+            ? '<span class="btn btn-danger btn-xs disabled" style="opacity:0.4;"><i class="fa fa-trash"></i></span>'
+            : '<a onclick="deleteData(' + child.id + ')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i></a>';
+
+        var actions = isAdmin
+            ? '<div style="display:flex;gap:3px;">'
+              + '<a onclick="editForm(' + child.id + ')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i></a>'
+              + deleteBtn2
+              + '<a onclick="showStatusLog(' + child.id + ')" class="btn btn-warning btn-xs"><i class="fa fa-history"></i></a>'
+              + '</div>'
+            : '';
+
+        var crossRefHtml = (child.cross_ref && child.cross_ref.length > 0)
+            ? '<small style="color:#31708f; font-style:italic;">' + child.cross_ref + '</small>'
+            : '';
+
+        var orderNo = child.order_number || ('#' + child.id);
+
+        var headerLeft = '<i class="fa fa-level-up fa-rotate-90" style="color:#bbb; font-size:11px;"></i>'
+            + '<strong style="font-size:12px; color:#333; white-space:nowrap;">' + orderNo + '</strong>'
+            + '<span class="label label-' + child.status_color + '">' + child.status_name + '</span>'
+            + '<small class="text-muted" style="white-space:nowrap;">' + child.created_at + '</small>'
+            + (crossRefHtml ? crossRefHtml : '');
+
+        var row = '<tr class="child-row-' + parentId + '" style="background:#fffde7;">'
+            + '<td colspan="' + totalCols + '" style="padding:4px 10px 6px;">'
+            + buildOrderCard(bc, headerLeft, actions, img, productHtml, customerHtml, paymentHtml)
+            + '</td>'
+            + '</tr>';
 
         parentRow.after(row);
     });

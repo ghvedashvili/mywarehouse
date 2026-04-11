@@ -1,26 +1,30 @@
 @extends('layouts.master')
 
 @section('content')
+<div class="p-2 p-md-3">
 <div class="card">
-    <div class="card-header d-flex align-items-center justify-content-between">
-        <span>System Users</span>
+    <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <span class="fw-bold">System Users</span>
         @if(Auth::user()->role === 'admin')
-        <a href="/register" class="btn btn-success btn-sm"><i class="fa fa-plus"></i> Add User</a>
+        <a href="/register" class="btn btn-success btn-sm"><i class="fa fa-plus me-1"></i> Add User</a>
         @endif
     </div>
-    <div class="card-body">
-        <table id="user-table" class="table table-bordered table-hover table-striped">
+    <div class="card-body p-2 p-md-3">
+        <div class="table-responsive">
+        <table id="user-table" class="table table-bordered table-hover table-striped w-100">
             <thead>
                 <tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr>
             </thead>
             <tbody></tbody>
         </table>
+        </div>{{-- /table-responsive --}}
     </div>
 </div>
+</div>{{-- /p-2 p-md-3 --}}
 
 @if(Auth::user()->role === 'admin')
 <div class="modal fade" id="role-modal" tabindex="-1">
-    <div class="modal-dialog modal-sm">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
         <div class="modal-content" style="border-radius:10px;">
             <div class="modal-header">
                 <h5 class="modal-title"><i class="fa fa-user-circle me-1"></i> როლის შეცვლა</h5>

@@ -194,7 +194,6 @@
         #main-content {
             margin-left: var(--sidebar-width);
             padding-top: var(--topbar-height);
-           
             min-height: calc(100vh - var(--topbar-height));
         }
 
@@ -263,9 +262,27 @@
             #topbar, #main-content, #footer {
                 left: 0;
                 margin-left: 0;
-                width: 100%; 
+                width: 100%;
             }
             #topbar .topbar-toggle { display: block; }
+
+            /* მოდალები full-screen small-ზე უკეთ გამოიყურება */
+            .modal-dialog:not(.modal-sm):not(.modal-dialog-centered) {
+                margin: 0.5rem;
+            }
+
+            /* DataTables filter/length კომპაქტური */
+            .dataTables_wrapper .dataTables_length,
+            .dataTables_wrapper .dataTables_filter {
+                text-align: left;
+                margin-bottom: 6px;
+            }
+
+            /* btn-xs უფრო კარგი touch target */
+            .btn-xs {
+                padding: 4px 10px;
+                font-size: 12px;
+            }
         }
 
         /* ── MODALS Bootstrap 5 ── */
