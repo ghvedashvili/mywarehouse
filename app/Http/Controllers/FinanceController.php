@@ -85,20 +85,22 @@ class FinanceController extends Controller
     // ════════════════════════════════════════════════════════════════
     private function buildStats(?string $from, ?string $to): array
     {
-        // ─── 1. sale + change შემოსავალი (status=4) ──────────────────
-        // sale   → ჩვეულებრივი გაყიდვა
-        // change → ახალი პროდუქტი (ძველის ნაცვლად) — ასევე შემოსავალი
-        // return → original sale-ის შემოსავალი მინუსდება (purchase იქმნება, change არ)
-        //          ამიტომ: return-ის original_sale_id-ს original sale-ს გამოვაკლებთ
+        // ─── 1. sale + change გაყიდვები ამ პერიოდში ─────────────────
+        // პრინციპი: გაყიდვა "ეკუთვნის" იმ პერიოდს, როდესაც მოხდა.
+        // დაბრუნება "ეკუთვნის" იმ პერიოდს, როდესაც კლიენტმა დააბრუნა.
+        // → გასული პერიოდის სტატისტიკა არასოდეს იცვლება.
 
+        // status_id IN (4,5): 4=გადაცემული კურიერს, 5=დაბრუნებული
+        // status=5 ვრთავთ რომ გასული პერიოდის sale ისტორიიდან არ გაქრეს
+        // როდესაც მოგვიანებით დაბრუნება მოხდა
         $ordersQuery = Product_Order::whereIn('order_type', ['sale', 'change'])
-            ->where('status_id', 4);
+            ->whereIn('status_id', [4, 5]);
 
         if ($from) $ordersQuery->whereDate('created_at', '>=', $from);
         if ($to)   $ordersQuery->whereDate('created_at', '<=', $to);
 
         $orders = $ordersQuery->get([
-            'id', 'order_type', 'original_sale_id',
+            'id', 'order_type',
             'price_georgia', 'price_usa', 'discount',
             'courier_price_international',
             'courier_price_tbilisi',
@@ -106,68 +108,95 @@ class FinanceController extends Controller
             'courier_price_village',
         ]);
 
-        // ─── 2. დაბრუნებული sale-ების ID-ები ────────────────────────
-        // return-ისას storeChange() ქმნის purchase order_type-ით status=1-ზე
-        // და original sale status=4-ზე რჩება — ამიტომ ვკვლევთ purchase-ებს
-        // რომლებიც comment-ში '↩ დაბრუნება' შეიცავს და original sale_id გვეხმარება
-        // უფრო სუფთა გზა: შევამოწმოთ არსებობს თუ არა purchase with comment '↩ დაბრუნება — Sale #X'
-        $returnedSaleIds = Product_Order::where('order_type', 'purchase')
-            ->where('comment', 'like', '↩ დაბრუნება — Sale #%')
-            ->pluck('comment')
-            ->map(function($c) {
-                preg_match('/Sale #(\d+)/', $c, $m);
-                return isset($m[1]) ? (int)$m[1] : null;
-            })
+        // ─── 2. დაბრუნებები, რომლებიც ამ პერიოდში მოხდა ────────────
+        // ვფილტრავთ return purchase-ების created_at-ით (დაბრუნების თარიღი)
+        // original_sale_id პირდაპირ გამოვიყენებთ (comment parsing-ის ნაცვლად)
+        $retQ = Product_Order::where('order_type', 'purchase')
+            ->whereNotNull('original_sale_id')
+            ->where('comment', 'like', '↩ დაბრუნება%');
+        if ($from) $retQ->whereDate('created_at', '>=', $from);
+        if ($to)   $retQ->whereDate('created_at', '<=', $to);
+
+        $returnedSaleIds = $retQ->pluck('original_sale_id')
             ->filter()
             ->toArray();
 
-        $saleRevenue   = 0;
-        $saleCostPrice = 0;
-        $saleCourier   = 0;
+        // original sale-ების მონაცემები (ნებისმიერი პერიოდიდან)
+        $returnedSaleData = Product_Order::whereIn('id', $returnedSaleIds)
+            ->get(['id', 'price_georgia', 'price_usa', 'discount',
+                   'courier_price_international',
+                   'courier_price_tbilisi', 'courier_price_region', 'courier_price_village'])
+            ->keyBy('id');
+
+        // helper
+        $extract = function($s) {
+            return [
+                (float)$s->price_georgia - (float)($s->discount ?? 0),
+                (float)($s->price_usa ?? 0) + (float)($s->courier_price_international ?? 0),
+                (float)($s->courier_price_tbilisi ?? 0)
+                    + (float)($s->courier_price_region  ?? 0)
+                    + (float)($s->courier_price_village ?? 0),
+            ];
+        };
+
+        $grossRevenue  = 0;  // გაყიდვების შემოსავალი (return-ამდე)
+        $grossCost     = 0;  // გაყიდვების თვითღირებულება (return-ამდე)
+        $grossCourier  = 0;  // გაყიდვების კურიერი (return-ამდე)
         $saleCount     = 0;
-        $returnCount   = 0;
-        $returnAmount  = 0;
         $changeCount   = 0;
 
         foreach ($orders as $s) {
-            $revenue  = (float)$s->price_georgia - (float)($s->discount ?? 0);
-            $cost     = (float)($s->price_usa ?? 0) + (float)($s->courier_price_international ?? 0);
-            $courier  = (float)($s->courier_price_tbilisi ?? 0)
-                      + (float)($s->courier_price_region  ?? 0)
-                      + (float)($s->courier_price_village ?? 0);
+            [$revenue, $cost, $courier] = $extract($s);
+            $grossRevenue += $revenue;
+            $grossCost    += $cost;
+            $grossCourier += $courier;
 
             if ($s->order_type === 'sale') {
-                // დაბრუნებული sale? — შემოსავალი მინუსდება
-                if (in_array($s->id, $returnedSaleIds)) {
-                    $saleRevenue   -= $revenue;
-                    $saleCostPrice -= $cost;
-                    $saleCourier   -= $courier;
-                    $returnCount++;
-                    $returnAmount  += $revenue;
-                } else {
-                    $saleRevenue   += $revenue;
-                    $saleCostPrice += $cost;
-                    $saleCourier   += $courier;
+                if (!in_array($s->id, $returnedSaleIds)) {
                     $saleCount++;
                 }
-            } elseif ($s->order_type === 'change') {
-                // გაცვლა — ახალი პროდუქტი, ახალი შემოსავალი
-                // (ძველი sale უცვლელი რჩება — ნეიტრალური სხვაობა ჩანს)
-                $saleRevenue   += $revenue;
-                $saleCostPrice += $cost;
-                $saleCourier   += $courier;
+            } else {
                 $changeCount++;
             }
         }
 
-        // ─── 2. დამატებითი შემოსავლები და ხარჯები ────────────────────
+        // ─── 3. ამ პერიოდში დაბრუნებები — ცალკე ხაზი ────────────────
+        $returnCount          = count($returnedSaleIds);
+        $returnAmount         = 0;   // დაბრუნებული თანხა (revenue-ს კორექცია)
+        $returnCostRecovery   = 0;   // გამოთავისუფლებული ღირებულება (cost-ის კორექცია)
+        $returnCourierExpense = 0;   // დაბრუნების კურიერი (ჩვენი გასავალი)
+
+        foreach ($returnedSaleData as $s) {
+            [$revenue, $cost, $courier] = $extract($s);
+            $returnAmount       += $revenue;
+            $returnCostRecovery += $cost + $courier;  // cost_price + original courier
+        }
+
+        // დაბრუნების კურიერი — return purchase order-ის courier ველებიდან
+        $retCourQ = Product_Order::where('order_type', 'purchase')
+            ->whereNotNull('original_sale_id')
+            ->where('comment', 'like', '↩ დაბრუნება%');
+        if ($from) $retCourQ->whereDate('created_at', '>=', $from);
+        if ($to)   $retCourQ->whereDate('created_at', '<=', $to);
+        $returnCourierExpense = (float) $retCourQ->selectRaw(
+            'SUM(courier_price_tbilisi + courier_price_region + courier_price_village) as total'
+        )->value('total');
+
+        // ─── 4. 净 (net) ციფრები ─────────────────────────────────────
+        // შემოსავლიდან გამოვაკლებ დაბრუნებას; ხარჯს ვამატებ courier-ს,
+        // გამოვაკლებ cost recovery-ს (ვითომ "გვიბრუნდება" ეს ღირებულება)
+        $saleRevenue   = $grossRevenue  - $returnAmount;
+        $saleCostPrice = $grossCost     - $returnCostRecovery;
+        $saleCourier   = $grossCourier  + $returnCourierExpense;
+
+        // ─── 5. დამატებითი შემოსავლები და ხარჯები ────────────────────
         $extraIncome  = (float) FinanceEntry::income()->forPeriod($from, $to)->sum('amount');
         $extraExpense = (float) FinanceEntry::expense()->forPeriod($from, $to)->sum('amount');
 
-        // ─── 3. ჯამური ──────────────────────────────────────────────
-        $totalRevenue = $saleRevenue + $extraIncome;
+        // ─── 6. ჯამური ───────────────────────────────────────────────
+        $totalRevenue = $saleRevenue   + $extraIncome;
         $totalCost    = $saleCostPrice + $saleCourier + $extraExpense;
-        $profit       = $totalRevenue - $totalCost;
+        $profit       = $totalRevenue  - $totalCost;
 
         // ─── 4. ხარჯების დაშლა კატეგორიებით ─────────────────────────
         $expenseByCategory = FinanceEntry::expense()
@@ -181,23 +210,27 @@ class FinanceController extends Controller
         $trend = $this->buildTrend();
 
         return [
-            'sale_count'           => $saleCount,
-            'return_count'         => $returnCount,
-            'return_amount'        => round($returnAmount,  2),
-            'change_count'         => $changeCount,
-            'sale_revenue'         => round($saleRevenue,   2),
-            'sale_cost_price'      => round($saleCostPrice, 2),
-            'sale_courier'         => round($saleCourier,   2),
-            'extra_income'         => round($extraIncome,   2),
-            'extra_expense'        => round($extraExpense,  2),
-            'total_revenue'        => round($totalRevenue,  2),
-            'total_cost'           => round($totalCost,     2),
-            'profit'               => round($profit,        2),
-            'profit_margin'        => $totalRevenue > 0
-                                        ? round(($profit / $totalRevenue) * 100, 1)
-                                        : 0,
-            'expense_by_category'  => $expenseByCategory,
-            'trend'                => $trend,
+            'sale_count'              => $saleCount,
+            'return_count'            => $returnCount,
+            'return_amount'           => round($returnAmount,         2),
+            'return_cost_recovery'    => round($returnCostRecovery,   2),
+            'return_courier_expense'  => round($returnCourierExpense, 2),
+            'change_count'            => $changeCount,
+            'gross_revenue'           => round($grossRevenue,          2),
+            'gross_sale_cost'         => round($grossCost + $grossCourier, 2),
+            'sale_revenue'            => round($saleRevenue,    2),
+            'sale_cost_price'         => round($saleCostPrice,  2),
+            'sale_courier'            => round($saleCourier,    2),
+            'extra_income'            => round($extraIncome,    2),
+            'extra_expense'           => round($extraExpense,   2),
+            'total_revenue'           => round($totalRevenue,   2),
+            'total_cost'              => round($totalCost,      2),
+            'profit'                  => round($profit,         2),
+            'profit_margin'           => $totalRevenue > 0
+                                           ? round(($profit / $totalRevenue) * 100, 1)
+                                           : 0,
+            'expense_by_category'     => $expenseByCategory,
+            'trend'                   => $trend,
         ];
     }
 
@@ -216,22 +249,26 @@ class FinanceController extends Controller
             $to   = Carbon::create($year, $month)->endOfMonth()->toDateString();
 
             $salesRaw = Product_Order::whereIn('order_type', ['sale', 'change'])
-                ->where('status_id', 4)
+                ->whereIn('status_id', [4, 5])
                 ->whereDate('created_at', '>=', $from)
                 ->whereDate('created_at', '<=', $to)
                 ->get(['id', 'order_type', 'price_georgia', 'price_usa', 'discount',
                        'courier_price_international', 'courier_price_tbilisi',
                        'courier_price_region', 'courier_price_village']);
 
-            // დაბრუნებული sale-ების ID-ები ამ პერიოდში
+            // დაბრუნებები ამ პერიოდში (created_at ფილტრით) — original_sale_id პირდაპირ
             $retIds = Product_Order::where('order_type', 'purchase')
-                ->where('comment', 'like', '↩ დაბრუნება — Sale #%')
-                ->pluck('comment')
-                ->map(function($c) {
-                    preg_match('/Sale #(\d+)/', $c, $m);
-                    return isset($m[1]) ? (int)$m[1] : null;
-                })
+                ->whereNotNull('original_sale_id')
+                ->where('comment', 'like', '↩ დაბრუნება%')
+                ->whereDate('created_at', '>=', $from)
+                ->whereDate('created_at', '<=', $to)
+                ->pluck('original_sale_id')
                 ->filter()->toArray();
+
+            $retData = Product_Order::whereIn('id', $retIds)
+                ->get(['id', 'price_georgia', 'price_usa', 'discount',
+                       'courier_price_international', 'courier_price_tbilisi',
+                       'courier_price_region', 'courier_price_village']);
 
             $rev  = 0; $cost = 0;
             foreach ($salesRaw as $s) {
@@ -241,11 +278,31 @@ class FinanceController extends Controller
                    + (float)($s->courier_price_tbilisi ?? 0)
                    + (float)($s->courier_price_region  ?? 0)
                    + (float)($s->courier_price_village ?? 0);
-
-                $sign = ($s->order_type === 'sale' && in_array($s->id, $retIds)) ? -1 : 1;
-                $rev  += $sign * $r;
-                $cost += $sign * $c;
+                $rev  += $r;
+                $cost += $c;
             }
+
+            // ამ პერიოდში დაბრუნებული original sale-ების კორექცია
+            foreach ($retData as $s) {
+                $r = (float)$s->price_georgia - (float)($s->discount ?? 0);
+                $c = (float)($s->price_usa ?? 0)
+                   + (float)($s->courier_price_international ?? 0)
+                   + (float)($s->courier_price_tbilisi ?? 0)
+                   + (float)($s->courier_price_region  ?? 0)
+                   + (float)($s->courier_price_village ?? 0);
+                $rev  -= $r;
+                $cost -= $c;
+            }
+
+            // დაბრუნების courier ხარჯი (return purchase-ის კურიერი)
+            $retCourier = (float) Product_Order::where('order_type', 'purchase')
+                ->whereNotNull('original_sale_id')
+                ->where('comment', 'like', '↩ დაბრუნება%')
+                ->whereDate('created_at', '>=', $from)
+                ->whereDate('created_at', '<=', $to)
+                ->selectRaw('SUM(courier_price_tbilisi + courier_price_region + courier_price_village) as total')
+                ->value('total');
+            $cost += $retCourier;
 
             $extraIncome  = (float) FinanceEntry::income()->forPeriod($from, $to)->sum('amount');
             $extraExpense = (float) FinanceEntry::expense()->forPeriod($from, $to)->sum('amount');

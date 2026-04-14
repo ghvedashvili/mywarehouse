@@ -261,13 +261,31 @@
         </div>
         <div class="kpi-card" style="--accent: var(--blue);">
             <div class="kpi-label">💵 შემოსავალი (სულ)</div>
-            <div class="kpi-value" id="kpi-total-rev">{{ number_format($stats['total_revenue'],2) }} ₾</div>
-            <div class="kpi-sub">გაყიდვები + დამატებითი</div>
+            <div class="kpi-value" id="kpi-total-rev">{{ number_format(max(0,$stats['gross_revenue']) + $stats['extra_income'],2) }} ₾</div>
+            <div class="kpi-sub" id="kpi-rev-sub">
+                @if($stats['return_amount'] > 0)
+                    <span style="color:var(--red);">↩ -{{ number_format($stats['return_amount'],2) }}₾ დაბრუნება</span>
+                    <span style="color:#888;"> | სუფთა: {{ number_format($stats['total_revenue'],2) }}₾</span>
+                @else
+                    გაყიდვები + დამატებითი
+                @endif
+            </div>
         </div>
         <div class="kpi-card" style="--accent: var(--red);">
             <div class="kpi-label">📤 გასავალი (სულ)</div>
-            <div class="kpi-value" id="kpi-total-cost">{{ number_format($stats['total_cost'],2) }} ₾</div>
-            <div class="kpi-sub">თვითღირებულება + ხარჯები</div>
+            {{-- ვაჩვენებთ gross ხარჯს (გაყიდვების + ხარჯები), recovery ცალკე sub-ში --}}
+            <div class="kpi-value" id="kpi-total-cost">{{ number_format($stats['gross_sale_cost'] + $stats['extra_expense'],2) }} ₾</div>
+            <div class="kpi-sub" id="kpi-cost-sub">
+                @if($stats['return_cost_recovery'] > 0)
+                    <span style="color:var(--green);">↩ -{{ number_format($stats['return_cost_recovery'],2) }}₾ საქ. ღირ. დაბრ.</span>
+                    @if($stats['return_courier_expense'] > 0)
+                        <span style="color:var(--red);"> | +{{ number_format($stats['return_courier_expense'],2) }}₾ დაბრ. კურ.</span>
+                    @endif
+                    <span style="color:#888;"> | სუფთა: {{ number_format($stats['total_cost'],2) }}₾</span>
+                @else
+                    თვითღირებულება + ხარჯები
+                @endif
+            </div>
         </div>
         <div class="kpi-card {{ $stats['profit'] >= 0 ? 'profit-positive' : 'profit-negative' }}" id="kpi-profit-card">
             <div class="kpi-label">{{ $stats['profit'] >= 0 ? '📈 მოგება' : '📉 წაგება' }}</div>
@@ -632,8 +650,31 @@ function updateUI(s) {
     document.getElementById('kpi-return-count').textContent  = s.return_count;
     document.getElementById('kpi-return-amount').textContent = '-' + fmt(s.return_amount);
     document.getElementById('kpi-change-count').textContent  = s.change_count;
-    document.getElementById('kpi-total-rev').textContent     = fmt(s.total_revenue);
-    document.getElementById('kpi-total-cost').textContent = fmt(s.total_cost);
+    // შემოსავალი — gross + extra (returns ცალკე sub-ში ჩანს)
+    const grossRev = Math.max(0, s.gross_revenue || 0) + (s.extra_income || 0);
+    document.getElementById('kpi-total-rev').textContent = fmt(grossRev);
+    const revSub = document.getElementById('kpi-rev-sub');
+    if (s.return_amount > 0) {
+        revSub.innerHTML = '<span style="color:var(--red);">↩ -' + fmt(s.return_amount) + ' დაბრუნება</span>'
+                         + '<span style="color:#888;"> | სუფთა: ' + fmt(s.total_revenue) + '</span>';
+    } else {
+        revSub.textContent = 'გაყიდვები + დამატებითი';
+    }
+
+    // გასავალი — gross (გაყიდვების ხარჯი), recovery ცალკე sub-ში
+    const grossCost = (s.gross_sale_cost || 0) + (s.extra_expense || 0);
+    document.getElementById('kpi-total-cost').textContent = fmt(grossCost);
+    const costSub = document.getElementById('kpi-cost-sub');
+    if (s.return_cost_recovery > 0) {
+        let costSubHtml = '<span style="color:var(--green);">↩ -' + fmt(s.return_cost_recovery) + ' საქ. ღირ. დაბრ.</span>';
+        if (s.return_courier_expense > 0) {
+            costSubHtml += '<span style="color:var(--red);"> | +' + fmt(s.return_courier_expense) + ' დაბრ. კურ.</span>';
+        }
+        costSubHtml += '<span style="color:#888;"> | სუფთა: ' + fmt(s.total_cost) + '</span>';
+        costSub.innerHTML = costSubHtml;
+    } else {
+        costSub.textContent = 'თვითღირებულება + ხარჯები';
+    }
     document.getElementById('kpi-profit').textContent     = fmt(s.profit);
     document.getElementById('kpi-margin').textContent     = 'მარჟა: ' + s.profit_margin + '%';
 

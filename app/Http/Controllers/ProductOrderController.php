@@ -1655,11 +1655,20 @@ class ProductOrderController extends Controller
             $oldProductId = (int) $originalSale->product_id;
             $oldSize      = $originalSale->product_size;
 
+            // ─── კურიერის ფასი მოდალიდან ─────────────────────────────
+            $courierModel = \App\Models\Courier::first();
+            $courierType  = $request->courier_type ?? 'none';
+            $cTbilisi = $cRegion = $cVillage = 0;
+            if ($courierType === 'tbilisi') $cTbilisi = $courierModel->tbilisi_price ?? 6;
+            if ($courierType === 'region')  $cRegion  = $courierModel->region_price  ?? 9;
+            if ($courierType === 'village') $cVillage = $courierModel->village_price ?? 13;
+
             // ─── 1. დაბრუნებული პროდუქტის purchase ორდერი ────────────
             // დაბრუნება  → paid_cash = price_georgia (100% გადახდილი)
             // გაცვლა     → discount  = price_georgia (100% ფასდაკლება)
             $isReturn = ($changeType === 'return');
 
+            // დაბრუნებისას კურიერი purchase-ს მიეკუთვნება, გაცვლისას — change ორდერს
             $sourcePurchase = Product_Order::create([
                 'order_type'                  => 'purchase',
                 'product_id'                  => $oldProductId,
@@ -1674,9 +1683,9 @@ class ProductOrderController extends Controller
                 'comment'                     => '↩ ' . ($isReturn ? 'დაბრუნება' : 'გაცვლა') .
                                                  ' — ' . ($originalSale->order_number ?? ('#' . $originalSale->id)),
                 'courier_price_international' => 0,
-                'courier_price_tbilisi'       => 0,
-                'courier_price_region'        => 0,
-                'courier_price_village'       => 0,
+                'courier_price_tbilisi'       => $isReturn ? $cTbilisi : 0,
+                'courier_price_region'        => $isReturn ? $cRegion  : 0,
+                'courier_price_village'       => $isReturn ? $cVillage : 0,
                 // ორივე შემთხვევა: discount = price_usa (100% ფასდაკლება თვითღირებულებაზე)
                 'discount'                    => $originalSale->price_usa,
                 'paid_tbc'                    => 0,
@@ -1752,9 +1761,9 @@ class ProductOrderController extends Controller
                 'paid_lib'                    => $paidLib,
                 'paid_cash'                   => $paidCash,
                 'courier_price_international' => 0,
-                'courier_price_tbilisi'       => $originalSale->courier_price_tbilisi,
-                'courier_price_region'        => $originalSale->courier_price_region,
-                'courier_price_village'       => $originalSale->courier_price_village,
+                'courier_price_tbilisi'       => $cTbilisi,
+                'courier_price_region'        => $cRegion,
+                'courier_price_village'       => $cVillage,
                 'comment'                     => $request->comment ?? null,
             ]);
 

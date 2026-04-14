@@ -18,6 +18,27 @@ class DatabaseSeeder extends Seeder
                 'password' => Hash::make('admin'), // ან შენი სასურველი პაროლი
                 'role'     => 'admin',
                 'created_at' => now()
+            ],
+            [
+                'name'     => 'Admin',
+                'email'    => 'ware1@mail.com',
+                'password' => Hash::make('admin'), // ან შენი სასურველი პაროლი
+                'role'     => 'warehouse_operator',
+                'created_at' => now()
+            ],
+            [
+                'name'     => 'Admin',
+                'email'    => 'ware2@mail.com',
+                'password' => Hash::make('admin'), // ან შენი სასურველი პაროლი
+                'role'     => 'warehouse_operator',
+                'created_at' => now()
+            ],
+            [
+                'name'     => 'Admin',
+                'email'    => 'sale@mail.com',
+                'password' => Hash::make('admin'), // ან შენი სასურველი პაროლი
+                'role'     => 'sale_operator',
+                'created_at' => now()
             ]
         ]);
 

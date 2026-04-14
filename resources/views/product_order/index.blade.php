@@ -375,6 +375,32 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                         </div>
                     </div>
 
+                    {{-- საკურიერო --}}
+                    <div class="form-group" style="margin-bottom:10px;">
+                        <label style="font-weight:600;"><i class="fa fa-truck"></i> კურიერი</label>
+                        <div style="display:flex; gap:14px; flex-wrap:wrap; background:#f4f4f4;
+                                    border:1px solid #ddd; border-radius:6px; padding:8px 12px;">
+                            <label style="margin:0; font-weight:normal; cursor:pointer;">
+                                <input type="radio" name="courier_type" value="none" checked> არ გამოიყენება
+                            </label>
+                            <label style="margin:0; font-weight:normal; cursor:pointer;">
+                                <input type="radio" name="courier_type" value="tbilisi">
+                                თბილისი (+{{ $courier->tbilisi_price ?? 6 }}₾)
+                            </label>
+                            <label style="margin:0; font-weight:normal; cursor:pointer;">
+                                <input type="radio" name="courier_type" value="region">
+                                რაიონი (+{{ $courier->region_price ?? 9 }}₾)
+                            </label>
+                            <label style="margin:0; font-weight:normal; cursor:pointer;">
+                                <input type="radio" name="courier_type" value="village">
+                                სოფელი (+{{ $courier->village_price ?? 13 }}₾)
+                            </label>
+                        </div>
+                        <div id="change-courier-note" style="font-size:11px; color:#888; margin-top:4px;">
+                            ↩ დაბრუნებისას — კურიერი შესყიდვაზე ჩაიწერება
+                        </div>
+                    </div>
+
                     {{-- გადახდა --}}
                     <div class="well well-sm" style="background:#f4f4f4; border:1px solid #ddd; padding:10px;">
                         <label style="font-weight:600; display:block; margin-bottom:6px;">
@@ -2059,6 +2085,12 @@ $(document).on('change', 'input[name="change_type"]', function() {
     var type = $(this).val();
     var origProductId = $('#form-change').data('orig-product-id');
     var origSize      = $('#form-change').data('orig-size');
+
+    // კურიერის შენიშვნა ტიპის მიხედვით
+    var note = type === 'return'
+        ? '↩ დაბრუნებისას — კურიერი შესყიდვაზე ჩაიწერება'
+        : '🔄 გაცვლისას — კურიერი ახალ sale ორდერზე ჩაიწერება';
+    $('#change-courier-note').text(note);
 
     if (type === 'return') {
         // დაბრუნება — product + ზომა ავტომატური, ჩაკეტილი
