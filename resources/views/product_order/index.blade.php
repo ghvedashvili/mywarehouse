@@ -88,9 +88,12 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
             <table id="products-out-table" class="table table-bordered table-striped w-100">
                 <thead class="fs-1">
     <tr>
-        <th style="width:110px;">№ / <input type="checkbox" id="check-all" title="ყველას მონიშვნა"></th>
+        <th style="width:105px;">№ / <input type="checkbox" id="check-all" title="ყველას მონიშვნა"></th>
         <th style="display:none;"></th> {{-- created_at — sort only --}}
-        <th>ორდერები</th>
+        <th>პროდუქტი</th>
+        <th>მომხმარებელი</th>
+        <th>ფინანსები</th>
+        <th>ღილაკები</th>
         <th style="display:none;"></th> {{-- cross_ref_html --}}
         <th style="display:none;"></th> {{-- has_mergeable --}}
         <th style="display:none;"></th> {{-- children_by_status --}}
@@ -209,6 +212,62 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     </div>
 </div>
     @include('product_Order.form_sale')
+
+{{-- ══ Quick Pay Modal ══════════════════════════════════════════ --}}
+<div class="modal fade" id="modal-quick-pay" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content" style="border-radius:10px;">
+            <div class="modal-header" style="background:#f8f9fa;">
+                <h5 class="modal-title"><i class="fa fa-credit-card me-1"></i> გადახდა</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="pay_order_id">
+                <input type="hidden" id="pay_price_hidden">
+
+                {{-- Product price --}}
+                <div style="background:#f0f0f0; border-radius:6px; padding:8px 12px; margin-bottom:12px; font-size:13px;">
+                    <div style="color:#888; font-size:11px; text-transform:uppercase; font-weight:700; margin-bottom:2px;">ფასი</div>
+                    <span id="pay_price_display" style="font-size:18px; font-weight:800; color:#2d3436;"></span>
+                </div>
+
+                {{-- Discount --}}
+                <div class="form-group mb-2">
+                    <label style="font-size:12px; font-weight:600; color:#636e72;">ფასდაკლება (₾)</label>
+                    <input type="number" id="pay_discount" class="form-control form-control-sm" step="0.01" min="0" value="0" oninput="calcPaySummary()">
+                </div>
+
+                {{-- Payments --}}
+                <div style="font-size:12px; font-weight:600; color:#636e72; margin-bottom:6px; text-transform:uppercase;">გადახდა</div>
+                <div class="input-group input-group-sm mb-1">
+                    <span class="input-group-text" style="width:50px;">TBC</span>
+                    <input type="number" id="pay_tbc" class="form-control" step="0.01" min="0" value="0" oninput="calcPaySummary()">
+                </div>
+                <div class="input-group input-group-sm mb-1">
+                    <span class="input-group-text" style="width:50px;">BOG</span>
+                    <input type="number" id="pay_bog" class="form-control" step="0.01" min="0" value="0" oninput="calcPaySummary()">
+                </div>
+                <div class="input-group input-group-sm mb-1">
+                    <span class="input-group-text" style="width:50px;">LIB</span>
+                    <input type="number" id="pay_lib" class="form-control" step="0.01" min="0" value="0" oninput="calcPaySummary()">
+                </div>
+                <div class="input-group input-group-sm mb-2">
+                    <span class="input-group-text" style="width:50px;">Cash</span>
+                    <input type="number" id="pay_cash" class="form-control" step="0.01" min="0" value="0" oninput="calcPaySummary()">
+                </div>
+
+                {{-- Summary --}}
+                <div id="pay_summary" style="text-align:center; font-size:13px; font-weight:700; padding:6px; border-radius:6px; background:#f8f9fa;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">გაუქმება</button>
+                <button type="button" class="btn btn-success btn-sm" id="btn-save-pay" onclick="savePayment()">
+                    <i class="fa fa-save"></i> შენახვა
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {{-- ═══════════════════════════════════════════════════════════ --}}
 {{-- 🔄 Change Order Modal                                       --}}
@@ -379,35 +438,17 @@ function fmtDate(dt) {
     return ('0'+d.getDate()).slice(-2) + '.' + ('0'+(d.getMonth()+1)).slice(-2) + '.' + d.getFullYear();
 }
 
-// card helper — მშობელი და შვილი ორდერისთვის
-function buildOrderCard(bc, headerLeft, headerRight, img, productHtml, customerHtml, paymentHtml) {
-    return '<div style="border-left:3px solid ' + bc + '; padding:4px 8px;">'
-        // header: სტატუსი + თარიღი + ბეჯები + cross_ref —— ღილაკები მარჯვნივ
-        + '<div style="display:flex; flex-wrap:wrap; align-items:flex-start; gap:4px; margin-bottom:5px;">'
-        + '<div style="flex:1; display:flex; flex-wrap:wrap; align-items:center; gap:4px; min-width:0;">'
-        + headerLeft
-        + '</div>'
-        + (headerRight ? '<div style="flex-shrink:0;">' + headerRight + '</div>' : '')
-        + '</div>'
-        // body: სურათი + პროდუქტი + კლიენტი + გადახდა
-        + '<div style="display:flex; flex-wrap:wrap; gap:8px; align-items:flex-start;">'
-        + (img ? '<div style="flex-shrink:0;">' + img + '</div>' : '')
-        + '<div style="flex:1; min-width:100px; font-size:12px;">' + productHtml + '</div>'
-        + '<div style="flex:1; min-width:100px; font-size:12px;">' + customerHtml + '</div>'
-        + '<div style="min-width:90px; font-size:12px;">' + paymentHtml + '</div>'
-        + '</div>'
-        + '</div>';
-}
-
 var columns = [
-    // Col 0: checkbox + ნომერი + expand chevron (ვიწრო, მხოლოდ იდენტობა)
+    // Col 0: № + checkbox + status + date + expand
     {
         data: null,
         orderable: false,
         searchable: false,
-        width: '85px',
+        responsivePriority: 1,
+        width: '105px',
         render: function(data) {
             var orderNo = data.order_number || ('S' + data.id);
+            var bc      = statusColorMap[data.status_color] || '#6c757d';
 
             var cb = (data.merged_id && !data.is_primary)
                 ? ''
@@ -416,73 +457,116 @@ var columns = [
             var mergeHint = '';
             if (data.has_mergeable && data.customer_id && data.status !== 'deleted') {
                 mergeHint = ' <span class="merge-search-btn" data-customer-id="' + data.customer_id + '" '
-                    + 'title="ამ კლიენტის სხვა ორდერებიც — დააჭირეთ გასაფილტრად" '
+                    + 'title="ამ კლიენტის სხვა ორდერები" '
                     + 'style="cursor:pointer; color:#e67e22; font-size:10px;"><i class="fa fa-search"></i></span>';
             }
 
-            // expand/child indicator — პატარა ხაზი ნომრის ქვემოთ
-            var below = '';
+            var expandBtn = '';
             if (data.is_primary && data.children_count > 0) {
                 window._childrenStore = window._childrenStore || {};
                 window._childrenStore[data.id] = Array.isArray(data.children_json)
                     ? data.children_json
                     : (typeof data.children_json === 'string' ? JSON.parse(data.children_json || '[]') : []);
-
-                below = '<div style="margin-top:3px;">'
+                expandBtn = '<div style="margin-top:3px;">'
                     + '<span class="expand-btn" data-id="' + data.id + '" style="cursor:pointer; color:#aaa; font-size:11px;">'
-                    + '<i class="fa fa-chevron-right"></i> <small style="font-size:10px; color:#bbb;">'
-                    + data.children_count + '</small>'
-                    + '</span>'
-                    + '</div>';
+                    + '<i class="fa fa-chevron-right"></i>'
+                    + ' <small style="font-size:10px; color:#bbb;">' + data.children_count + '</small>'
+                    + '</span></div>';
             } else if (!data.is_primary && data.merged_id) {
-                below = '<div style="margin-top:3px; color:#bbb; font-size:11px;"><i class="fa fa-level-up fa-rotate-90"></i></div>';
+                expandBtn = '<div style="margin-top:3px; color:#bbb; font-size:11px;"><i class="fa fa-level-up fa-rotate-90"></i></div>';
             }
 
-            return '<div>'
-                + '<div style="display:flex; align-items:center; gap:4px; flex-wrap:nowrap;">'
-                + cb
-                + '<small style="font-weight:700; color:#333; white-space:nowrap; font-size:11px;">' + orderNo + mergeHint + '</small>'
-                + '</div>'
-                + below
-                + '</div>';
-        }
-    },
-    // Col 1: created_at — hidden, for server-side sort only
-    { data: 'created_at', name: 'created_at', visible: false },
-    // Col 2: CARD — ყველა შინაარსი (status-colored left border)
-    {
-        data: null,
-        orderable: false,
-        searchable: false,
-        render: function(data) {
-            var bc       = statusColorMap[data.status_color] || '#6c757d';
-            var dt       = fmtDate(data.created_at);
-            var crossRef = data.cross_ref_html || '';
-
-            // ჯგუფ-სტატუს ბეჯები (merged parent-ისთვის)
             var groupBadges = '';
             if (data.is_primary && data.children_count > 0) {
                 var groups = Array.isArray(data.children_by_status)
                     ? data.children_by_status
                     : (typeof data.children_by_status === 'string' ? JSON.parse(data.children_by_status || '[]') : []);
                 groups.forEach(function(g) {
-                    groupBadges += '<span class="label label-' + g.color + '" style="font-size:10px; margin-right:2px;">'
-                        + '<i class="fa fa-cube" style="font-size:9px;"></i> ' + g.count + '</span>';
+                    groupBadges += '<span class="label label-' + g.color + '" style="font-size:9px; margin-right:2px;">'
+                        + '<i class="fa fa-cube" style="font-size:8px;"></i> ' + g.count + '</span>';
                 });
             }
 
-            var headerLeft = '<div>' + data.status_label + '</div>'
-                + (groupBadges ? '<span>' + groupBadges + '</span>' : '')
-                + '<small class="text-muted" style="white-space:nowrap;">' + dt + '</small>'
-                + (crossRef ? '<span>' + crossRef + '</span>' : '');
+            var dt       = fmtDate(data.created_at);
+            var crossRef = data.cross_ref_html || '';
 
-            var headerRight = data.action || '';
-
-            return buildOrderCard(bc, headerLeft, headerRight,
-                data.show_photo, data.product_info, data.customer_name, data.payment);
+            return '<div style="border-left:3px solid ' + bc + '; padding-left:6px;">'
+                + '<div style="display:flex; align-items:center; gap:4px; flex-wrap:nowrap; margin-bottom:3px;">'
+                + cb
+                + '<strong style="font-size:11px; color:#333; white-space:nowrap;">' + orderNo + '</strong>'
+                + mergeHint
+                + '</div>'
+                + data.status_label
+                + (groupBadges ? '<div style="margin-top:2px;">' + groupBadges + '</div>' : '')
+                + '<small class="text-muted" style="font-size:10px; display:block; margin-top:2px; white-space:nowrap;">' + dt + '</small>'
+                + (crossRef ? '<div style="font-size:10px; margin-top:2px;">' + crossRef + '</div>' : '')
+                + expandBtn
+                + '</div>';
         }
     },
-    // Hidden cols — სერვერის მონაცემები
+    // Col 1: created_at — hidden, for sort only
+    { data: 'created_at', name: 'created_at', visible: false },
+    // Col 2: Product
+    {
+        data: null,
+        orderable: false,
+        searchable: false,
+        responsivePriority: 3,
+        render: function(data) {
+            return '<div style="display:flex; gap:8px; align-items:flex-start;">'
+                + (data.show_photo ? '<div style="flex-shrink:0;">' + data.show_photo + '</div>' : '')
+                + '<div style="font-size:12px; min-width:0;">' + (data.product_info || '') + '</div>'
+                + '</div>';
+        }
+    },
+    // Col 3: Customer
+    {
+        data: null,
+        orderable: false,
+        searchable: false,
+        responsivePriority: 4,
+        render: function(data) {
+            return '<div style="font-size:12px;">' + (data.customer_name || '') + '</div>';
+        }
+    },
+    // Col 4: Payment
+    {
+        data: null,
+        orderable: false,
+        searchable: false,
+        responsivePriority: 5,
+        render: function(data) {
+            return '<div style="font-size:12px;">' + (data.payment || '') + '</div>';
+        }
+    },
+    // Col 5: Actions + pay button
+    {
+        data: null,
+        orderable: false,
+        searchable: false,
+        responsivePriority: 2,
+        render: function(data) {
+            if (data.status === 'deleted') return data.action || '';
+            var geo    = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
+            var paid   = parseFloat(data.paid_tbc  || 0) + parseFloat(data.paid_bog  || 0)
+                       + parseFloat(data.paid_lib  || 0) + parseFloat(data.paid_cash || 0);
+            var isPaid = (geo - paid) <= 0.01;
+            var payBtn = '<a onclick="openPayModal('
+                + data.id + ','
+                + (data.price_georgia || 0) + ','
+                + (data.discount  || 0) + ','
+                + (data.paid_tbc  || 0) + ','
+                + (data.paid_bog  || 0) + ','
+                + (data.paid_lib  || 0) + ','
+                + (data.paid_cash || 0)
+                + ')" class="btn btn-xs" title="გადახდა" '
+                + 'style="background:' + (isPaid ? '#198754' : '#dc3545') + ';color:#fff;">'
+                + '<i class="fa fa-credit-card"></i></a>';
+            // pay ღილაკი action HTML-ში ჩავსვათ d-flex div-ის შიგნით
+            return (data.action || '').replace('</div>', payBtn + '</div>');
+        }
+    },
+    // Hidden cols
     { data: 'cross_ref_html',     name: 'cross_ref_html',     orderable: false, searchable: false, visible: false },
     { data: 'has_mergeable',      name: 'has_mergeable',      orderable: false, searchable: false, visible: false },
     { data: 'children_by_status', name: 'children_by_status', orderable: false, searchable: false, visible: false },
@@ -1340,6 +1424,84 @@ function doSendMail(orderId, customerId, email, subject, body, saveEmail) {
         });
     }, 50); // 50ms საკმარისია render-ისთვის
 }
+// =====================
+// Quick Pay Modal
+// =====================
+function openPayModal(id, price, discount, tbc, bog, lib, cash) {
+    document.getElementById('pay_order_id').value    = id;
+    document.getElementById('pay_price_hidden').value = price || 0;
+    document.getElementById('pay_price_display').textContent = parseFloat(price || 0).toFixed(2) + ' ₾';
+    document.getElementById('pay_discount').value = discount || 0;
+    document.getElementById('pay_tbc').value       = tbc  || 0;
+    document.getElementById('pay_bog').value       = bog  || 0;
+    document.getElementById('pay_lib').value       = lib  || 0;
+    document.getElementById('pay_cash').value      = cash || 0;
+    calcPaySummary();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-quick-pay')).show();
+}
+
+function calcPaySummary() {
+    var price    = parseFloat(document.getElementById('pay_price_hidden').value || 0);
+    var discount = parseFloat(document.getElementById('pay_discount').value || 0);
+    var tbc      = parseFloat(document.getElementById('pay_tbc').value  || 0);
+    var bog      = parseFloat(document.getElementById('pay_bog').value  || 0);
+    var lib      = parseFloat(document.getElementById('pay_lib').value  || 0);
+    var cash     = parseFloat(document.getElementById('pay_cash').value || 0);
+
+    var total = price - discount;
+    var paid  = tbc + bog + lib + cash;
+    var diff  = paid - total;
+
+    var el = document.getElementById('pay_summary');
+    if (diff < -0.01) {
+        el.style.background = '#fdecea';
+        el.style.color      = '#c0392b';
+        el.textContent      = 'აკლია: ' + Math.abs(diff).toFixed(2) + ' ₾  (გასასტუმრებელი: ' + total.toFixed(2) + ' ₾)';
+    } else if (diff > 0.01) {
+        el.style.background = '#e8f8f5';
+        el.style.color      = '#1e8449';
+        el.textContent      = 'ზედმეტია: ' + diff.toFixed(2) + ' ₾';
+    } else {
+        el.style.background = '#e8f8f5';
+        el.style.color      = '#1e8449';
+        el.textContent      = '✓ სრულად გადახდილია (' + total.toFixed(2) + ' ₾)';
+    }
+}
+
+function savePayment() {
+    var id   = document.getElementById('pay_order_id').value;
+    var btn  = document.getElementById('btn-save-pay');
+    btn.disabled = true;
+
+    fetch('{{ url("productsOut") }}/' + id + '/payment', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Content-Type': 'application/json',
+            'Accept':       'application/json',
+        },
+        body: JSON.stringify({
+            _method:   'PATCH',
+            paid_tbc:  parseFloat(document.getElementById('pay_tbc').value  || 0),
+            paid_bog:  parseFloat(document.getElementById('pay_bog').value  || 0),
+            paid_lib:  parseFloat(document.getElementById('pay_lib').value  || 0),
+            paid_cash: parseFloat(document.getElementById('pay_cash').value || 0),
+            discount:  parseFloat(document.getElementById('pay_discount').value || 0),
+        }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (res.success) {
+            bootstrap.Modal.getInstance(document.getElementById('modal-quick-pay')).hide();
+            table.ajax.reload(null, false);
+        } else {
+            alert(res.message || 'შეცდომა');
+        }
+    })
+    .catch(function() { alert('სერვერის შეცდომა'); })
+    .finally(function() { btn.disabled = false; });
+}
+
 function showStatusLog(orderId) {
     $('#status-log-body').html('<tr><td colspan="4" class="text-center">იტვირთება...</td></tr>');
     $('#modal-status-log').modal('show');
@@ -1508,55 +1670,93 @@ $(document).on('click', '.expand-btn', function() {
     var totalCols = columns.length;
 
     children.forEach(function(child) {
-        var bc = statusColorMap[child.status_color] || '#f39c12';
+        var bc     = statusColorMap[child.status_color] || '#f39c12';
+        var orderNo = child.order_number || ('#' + child.id);
 
-        var img = child.product_image
-            ? '<img src="' + child.product_image + '" style="width:42px;height:42px;object-fit:cover;border-radius:4px;">'
+        // ── Col 0: № + status + date ──────────────────────────────
+        var crossRefHtml = (child.cross_ref && child.cross_ref.length > 0)
+            ? '<div style="font-size:10px; color:#31708f; font-style:italic; margin-top:2px;">' + child.cross_ref + '</div>'
             : '';
+        var col0 = '<div style="border-left:3px solid ' + bc + '; padding-left:6px;">'
+            + '<div style="display:flex; align-items:center; gap:4px; margin-bottom:3px;">'
+            + '<i class="fa fa-level-up fa-rotate-90" style="color:#bbb; font-size:11px;"></i>'
+            + '<strong style="font-size:11px; color:#333; white-space:nowrap;">' + orderNo + '</strong>'
+            + '</div>'
+            + '<span class="label label-' + child.status_color + '">' + child.status_name + '</span>'
+            + '<small class="text-muted" style="font-size:10px; display:block; margin-top:2px; white-space:nowrap;">' + child.created_at + '</small>'
+            + crossRefHtml
+            + '</div>';
 
-        var productHtml = '<div style="font-weight:600;">' + child.product_name + '</div>'
+        // ── Col 1: Product ────────────────────────────────────────
+        var img = child.product_image
+            ? '<img src="' + child.product_image + '" style="width:42px;height:42px;object-fit:cover;border-radius:4px;" class="img-zoom-trigger">'
+            : '';
+        var col1 = '<div style="display:flex; gap:8px; align-items:flex-start;">'
+            + (img ? '<div style="flex-shrink:0;">' + img + '</div>' : '')
+            + '<div style="font-size:12px;">'
+            + '<div style="font-weight:600;">' + child.product_name + '</div>'
             + (child.product_code ? '<div style="color:#888; font-size:11px;">' + child.product_code + '</div>' : '')
-            + (child.product_size ? '<span class="label label-info" style="margin-top:2px;display:inline-block;">' + child.product_size + '</span>' : '');
+            + (child.product_size ? '<span class="label label-info" style="margin-top:2px; display:inline-block;">' + child.product_size + '</span>' : '')
+            + '</div>'
+            + '</div>';
 
-        var customerHtml = '<strong>' + child.customer_name + '</strong><br>'
+        // ── Col 2: Customer ───────────────────────────────────────
+        var col2 = '<div style="font-size:12px;">'
+            + '<strong>' + child.customer_name + '</strong><br>'
             + '<i class="fa fa-map-marker"></i> ' + child.customer_city + ', ' + child.customer_address + '<br>'
             + '<i class="fa fa-phone"></i> ' + child.customer_tel
-            + (child.customer_alt ? ' / ' + child.customer_alt : '');
+            + (child.customer_alt ? ' / ' + child.customer_alt : '')
+            + '</div>';
 
-        var paymentHtml = '<span style="color:' + child.payment_color + '; font-weight:700;">' + child.payment + '</span>'
-            + '<br><small><b>GE:</b> ' + child.price_georgia + ' ₾';
-        if (isAdmin) paymentHtml += ' <b>US:</b> ' + child.price_usa + ' $';
-        paymentHtml += '</small>';
+        // ── Col 3: Payment ────────────────────────────────────────
+        var col3 = '<div style="font-size:12px;">'
+            + '<span style="color:' + child.payment_color + '; font-weight:700;">' + child.payment + '</span><br>'
+            + '<small><b>GE:</b> ' + child.price_georgia + ' ₾'
+            + (isAdmin ? ' <b>US:</b> ' + child.price_usa + ' $' : '')
+            + '</small>'
+            + '</div>';
 
+        // ── Col 4: Actions ────────────────────────────────────────
         var deleteBtn2 = child.status_id == 4
             ? '<span class="btn btn-danger btn-xs disabled" style="opacity:0.4;"><i class="fa fa-trash"></i></span>'
             : '<a onclick="deleteData(' + child.id + ')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i></a>';
 
-        var actions = isAdmin
-            ? '<div style="display:flex;gap:3px;">'
+        var chGeo    = parseFloat(child.price_georgia || 0) - parseFloat(child.discount || 0);
+        var chPaid   = parseFloat(child.paid_tbc || 0) + parseFloat(child.paid_bog || 0)
+                     + parseFloat(child.paid_lib || 0) + parseFloat(child.paid_cash || 0);
+        var chIsPaid = (chGeo - chPaid) <= 0.01;
+        var chPayBtn = '<a onclick="openPayModal('
+            + child.id + ','
+            + (child.price_georgia || 0) + ','
+            + (child.discount  || 0) + ','
+            + (child.paid_tbc  || 0) + ','
+            + (child.paid_bog  || 0) + ','
+            + (child.paid_lib  || 0) + ','
+            + (child.paid_cash || 0)
+            + ')" class="btn btn-xs" title="გადახდა" '
+            + 'style="background:' + (chIsPaid ? '#198754' : '#dc3545') + ';color:#fff;">'
+            + '<i class="fa fa-credit-card"></i></a>';
+
+        var col4 = isAdmin
+            ? '<div style="display:flex; flex-wrap:wrap; gap:3px;">'
               + '<a onclick="editForm(' + child.id + ')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i></a>'
               + deleteBtn2
               + '<a onclick="showStatusLog(' + child.id + ')" class="btn btn-warning btn-xs"><i class="fa fa-history"></i></a>'
+              + chPayBtn
               + '</div>'
-            : '';
+            : chPayBtn;
 
-        var crossRefHtml = (child.cross_ref && child.cross_ref.length > 0)
-            ? '<small style="color:#31708f; font-style:italic;">' + child.cross_ref + '</small>'
-            : '';
-
-        var orderNo = child.order_number || ('#' + child.id);
-
-        var headerLeft = '<i class="fa fa-level-up fa-rotate-90" style="color:#bbb; font-size:11px;"></i>'
-            + '<strong style="font-size:12px; color:#333; white-space:nowrap;">' + orderNo + '</strong>'
-            + '<span class="label label-' + child.status_color + '">' + child.status_name + '</span>'
-            + '<small class="text-muted" style="white-space:nowrap;">' + child.created_at + '</small>'
-            + (crossRefHtml ? crossRefHtml : '');
-
+        // ── Child row ─────────────────────────────────────────────
         var row = '<tr class="child-row-' + parentId + '" style="background:#fffde7;">'
             + '<td colspan="' + totalCols + '" style="padding:4px 10px 6px;">'
-            + buildOrderCard(bc, headerLeft, actions, img, productHtml, customerHtml, paymentHtml)
-            + '</td>'
-            + '</tr>';
+            + '<div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-start;">'
+            + '<div style="min-width:100px; width:105px; flex-shrink:0;">' + col0 + '</div>'
+            + '<div style="flex:2; min-width:150px;">'                      + col1 + '</div>'
+            + '<div style="flex:2; min-width:140px;">'                      + col2 + '</div>'
+            + '<div style="flex:1; min-width:90px;">'                       + col3 + '</div>'
+            + '<div style="flex-shrink:0;">'                                + col4 + '</div>'
+            + '</div>'
+            + '</td></tr>';
 
         parentRow.after(row);
     });
@@ -1579,7 +1779,8 @@ function mergeUpdateStatus(primaryId, mergedId) {
         showCancelButton: true,
         confirmButtonText: 'დიახ',
         cancelButtonText: 'გაუქმება'
-    }).then(function() {
+    }).then(function(result) {
+        if (!result.isConfirmed) return;
         $.ajax({
             url: "{{ url('productsOut/mergeStatus') }}",
             type: "POST",
@@ -1629,7 +1830,8 @@ window.sendSingleToCourier = function(id) {
         confirmButtonColor: '#00a65a',
         cancelButtonText: 'გაუქმება',
         confirmButtonText: 'დიახ, გაგზავნა!'
-    }).then(function() {
+    }).then(function(result) {
+        if (!result.isConfirmed) return;
         $.ajax({
             url: "{{ url('productsOut') }}/" + id + "/send-to-courier",
             type: 'POST',

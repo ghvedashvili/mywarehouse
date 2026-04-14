@@ -616,7 +616,16 @@ class ProductOrderController extends Controller
         }
 
         if ($request->debt_only == 1) {
-            $query->whereRaw('(price_georgia - IFNULL(discount,0)) > (IFNULL(paid_tbc,0) + IFNULL(paid_bog,0) + IFNULL(paid_lib,0) + IFNULL(paid_cash,0))');
+            $debtRaw = '(price_georgia - IFNULL(discount,0)) > (IFNULL(paid_tbc,0) + IFNULL(paid_bog,0) + IFNULL(paid_lib,0) + IFNULL(paid_cash,0))';
+            $query->where(function ($q) use ($debtRaw) {
+                // ან თვითონ ორდერს აქვს დავალიანება
+                $q->whereRaw($debtRaw)
+                // ან primary-ია და მის შვილს აქვს დავალიანება
+                  ->orWhere(function ($q2) use ($debtRaw) {
+                      $q2->where('is_primary', 1)
+                         ->whereHas('siblings', fn($sq) => $sq->whereRaw($debtRaw));
+                  });
+            });
         }
 
         if ($request->get('show_deleted') == 1) {
@@ -868,6 +877,11 @@ class ProductOrderController extends Controller
                         'created_at'       => $child->created_at ? $child->created_at->format('d.m.Y') : '-',
                         'payment'          => $payment,
                         'payment_color'    => $paymentColor,
+                        'discount'         => $child->discount  ?? 0,
+                        'paid_tbc'         => $child->paid_tbc  ?? 0,
+                        'paid_bog'         => $child->paid_bog  ?? 0,
+                        'paid_lib'         => $child->paid_lib  ?? 0,
+                        'paid_cash'        => $child->paid_cash ?? 0,
                     ];
                 })->values()->toArray();
             })
@@ -1156,6 +1170,28 @@ class ProductOrderController extends Controller
         $product_Order = Product_Order::with(['product', 'customer', 'orderStatus'])->get();
         $pdf = Pdf::loadView('product_Order.productOrderAllPDF', compact('product_Order'));
         return $pdf->download('all_orders.pdf');
+    }
+
+    public function updatePayment(Request $request, $id)
+    {
+        $request->validate([
+            'paid_tbc'  => 'nullable|numeric|min:0',
+            'paid_bog'  => 'nullable|numeric|min:0',
+            'paid_lib'  => 'nullable|numeric|min:0',
+            'paid_cash' => 'nullable|numeric|min:0',
+            'discount'  => 'nullable|numeric|min:0',
+        ]);
+
+        $order = Product_Order::findOrFail($id);
+        $order->update([
+            'paid_tbc'  => $request->input('paid_tbc',  0),
+            'paid_bog'  => $request->input('paid_bog',  0),
+            'paid_lib'  => $request->input('paid_lib',  0),
+            'paid_cash' => $request->input('paid_cash', 0),
+            'discount'  => $request->input('discount',  $order->discount ?? 0),
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'გადახდა განახლდა ✅']);
     }
 
     public function updateStatus(Request $request, $id)
