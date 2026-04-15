@@ -201,10 +201,10 @@ class PurchaseService
 
         foreach ($pendingSales as $sale) {
             $stock->refresh();
-            // status=2: incoming - reserved; status=3: physical - reserved (ორივე ჯავშანში ითვლება)
+            // status=2: incoming - reserved; status=3: physical - defect - reserved
             $available = $purchaseStatus == 2
                 ? $stock->incoming_qty - $stock->reserved_qty
-                : $stock->physical_qty - $stock->reserved_qty;
+                : $stock->physical_qty - $stock->defect_qty - $stock->reserved_qty;
 
             if ($available <= 0) break;
 
@@ -240,10 +240,10 @@ class PurchaseService
             $nextPurchase = FifoService::getNextPurchase($productId, $size);
             if (!$nextPurchase) break;
 
-            // status=2: incoming - reserved; status=3: physical - reserved
+            // status=2: incoming - reserved; status=3: physical - defect - reserved
             $available = $nextPurchase->status_id == 2
                 ? $stock->incoming_qty - $stock->reserved_qty
-                : $stock->physical_qty - $stock->reserved_qty;
+                : $stock->physical_qty - $stock->defect_qty - $stock->reserved_qty;
 
             if ($available <= 0) break;
 
@@ -279,10 +279,10 @@ class PurchaseService
             $nextPurchase = FifoService::getNextPurchase($productId, $size);
             if (!$nextPurchase) break;
 
-            // status=2: incoming - reserved; status=3: physical - reserved
+            // status=2: incoming - reserved; status=3: physical - defect - reserved
             $available = $nextPurchase->status_id == 2
                 ? $stock->incoming_qty - $stock->reserved_qty
-                : $stock->physical_qty - $stock->reserved_qty;
+                : $stock->physical_qty - $stock->defect_qty - $stock->reserved_qty;
 
             if ($available <= 0) break;
 

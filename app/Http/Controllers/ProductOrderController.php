@@ -274,7 +274,7 @@ class ProductOrderController extends Controller
                                 if ($oldStock) $oldStock->refresh();
 
                                 $available = $oldStock
-                                    ? ($oldStock->incoming_qty + $oldStock->physical_qty) - $oldStock->reserved_qty
+                                    ? ($oldStock->incoming_qty + $oldStock->physical_qty - $oldStock->defect_qty - $oldStock->reserved_qty)
                                     : 0;
 
                                 if ($available <= 0) break;
@@ -1263,7 +1263,7 @@ class ProductOrderController extends Controller
                                                   ->first();
 
                     $available = $stock
-                        ? ($stock->physical_qty + $stock->incoming_qty - $stock->reserved_qty)
+                        ? ($stock->physical_qty + $stock->incoming_qty - $stock->defect_qty - $stock->reserved_qty)
                         : 0;
 
                     if ($available > 0) {
@@ -1732,9 +1732,9 @@ class ProductOrderController extends Controller
             $newStatus = 1;
 
             if ($newStock) {
-                $available = $newStock->physical_qty + $newStock->incoming_qty - $newStock->reserved_qty;
+                $available = $newStock->physical_qty + $newStock->incoming_qty - $newStock->defect_qty - $newStock->reserved_qty;
                 if ($available > 0) {
-                    $newStatus = $newStock->physical_qty > $newStock->reserved_qty ? 3 : 2;
+                    $newStatus = ($newStock->physical_qty - $newStock->defect_qty) > $newStock->reserved_qty ? 3 : 2;
                 }
             }
 
