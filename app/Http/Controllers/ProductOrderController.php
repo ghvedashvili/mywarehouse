@@ -39,7 +39,7 @@ class ProductOrderController extends Controller
         $statuses  = OrderStatus::all();
         $courier   = Courier::first();
 
-        return view('product_Order.index', compact('products', 'customers', 'statuses', 'all_products', 'cities', 'courier'));
+        return view('product_order.index', compact('products', 'customers', 'statuses', 'all_products', 'cities', 'courier'));
     }
 
     public function store(Request $request)

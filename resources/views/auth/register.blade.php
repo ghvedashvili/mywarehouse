@@ -15,7 +15,6 @@
 </style>
 @stop
 @section('content')
-<!-- Log on to codeastro.com for more projects! -->
 <div class="box box-success">
 
     <div class="box-header">
