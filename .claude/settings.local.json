@@ -4,7 +4,8 @@
       "Bash(php -l \"c:/xampp/htdocs/mywarehouse/app/Http/Controllers/FinanceController.php\")",
       "Bash(php -l \"c:/xampp/htdocs/mywarehouse/app/Http/Controllers/ProductOrderController.php\")",
       "Bash(php -l \"c:/xampp/htdocs/mywarehouse/resources/views/product_order/index.blade.php\")",
-      "Bash(php -l \"c:/xampp/htdocs/mywarehouse/resources/views/finance/index.blade.php\")"
+      "Bash(php -l \"c:/xampp/htdocs/mywarehouse/resources/views/finance/index.blade.php\")",
+      "Bash(xargs grep:*)"
     ]
   }
 }

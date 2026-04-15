@@ -67,11 +67,34 @@
                                            class="form-control fw-bold" style="color:#357ca5;"
                                            step="0.01" min="0" placeholder="0.00">
                                 </div>
-                                <div class="col-6 col-sm-3 col-md-2">
+                                <div class="col-6 col-sm-3 col-md-2" id="purchase_transport_wrap">
                                     <label class="form-label fw-semibold">ტრანსპ. ($)</label>
                                     <input type="number" id="purchase_transport_input"
                                            class="form-control fw-bold" style="color:#8e44ad;"
                                            step="0.01" min="0" placeholder="0.00">
+                                </div>
+                            </div>
+
+                            {{-- საკურიეო (return/exchange purchase-ისთვის) --}}
+                            <div id="purchase_courier_section" style="display:none;" class="p-2 border rounded bg-light mb-2">
+                                <div class="fw-semibold mb-2" style="font-size:13px;">საკურიეო (₾)</div>
+                                <div class="d-flex flex-wrap gap-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="purchase_courier_type" id="pc_none" value="none" checked>
+                                        <label class="form-check-label" for="pc_none">არ არის</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="purchase_courier_type" id="pc_tbilisi" value="tbilisi">
+                                        <label class="form-check-label" for="pc_tbilisi">თბილისი</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="purchase_courier_type" id="pc_region" value="region">
+                                        <label class="form-check-label" for="pc_region">რეგიონი</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="purchase_courier_type" id="pc_village" value="village">
+                                        <label class="form-check-label" for="pc_village">სოფელი</label>
+                                    </div>
                                 </div>
                             </div>
 

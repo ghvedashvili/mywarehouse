@@ -405,6 +405,11 @@ $(function() {
         $('#purchase_cost_price_display').text('$0.00');
         $('#purchase_transport_hidden').val(0);
         $('#purchase_summary_text').html('<span class="text-muted">შეიყვანეთ მონაცემები</span>');
+        // ── status reset & courier section reset ──
+        $('#purchase_status_id').prop('disabled', false).val($('#purchase_status_id option:first').val());
+        $('#purchase_transport_wrap').show();
+        $('#purchase_courier_section').hide();
+        $('input[name="purchase_courier_type"][value="none"]').prop('checked', true);
         $('#modal-purchase').modal('show');
     };
 
@@ -449,12 +454,28 @@ $(function() {
             $('#purchase_transport_hidden').val(transport);
 
             $('#purchase_discount').val(data.discount || 0);
-            $('#purchase_status_id').val(data.status_id);
+            $('#purchase_status_id').prop('disabled', false).val(data.status_id);
             $('[name="paid_tbc"]', '#form-purchase').val(data.paid_tbc || 0);
             $('[name="paid_bog"]', '#form-purchase').val(data.paid_bog || 0);
             $('[name="paid_lib"]', '#form-purchase').val(data.paid_lib || 0);
             $('[name="paid_cash"]', '#form-purchase').val(data.paid_cash || 0);
             $('#purchase_comment').val(data.comment || '');
+
+            // ─── return/exchange purchase: courier radios, hide transport ──
+            var isReturn = data.is_return_purchase || 0;
+            if (isReturn) {
+                $('#purchase_transport_wrap').hide();
+                $('#purchase_courier_section').show();
+                var cType = 'none';
+                if ((data.courier_price_tbilisi || 0) > 0) cType = 'tbilisi';
+                else if ((data.courier_price_region || 0) > 0) cType = 'region';
+                else if ((data.courier_price_village || 0) > 0) cType = 'village';
+                $('input[name="purchase_courier_type"][value="' + cType + '"]').prop('checked', true);
+            } else {
+                $('#purchase_transport_wrap').show();
+                $('#purchase_courier_section').hide();
+                $('input[name="purchase_courier_type"][value="none"]').prop('checked', true);
+            }
 
             // ─── lock თუ გაყიდვა მოხდა ──────────────────────────────────
             var courierCount = data.courier_count || 0;
@@ -485,6 +506,9 @@ $(function() {
             .prop('disabled', false).css('background', '');
         $('#purchase_qty').removeAttr('min').css('background', '');
         $('#purchase-courier-lock-msg').remove();
+        $('#purchase_transport_wrap').show();
+        $('#purchase_courier_section').hide();
+        $('input[name="purchase_courier_type"][value="none"]').prop('checked', true);
     });
 
     // ══ DELETE ══

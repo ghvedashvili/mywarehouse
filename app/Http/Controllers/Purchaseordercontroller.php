@@ -167,7 +167,8 @@ class PurchaseOrderController extends Controller
             ->whereIn('status_id', [4, 5, 6])
             ->count();
 
-        $order->product_name = $order->product->name ?? 'Purchase #' . $id;
+        $order->product_name      = $order->product->name ?? 'Purchase #' . $id;
+        $order->is_return_purchase = $order->original_sale_id !== null ? 1 : 0;
 
         return response()->json($order);
     }
@@ -191,8 +192,24 @@ class PurchaseOrderController extends Controller
             $oldProduct   = (int) $order->product_id;
             $newProduct   = (int) $request->product_id;
             $qtyDiff      = $newQty - $oldQty;
-            $newCostPrice = ($request->price_usa ?? 0) + ($request->courier_price_international ?? 0);
             $keyChanged   = ($oldSize !== $newSize || $oldProduct !== $newProduct);
+
+            // ─── courier prices: return/exchange purchases use radio; regular use international ──
+            $isReturnPurchase = $order->original_sale_id !== null;
+            if ($isReturnPurchase) {
+                $courierModel  = \App\Models\Courier::first();
+                $courierType   = $request->purchase_courier_type ?? 'none';
+                $cTbilisi = $cRegion = $cVillage = 0;
+                if ($courierType === 'tbilisi') $cTbilisi = $courierModel->tbilisi_price ?? 6;
+                if ($courierType === 'region')  $cRegion  = $courierModel->region_price  ?? 9;
+                if ($courierType === 'village') $cVillage = $courierModel->village_price ?? 13;
+                $cInternational = 0;
+            } else {
+                $cTbilisi = $cRegion = $cVillage = 0;
+                $cInternational = $request->courier_price_international ?? 0;
+            }
+
+            $newCostPrice = ($request->price_usa ?? 0) + $cInternational;
 
             // ─── ამ purchase-დან ოდესმე გაყიდვა მოხდა? ───────────────────
             $courierCount = Product_Order::withoutGlobalScope('active')
@@ -296,7 +313,10 @@ class PurchaseOrderController extends Controller
                     'price_georgia'               => $request->price_georgia ?? $order->price_georgia,
                     'price_usa'                   => $request->price_usa ?? 0,
                     'cost_price'                  => $newCostPrice,
-                    'courier_price_international' => $request->courier_price_international ?? 0,
+                    'courier_price_international' => $cInternational,
+                    'courier_price_tbilisi'       => $cTbilisi,
+                    'courier_price_region'        => $cRegion,
+                    'courier_price_village'       => $cVillage,
                     'discount'                    => $request->discount ?? 0,
                     'paid_tbc'                    => $request->paid_tbc ?? 0,
                     'paid_bog'                    => $request->paid_bog ?? 0,
@@ -325,7 +345,10 @@ class PurchaseOrderController extends Controller
                     'price_georgia'               => $request->price_georgia ?? $order->price_georgia,
                     'price_usa'                   => $request->price_usa ?? 0,
                     'cost_price'                  => $newCostPrice,
-                    'courier_price_international' => $request->courier_price_international ?? 0,
+                    'courier_price_international' => $cInternational,
+                    'courier_price_tbilisi'       => $cTbilisi,
+                    'courier_price_region'        => $cRegion,
+                    'courier_price_village'       => $cVillage,
                     'discount'                    => $request->discount ?? 0,
                     'paid_tbc'                    => $request->paid_tbc ?? 0,
                     'paid_bog'                    => $request->paid_bog ?? 0,
