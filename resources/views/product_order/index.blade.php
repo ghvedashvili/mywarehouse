@@ -211,7 +211,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
         </div>
     </div>
 </div>
-    @include('product_Order.form_sale')
+    @include('product_order.form_sale')
 
 {{-- ══ Quick Pay Modal ══════════════════════════════════════════ --}}
 <div class="modal fade" id="modal-quick-pay" tabindex="-1" data-bs-backdrop="static">

@@ -1172,7 +1172,7 @@ class ProductOrderController extends Controller
     public function exportProductOrderAll()
     {
         $product_Order = Product_Order::with(['product', 'customer', 'orderStatus'])->get();
-        $pdf = Pdf::loadView('product_Order.productOrderAllPDF', compact('product_Order'));
+        $pdf = Pdf::loadView('product_order.productOrderAllPDF', compact('product_Order'));
         return $pdf->download('all_orders.pdf');
     }
 
@@ -1302,7 +1302,7 @@ class ProductOrderController extends Controller
             $logoBase64 = 'data:' . mime_content_type($logoPath) . ';base64,' . base64_encode(file_get_contents($logoPath));
         }
 
-        $pdf = Pdf::loadView('product_Order.productOrderFilteredPDF', compact('product_Order', 'logoBase64'))
+        $pdf = Pdf::loadView('product_order.productOrderFilteredPDF', compact('product_Order', 'logoBase64'))
             ->setPaper('a4')
             ->setOptions([
                 'defaultFont'          => 'dejavu sans',
@@ -1361,7 +1361,7 @@ class ProductOrderController extends Controller
             }
         }
 
-        $pdf = Pdf::loadView('product_Order.productOrderFilteredPDF', compact('product_Order', 'logoBase64'))
+        $pdf = Pdf::loadView('product_order.productOrderFilteredPDF', compact('product_Order', 'logoBase64'))
             ->setPaper('a4')
             ->setOptions([
                 'defaultFont'          => 'dejavu sans',
@@ -1388,7 +1388,7 @@ class ProductOrderController extends Controller
             $logoBase64 = 'data:' . mime_content_type($logoPath) . ';base64,' . base64_encode(file_get_contents($logoPath));
         }
 
-        $pdf = Pdf::loadView('product_Order.productOrderFilteredPDF', compact('product_Order', 'logoBase64'))
+        $pdf = Pdf::loadView('product_order.productOrderFilteredPDF', compact('product_Order', 'logoBase64'))
             ->setPaper('a4')
             ->setOptions([
                 'defaultFont'          => 'dejavu sans',
@@ -1845,7 +1845,7 @@ public function exportChangePDF($id)
     $this->attachImageBase64($changeOrder);
     $this->attachImageBase64($originalSale);
 
-    $pdf = Pdf::loadView('product_Order.productOrderChangePDF', compact(
+    $pdf = Pdf::loadView('product_order.productOrderChangePDF', compact(
         'changeOrder',
         'originalSale',
         'logoBase64'
