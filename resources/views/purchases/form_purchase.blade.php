@@ -108,25 +108,17 @@
                                 </span>
                             </div>
 
-                            {{-- რაოდ + discount + სტატუსი --}}
+                            {{-- რაოდ + discount --}}
                             <div class="row g-2 mb-2">
-                                <div class="col-6 col-md-3">
+                                <div class="col-6 col-md-4">
                                     <label class="form-label fw-semibold">რაოდენობა</label>
                                     <input type="number" name="quantity" id="purchase_qty"
                                            class="form-control" min="1" value="1" required>
                                 </div>
-                                <div class="col-6 col-md-3">
+                                <div class="col-6 col-md-4">
                                     <label class="form-label fw-semibold">Discount ($)</label>
                                     <input type="number" name="discount" id="purchase_discount"
                                            class="form-control" step="0.01" min="0" value="0">
-                                </div>
-                                <div class="col-12 col-md-6">
-                                    <label class="form-label fw-semibold">სტატუსი</label>
-                                    <select name="status_id" id="purchase_status_id" class="form-select">
-                                        @foreach($statuses as $status)
-                                            <option value="{{ $status->id }}">{{ $status->name }}</option>
-                                        @endforeach
-                                    </select>
                                 </div>
                             </div>
 

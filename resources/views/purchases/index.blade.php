@@ -405,8 +405,7 @@ $(function() {
         $('#purchase_cost_price_display').text('$0.00');
         $('#purchase_transport_hidden').val(0);
         $('#purchase_summary_text').html('<span class="text-muted">შეიყვანეთ მონაცემები</span>');
-        // ── status reset & courier section reset ──
-        $('#purchase_status_id').prop('disabled', false).val($('#purchase_status_id option:first').val());
+        // ── courier section reset ──
         $('#purchase_transport_wrap').show();
         $('#purchase_courier_section').hide();
         $('input[name="purchase_courier_type"][value="none"]').prop('checked', true);
@@ -454,7 +453,6 @@ $(function() {
             $('#purchase_transport_hidden').val(transport);
 
             $('#purchase_discount').val(data.discount || 0);
-            $('#purchase_status_id').prop('disabled', false).val(data.status_id);
             $('[name="paid_tbc"]', '#form-purchase').val(data.paid_tbc || 0);
             $('[name="paid_bog"]', '#form-purchase').val(data.paid_bog || 0);
             $('[name="paid_lib"]', '#form-purchase').val(data.paid_lib || 0);
