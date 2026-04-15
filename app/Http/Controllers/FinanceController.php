@@ -90,11 +90,10 @@ class FinanceController extends Controller
         // დაბრუნება "ეკუთვნის" იმ პერიოდს, როდესაც კლიენტმა დააბრუნა.
         // → გასული პერიოდის სტატისტიკა არასოდეს იცვლება.
 
-        // status_id IN (4,5): 4=გადაცემული კურიერს, 5=დაბრუნებული
-        // status=5 ვრთავთ რომ გასული პერიოდის sale ისტორიიდან არ გაქრეს
-        // როდესაც მოგვიანებით დაბრუნება მოხდა
+        // ითვლება ორდერის შექმნის მომენტიდან (ნებისმიერი სტატუსი)
+        // 1=მოლოდინი, 2=შეკვეთილი, 3=საწყობში, 4=კურიერთან, 5=დაბრუნებული
         $ordersQuery = Product_Order::whereIn('order_type', ['sale', 'change'])
-            ->whereIn('status_id', [4, 5]);
+            ->whereIn('status_id', [1, 2, 3, 4, 5]);
 
         if ($from) $ordersQuery->whereDate('created_at', '>=', $from);
         if ($to)   $ordersQuery->whereDate('created_at', '<=', $to);
@@ -102,6 +101,7 @@ class FinanceController extends Controller
         $orders = $ordersQuery->get([
             'id', 'order_type',
             'price_georgia', 'price_usa', 'discount',
+            'paid_tbc', 'paid_bog', 'paid_lib', 'paid_cash',
             'courier_price_international',
             'courier_price_tbilisi',
             'courier_price_region',
@@ -109,8 +109,6 @@ class FinanceController extends Controller
         ]);
 
         // ─── 2. დაბრუნებები, რომლებიც ამ პერიოდში მოხდა ────────────
-        // ვფილტრავთ return purchase-ების created_at-ით (დაბრუნების თარიღი)
-        // original_sale_id პირდაპირ გამოვიყენებთ (comment parsing-ის ნაცვლად)
         $retQ = Product_Order::where('order_type', 'purchase')
             ->whereNotNull('original_sale_id')
             ->where('comment', 'like', '↩ დაბრუნება%');
@@ -124,14 +122,20 @@ class FinanceController extends Controller
         // original sale-ების მონაცემები (ნებისმიერი პერიოდიდან)
         $returnedSaleData = Product_Order::whereIn('id', $returnedSaleIds)
             ->get(['id', 'price_georgia', 'price_usa', 'discount',
+                   'paid_tbc', 'paid_bog', 'paid_lib', 'paid_cash',
                    'courier_price_international',
                    'courier_price_tbilisi', 'courier_price_region', 'courier_price_village'])
             ->keyBy('id');
 
-        // helper
+        // helper — შემოსავალი = გადახდილი თანხა (cash basis)
+        // ხარჯი = ყოველთვის ითვლება (პროდუქტი შეიძინე, ხარჯი დახარჯე)
         $extract = function($s) {
+            $paid = (float)($s->paid_tbc  ?? 0)
+                  + (float)($s->paid_bog  ?? 0)
+                  + (float)($s->paid_lib  ?? 0)
+                  + (float)($s->paid_cash ?? 0);
             return [
-                (float)$s->price_georgia - (float)($s->discount ?? 0),
+                $paid,   // revenue = რეალურად მიღებული გადახდა
                 (float)($s->price_usa ?? 0) + (float)($s->courier_price_international ?? 0),
                 (float)($s->courier_price_tbilisi ?? 0)
                     + (float)($s->courier_price_region  ?? 0)
@@ -206,7 +210,20 @@ class FinanceController extends Controller
             ->pluck('total', 'category')
             ->toArray();
 
-        // ─── 5. თვიური ტენდენცია (ბოლო 6 თვე) ───────────────────────
+        // ─── 5. მომხმარებლების დავალიანება (სრული snapshot, პერიოდის გამოურიცხავად) ─
+        $customerDebt = (float) Product_Order::whereIn('order_type', ['sale', 'change'])
+            ->whereIn('status_id', [1, 2, 3, 4])
+            ->selectRaw('SUM(GREATEST(0,
+                price_georgia
+                - IFNULL(discount,0)
+                - IFNULL(paid_tbc,0)
+                - IFNULL(paid_bog,0)
+                - IFNULL(paid_lib,0)
+                - IFNULL(paid_cash,0)
+            )) as total')
+            ->value('total');
+
+        // ─── 6. თვიური ტენდენცია (ბოლო 6 თვე) ───────────────────────
         $trend = $this->buildTrend();
 
         return [
@@ -229,6 +246,7 @@ class FinanceController extends Controller
             'profit_margin'           => $totalRevenue > 0
                                            ? round(($profit / $totalRevenue) * 100, 1)
                                            : 0,
+            'customer_debt'           => round($customerDebt, 2),
             'expense_by_category'     => $expenseByCategory,
             'trend'                   => $trend,
         ];
@@ -249,10 +267,11 @@ class FinanceController extends Controller
             $to   = Carbon::create($year, $month)->endOfMonth()->toDateString();
 
             $salesRaw = Product_Order::whereIn('order_type', ['sale', 'change'])
-                ->whereIn('status_id', [4, 5])
+                ->whereIn('status_id', [1, 2, 3, 4, 5])
                 ->whereDate('created_at', '>=', $from)
                 ->whereDate('created_at', '<=', $to)
                 ->get(['id', 'order_type', 'price_georgia', 'price_usa', 'discount',
+                       'paid_tbc', 'paid_bog', 'paid_lib', 'paid_cash',
                        'courier_price_international', 'courier_price_tbilisi',
                        'courier_price_region', 'courier_price_village']);
 
@@ -267,12 +286,15 @@ class FinanceController extends Controller
 
             $retData = Product_Order::whereIn('id', $retIds)
                 ->get(['id', 'price_georgia', 'price_usa', 'discount',
+                       'paid_tbc', 'paid_bog', 'paid_lib', 'paid_cash',
                        'courier_price_international', 'courier_price_tbilisi',
                        'courier_price_region', 'courier_price_village']);
 
             $rev  = 0; $cost = 0;
             foreach ($salesRaw as $s) {
-                $r = (float)$s->price_georgia - (float)($s->discount ?? 0);
+                // შემოსავალი = გადახდილი თანხა (cash basis)
+                $r = (float)($s->paid_tbc  ?? 0) + (float)($s->paid_bog  ?? 0)
+                   + (float)($s->paid_lib  ?? 0) + (float)($s->paid_cash ?? 0);
                 $c = (float)($s->price_usa ?? 0)
                    + (float)($s->courier_price_international ?? 0)
                    + (float)($s->courier_price_tbilisi ?? 0)
@@ -284,7 +306,9 @@ class FinanceController extends Controller
 
             // ამ პერიოდში დაბრუნებული original sale-ების კორექცია
             foreach ($retData as $s) {
-                $r = (float)$s->price_georgia - (float)($s->discount ?? 0);
+                // დაბრუნება: გამოვაკლებ გადახდილ თანხას (cash basis)
+                $r = (float)($s->paid_tbc  ?? 0) + (float)($s->paid_bog  ?? 0)
+                   + (float)($s->paid_lib  ?? 0) + (float)($s->paid_cash ?? 0);
                 $c = (float)($s->price_usa ?? 0)
                    + (float)($s->courier_price_international ?? 0)
                    + (float)($s->courier_price_tbilisi ?? 0)

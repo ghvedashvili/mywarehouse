@@ -104,6 +104,54 @@
 .kpi-card.profit-positive .kpi-value { color: var(--green); }
 .kpi-card.profit-negative .kpi-value { color: var(--red); }
 
+/* ─── EXPANDABLE KPI CARD ─────────────────────────────────────── */
+.kpi-expandable {
+    cursor: pointer;
+    transition: box-shadow .2s;
+}
+.kpi-expandable:hover { box-shadow: 0 4px 18px rgba(0,0,0,0.13); }
+
+.kpi-expand-arrow {
+    font-size: 13px;
+    color: #b2bec3;
+    transition: transform .3s ease;
+    user-select: none;
+    margin-left: 8px;
+}
+.kpi-expandable.expanded .kpi-expand-arrow { transform: rotate(180deg); }
+
+.kpi-details {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height .35s ease, opacity .25s ease;
+    opacity: 0;
+}
+.kpi-expandable.expanded .kpi-details {
+    max-height: 200px;
+    opacity: 1;
+}
+
+.kpi-details-inner {
+    border-top: 1px solid #f0f0f0;
+    margin-top: 10px;
+    padding-top: 8px;
+}
+.kpi-detail-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    padding: 3px 0;
+    color: #636e72;
+}
+.kpi-detail-row.net-row {
+    border-top: 1px dashed #dfe6e9;
+    margin-top: 4px;
+    padding-top: 5px;
+    font-weight: 700;
+    font-size: 12px;
+    color: #2d3436;
+}
+
 /* ─── MIDDLE SECTION ──────────────────────────────────────────── */
 .mid-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
 .mid-row .col-chart { flex: 2; min-width: 280px; }
@@ -247,7 +295,7 @@
         <div class="kpi-card" style="--accent: var(--green);">
             <div class="kpi-label">📦 გაყიდვები</div>
             <div class="kpi-value" id="kpi-sale-count">{{ $stats['sale_count'] }}</div>
-            <div class="kpi-sub">status=4 ორდერი</div>
+            <div class="kpi-sub">შექმნილი ორდერი</div>
         </div>
         <div class="kpi-card" style="--accent: var(--orange);">
             <div class="kpi-label">↩ დაბრუნება</div>
@@ -259,38 +307,88 @@
             <div class="kpi-value" id="kpi-change-count">{{ $stats['change_count'] }}</div>
             <div class="kpi-sub">ჩათვლილია შემოსავალში</div>
         </div>
-        <div class="kpi-card" style="--accent: var(--blue);">
+        <div class="kpi-card kpi-expandable" style="--accent: var(--blue);" onclick="toggleKpiCard(this)">
             <div class="kpi-label">💵 შემოსავალი (სულ)</div>
-            <div class="kpi-value" id="kpi-total-rev">{{ number_format(max(0,$stats['gross_revenue']) + $stats['extra_income'],2) }} ₾</div>
-            <div class="kpi-sub" id="kpi-rev-sub">
-                @if($stats['return_amount'] > 0)
-                    <span style="color:var(--red);">↩ -{{ number_format($stats['return_amount'],2) }}₾ დაბრუნება</span>
-                    <span style="color:#888;"> | სუფთა: {{ number_format($stats['total_revenue'],2) }}₾</span>
-                @else
-                    გაყიდვები + დამატებითი
-                @endif
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="kpi-value" id="kpi-total-rev">{{ number_format($stats['total_revenue'],2) }} ₾</div>
+                <div class="kpi-expand-arrow">▼</div>
+            </div>
+            <div class="kpi-sub">სუფთა შემოსავალი</div>
+            <div class="kpi-details">
+                <div class="kpi-details-inner">
+                    <div class="kpi-detail-row">
+                        <span>📦 გაყიდვები</span>
+                        <span id="kpi-rev-d-gross">{{ number_format($stats['gross_revenue'],2) }} ₾</span>
+                    </div>
+                    @if($stats['return_amount'] > 0)
+                    <div class="kpi-detail-row" style="color:var(--red);">
+                        <span>↩ დაბრუნება</span>
+                        <span id="kpi-rev-d-ret">-{{ number_format($stats['return_amount'],2) }} ₾</span>
+                    </div>
+                    @endif
+                    @if($stats['extra_income'] > 0)
+                    <div class="kpi-detail-row" style="color:var(--green);">
+                        <span>➕ დამატებითი</span>
+                        <span id="kpi-rev-d-extra">{{ number_format($stats['extra_income'],2) }} ₾</span>
+                    </div>
+                    @endif
+                    <div class="kpi-detail-row net-row">
+                        <span>სუფთა</span>
+                        <span>{{ number_format($stats['total_revenue'],2) }} ₾</span>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="kpi-card" style="--accent: var(--red);">
+        <div class="kpi-card kpi-expandable" style="--accent: var(--red);" onclick="toggleKpiCard(this)">
             <div class="kpi-label">📤 გასავალი (სულ)</div>
-            {{-- ვაჩვენებთ gross ხარჯს (გაყიდვების + ხარჯები), recovery ცალკე sub-ში --}}
-            <div class="kpi-value" id="kpi-total-cost">{{ number_format($stats['gross_sale_cost'] + $stats['extra_expense'],2) }} ₾</div>
-            <div class="kpi-sub" id="kpi-cost-sub">
-                @if($stats['return_cost_recovery'] > 0)
-                    <span style="color:var(--green);">↩ -{{ number_format($stats['return_cost_recovery'],2) }}₾ საქ. ღირ. დაბრ.</span>
-                    @if($stats['return_courier_expense'] > 0)
-                        <span style="color:var(--red);"> | +{{ number_format($stats['return_courier_expense'],2) }}₾ დაბრ. კურ.</span>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="kpi-value" id="kpi-total-cost">{{ number_format($stats['total_cost'],2) }} ₾</div>
+                <div class="kpi-expand-arrow">▼</div>
+            </div>
+            <div class="kpi-sub">სუფთა გასავალი</div>
+            <div class="kpi-details">
+                <div class="kpi-details-inner">
+                    <div class="kpi-detail-row">
+                        <span>🏷 თვითღირებულება</span>
+                        <span id="kpi-cost-d-gross">{{ number_format($stats['gross_sale_cost'],2) }} ₾</span>
+                    </div>
+                    @if($stats['return_cost_recovery'] > 0)
+                    <div class="kpi-detail-row" style="color:var(--green);">
+                        <span>↩ საქ. ღირ. დაბრ.</span>
+                        <span id="kpi-cost-d-rec">-{{ number_format($stats['return_cost_recovery'],2) }} ₾</span>
+                    </div>
                     @endif
-                    <span style="color:#888;"> | სუფთა: {{ number_format($stats['total_cost'],2) }}₾</span>
-                @else
-                    თვითღირებულება + ხარჯები
-                @endif
+                    @if($stats['return_courier_expense'] > 0)
+                    <div class="kpi-detail-row" style="color:var(--red);">
+                        <span>🚚 დაბრ. კურიერი</span>
+                        <span id="kpi-cost-d-cour">+{{ number_format($stats['return_courier_expense'],2) }} ₾</span>
+                    </div>
+                    @endif
+                    @if($stats['extra_expense'] > 0)
+                    <div class="kpi-detail-row">
+                        <span>📋 დამატებითი ხარჯი</span>
+                        <span id="kpi-cost-d-extra">{{ number_format($stats['extra_expense'],2) }} ₾</span>
+                    </div>
+                    @endif
+                    <div class="kpi-detail-row net-row">
+                        <span>სუფთა</span>
+                        <span>{{ number_format($stats['total_cost'],2) }} ₾</span>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="kpi-card {{ $stats['profit'] >= 0 ? 'profit-positive' : 'profit-negative' }}" id="kpi-profit-card">
             <div class="kpi-label">{{ $stats['profit'] >= 0 ? '📈 მოგება' : '📉 წაგება' }}</div>
             <div class="kpi-value" id="kpi-profit">{{ number_format($stats['profit'],2) }} ₾</div>
             <div class="kpi-sub" id="kpi-margin">მარჟა: {{ $stats['profit_margin'] }}%</div>
+        </div>
+        <div class="kpi-card" style="--accent: #e17055;">
+            <div class="kpi-label">⚠️ მომხმ. დავალიანება</div>
+            <div class="kpi-value" id="kpi-customer-debt"
+                 style="color:{{ $stats['customer_debt'] > 0 ? '#d63031' : '#00b894' }};">
+                {{ number_format($stats['customer_debt'],2) }} ₾
+            </div>
+            <div class="kpi-sub">ყველა გადაუხდელი ორდერი</div>
         </div>
     </div>
 
@@ -645,38 +743,52 @@ function fmt(n) {
     return parseFloat(n).toLocaleString('ka-GE', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ₾';
 }
 
+function setOrHide(id, value, prefix, color) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const row = el.closest('.kpi-detail-row');
+    if (value > 0) {
+        el.textContent = (prefix || '') + fmt(value) ;
+        if (color) el.style.color = color;
+        if (row) row.style.display = '';
+    } else {
+        if (row) row.style.display = 'none';
+    }
+}
+
 function updateUI(s) {
     document.getElementById('kpi-sale-count').textContent   = s.sale_count;
     document.getElementById('kpi-return-count').textContent  = s.return_count;
     document.getElementById('kpi-return-amount').textContent = '-' + fmt(s.return_amount);
     document.getElementById('kpi-change-count').textContent  = s.change_count;
-    // შემოსავალი — gross + extra (returns ცალკე sub-ში ჩანს)
-    const grossRev = Math.max(0, s.gross_revenue || 0) + (s.extra_income || 0);
-    document.getElementById('kpi-total-rev').textContent = fmt(grossRev);
-    const revSub = document.getElementById('kpi-rev-sub');
-    if (s.return_amount > 0) {
-        revSub.innerHTML = '<span style="color:var(--red);">↩ -' + fmt(s.return_amount) + ' დაბრუნება</span>'
-                         + '<span style="color:#888;"> | სუფთა: ' + fmt(s.total_revenue) + '</span>';
-    } else {
-        revSub.textContent = 'გაყიდვები + დამატებითი';
-    }
 
-    // გასავალი — gross (გაყიდვების ხარჯი), recovery ცალკე sub-ში
-    const grossCost = (s.gross_sale_cost || 0) + (s.extra_expense || 0);
-    document.getElementById('kpi-total-cost').textContent = fmt(grossCost);
-    const costSub = document.getElementById('kpi-cost-sub');
-    if (s.return_cost_recovery > 0) {
-        let costSubHtml = '<span style="color:var(--green);">↩ -' + fmt(s.return_cost_recovery) + ' საქ. ღირ. დაბრ.</span>';
-        if (s.return_courier_expense > 0) {
-            costSubHtml += '<span style="color:var(--red);"> | +' + fmt(s.return_courier_expense) + ' დაბრ. კურ.</span>';
-        }
-        costSubHtml += '<span style="color:#888;"> | სუფთა: ' + fmt(s.total_cost) + '</span>';
-        costSub.innerHTML = costSubHtml;
-    } else {
-        costSub.textContent = 'თვითღირებულება + ხარჯები';
+    // ── შემოსავალი — primary = net (total_revenue) ──────────────────
+    document.getElementById('kpi-total-rev').textContent = fmt(s.total_revenue);
+    setOrHide('kpi-rev-d-gross', s.gross_revenue);
+    setOrHide('kpi-rev-d-ret',   s.return_amount,  '-', 'var(--red)');
+    setOrHide('kpi-rev-d-extra', s.extra_income,   '',  'var(--green)');
+    const revNet = document.getElementById('kpi-total-rev')?.closest('.kpi-expandable')
+                           ?.querySelector('.net-row span:last-child');
+    if (revNet) revNet.textContent = fmt(s.total_revenue);
+
+    // ── გასავალი — primary = net (total_cost) ───────────────────────
+    document.getElementById('kpi-total-cost').textContent = fmt(s.total_cost);
+    setOrHide('kpi-cost-d-gross', s.gross_sale_cost);
+    setOrHide('kpi-cost-d-rec',   s.return_cost_recovery,  '-', 'var(--green)');
+    setOrHide('kpi-cost-d-cour',  s.return_courier_expense, '+', 'var(--red)');
+    setOrHide('kpi-cost-d-extra', s.extra_expense);
+    const costNet = document.getElementById('kpi-total-cost')?.closest('.kpi-expandable')
+                            ?.querySelector('.net-row span:last-child');
+    if (costNet) costNet.textContent = fmt(s.total_cost);
+
+    document.getElementById('kpi-profit').textContent = fmt(s.profit);
+    document.getElementById('kpi-margin').textContent = 'მარჟა: ' + s.profit_margin + '%';
+
+    const debtEl = document.getElementById('kpi-customer-debt');
+    if (debtEl) {
+        debtEl.textContent = fmt(s.customer_debt);
+        debtEl.style.color = s.customer_debt > 0 ? 'var(--red)' : 'var(--green)';
     }
-    document.getElementById('kpi-profit').textContent     = fmt(s.profit);
-    document.getElementById('kpi-margin').textContent     = 'მარჟა: ' + s.profit_margin + '%';
 
     const profitCard = document.getElementById('kpi-profit-card');
     profitCard.classList.toggle('profit-positive', s.profit >= 0);
@@ -957,6 +1069,13 @@ function recordSalaries() {
         btn.disabled = false;
         btn.innerHTML = '<i class="fa fa-save"></i> ხელფასების ჩაფიქსირება';
     });
+}
+
+// ══════════════════════════════════════════════════════════
+// EXPANDABLE KPI CARDS
+// ══════════════════════════════════════════════════════════
+function toggleKpiCard(card) {
+    card.classList.toggle('expanded');
 }
 
 // ══════════════════════════════════════════════════════════
