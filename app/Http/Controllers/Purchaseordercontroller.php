@@ -359,7 +359,8 @@ class PurchaseOrderController extends Controller
 
                 FifoService::reassignPrices($newProduct, $newSize);
 
-                if (in_array($order->status_id, [2, 3])) {
+                // qty-ს ზრდისას reviewSaleStatuses-ს ვტოვებთ attachPendingSales-ზე (stock განახლების შემდეგ)
+                if (in_array($order->status_id, [2, 3]) && $qtyDiff <= 0) {
                     PurchaseService::reviewSaleStatuses($newProduct, $newSize, $order->status_id);
                 }
 
@@ -394,7 +395,7 @@ class PurchaseOrderController extends Controller
                             $capacity         = $newQty - $courierCount;
                             $reservedFromThis = Product_Order::where('purchase_order_id', $order->id)
                                 ->whereIn('status_id', [2, 3])
-                                ->orderBy('created_at', 'desc')
+                                ->orderBy('created_at', 'asc')
                                 ->get();
 
                             $kept = 0;
@@ -417,6 +418,7 @@ class PurchaseOrderController extends Controller
                                         'changed_at'     => now(),
                                     ]);
                                 } else {
+                                    // status=2 ან 3: ორივე reserved_qty-ში ითვლება — ვათავისუფლებთ
                                     $stock->decrement('reserved_qty', 1);
                                     $oldStatus               = $sale->status_id;
                                     $sale->purchase_order_id = null;

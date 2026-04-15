@@ -13,6 +13,7 @@ class FifoService
     public static function getNextPurchase(int $productId, string $size = '', int $excludeId = 0): ?Product_Order
 {
     $query = Product_Order::where('order_type', 'purchase')
+        ->where('status', 'active')
         ->where('product_id', $productId)
         ->whereIn('status_id', [2, 3])
         ->orderBy('created_at', 'asc');
@@ -70,6 +71,7 @@ class FifoService
     public static function reassignPrices(int $productId, string $size, int $excludePurchaseId = 0): void
     {
         $purchaseQuery = Product_Order::where('order_type', 'purchase')
+            ->where('status', 'active')
             ->where('product_id', $productId)
             ->where('product_size', $size)
             ->whereIn('status_id', [2, 3])

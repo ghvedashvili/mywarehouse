@@ -100,4 +100,11 @@ class Product_Order extends Model
                     ->where('order_type', 'change')
                     ->withoutGlobalScope('active');
     }
+
+    // sale/change → მასზე მიბმული purchase ორდერი (წაშლილი ჩათვლით)
+    public function purchaseOrder()
+    {
+        return $this->belongsTo(Product_Order::class, 'purchase_order_id')
+                    ->withoutGlobalScope('active');
+    }
 }

@@ -1003,7 +1003,7 @@ setTimeout(function() { clearInterval(checkSizeExist); }, 2000);
                 }).then(function(result) {
                     var f = window._pendingSaleForm;
                     window._pendingSaleForm = null;
-                    var updateCust = (result === true) ? '1' : '0';
+                    var updateCust = (result && result.isConfirmed) ? '1' : '0';
                     submitSaleForm(f, updateCust);
                 }).catch(function() {
                     var f = window._pendingSaleForm;

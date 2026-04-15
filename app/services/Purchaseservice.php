@@ -38,11 +38,17 @@ class PurchaseService
         } elseif ($oldStatusId == 2 && $newStatusId == 1)
             $stock->decrement('incoming_qty', $qty);
         elseif ($oldStatusId == 3 && $newStatusId == 2) {
-            $stock->decrement('physical_qty', $qty);
+            // physical_qty-ს ვაკლებთ მხოლოდ იმდენს, რამდენიც რეალურად გვაქვს
+            // (status=3 sale-ებმა შეიძლება უკვე ჩამოჭრეს ნაწილი)
+            $actualPhysical = max(0, $stock->physical_qty);
+            $stock->decrement('physical_qty', min($qty, $actualPhysical));
             $stock->increment('incoming_qty', $qty);
         } elseif ($newStatusId == 4) {
             if ($oldStatusId == 2) $stock->decrement('incoming_qty', $qty);
-            if ($oldStatusId == 3) $stock->decrement('physical_qty', $qty);
+            if ($oldStatusId == 3) {
+                $actualPhysical = max(0, $stock->physical_qty);
+                $stock->decrement('physical_qty', min($qty, $actualPhysical));
+            }
         }
 
         $stock->save();
@@ -104,6 +110,8 @@ class PurchaseService
 
         // CASE 2: purchase 2→3
         if ($oldStatusId === 2 && $newStatusId === 3) {
+            $stock = Warehouse::where('product_id', $productId)->where('size', $size)->first();
+
             $salesToPromote = Product_Order::whereIn('order_type', ['sale', 'change'])
                 ->where('purchase_order_id', $order->id)
                 ->where('status_id', 2)
@@ -111,6 +119,13 @@ class PurchaseService
 
             foreach ($salesToPromote as $sale) {
                 $logAndSave($sale, 3, $sale->price_usa, $sale->purchase_order_id);
+                // sale 2→3: ნივთი საწყობში ჩამოვიდა — reserved_qty უცვლელია (კვლავ ჯავშნილია)
+                // physical_qty მხოლოდ 3→4 (კურიერთან გაგზავნა) ეტაპზე იკლებს
+            }
+
+            // თავისუფალი ფიზიკური ადგილები (purchase qty > linked sales count) — pending sale-ებს მივუბრუნოთ
+            if ($stock) {
+                self::attachPendingSalesToPurchase($order, $stock);
             }
         }
 
@@ -132,12 +147,15 @@ class PurchaseService
 
         // CASE 4: purchase 3→2
         if ($oldStatusId === 3 && $newStatusId === 2) {
+            $stock = Warehouse::where('product_id', $productId)->where('size', $size)->first();
+
             $salesToRollback = Product_Order::whereIn('order_type', ['sale', 'change'])
                 ->where('purchase_order_id', $order->id)
                 ->where('status_id', 3)
                 ->get();
             foreach ($salesToRollback as $sale) {
                 $logAndSave($sale, 2, $sale->price_usa, $sale->purchase_order_id);
+                // sale 3→2: reserved_qty უცვლელია (კვლავ ჯავშნილია — status=3-შიც ჯავშნილი იყო)
             }
         }
 
@@ -151,6 +169,7 @@ class PurchaseService
                 ->get();
 
             foreach ($affectedSales as $sale) {
+                // status=2 ან 3: ორივე reserved_qty-ში ითვლება — გაუქმებისას ვათავისუფლებთ
                 if ($stock) $stock->decrement('reserved_qty', 1);
                 $logAndSave($sale, 1, 0, null);
             }
@@ -169,24 +188,33 @@ class PurchaseService
             ->where('product_id', $purchase->product_id)
             ->where('product_size', $purchase->product_size)
             ->where('status_id', 1)
-            ->whereNull('purchase_order_id')
+            ->where(function ($q) use ($purchase) {
+                $q->whereNull('purchase_order_id')
+                  ->orWhere('purchase_order_id', $purchase->id)
+                  // წაშლილ purchase-ზე მიბმული (ძველი მონაცემი) — ასევე ვაწინაუროთ
+                  ->orWhereHas('purchaseOrder', function ($pq) {
+                      $pq->withoutGlobalScope('active')->where('status', '!=', 'active');
+                  });
+            })
             ->orderBy('created_at', 'asc')
             ->get();
 
         foreach ($pendingSales as $sale) {
             $stock->refresh();
+            // status=2: incoming - reserved; status=3: physical - reserved (ორივე ჯავშანში ითვლება)
             $available = $purchaseStatus == 2
                 ? $stock->incoming_qty - $stock->reserved_qty
                 : $stock->physical_qty - $stock->reserved_qty;
 
             if ($available <= 0) break;
 
+            // status=2 ან 3: ორივე reserved_qty-ში ითვლება (physical მხოლოდ კურიერთან გაგზავნისას იკლებს)
+            $stock->increment('reserved_qty', 1);
+
             $sale->purchase_order_id = $purchase->id;
             $sale->price_usa         = (float) $purchase->cost_price;
             $sale->status_id         = $purchaseStatus;
             $sale->save();
-
-            $stock->increment('reserved_qty', 1);
 
             StatusChangeLog::create([
                 'order_id'       => $sale->id,
@@ -209,17 +237,23 @@ class PurchaseService
 
         foreach ($pendingSales as $sale) {
             $stock->refresh();
-            $available = $purchaseStatus == 2
+            $nextPurchase = FifoService::getNextPurchase($productId, $size);
+            if (!$nextPurchase) break;
+
+            // status=2: incoming - reserved; status=3: physical - reserved
+            $available = $nextPurchase->status_id == 2
                 ? $stock->incoming_qty - $stock->reserved_qty
                 : $stock->physical_qty - $stock->reserved_qty;
 
             if ($available <= 0) break;
 
-            $nextPurchase = FifoService::getNextPurchase($productId, $size);
-            $sale->price_usa         = $nextPurchase?->cost_price ?? 0;
-            $sale->purchase_order_id = $nextPurchase?->id;
+            $sale->price_usa         = (float) $nextPurchase->cost_price;
+            $sale->purchase_order_id = $nextPurchase->id;
+            $sale->status_id         = $nextPurchase->status_id;
+
+            // status=2 ან 3: ორივე reserved_qty-ში ითვლება
             $stock->increment('reserved_qty', 1);
-            $sale->status_id = $purchaseStatus;
+
             $sale->save();
         }
     }
@@ -236,19 +270,29 @@ class PurchaseService
             ->where('product_id', $productId)
             ->where('product_size', $size)
             ->where('status_id', 1)
+            ->whereNull('purchase_order_id')
             ->orderBy('created_at', 'asc')
             ->get();
 
         foreach ($pendingSales as $sale) {
             $stock->refresh();
-            $available = $purchaseStatus == 2
+            $nextPurchase = FifoService::getNextPurchase($productId, $size);
+            if (!$nextPurchase) break;
+
+            // status=2: incoming - reserved; status=3: physical - reserved
+            $available = $nextPurchase->status_id == 2
                 ? $stock->incoming_qty - $stock->reserved_qty
                 : $stock->physical_qty - $stock->reserved_qty;
 
             if ($available <= 0) break;
 
+            $sale->purchase_order_id = $nextPurchase->id;
+            $sale->price_usa         = (float) $nextPurchase->cost_price;
+            $sale->status_id         = $nextPurchase->status_id;
+
+            // status=2 ან 3: ორივე reserved_qty-ში ითვლება
             $stock->increment('reserved_qty', 1);
-            $sale->status_id = $purchaseStatus;
+
             $sale->save();
 
             StatusChangeLog::create([

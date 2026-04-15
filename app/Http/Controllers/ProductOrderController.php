@@ -74,14 +74,14 @@ class ProductOrderController extends Controller
         // ──────────────────────────────────────────────────────────────
 
         $data['user_id'] = $user->id;
-        $fifo = FifoService::getPrices(
-            $request->product_id,
+        $nextPurchase = FifoService::getNextPurchase(
+            (int) $request->product_id,
             $request->product_size ?? ''
         );
         // price_georgia — პროდუქტიდან (შემდეგ არ იცვლება)
         // price_usa     — purchase-დან (თუ მიბმული არ არის — 0, მოგვიანებით განახლდება)
         $data['price_georgia']     = (float) ($product->price_geo ?? 0);
-        $data['price_usa']         = $fifo['purchase_order_id'] ? (float) $fifo['cost_price'] : 0;
+        $data['price_usa']         = $nextPurchase ? (float) $nextPurchase->cost_price : 0;
         $data['purchase_order_id'] = null; // დარეზერვებისას მიენიჭება
 
         if ($user->role === 'staff') {
@@ -125,18 +125,18 @@ class ProductOrderController extends Controller
                                       ->where('size', $request->product_size)
                                       ->first();
 
-        $available = $stock
-            ? max(0, $stock->physical_qty + $stock->incoming_qty - $stock->reserved_qty)
-            : 0;
-
-        if ($available > 0 && $stock) {
-            // ნაშთი არის — გადახდის მიუხედავად სტატუსი 2 ან 3
-            $data['status_id']         = $stock->physical_qty > 0 ? 3 : 2;
-            $data['purchase_order_id'] = $fifo['purchase_order_id'];
-            $data['price_usa']         = $fifo['purchase_order_id'] ? (float) $fifo['cost_price'] : 0;
-            $data['sale_from']         = $stock->physical_qty > 0 ? 1 : 0;
+        if ($nextPurchase) {
+            // FIFO-მ იპოვა ადგილი შესყიდვაში — sale იღებს შესყიდვის სტატუსს
+            $data['status_id']         = $nextPurchase->status_id; // 2 (გზაში) ან 3 (საწყობში)
+            $data['purchase_order_id'] = $nextPurchase->id;
+            $data['price_usa']         = (float) $nextPurchase->cost_price;
+            $data['sale_from']         = ($nextPurchase->status_id == 3) ? 1 : 0;
             $newOrder = Product_Order::create($data);
-            $stock->increment('reserved_qty', 1);
+
+            if ($stock) {
+                // status=2: reserved from incoming; status=3: reserved in warehouse
+                $stock->increment('reserved_qty', 1);
+            }
 
             StatusChangeLog::create([
                 'order_id'       => $newOrder->id,
@@ -147,7 +147,7 @@ class ProductOrderController extends Controller
             ]);
 
         } else {
-            // ნაშთი არ არის → მოლოდინში
+            // ადგილი შესყიდვებში არ არის → მოლოდინში
             $data['status_id'] = 1;
             Product_Order::create($data);
         }
@@ -160,29 +160,13 @@ class ProductOrderController extends Controller
     // ─── Customer მონაცემების განახლება ორდერიდან ─────────────────────
     private function maybeUpdateCustomer(Request $request): void
     {
-        \Log::info('maybeUpdateCustomer called', [
-            'update_customer' => $request->input('update_customer'),
-            'customer_id'     => $request->input('customer_id'),
-            'order_address'   => $request->input('order_address'),
-            'order_alt_tel'   => $request->input('order_alt_tel'),
-        ]);
-
-        if ($request->input('update_customer') !== '1') {
-            \Log::info('maybeUpdateCustomer: skipped — update_customer != 1');
-            return;
-        }
-        if (!$request->filled('customer_id')) {
-            \Log::info('maybeUpdateCustomer: skipped — no customer_id');
-            return;
-        }
+        if ($request->input('update_customer') !== '1') return;
+        if (!$request->filled('customer_id')) return;
 
         $customer = \App\Models\Customer::withoutGlobalScope('active')
             ->find($request->customer_id);
 
-        if (!$customer) {
-            \Log::info('maybeUpdateCustomer: customer not found', ['id' => $request->customer_id]);
-            return;
-        }
+        if (!$customer) return;
 
         $updates = [];
         if ($request->filled('order_address')) {
@@ -192,11 +176,8 @@ class ProductOrderController extends Controller
             $updates['alternative_tel'] = $request->order_alt_tel;
         }
 
-        \Log::info('maybeUpdateCustomer: updates', $updates);
-
         if (!empty($updates)) {
-            $result = $customer->update($updates);
-            \Log::info('maybeUpdateCustomer: update result', ['result' => $result]);
+            $customer->update($updates);
         }
     }
 
@@ -265,10 +246,10 @@ class ProductOrderController extends Controller
 
                 // sale/change — პროდუქტი/ზომა შეიცვალა და იყო დარეზერვებული
                 if ($keyChanged && in_array($order->order_type, ['sale', 'change']) && in_array($oldStatusId, [2, 3])) {
-                    // ძველ stock-ს reserved -1
                     $oldStock = \App\Models\Warehouse::where('product_id', $oldProductId)
                         ->where('size', $oldSize)->first();
                     if ($oldStock) {
+                        // status=2 ან 3: ორივე reserved_qty-ში ითვლება
                         $oldStock->decrement('reserved_qty', 1);
                     }
                     // purchase_order_id გაიწმინდება
@@ -305,13 +286,15 @@ class ProductOrderController extends Controller
 
                                 if ($wHasDebt) continue;
 
-                                $fifo = \App\Services\FifoService::getPrices($oldProductId, $oldSize);
-                                $waitingSale->purchase_order_id = $fifo['purchase_order_id'];
-                                $waitingSale->price_usa         = $fifo['cost_price'];
+                                $waitingNext = \App\Services\FifoService::getNextPurchase($oldProductId, $oldSize);
+                                if (!$waitingNext) continue;
+                                $waitingSale->purchase_order_id = $waitingNext->id;
+                                $waitingSale->price_usa         = (float) $waitingNext->cost_price;
                                 // price_georgia არ იცვლება
-                                $waitingSale->status_id         = $oldPurchase->status_id;
+                                $waitingSale->status_id         = $waitingNext->status_id;
                                 $waitingSale->save();
 
+                                // status=2 ან 3: ორივე reserved_qty-ში ითვლება
                                 if ($oldStock) $oldStock->increment('reserved_qty', 1);
 
                                 StatusChangeLog::create([
@@ -348,30 +331,51 @@ class ProductOrderController extends Controller
                                                   ->where('size', $order->product_size)
                                                   ->first();
 
-                    // CASE A: status=1 და ნაშთი გამოჩნდა → დავარეზერვოთ (debt-ის მიუხედავად)
+                    $saleQty = $order->quantity ?? 1;
+
+                    // CASE A: status=1 და FIFO-ში ადგილი გამოჩნდა → დავარეზერვოთ
                     if ($order->status_id == 1) {
-                        $available = $stock
-                            ? max(0, $stock->physical_qty + $stock->incoming_qty - $stock->reserved_qty)
-                            : 0;
+                        $caseANextPurchase = \App\Services\FifoService::getNextPurchase(
+                            $order->product_id,
+                            $order->product_size
+                        );
 
-                        if ($available > 0 && $stock) {
-                            $fromStatus       = 1;
-                            $order->status_id = $stock->physical_qty > 0 ? 3 : 2;
+                        if ($caseANextPurchase) {
+                            $order->status_id         = $caseANextPurchase->status_id; // 2 ან 3
+                            $order->purchase_order_id = $caseANextPurchase->id;
+                            $order->price_usa         = (float) $caseANextPurchase->cost_price;
 
-                            $fifo = \App\Services\FifoService::getPrices($order->product_id, $order->product_size);
-                            $order->purchase_order_id = $fifo['purchase_order_id'];
+                            if ($stock) {
+                                // status=2 ან 3: ორივე reserved_qty-ში ითვლება
+                                $stock->increment('reserved_qty', 1);
+                            }
 
-                            $stock->increment('reserved_qty', 1);
                             $order->save();
 
                             StatusChangeLog::create([
                                 'order_id'       => $order->id,
                                 'user_id'        => auth()->id(),
-                                'status_id_from' => $fromStatus,
+                                'status_id_from' => 1,
                                 'status_id_to'   => $order->status_id,
                                 'changed_at'     => now(),
                             ]);
                         }
+                    }
+
+                    // CASE B: 1→3 ან 2→3 (საწყობში ჩამოსვლა)
+                    // 1→3: CASE A-მ უკვე ამატა reserved +1; 2→3: reserved უცვლელია (უკვე ითვლება)
+                    // physical_qty არ იცვლება — ნივთი საწყობშია, კურიერთან გაგზავნისას (→4) გამოვა
+
+                    // CASE C: 2→1 (რეზერვის გაუქმება)
+                    if ($oldStatusId == 2 && $order->status_id == 1 && $stock) {
+                        $stock->decrement('reserved_qty', 1);
+                        $stock->save();
+                    }
+
+                    // CASE D: 3→1 (საწყობიდან გაუქმება)
+                    if ($oldStatusId == 3 && $order->status_id == 1 && $stock) {
+                        $stock->decrement('reserved_qty', $saleQty);
+                        $stock->save();
                     }
                 }
 
@@ -1879,26 +1883,19 @@ private function attachImageBase64(Product_Order $order): void
             $nextPurchase = \App\Services\FifoService::getNextPurchase($productId, $size);
             if (!$nextPurchase) break;
 
-            $usedCount = Product_Order::where('purchase_order_id', $nextPurchase->id)
-                ->whereIn('status_id', [1, 2, 3])->count();
-            if ($usedCount >= $nextPurchase->quantity) break;
-
-            $available = ($stock->physical_qty + $stock->incoming_qty) - $stock->reserved_qty;
-            if ($available <= 0) break;
-
             $total = $order->price_georgia - ($order->discount ?? 0);
             $paid  = ($order->paid_tbc ?? 0) + ($order->paid_bog ?? 0)
                    + ($order->paid_lib ?? 0) + ($order->paid_cash ?? 0);
             if (($total - $paid) > 0.01) continue;
 
-            $newStatus = $stock->physical_qty > $stock->reserved_qty ? 3 : 2;
-
             $order->purchase_order_id = $nextPurchase->id;
             $order->price_usa         = (float) $nextPurchase->cost_price;
             // price_georgia არ იცვლება
-            $order->status_id         = $newStatus;
+            $order->status_id         = $nextPurchase->status_id; // 2 ან 3, purchase-ს შეესაბამება
+
             $order->save();
 
+            // status=2 ან 3: ორივე reserved_qty-ში ითვლება
             $stock->increment('reserved_qty', 1);
 
             StatusChangeLog::create([

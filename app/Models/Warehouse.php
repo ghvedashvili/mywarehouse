@@ -36,6 +36,6 @@ class Warehouse extends Model
      */
     public function getAvailableQtyAttribute(): int
     {
-        return max(0, $this->physical_qty - $this->defect_qty - $this->reserved_qty);
+        return max(0, $this->physical_qty + $this->incoming_qty - $this->defect_qty - $this->reserved_qty);
     }
 }
