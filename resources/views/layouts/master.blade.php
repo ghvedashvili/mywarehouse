@@ -169,6 +169,13 @@
 
         #topbar .topbar-spacer { flex: 1; }
 
+        #topbar .topbar-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #2d3748;
+            white-space: nowrap;
+        }
+
         #topbar .topbar-user {
             display: flex;
             align-items: center;
@@ -320,6 +327,10 @@
     <button class="topbar-toggle" onclick="toggleSidebar()">
         <i class="fa fa-bars"></i>
     </button>
+
+    @hasSection('page_title')
+        <div class="topbar-title">@yield('page_title')</div>
+    @endif
 
     <div class="topbar-spacer"></div>
 

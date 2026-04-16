@@ -1,4 +1,5 @@
 @extends('layouts.master')
+@section('page_title')<i class="fa fa-users me-2" style="color:#27ae60;"></i>მომხმარებლები@endsection
 
 @section('content')
 <style>

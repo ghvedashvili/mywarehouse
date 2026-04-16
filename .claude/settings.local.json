@@ -7,7 +7,17 @@
       "Bash(php -l \"c:/xampp/htdocs/mywarehouse/resources/views/finance/index.blade.php\")",
       "Bash(xargs grep:*)",
       "Bash(php artisan tinker '--execute=:*)",
-      "Bash(php artisan:*)"
+      "Bash(php artisan:*)",
+      "Bash(sed -i \"s/@section\\('page_title', 'მომხმარებლები'\\)/@section\\('page_title'\\)<i class=\\\\\"fa fa-users me-2\\\\\"><\\\\/i>მომხმარებლები@endsection/\" c:/xampp/htdocs/mywarehouse/resources/views/customers/index.blade.php)",
+      "Bash(sed -i \"s/@section\\('page_title', 'ფინანსები'\\)/@section\\('page_title'\\)<i class=\\\\\"fa fa-coins me-2\\\\\"><\\\\/i>ფინანსები@endsection/\" c:/xampp/htdocs/mywarehouse/resources/views/finance/index.blade.php)",
+      "Bash(sed -i \"s/@section\\('page_title', 'პროდუქტები'\\)/@section\\('page_title'\\)<i class=\\\\\"fa fa-boxes-stacked me-2\\\\\"><\\\\/i>პროდუქტები@endsection/\" c:/xampp/htdocs/mywarehouse/resources/views/products/index.blade.php)",
+      "Bash(sed -i \"s/@section\\('page_title', 'გაყიდვების ორდერები'\\)/@section\\('page_title'\\)<i class=\\\\\"fa fa-cart-shopping me-2\\\\\"><\\\\/i>გაყიდვების ორდერები@endsection/\" c:/xampp/htdocs/mywarehouse/resources/views/product_order/index.blade.php)",
+      "Bash(sed -i \"s/@section\\('page_title', 'შესყიდვები'\\)/@section\\('page_title'\\)<i class=\\\\\"fa fa-truck me-2\\\\\"><\\\\/i>შესყიდვები@endsection/\" c:/xampp/htdocs/mywarehouse/resources/views/purchases/index.blade.php)",
+      "Bash(sed -i \"s|@section\\('page_title'\\)<i class=\\\\\"fa fa-boxes-stacked me-2\\\\\"></i>პროდუქტები@endsection|@section\\('page_title'\\)<i class=\\\\\"fa fa-cubes me-2\\\\\" style=\\\\\"color:#3498db;\\\\\"></i>პროდუქტები@endsection|\" c:/xampp/htdocs/mywarehouse/resources/views/products/index.blade.php)",
+      "Bash(sed -i \"s|@section\\('page_title'\\)<i class=\\\\\"fa fa-users me-2\\\\\"></i>მომხმარებლები@endsection|@section\\('page_title'\\)<i class=\\\\\"fa fa-users me-2\\\\\" style=\\\\\"color:#27ae60;\\\\\"></i>მომხმარებლები@endsection|\" c:/xampp/htdocs/mywarehouse/resources/views/customers/index.blade.php)",
+      "Bash(sed -i \"s|@section\\('page_title'\\)<i class=\\\\\"fa fa-cart-shopping me-2\\\\\"></i>გაყიდვების ორდერები@endsection|@section\\('page_title'\\)<i class=\\\\\"fa fa-right-from-bracket me-2\\\\\" style=\\\\\"color:#e74c3c;\\\\\"></i>გაყიდვების ორდერები@endsection|\" c:/xampp/htdocs/mywarehouse/resources/views/product_order/index.blade.php)",
+      "Bash(sed -i \"s|@section\\('page_title'\\)<i class=\\\\\"fa fa-warehouse me-2\\\\\"></i>საწყობი@endsection|@section\\('page_title'\\)<i class=\\\\\"fa fa-warehouse me-2\\\\\" style=\\\\\"color:#8e44ad;\\\\\"></i>საწყობი@endsection|\" c:/xampp/htdocs/mywarehouse/resources/views/warehouse/index.blade.php)",
+      "Bash(sed -i \"s|@section\\('page_title'\\)<i class=\\\\\"fa fa-truck me-2\\\\\"></i>შესყიდვები@endsection|@section\\('page_title'\\)<i class=\\\\\"fa fa-cart-shopping me-2\\\\\" style=\\\\\"color:#2980b9;\\\\\"></i>შესყიდვები@endsection|\" c:/xampp/htdocs/mywarehouse/resources/views/purchases/index.blade.php)"
     ]
   }
 }

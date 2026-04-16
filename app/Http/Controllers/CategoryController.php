@@ -28,9 +28,10 @@ class CategoryController extends Controller
             'sizes' => 'nullable|string',
         ]);
 
-        $sizes = null;
+        $sizes = '1';
         if ($request->sizes) {
             $sizes = implode(',', array_filter(array_map('trim', explode(',', $request->sizes))));
+            if (!$sizes) $sizes = '1';
         }
 
         Category::create([
@@ -59,9 +60,10 @@ class CategoryController extends Controller
             'sizes' => 'nullable|string',
         ]);
 
-        $sizes = null;
+        $sizes = '1';
         if ($request->sizes) {
             $sizes = implode(',', array_filter(array_map('trim', explode(',', $request->sizes))));
+            if (!$sizes) $sizes = '1';
         }
 
         $category = Category::findOrFail($id);
@@ -130,8 +132,10 @@ class CategoryController extends Controller
         })
         ->addColumn('action', function($category) {
             if (auth()->user()->role === 'admin') {
-                return '<a onclick="editForm('. $category->id .')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i> Edit</a> ' .
-                       '<a onclick="deleteData('. $category->id .')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i> Delete</a>';
+                return '<div class="d-flex gap-1">' .
+                    '<a onclick="editForm('. $category->id .')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a>' .
+                    '<a onclick="deleteData('. $category->id .')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a>' .
+                '</div>';
             }
             return '';
         })

@@ -1,4 +1,5 @@
 @extends('layouts.master')
+@section('page_title')<i class="fa fa-warehouse me-2" style="color:#8e44ad;"></i>საწყობი@endsection
 
 @section('top')
 {{-- DataTables Responsive extension --}}

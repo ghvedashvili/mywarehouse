@@ -1,4 +1,5 @@
 @extends('layouts.master')
+@section('page_title')<i class="fa fa-chart-line me-2" style="color:#16a085;"></i>ფინანსები@endsection
 
 @section('content')
 

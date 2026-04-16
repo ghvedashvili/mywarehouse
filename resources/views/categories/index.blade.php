@@ -1,4 +1,5 @@
 @extends('layouts.master')
+@section('page_title')<i class="fa fa-tags me-2" style="color:#f39c12;"></i>კატეგორიები@endsection
 
 @section('top')
 <style>
@@ -8,34 +9,46 @@
 .switch-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
 .switch input:checked + .switch-slider { background-color: #e74c3c; }
 .switch input:checked + .switch-slider:before { transform: translateX(22px); }
+
+/* Categories table layout */
+#categories-table { table-layout: fixed; width: 100% !important; word-wrap: break-word; }
+#categories-table td { white-space: normal !important; word-break: break-word; vertical-align: middle; }
+#categories-table td:last-child { white-space: nowrap !important; }
+#categories-table .label { display: inline-block; margin-bottom: 2px; }
+.table-responsive { overflow-x: hidden; }
 </style>
 @endsection
 
 @section('content')
 <div class="p-2 p-md-3">
 <div class="card">
-    <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
-        <span class="fw-bold">List of Categories</span>
-        <div class="d-flex align-items-center flex-wrap gap-2">
-            @if(Auth::user()->role === 'admin')
-            <button onclick="addForm()" class="btn btn-success btn-sm">
-                <i class="fa fa-plus"></i> Add New
-            </button>
-            <div class="d-flex align-items-center gap-2">
-                <label for="toggle-deleted" class="mb-0 text-muted" style="font-size:13px; cursor:pointer;">Deleted</label>
-                <label class="switch mb-0">
-                    <input type="checkbox" id="toggle-deleted">
-                    <span class="switch-slider"></span>
-                </label>
-            </div>
-            @endif
-            <a href="{{ route('exportPDF.categoriesAll') }}" class="btn btn-danger btn-sm">
-                <i class="fa fa-file-pdf"></i> PDF
-            </a>
-            <a href="{{ route('exportExcel.categoriesAll') }}" class="btn btn-primary btn-sm">
-                <i class="fa fa-file-excel"></i> Excel
-            </a>
+    <div class="card-header d-flex align-items-center flex-wrap gap-2">
+        <select id="dt-page-length" class="form-select form-select-sm" style="width:auto; flex-shrink:0;">
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="-1">ყველა</option>
+        </select>
+        <input id="dt-search" type="search" class="form-control form-control-sm" placeholder="ძებნა..." style="flex:1 1 120px; min-width:80px;">
+        @if(Auth::user()->role === 'admin')
+        <button onclick="addForm()" class="btn btn-success btn-sm" style="flex-shrink:0;">
+            <i class="fa fa-plus"></i><span class="d-none d-md-inline"> Add New</span>
+        </button>
+        <div class="d-flex align-items-center gap-2" style="flex-shrink:0;">
+            <label for="toggle-deleted" class="mb-0 text-muted" style="font-size:13px; cursor:pointer;">Deleted</label>
+            <label class="switch mb-0">
+                <input type="checkbox" id="toggle-deleted">
+                <span class="switch-slider"></span>
+            </label>
         </div>
+        @endif
+        <a href="{{ route('exportPDF.categoriesAll') }}" class="btn btn-danger btn-sm" style="flex-shrink:0;">
+            <i class="fa fa-file-pdf"></i><span class="d-none d-md-inline"> PDF</span>
+        </a>
+        <a href="{{ route('exportExcel.categoriesAll') }}" class="btn btn-primary btn-sm" style="flex-shrink:0;">
+            <i class="fa fa-file-excel"></i><span class="d-none d-md-inline"> Excel</span>
+        </a>
     </div>
     <div class="card-body p-2 p-md-3">
         <div class="table-responsive">
@@ -62,28 +75,47 @@
 @section('bot')
 <script src="{{ asset('assets/validator/validator.min.js') }}"></script>
 <script>
+// Bootstrap tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(el) {
+        new bootstrap.Tooltip(el);
+    });
+});
+</script>
+<script>
 var showingDeleted = false;
 
 var table = $('#categories-table').DataTable({
     processing: true,
     serverSide: true,
     ajax: "{{ route('api.categories') }}",
+    dom: 't<"d-flex justify-content-between align-items-center mt-2"ip>',
+    pageLength: 10,
+    autoWidth: false,
     columns: [
        // {data: 'id',             name: 'id'},
-        {data: 'name',           name: 'name'},
-        {data: 'sizes_display',  name: 'sizes_display',  orderable: false, searchable: false},
-        {data: 'status_display', name: 'status_display', orderable: false, searchable: false, visible: false},
-        {data: 'action',         name: 'action',         orderable: false, searchable: false}
+        {data: 'name',           name: 'name',           width: '30%'},
+        {data: 'sizes_display',  name: 'sizes_display',  orderable: false, searchable: false, width: '45%'},
+        {data: 'status_display', name: 'status_display', orderable: false, searchable: false, visible: false, width: '60px'},
+        {data: 'action',         name: 'action',         orderable: false, searchable: false, width: '70px'}
     ]
+});
+
+$('#dt-page-length').on('change', function() {
+    table.page.len(parseInt($(this).val())).draw();
+});
+
+$('#dt-search').on('input', function() {
+    table.search($(this).val()).draw();
 });
 
 $('#toggle-deleted').on('change', function() {
     showingDeleted = $(this).is(':checked');
     if (showingDeleted) {
-        table.column(3).visible(true);
+        table.column(2).visible(true);
         table.ajax.url("{{ route('api.categories.deleted') }}").load();
     } else {
-        table.column(3).visible(false);
+        table.column(2).visible(false);
         table.ajax.url("{{ route('api.categories') }}").load();
     }
 });

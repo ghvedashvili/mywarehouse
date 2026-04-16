@@ -21,7 +21,7 @@
             <i class="fa fa-gauge"></i> Dashboard
         </a>
         <a href="{{ route('categories.index') }}" class="sidebar-link {{ request()->is('categories*') ? 'active' : '' }}" onclick="closeSidebar()">
-            <i class="fa fa-list"></i> Category
+            <i class="fa fa-tags"></i> Category
         </a>
         <a href="{{ route('products.index') }}" class="sidebar-link {{ request()->is('products*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-cubes"></i> Product

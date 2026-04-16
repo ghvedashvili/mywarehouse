@@ -14,7 +14,11 @@
                         <input type="text" class="form-control" id="name" name="name" autofocus required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Sizes <small class="text-muted">(მაგ: S, M, L ან 37, 38)</small></label>
+                        <label class="form-label fw-semibold">
+                            Sizes <small class="text-muted">(მაგ: S, M, L ან 37, 38)</small>
+                            <i class="fa fa-circle-info text-muted ms-1" style="cursor:help; font-size:13px;"
+                               data-bs-toggle="tooltip" title="თუ ამ ველს ცარიელს დატოვებ იგულისმება 1 ცალი"></i>
+                        </label>
                         <input type="text" class="form-control" id="sizes" name="sizes" placeholder="მძიმით გამოყოფილი">
                     </div>
                 </div>
