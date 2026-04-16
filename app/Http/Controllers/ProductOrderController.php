@@ -620,7 +620,7 @@ class ProductOrderController extends Controller
         }
 
         if ($request->debt_only == 1) {
-            $debtRaw = '(price_georgia - IFNULL(discount,0)) > (IFNULL(paid_tbc,0) + IFNULL(paid_bog,0) + IFNULL(paid_lib,0) + IFNULL(paid_cash,0))';
+            $debtRaw = '(price_georgia - COALESCE(discount,0)) > (COALESCE(paid_tbc,0) + COALESCE(paid_bog,0) + COALESCE(paid_lib,0) + COALESCE(paid_cash,0))';
             $query->where(function ($q) use ($debtRaw) {
                 // ან თვითონ ორდერს აქვს დავალიანება
                 $q->whereRaw($debtRaw)

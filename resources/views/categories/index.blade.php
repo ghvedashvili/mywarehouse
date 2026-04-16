@@ -42,7 +42,7 @@
         <table id="categories-table" class="table table-bordered table-hover table-striped w-100">
             <thead>
                 <tr>
-                    <th>ID</th>
+                    <!-- <th>ID</th> -->
                     <th>Name</th>
                     <th>Sizes</th>
                     <th>Status</th>
@@ -69,7 +69,7 @@ var table = $('#categories-table').DataTable({
     serverSide: true,
     ajax: "{{ route('api.categories') }}",
     columns: [
-        {data: 'id',             name: 'id'},
+       // {data: 'id',             name: 'id'},
         {data: 'name',           name: 'name'},
         {data: 'sizes_display',  name: 'sizes_display',  orderable: false, searchable: false},
         {data: 'status_display', name: 'status_display', orderable: false, searchable: false, visible: false},

@@ -215,11 +215,11 @@ class FinanceController extends Controller
             ->whereIn('status_id', [1, 2, 3, 4])
             ->selectRaw('SUM(GREATEST(0,
                 price_georgia
-                - IFNULL(discount,0)
-                - IFNULL(paid_tbc,0)
-                - IFNULL(paid_bog,0)
-                - IFNULL(paid_lib,0)
-                - IFNULL(paid_cash,0)
+                - COALESCE(discount,0)
+                - COALESCE(paid_tbc,0)
+                - COALESCE(paid_bog,0)
+                - COALESCE(paid_lib,0)
+                - COALESCE(paid_cash,0)
             )) as total')
             ->value('total');
 
