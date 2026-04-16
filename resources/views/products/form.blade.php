@@ -68,8 +68,7 @@
                             </div>
 
                             {{-- SWITCHES --}}
-                            <div class="d-flex justify-content-between mt-2">
-
+                            <div class="mt-2">
                                 <div class="form-check form-switch">
                                     <input class="form-check-input" type="checkbox"
                                            name="product_status" id="product_status" checked>
@@ -77,15 +76,6 @@
                                         Active
                                     </label>
                                 </div>
-
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox"
-                                           name="in_warehouse" id="in_warehouse" checked>
-                                    <label class="form-check-label small" for="in_warehouse">
-                                        Warehouse
-                                    </label>
-                                </div>
-
                             </div>
 
                         </div>

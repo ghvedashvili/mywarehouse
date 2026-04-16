@@ -138,10 +138,10 @@ public function store(Request $request)
         $product->update(['product_status' => 0]);
 
         return response()->json([
-            'success' => false,
+            'success' => true,
             'cant_delete' => true,
             'message' => 'პროდუქტი გამოიყენება ორდერ(ებ)ში და ვერ წაიშლება. პროდუქტი Inactive-ად დაინიშნა.'
-        ], 422);
+        ]);
     }
 
     $product->delete(); // იძახებს Model-ის override delete()-ს → status='deleted'
@@ -150,6 +150,13 @@ public function store(Request $request)
         'success' => true,
         'message' => 'Product Deleted Successfully'
     ]);
+}
+
+public function updateStatus(Request $request, $id)
+{
+    $product = Product::findOrFail($id);
+    $product->update(['product_status' => $request->product_status ? 1 : 0]);
+    return response()->json(['success' => true]);
 }
 
 public function restore($id)
@@ -247,20 +254,12 @@ public function apiDeletedProducts(Request $request)
             if (!$product->image) {
                 return '<span class="label label-default">No Image</span>';
             }
-            return'<img src="'.url($product->image).'" class="img-thumbnail img-zoom-trigger" 
-                     style="width:50px; height:50px; object-fit:cover; cursor:pointer;">';
+            return '<img src="'.url($product->image).'" class="img-thumbnail img-thumb" style="width:50px; height:50px; object-fit:cover;">';
         })
-        // სტატუსის Badge (Active/Inactive)
         ->addColumn('status_stock', function ($product) {
-    $status = $product->product_status == 1
-        ? '<span class="label label-success">Active</span>'
-        : '<span class="label label-danger">Inactive</span>';
-
-    $stock = $product->in_warehouse == 1
-        ? '<span class="label label-primary">In Stock</span>'
-        : '<span class="label label-warning">Out of Stock</span>';
-
-    return $status . ' ' . $stock;
+    $label = $product->product_status == 1 ? 'Active' : 'Inactive';
+    $color = $product->product_status == 1 ? 'bg-success' : 'bg-danger';
+    return '<span class="badge ' . $color . '" style="cursor:pointer;" onclick="openStatusModal(' . $product->id . ',' . $product->product_status . ')">' . $label . '</span>';
 })
         // ზომების ფორმატირება (თითოეული ზომა ცალკე Badge-ად)
         ->addColumn('format_sizes', function ($product) {
@@ -277,10 +276,10 @@ public function apiDeletedProducts(Request $request)
         // მოქმედების ღილაკები
         ->addColumn('action', function ($product) {
     if (auth()->user()->role !== 'admin') return '';
-    return '<center>'.
-           '<a onclick="editForm(' . $product->id . ')" class="btn btn-primary btn-xs"><i class="glyphicon glyphicon-edit"></i> Edit</a> ' .
-           '<a onclick="deleteData(' . $product->id . ')" class="btn btn-danger btn-xs"><i class="glyphicon glyphicon-trash"></i> Delete</a>'.
-           '</center>';
+    return '<div class="d-flex gap-1 justify-content-center">' .
+           '<a onclick="editForm(' . $product->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a>' .
+           '<a onclick="deleteData(' . $product->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a>' .
+           '</div>';
 })
         // მივუთითებთ რომელ სვეტებშია HTML კოდი
         ->rawColumns(['category_name', 'show_photo', 'status_stock', 'format_sizes', 'action'])

@@ -14,54 +14,53 @@
 /* Image thumb */
 .img-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 6px; cursor: zoom-in; transition: transform 0.15s; border: 1px solid #dee2e6; }
 .img-thumb:hover { transform: scale(1.1); }
-/* Responsive expand row */
-table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before,
-table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
-    background-color: #0d6efd;
-    border-radius: 50%;
-}
+/* Table */
+#products-table td { vertical-align: middle; }
+#products-table td:nth-child(5) { padding: 4px 3px; cursor: zoom-in; }
+/* Responsive — hide "+" icon, expand on name click */
+table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before { display: none !important; }
+table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control { cursor: pointer; padding-left: 8px !important; }
+#products-table tbody tr td:nth-child(1) { cursor: pointer; }
 </style>
 @endsection
 
 @section('content')
 <div class="p-2 p-md-3">
 <div class="card shadow-sm">
-    <div class="card-header py-3">
-        <div class="row align-items-center g-2">
-            <div class="col-12 col-sm-auto">
-                <h5 class="mb-0 fw-bold">
-                    <i class="fa fa-cubes me-2 text-primary"></i>Products
-                </h5>
+    <div class="card-header d-flex align-items-center flex-wrap gap-2">
+        <select id="dt-page-length" class="form-select form-select-sm" style="width:auto; flex-shrink:0;">
+            <option value="10">10</option>
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="-1">ყველა</option>
+        </select>
+        <input id="dt-search" type="search" class="form-control form-control-sm" placeholder="ძებნა..." style="flex:1 1 120px; min-width:80px;">
+        @if(Auth::user()->role === 'admin')
+        <button onclick="addForm()" class="btn btn-success btn-sm" style="flex-shrink:0;">
+            <i class="fa fa-plus"></i><span class="d-none d-md-inline"> Add Product</span>
+        </button>
+        <div class="d-flex align-items-center gap-2" style="flex-shrink:0;">
+            <span class="text-muted" style="font-size:13px; cursor:pointer;">Deleted</span>
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="toggle-deleted" role="switch">
             </div>
-            @if(Auth::user()->role === 'admin')
-            <div class="col-12 col-sm-auto ms-sm-auto d-flex align-items-center gap-2 flex-wrap">
-                <button onclick="addForm()" class="btn btn-success btn-sm">
-                    <i class="fa fa-plus me-1"></i> Add Product
-                </button>
-                <div class="d-flex align-items-center gap-2">
-                    <span class="text-muted small">Deleted</span>
-                    <div class="form-check form-switch mb-0">
-                        <input class="form-check-input" type="checkbox" id="toggle-deleted" role="switch">
-                    </div>
-                </div>
-            </div>
-            @endif
         </div>
+        @endif
     </div>
     <div class="card-body p-0 p-md-3">
         <div class="table-responsive">
             <table id="products-table" class="table table-bordered table-hover align-middle mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th class="text-center" style="width:50px;">ID</th>
-                        <th class="text-center" style="width:70px;">Image</th>
                         <th>Name</th>
                         <th>Code</th>
                         <th>Category</th>
                         <th class="text-end">Price</th>
+                        <th class="text-center" style="width:56px;">Img</th>
                         <th>Sizes</th>
-                        <th class="text-center">Status</th>
-                        <th class="text-center" style="width:100px;">Actions</th>
+                        <th class="text-center" style="width:62px;">Status</th>
+                        <th class="text-center" style="width:70px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -72,13 +71,46 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
 </div>{{-- /p-2 p-md-3 --}}
 
 @include('products.form')
+
+{{-- LIGHTBOX --}}
+<div class="modal fade" id="img-lightbox" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:90vw; width:auto;">
+        <div class="modal-content bg-transparent border-0">
+            <div class="modal-body p-0 text-center" onclick="bootstrap.Modal.getInstance(document.getElementById('img-lightbox')).hide()">
+                <img id="img-lightbox-img" src="" style="max-width:90vw; max-height:90vh; border-radius:8px; cursor:zoom-out;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="status-modal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title fw-bold">სტატუსის შეცვლა</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body py-3">
+                <input type="hidden" id="status-product-id">
+                <select id="status-select" class="form-select form-select-sm">
+                    <option value="1">Active</option>
+                    <option value="0">Inactive</option>
+                </select>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">გაუქმება</button>
+                <button type="button" class="btn btn-sm btn-success" onclick="saveStatus()">შენახვა</button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @section('bot')
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script src="{{ asset('assets/validator/validator.min.js') }}"></script>
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
+<script src="{{ asset('assets/validator/validator.min.js') }}"></script>
 <script>
 var save_method;
 var table;
@@ -87,28 +119,25 @@ $(function() {
     table = $('#products-table').DataTable({
         processing: true,
         serverSide: true,
-        responsive: true,
+        responsive: { details: { type: 'column', target: 0 } },
+        autoWidth: false,
         ajax: "{{ route('api.products') }}",
         columns: [
-            { data: 'id',           className: 'text-center',                    responsivePriority: 6 },
-            { data: 'show_photo',   orderable: false, searchable: false, className: 'text-center', responsivePriority: 4 },
-            { data: 'name',                                                       responsivePriority: 1 }, // ყოველთვის ჩანს
-            { data: 'product_code',                                               responsivePriority: 3 },
-            { data: 'category_name',orderable: false, searchable: false,          responsivePriority: 5 },
-            { data: 'price_geo',    className: 'text-end',                        responsivePriority: 2 }, // ყოველთვის ჩანს
-            { data: 'format_sizes', orderable: false, searchable: false,          responsivePriority: 7 },
-            { data: 'status_stock', orderable: false, searchable: false, className: 'text-center', responsivePriority: 3 },
-            { data: 'action',       orderable: false, searchable: false, className: 'text-center', responsivePriority: 1 } // ყოველთვის ჩანს
+            { data: 'name',                                                                                         responsivePriority: 1 },
+            { data: 'product_code',                                               width: '90px',                   responsivePriority: 5 },
+            { data: 'category_name',orderable: false, searchable: false,          width: '110px',                  responsivePriority: 6 },
+            { data: 'price_geo',    className: 'text-end',                        width: '70px',                   responsivePriority: 2 },
+            { data: 'show_photo',   orderable: false, searchable: false, className: 'text-center', width: '56px',  responsivePriority: 4 },
+            { data: 'format_sizes', orderable: false, searchable: false,          width: '90px',                   responsivePriority: 7 },
+            { data: 'status_stock', orderable: false, searchable: false, className: 'text-center', width: '62px',  responsivePriority: 3 },
+            { data: 'action',       orderable: false, searchable: false, className: 'text-center', width: '70px',  responsivePriority: 1 }
         ],
         language: {
-            processing:      '<div class="spinner-border spinner-border-sm text-primary" role="status"></div>',
-            search:          '',
-            searchPlaceholder: 'Search...',
-            lengthMenu:      '_MENU_ per page',
-            info:            '_START_–_END_ of _TOTAL_',
-            paginate:        { previous: '‹', next: '›' }
+            processing: '<div class="spinner-border spinner-border-sm text-primary" role="status"></div>',
+            info:       '_START_–_END_ of _TOTAL_',
+            paginate:   { previous: '‹', next: '›' }
         },
-        dom: '<"row align-items-center mb-3"<"col-12 col-sm-6"l><"col-12 col-sm-6"f>>rt<"row align-items-center mt-3"<"col-12 col-sm-6"i><"col-12 col-sm-6 d-flex justify-content-sm-end"p>>',
+        dom: 't<"d-flex justify-content-between align-items-center mt-2"ip>',
         pageLength: 25,
     });
 
@@ -117,6 +146,14 @@ $(function() {
             ? "{{ route('api.deleted-products') }}"
             : "{{ route('api.products') }}";
         table.ajax.url(url).load();
+    });
+
+    $('#dt-page-length').on('change', function() {
+        table.page.len(parseInt($(this).val())).draw();
+    });
+
+    $('#dt-search').on('input', function() {
+        table.search($(this).val()).draw();
     });
 });
 
@@ -230,7 +267,14 @@ function deleteData(id) {
             $.ajax({
                 url: "{{ url('products') }}/" + id, type: 'POST',
                 data: { _method: 'DELETE', _token: '{{ csrf_token() }}' },
-                success: function(data) { table.ajax.reload(); swal({ title: 'Deleted!', icon: 'success', timer: 1500 }); },
+                success: function(data) {
+                    table.ajax.reload(null, false);
+                    if (data.cant_delete) {
+                        swal({ title: 'Inactive!', text: data.message, icon: 'warning', timer: 2500 });
+                    } else {
+                        swal({ title: 'Deleted!', icon: 'success', timer: 1500 });
+                    }
+                },
                 error: function(xhr) { swal({ title: 'Error', text: xhr.responseJSON ? xhr.responseJSON.message : 'Error', icon: 'error' }); }
             });
         }
@@ -247,6 +291,33 @@ function restoreData(id) {
                 swal({ title: 'Restored!', icon: 'success', timer: 1500 });
             });
         }
+    });
+}
+
+// ── ACTION BUTTONS → stop row expand ─────────────────────────
+$('#products-table').on('click', 'a.btn', function(e) {
+    e.stopPropagation();
+});
+
+// ── STATUS MODAL ─────────────────────────────────────────────
+function openStatusModal(id, currentStatus) {
+    $('#status-product-id').val(id);
+    $('#status-select').val(currentStatus);
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('status-modal')).show();
+}
+
+function saveStatus() {
+    var id     = $('#status-product-id').val();
+    var status = $('#status-select').val();
+    $.ajax({
+        url: "{{ url('products') }}/" + id + "/status",
+        type: 'POST',
+        data: { _method: 'PATCH', _token: '{{ csrf_token() }}', product_status: status },
+        success: function() {
+            bootstrap.Modal.getInstance(document.getElementById('status-modal')).hide();
+            table.ajax.reload(null, false);
+        },
+        error: function() { swal({ title: 'Error', icon: 'error' }); }
     });
 }
 

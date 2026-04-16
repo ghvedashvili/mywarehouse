@@ -70,6 +70,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/apiProducts', [ProductController::class, 'apiProducts'])->name('api.products');
     Route::get('api/deleted-products', [ProductController::class, 'apiDeletedProducts'])->name('api.deleted-products');
     Route::post('products/{id}/restore', [ProductController::class, 'restore'])->name('products.restore');
+    Route::patch('products/{id}/status', [ProductController::class, 'updateStatus'])->name('products.updateStatus');
     Route::get('/get-sizes/{category_id}', [ProductController::class, 'getSizes']);
 
     // ── Products Out (Sale Orders) ────────────────────────────────────
