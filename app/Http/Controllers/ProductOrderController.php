@@ -522,63 +522,60 @@ class ProductOrderController extends Controller
             }
             // ──────────────────────────────────────────────────────────
 
-            // ─── stock rollback + pending sale-ის დაწინაურება ────────────
-            if (in_array($order->order_type, ['sale', 'change'])) {
-                if (in_array($order->status_id, [2, 3])) {
-                    $stock = \App\Models\Warehouse::where('product_id', $order->product_id)
-                                                  ->where('size', $order->product_size)
-                                                  ->first();
-                    if ($stock) {
-                        $stock->decrement('reserved_qty', 1);
-                        $stock->refresh();
+            // ─── stock rollback info (ვიმახსოვრებთ წაშლამდე) ───────────────
+            $isSaleType    = in_array($order->order_type, ['sale', 'change']);
+            $wasReserved   = $isSaleType && in_array($order->status_id, [2, 3]);
+            $deletedProdId = $order->product_id;
+            $deletedSize   = $order->product_size;
 
-                        // ─── გათავისუფლებულ purchase slot-ზე pending sale მიება ──
-                        $purchaseOrderId = $order->purchase_order_id;
-                        if ($purchaseOrderId) {
-                            $purchase = Product_Order::withoutGlobalScope('active')
-                                ->find($purchaseOrderId);
-
-                            if ($purchase && in_array($purchase->status_id, [2, 3])) {
-                                // ვიპოვოთ ყველაზე ძველი pending sale ამ product/size-ზე
-                                $pendingSale = Product_Order::whereIn('order_type', ['sale', 'change'])
-                                    ->where('product_id', $order->product_id)
-                                    ->where('product_size', $order->product_size)
-                                    ->where('status_id', 1)
-                                    ->where('id', '!=', $order->id)
-                                    ->orderBy('created_at', 'asc')
-                                    ->first();
-
-                                if ($pendingSale) {
-                                    $pendingSale->purchase_order_id = $purchase->id;
-                                    $pendingSale->price_usa         = (float) $purchase->cost_price;
-                                    // price_georgia არ იცვლება
-                                    $pendingSale->status_id         = $purchase->status_id;
-                                    $pendingSale->save();
-
-                                    $stock->increment('reserved_qty', 1);
-
-                                    StatusChangeLog::create([
-                                        'order_id'       => $pendingSale->id,
-                                        'user_id'        => auth()->id(),
-                                        'status_id_from' => 1,
-                                        'status_id_to'   => $purchase->status_id,
-                                        'changed_at'     => now(),
-                                    ]);
-                                }
-                            }
-                        }
-                        // ─────────────────────────────────────────────────────────
-                    }
-                }
-            }
-            // ──────────────────────────────────────────────────────────
-
+            // ─── ჯერ ვშლით ─────────────────────────────────────────────────
+            // FifoService-ი ამ ორდერს usedCount-ში ვეღარ ჩათვლის
             $order->update([
                 'status'            => 'deleted',
                 'purchase_order_id' => null,
                 'price_usa'         => 0,
                 'price_georgia'     => 0,
             ]);
+
+            // ─── stock rollback + ყველაზე ძველი pending-ის დაწინაურება ────
+            if ($wasReserved) {
+                $stock = \App\Models\Warehouse::where('product_id', $deletedProdId)
+                                              ->where('size', $deletedSize)
+                                              ->first();
+                if ($stock) {
+                    $stock->decrement('reserved_qty', 1);
+                    $stock->refresh();
+
+                    // ─── FIFO: ყველაზე ძველი pending sale ────────────────
+                    $pendingSale = Product_Order::whereIn('order_type', ['sale', 'change'])
+                        ->where('product_id', $deletedProdId)
+                        ->where('product_size', $deletedSize)
+                        ->where('status_id', 1)
+                        ->orderBy('created_at', 'asc')
+                        ->first();
+
+                    if ($pendingSale) {
+                        $nextPurchase = \App\Services\FifoService::getNextPurchase($deletedProdId, $deletedSize);
+
+                        if ($nextPurchase) {
+                            $pendingSale->purchase_order_id = $nextPurchase->id;
+                            $pendingSale->price_usa         = (float) $nextPurchase->cost_price;
+                            $pendingSale->status_id         = $nextPurchase->status_id;
+                            $pendingSale->save();
+
+                            $stock->increment('reserved_qty', 1);
+
+                            StatusChangeLog::create([
+                                'order_id'       => $pendingSale->id,
+                                'user_id'        => auth()->id(),
+                                'status_id_from' => 1,
+                                'status_id_to'   => $nextPurchase->status_id,
+                                'changed_at'     => now(),
+                            ]);
+                        }
+                    }
+                }
+            }
 
             return response()->json(['success' => true, 'message' => 'Order Deleted Successfully']);
         });
@@ -1253,36 +1250,45 @@ class ProductOrderController extends Controller
         return \DB::transaction(function () use ($id) {
             $order = Product_Order::withoutGlobalScope('active')->findOrFail($id);
 
-            $newStatusId = $order->status_id;
+            $updateData = ['status' => 'active'];
+
+            // ─── ფასი: პროდუქტის მიმდინარე price_georgia ────────────────────
+            $product = \App\Models\Product::find($order->product_id);
+            if ($product) {
+                $updateData['price_georgia'] = $product->price_geo ?? $order->price_georgia;
+            }
 
             if (in_array($order->order_type, ['sale', 'change'])) {
+                // FIFO-ს მიხედვით ვიღებთ ხელმისაწვდომ purchase-ს
+                $nextPurchase = \App\Services\FifoService::getNextPurchase(
+                    $order->product_id,
+                    $order->product_size ?? ''
+                );
 
-                if (in_array($order->status_id, [2, 3])) {
+                if ($nextPurchase) {
                     $stock = \App\Models\Warehouse::where('product_id', $order->product_id)
                                                   ->where('size', $order->product_size)
                                                   ->first();
+                    if ($stock) $stock->increment('reserved_qty', 1);
 
-                    $available = $stock
-                        ? ($stock->physical_qty + $stock->incoming_qty - $stock->defect_qty - $stock->reserved_qty)
-                        : 0;
-
-                    if ($available > 0) {
-                        $stock->increment('reserved_qty', 1);
-
-                        if ($stock->physical_qty > 0 && $stock->incoming_qty == 0) {
-                            $newStatusId = 3;
-                        } elseif ($stock->incoming_qty > 0) {
-                            $newStatusId = 2;
-                        }
-                    } else {
-                        $newStatusId = 1;
-                    }
+                    $updateData['status_id']         = $nextPurchase->status_id;
+                    $updateData['purchase_order_id'] = $nextPurchase->id;
+                    $updateData['price_usa']         = (float) $nextPurchase->cost_price;
+                } else {
+                    $updateData['status_id']         = 1;
+                    $updateData['purchase_order_id'] = null;
+                    $updateData['price_usa']         = 0;
                 }
             }
 
-            $order->update([
-                'status'    => 'active',
-                'status_id' => $newStatusId,
+            $order->update($updateData);
+
+            StatusChangeLog::create([
+                'order_id'       => $order->id,
+                'user_id'        => auth()->id(),
+                'status_id_from' => $order->getOriginal('status_id'),
+                'status_id_to'   => $updateData['status_id'] ?? $order->status_id,
+                'changed_at'     => now(),
             ]);
 
             return response()->json([
