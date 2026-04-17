@@ -12,6 +12,7 @@ use App\Models\StatusChangeLog;
 use App\Exports\ExportProdukOrder;
 
 use App\Services\FifoService;
+use App\Services\PurchaseService;
 use App\Services\WarehouseLogService;
 
 use Illuminate\Http\Request;
@@ -1684,6 +1685,7 @@ class ProductOrderController extends Controller
                 'product_id'                  => $oldProductId,
                 'product_size'                => $oldSize,
                 'quantity'                    => 1,
+                'original_qty'                => 1,
                 'price_georgia'               => $originalSale->price_georgia,
                 'price_usa'                   => $originalSale->price_usa,
                 'cost_price'                  => $originalSale->price_usa,
@@ -1696,13 +1698,23 @@ class ProductOrderController extends Controller
                 'courier_price_tbilisi'       => $isReturn ? $cTbilisi : 0,
                 'courier_price_region'        => $isReturn ? $cRegion  : 0,
                 'courier_price_village'       => $isReturn ? $cVillage : 0,
-                // ორივე შემთხვევა: discount = price_usa (100% ფასდაკლება თვითღირებულებაზე)
                 'discount'                    => $originalSale->price_usa,
                 'paid_tbc'                    => 0,
                 'paid_bog'                    => 0,
                 'paid_lib'                    => 0,
                 'paid_cash'                   => 0,
+                'purchase_group_id'           => null, // დროებით null, შემდეგ ჩავწერთ
             ]);
+
+            // purchase_group_id = own id (single-item group)
+            $sourcePurchase->purchase_group_id = $sourcePurchase->id;
+            $sourcePurchase->saveQuietly();
+
+            // საწყობში incoming_qty გაზრდა (status 1→2) და sale-ების სინქრონიზაცია
+            PurchaseService::handleStockForPurchase($sourcePurchase->id, 2);
+            Product_Order::where('id', $sourcePurchase->id)->update(['status_id' => 2]);
+            $sourcePurchase->status_id = 2;
+            PurchaseService::syncSaleOrdersAfterPurchase($sourcePurchase, 1, 2);
 
             // ─── დაბრუნება: original sale → სტატუსი 5, purchase მიაბი ───
             if ($changeType === 'return') {
