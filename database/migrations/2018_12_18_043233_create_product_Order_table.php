@@ -17,6 +17,7 @@ $table->tinyInteger('sale_from')->default(0);
             $table->unsignedInteger('merged_id')->nullable();
             $table->boolean('is_primary')->default(0);
             $table->unsignedInteger('purchase_group_id')->nullable()->index();
+            $table->unsignedInteger('original_qty')->nullable();
 
             $table->integer('product_id')->unsigned();
             $table->string('product_size')->nullable();

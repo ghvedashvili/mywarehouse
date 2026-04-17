@@ -26,8 +26,7 @@ class PurchaseOrderController extends Controller
     public function index()
     {
         $products = Product::where('product_status', 1)->orderBy('name')->get();
-        $statuses = OrderStatus::all();
-        return view('purchases.index', compact('products', 'statuses'));
+        return view('purchases.index', compact('products'));
     }
 
     // ─── შესყიდვების DataTable ────────────────────────────────────────
@@ -36,6 +35,8 @@ class PurchaseOrderController extends Controller
     public function apiPurchases(Request $request)
     {
         $type = $request->input('type', 'regular');
+
+        $statusFilter = $request->input('status_filter', '2');
 
         $query = Product_Order::with(['product', 'orderStatus'])
             ->where('order_type', 'purchase');
@@ -50,6 +51,15 @@ class PurchaseOrderController extends Controller
 
         // Group by purchase_group_id; orders without a group use their own id
         $grouped = $all->groupBy(fn($r) => $r->purchase_group_id ?? $r->id);
+
+        // სტატუსის ფილტრი მხოლოდ regular tab-ზე
+        if ($type !== 'returns') {
+            if ($statusFilter === '2') {
+                $grouped = $grouped->filter(fn($items) => $items->contains(fn($r) => $r->status_id === 2));
+            } elseif ($statusFilter === '3') {
+                $grouped = $grouped->filter(fn($items) => !$items->contains(fn($r) => $r->status_id === 2));
+            }
+        }
 
         // Maps keyed by primary row id — used in addColumn closures
         $groupCountMap = [];
@@ -97,21 +107,29 @@ class PurchaseOrderController extends Controller
             ->addColumn('product_code', function ($row) use ($groupCountMap) {
                 return ($groupCountMap[$row->id] ?? 1) > 1 ? '—' : ($row->product?->product_code ?? '-');
             })
+            ->editColumn('product_size', function ($row) use ($groupCountMap) {
+                return ($groupCountMap[$row->id] ?? 1) > 1 ? '—' : ($row->product_size ?? '—');
+            })
+            ->editColumn('quantity', function ($row) use ($groupCountMap) {
+                return ($groupCountMap[$row->id] ?? 1) > 1 ? '—' : $row->quantity;
+            })
             ->addColumn('is_return_purchase', fn($row) => $row->original_sale_id !== null ? 1 : 0)
             ->addColumn('status_name', function ($row) use ($groupCountMap, $groupItemsMap) {
                 $count = $groupCountMap[$row->id] ?? 1;
                 if ($count > 1) {
                     $ids = collect($groupItemsMap[$row->id] ?? [])->pluck('status_id')->unique();
                     if ($ids->count() > 1) {
-                        return '<span class="label label-warning" style="cursor:pointer" onclick="openStatusModal('.$row->id.','.$row->status_id.')" title="შერეული სტატუსი">⚡ შერეული</span>';
+                        return '<span class="label label-warning">⚡ შერეული</span>';
                     }
                 }
                 $color = $row->orderStatus?->color ?? 'default';
                 $name  = $row->orderStatus?->name  ?? '-';
-                return '<span class="label label-'.$color.'" style="cursor:pointer" onclick="openStatusModal('.$row->id.','.$row->status_id.')" title="სტატუსის შეცვლა">'.$name.'</span>';
+                return '<span class="label label-'.$color.'">'.$name.'</span>';
             })
             ->editColumn('created_at', fn($row) => $row->created_at ? $row->created_at->format('d.m.Y H:i') : '-')
-            ->addColumn('price_paid', fn($row) => number_format($row->price_georgia, 2) . ' ₾')
+            ->addColumn('price_paid', function ($row) use ($groupCountMap) {
+                return ($groupCountMap[$row->id] ?? 1) > 1 ? '—' : number_format($row->price_georgia, 2) . ' ₾';
+            })
             ->addColumn('payment', function ($row) use ($groupCountMap) {
                 $count    = $groupCountMap[$row->id] ?? 1;
                 $usa      = $row->price_usa ?? 0;
@@ -136,9 +154,7 @@ class PurchaseOrderController extends Controller
             ->addColumn('action', function ($row) use ($groupCountMap) {
                 $count   = $groupCountMap[$row->id] ?? 1;
                 $gid     = $row->purchase_group_id ?? $row->id;
-                $view    = $count > 1
-                    ? '<a onclick="openGroupView('.$gid.')" class="btn btn-info btn-xs" title="დათვალიერება"><i class="fa fa-eye"></i></a>'
-                    : '';
+                $view = '<a onclick="openGroupView('.$gid.')" class="btn btn-info btn-xs" title="დათვალიერება"><i class="fa fa-eye"></i></a>';
                 $receive = $row->status_id == 2
                     ? '<a onclick="openGroupReceive('.$gid.')" class="btn btn-warning btn-xs" title="საწყობში მიღება"><i class="fa fa-inbox"></i></a>'
                     : '';
@@ -158,14 +174,12 @@ class PurchaseOrderController extends Controller
         $items = Product_Order::with(['product', 'orderStatus'])
             ->where('order_type', 'purchase')
             ->where('purchase_group_id', $groupId)
-            ->where('status_id', 2)
             ->get();
 
-        // Fallback: ძველი ორდერი purchase_group_id-გარეშე, ან single item
+        // Fallback: ძველი ორდერი purchase_group_id-გარეშე
         if ($items->isEmpty()) {
             $single = Product_Order::with(['product', 'orderStatus'])
                 ->where('order_type', 'purchase')
-                ->where('status_id', 2)
                 ->find($groupId);
             if ($single) $items = collect([$single]);
         }
@@ -176,6 +190,8 @@ class PurchaseOrderController extends Controller
             'product_code' => $r->product?->product_code ?? '—',
             'product_size' => $r->product_size,
             'quantity'     => $r->quantity,
+            'original_qty' => $r->original_qty ?? $r->quantity,
+            'status_id'    => $r->status_id,
             'status_name'  => $r->orderStatus?->name  ?? '-',
             'status_color' => $r->orderStatus?->color ?? 'default',
         ])->values());
@@ -220,6 +236,7 @@ class PurchaseOrderController extends Controller
                 'paid_cash'   => $isPrimary ? ($request->paid_cash ?? 0) : 0,
                 'comment'     => $isPrimary ? $request->comment            : null,
                 'status_id'   => 1, // always create as "new" first so handleStockForPurchase sees 1→2 transition
+                'original_qty' => (int) $item['quantity'],
                 'customer_id' => null,
                 'user_id'     => auth()->id(),
                 'purchase_group_id' => $groupId,
@@ -549,80 +566,101 @@ class PurchaseOrderController extends Controller
     public function destroy($id)
     {
         return \DB::transaction(function () use ($id) {
-            $order = Product_Order::where('order_type', 'purchase')->findOrFail($id);
+            $order   = Product_Order::where('order_type', 'purchase')->findOrFail($id);
+            $groupId = $order->purchase_group_id ?? $order->id;
 
-            // ─── გლობალური ბლოკი: ოდესმე გაყიდვა მოხდა? ─────────────────
-            $soldSales = Product_Order::withoutGlobalScope('active')
-                ->where('purchase_order_id', $order->id)
-                ->whereIn('status_id', [4, 5, 6])
-                ->count();
+            // ჯგუფის ყველა ორდერი
+            $groupOrders = Product_Order::where('order_type', 'purchase')
+                ->where('purchase_group_id', $groupId)
+                ->get();
 
-            if ($soldSales > 0) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'წაშლა შეუძლებელია: ამ შესყიდვიდან ' . $soldSales . ' გაყიდვა უკვე განხორციელდა (კურიერთან გადაცემული / დაბრუნებული / გაცვლილი).'
-                ], 422);
+            if ($groupOrders->isEmpty()) {
+                $groupOrders = collect([$order]);
             }
 
-            if (in_array($order->status_id, [2, 3])) {
+            // ─── ბლოკი: ოდესმე გაყიდვა მოხდა ჯგუფის ნებისმიერ ორდერზე? ──
+            foreach ($groupOrders as $o) {
+                $soldSales = Product_Order::withoutGlobalScope('active')
+                    ->where('purchase_order_id', $o->id)
+                    ->whereIn('status_id', [4, 5, 6])
+                    ->count();
 
-                $stock = Warehouse::where('product_id', $order->product_id)
-                                  ->where('size', $order->product_size)->first();
-
-                if ($order->status_id == 2) PurchaseService::handleStockForPurchase($id, 1);
-                elseif ($order->status_id == 3) PurchaseService::handleStockForPurchase($id, 4);
-
-                $boundSales = Product_Order::whereIn('order_type', ['sale', 'change'])
-                    ->where('product_id', $order->product_id)
-                    ->where('product_size', $order->product_size)
-                    ->where(function($q) use ($order) {
-                        $q->where('purchase_order_id', $order->id)
-                          ->orWhereNull('purchase_order_id');
-                    })
-                    ->whereIn('status_id', [2, 3])->get();
-
-                foreach ($boundSales as $sale) {
-                    $nextPurchase = FifoService::getNextPurchase(
-                        $order->product_id,
-                        $order->product_size,
-                        $order->id
-                    );
-
-                    if ($nextPurchase) {
-                        $newSaleStatus           = $nextPurchase->status_id;
-                        $sale->purchase_order_id = $nextPurchase->id;
-                        $sale->price_usa         = (float) $nextPurchase->cost_price;
-                        $sale->status_id         = $newSaleStatus;
-                        $sale->save();
-
-                        StatusChangeLog::create([
-                            'order_id'       => $sale->id,
-                            'user_id'        => auth()->id(),
-                            'status_id_from' => $sale->getOriginal('status_id'),
-                            'status_id_to'   => $newSaleStatus,
-                            'changed_at'     => now(),
-                        ]);
-                    } else {
-                        if ($stock) $stock->decrement('reserved_qty', 1);
-                        $sale->purchase_order_id = null;
-                        $sale->status_id         = 1;
-                        $sale->save();
-
-                        StatusChangeLog::create([
-                            'order_id'       => $sale->id,
-                            'user_id'        => auth()->id(),
-                            'status_id_from' => $sale->getOriginal('status_id'),
-                            'status_id_to'   => 1,
-                            'changed_at'     => now(),
-                        ]);
-                    }
+                if ($soldSales > 0) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'წაშლა შეუძლებელია: ' . ($o->product?->name ?? '#'.$o->id) . ' — ' . $soldSales . ' გაყიდვა უკვე განხორციელდა.'
+                    ], 422);
                 }
-                if ($stock) $stock->save();
             }
 
-            $order->delete();
-            return response()->json(['success' => true, 'message' => 'შესყიდვა წაიშალა!']);
+            // ─── ყველა ორდერის წაშლა ─────────────────────────────────────
+            foreach ($groupOrders as $o) {
+                $this->deleteSinglePurchase($o);
+            }
+
+            $count = $groupOrders->count();
+            $msg   = $count > 1
+                ? $count . ' შესყიდვა წაიშალა (ჯგ. #' . $groupId . ')'
+                : 'შესყიდვა წაიშალა!';
+
+            return response()->json(['success' => true, 'message' => $msg]);
         });
+    }
+
+    private function deleteSinglePurchase(Product_Order $order): void
+    {
+        if (in_array($order->status_id, [2, 3])) {
+            $stock = Warehouse::where('product_id', $order->product_id)
+                              ->where('size', $order->product_size)->first();
+
+            if ($order->status_id == 2) PurchaseService::handleStockForPurchase($order->id, 1);
+            elseif ($order->status_id == 3) PurchaseService::handleStockForPurchase($order->id, 4);
+
+            $boundSales = Product_Order::whereIn('order_type', ['sale', 'change'])
+                ->where('product_id', $order->product_id)
+                ->where('product_size', $order->product_size)
+                ->where(function ($q) use ($order) {
+                    $q->where('purchase_order_id', $order->id)
+                      ->orWhereNull('purchase_order_id');
+                })
+                ->whereIn('status_id', [2, 3])->get();
+
+            foreach ($boundSales as $sale) {
+                $nextPurchase = FifoService::getNextPurchase(
+                    $order->product_id, $order->product_size, $order->id
+                );
+
+                if ($nextPurchase) {
+                    $newSaleStatus           = $nextPurchase->status_id;
+                    $sale->purchase_order_id = $nextPurchase->id;
+                    $sale->price_usa         = (float) $nextPurchase->cost_price;
+                    $sale->status_id         = $newSaleStatus;
+                    $sale->save();
+                    StatusChangeLog::create([
+                        'order_id'       => $sale->id,
+                        'user_id'        => auth()->id(),
+                        'status_id_from' => $sale->getOriginal('status_id'),
+                        'status_id_to'   => $newSaleStatus,
+                        'changed_at'     => now(),
+                    ]);
+                } else {
+                    if ($stock) $stock->decrement('reserved_qty', 1);
+                    $sale->purchase_order_id = null;
+                    $sale->status_id         = 1;
+                    $sale->save();
+                    StatusChangeLog::create([
+                        'order_id'       => $sale->id,
+                        'user_id'        => auth()->id(),
+                        'status_id_from' => $sale->getOriginal('status_id'),
+                        'status_id_to'   => 1,
+                        'changed_at'     => now(),
+                    ]);
+                }
+            }
+            if ($stock) $stock->save();
+        }
+
+        $order->delete();
     }
 
     // ─── სტატუსის განახლება ───────────────────────────────────────────
@@ -1033,7 +1071,12 @@ class PurchaseOrderController extends Controller
                         ]);
                         $promoted++;
                     } else {
-                        // ❌ ვერ მოვიდა (დაკარგული/ჭარბი) → სხვა purchase ან status=1
+                        // ❌ ვერ მოვიდა ამ batch-ში
+                        if ($remaining > 0) {
+                            // purchase-ს კიდევ აქვს ნაშთი — sale რჩება მასთან მიბმული (status=2 უცვლელი)
+                            continue;
+                        }
+                        // purchase სრულად ამოიწურა → სხვა purchase ან status=1
                         $next = FifoService::getNextPurchase(
                             $purchase->product_id, $purchase->product_size, $purchase->id
                         );

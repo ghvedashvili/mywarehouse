@@ -113,8 +113,6 @@ Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff']
     Route::get('purchases/{id}/edit',             [PurchaseOrderController::class, 'edit'])->name('purchases.edit');
     Route::patch('purchases/{id}',                [PurchaseOrderController::class, 'update'])->name('purchases.update');
     Route::delete('purchases/{id}',               [PurchaseOrderController::class, 'destroy'])->name('purchases.destroy');
-    Route::post('purchases/update-status/{id}',   [PurchaseOrderController::class, 'updateStatus'])->name('purchases.updateStatus');
-    Route::post('purchases/{id}/partial-receive',           [PurchaseOrderController::class, 'partialReceive'])->name('purchases.partialReceive');
     Route::get('purchases/group/{groupId}/items',           [PurchaseOrderController::class, 'getGroupItems'])->name('purchases.groupItems');
     Route::post('purchases/group/{groupId}/partial-receive',[PurchaseOrderController::class, 'groupPartialReceive'])->name('purchases.groupPartialReceive');
 

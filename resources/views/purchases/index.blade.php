@@ -79,6 +79,13 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before {
 
         {{-- ══ ჩვეულებრივი შესყიდვები ══ --}}
         <div id="tab-regular">
+            <div class="mb-2 d-flex align-items-center gap-2">
+                <span class="text-muted" style="font-size:12px;">სტატუსი:</span>
+                <div class="btn-group btn-group-sm" id="purchase-status-filter">
+                    <button type="button" class="btn btn-warning active" data-status="2">⏳ გზაშია</button>
+                    <button type="button" class="btn btn-outline-success" data-status="3">✅ საწყობში</button>
+                </div>
+            </div>
             <table id="purchases-table" class="table wh-table table-hover table-bordered w-100">
                 <thead>
                     <tr>
@@ -123,90 +130,6 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before {
 
 </div>
 
-{{-- Status Modal --}}
-<div class="modal fade" id="modal-status" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-sm modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-light">
-                <h5 class="modal-title fw-bold">სტატუსის შეცვლა</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="status_order_id">
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">ახალი სტატუსი</label>
-                    <select id="new_status_id" class="form-select">
-                        @foreach($statuses as $s)
-                            <option value="{{ $s->id }}">{{ $s->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">გაუქმება</button>
-                <button type="button" class="btn btn-primary" onclick="submitStatus()">შენახვა</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-{{-- Partial Receive Modal --}}
-<div class="modal fade" id="modal-partial-receive" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content" style="border-radius:8px;">
-            <div class="modal-header" style="background:#f39c12; color:#fff; border-radius:8px 8px 0 0;">
-                <h5 class="modal-title fw-bold">📦 საწყობში მიღება</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="partial_purchase_id">
-
-                {{-- პროდუქტის ინფო --}}
-                <div class="p-3 mb-3 rounded border bg-light" style="font-size:13px;">
-                    <div><strong id="partial_product_name">—</strong></div>
-                    <div class="mt-1 text-muted">
-                        შეკვეთილი: <strong id="partial_total_qty">—</strong> ერთ.
-                        &nbsp;|&nbsp; ზომა: <strong id="partial_size">—</strong>
-                    </div>
-                </div>
-
-                {{-- სამი ველი გვერდიგვერდ --}}
-                <div class="row g-2 mb-2">
-                    <div class="col-6">
-                        <label class="form-label fw-semibold text-success" style="font-size:11px; text-transform:uppercase; letter-spacing:.4px;">✅ მიღებული</label>
-                        <input type="number" id="partial_received_qty" class="form-control text-center fw-bold partial-qty-input"
-                               min="0" value="0" style="font-size:20px; border-color:#00a65a; border-width:2px;">
-                    </div>
-                    <div class="col-6">
-                        <label class="form-label fw-semibold text-danger" style="font-size:11px; text-transform:uppercase; letter-spacing:.4px;">❌ დაკარგ.</label>
-                        <input type="number" id="partial_lost_qty" class="form-control text-center fw-bold partial-qty-input"
-                               min="0" value="0" style="font-size:20px; border-color:#dd4b39; border-width:2px;">
-                    </div>
-                </div>
-
-                {{-- შენიშვნები (ჩნდება თუ > 0) --}}
-                <div id="partial_lost_note_wrap" style="display:none;" class="mb-2">
-                    <input type="text" id="partial_lost_note" class="form-control form-control-sm"
-                           placeholder="❌ დაკარგულის შენიშვნა (სურვილისამებრ)">
-                </div>
-
-                {{-- Summary --}}
-                <div class="p-3 rounded bg-light" style="font-size:13px;">
-                    ჯამი: <strong id="partial_sum_display">0</strong>
-                    / <strong id="partial_total_display">—</strong> ერთ.
-                    &nbsp;&nbsp;
-                    <span id="partial_remaining_text" class="fw-bold"></span>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">გაუქმება</button>
-                <button type="button" class="btn btn-success" onclick="submitPartialReceive()" id="btn-partial-save">
-                    <i class="fa fa-check me-1"></i> დადასტურება
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 
 @include('purchases.form_purchase')
 
@@ -302,12 +225,17 @@ $(function() {
     };
 
     // ══ PURCHASES TABLE (ჩვეულებრივი) ══
+    var purchaseStatusFilter = '2';
+
     var purchasesTable = $('#purchases-table').DataTable({
         processing: true, serverSide: true,
         responsive: true,
         ajax: {
             url: "{{ route('purchases.api') }}",
-            data: { type: 'regular' }
+            data: function(d) {
+                d.type          = 'regular';
+                d.status_filter = purchaseStatusFilter;
+            }
         },
         columns: [
             { data: 'order_number',    name: 'order_number',    responsivePriority: 2 },
@@ -325,19 +253,65 @@ $(function() {
         ]
     });
 
+    // ══ STATUS FILTER ══
+    $('#purchase-status-filter button').on('click', function() {
+        purchaseStatusFilter = $(this).data('status').toString();
+        $('#purchase-status-filter button')
+            .removeClass('btn-warning btn-success active')
+            .addClass(function() {
+                return $(this).data('status').toString() === '2' ? 'btn-outline-warning' : 'btn-outline-success';
+            });
+        $(this)
+            .removeClass('btn-outline-warning btn-outline-success')
+            .addClass(purchaseStatusFilter === '2' ? 'btn-warning active' : 'btn-success active');
+        purchasesTable.ajax.reload();
+    });
+
     // ══ GROUP VIEW ══
     window.openGroupView = function(groupId) {
         $.get("{{ url('purchases/group') }}/" + groupId + "/items", function(items) {
+            items = items || [];
+
+            // გამოვთვალოთ თავდაპირველი და დარჩენილი
+            var totalOrdered  = 0;
+            var totalRemaining = 0;
+            items.forEach(function(it) {
+                totalOrdered += (it.quantity || 0);
+                if (it.status_id === 2) totalRemaining += (it.quantity || 0);
+            });
+
             var html = '<table class="table table-sm table-bordered mb-0">'
-                     + '<thead class="table-light"><tr><th>პროდუქტი</th><th>კოდი</th><th>ზომა</th><th class="text-center">რაოდ.</th><th>სტატუსი</th></tr></thead><tbody>';
-            (items || []).forEach(function(it) {
-                html += '<tr><td class="fw-semibold">' + (it.product_name||'N/A') + '</td>'
+                     + '<thead class="table-light"><tr>'
+                     + '<th>პროდუქტი</th><th>კოდი</th><th>ზომა</th>'
+                     + '<th class="text-center">შეკვეთა</th><th class="text-center">გზაშია</th>'
+                     + '</tr></thead><tbody>';
+
+            items.forEach(function(it) {
+                var orig      = it.original_qty || it.quantity || 0;
+                var remaining = it.status_id === 2 ? (it.quantity || 0) : 0;
+
+                var remainCell = remaining > 0
+                    ? '<span class="text-warning fw-bold">' + remaining + '</span>'
+                    : '<span class="text-muted">—</span>';
+
+                html += '<tr>'
+                     +  '<td class="fw-semibold">' + (it.product_name||'N/A') + '</td>'
                      +  '<td class="text-muted" style="font-size:12px;">' + (it.product_code||'—') + '</td>'
                      +  '<td>' + (it.product_size||'—') + '</td>'
-                     +  '<td class="text-center fw-bold">' + (it.quantity||0) + '</td>'
-                     +  '<td><span class="label label-'+(it.status_color||'default')+'" style="font-size:11px;">' + (it.status_name||'-') + '</span></td></tr>';
+                     +  '<td class="text-center fw-bold">' + orig + '</td>'
+                     +  '<td class="text-center">' + remainCell + '</td>'
+                     +  '</tr>';
             });
             html += '</tbody></table>';
+
+            // summary footer
+            if (totalRemaining > 0 && totalRemaining < totalOrdered) {
+                html += '<div class="mt-2 p-2 rounded bg-light" style="font-size:12px;">'
+                     +  '📦 სულ შეკვეთილი: <strong>' + totalOrdered + '</strong> ერთ. &nbsp;|&nbsp; '
+                     +  '⏳ გზაში დარჩენილი: <strong class="text-warning">' + totalRemaining + '</strong> ერთ.'
+                     +  '</div>';
+            }
+
             $('#gv-body').html(html);
             new bootstrap.Modal(document.getElementById('modal-group-view')).show();
         });
@@ -677,116 +651,6 @@ $(function() {
         });
     });
 
-    // ══ STATUS MODAL ══
-    window.openStatusModal = function(orderId, currentStatus) {
-        $.get("{{ url('purchases') }}/" + orderId + "/edit", function(data) {
-            if (currentStatus == 2) {
-                var total = data.quantity;
-                $('#partial_purchase_id').val(orderId);
-                $('#partial_product_name').text(data.product_name || 'Purchase #' + orderId);
-                $('#partial_size').text(data.product_size || '');
-                $('#partial_total_qty').text(total);
-                $('#partial_total_display').text(total);
-                // ველების reset
-                $('#partial_received_qty').val(total);
-                $('#partial_lost_qty').val(0);
-                $('#partial_lost_note').val('');
-                $('#partial_lost_note_wrap').hide();
-                updatePartialSummary();
-                new bootstrap.Modal(document.getElementById('modal-partial-receive')).show();
-            } else {
-                $('#status_order_id').val(orderId);
-                $('#new_status_id').val(currentStatus);
-                new bootstrap.Modal(document.getElementById('modal-status')).show();
-            }
-        });
-    };
-
-    // ══ PARTIAL RECEIVE — input listeners ══
-    $(document).on('input', '.partial-qty-input', function() {
-        updatePartialSummary();
-        $('#partial_lost_note_wrap').toggle((parseInt($('#partial_lost_qty').val()) || 0) > 0);
-    });
-
-    function updatePartialSummary() {
-        var total   = parseInt($('#partial_total_qty').text()) || 0;
-        var got     = parseInt($('#partial_received_qty').val()) || 0;
-        var lost    = parseInt($('#partial_lost_qty').val())    || 0;
-        var sum     = got + lost;
-        var rem     = total - sum;
-
-        $('#partial_sum_display').text(sum);
-
-        var txt = '';
-        if (sum > total) {
-            txt = '<span style="color:#dd4b39;">❌ ჯამი აღემატება შეკვეთილს!</span>';
-        } else if (rem === 0 && got > 0) {
-            txt = '<span style="color:#00a65a;">✅ სრულად დათვლილია</span>';
-        } else if (rem === 0 && got === 0) {
-            txt = '<span style="color:#f39c12;">⚠️ ყველა დაკარგულია</span>';
-        } else if (rem > 0) {
-            txt = '<span style="color:#f39c12;">⚠️ ' + rem + ' ერთ. კვლავ გზაში დარჩება</span>';
-        }
-        $('#partial_remaining_text').html(txt);
-    }
-
-    window.submitPartialReceive = function() {
-        var id     = $('#partial_purchase_id').val();
-        var got    = parseInt($('#partial_received_qty').val()) || 0;
-        var lost   = parseInt($('#partial_lost_qty').val())     || 0;
-        var max    = parseInt($('#partial_total_qty').text())   || 0;
-        var sum    = got + lost;
-
-        if (sum < 1)    { swal('შეცდომა', 'შეიყვანეთ მინიმუმ 1 ერთეული', 'error'); return; }
-        if (sum > max)  { swal('შეცდომა', 'ჯამი (' + sum + ') აღემატება შეკვეთილ რაოდენობას (' + max + ')', 'error'); return; }
-
-        $('#btn-partial-save').prop('disabled', true).text('...');
-
-        $.ajax({
-            url: "{{ url('purchases') }}/" + id + "/partial-receive",
-            type: 'POST',
-            data: {
-                received_qty: got,
-                defect_qty:   0,
-                lost_qty:     lost,
-                lost_note:    $('#partial_lost_note').val()   || '',
-                _token: "{{ csrf_token() }}"
-            },
-            success: function(res) {
-                bootstrap.Modal.getInstance(document.getElementById('modal-partial-receive')).hide();
-                purchasesTable.ajax.reload();
-                returnsTable.ajax.reload();
-                swal({ title: '✅', text: res.message, type: 'success', timer: 2500 });
-            },
-            error: function(xhr) {
-                var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'შეცდომა!';
-                swal({ title: 'შეცდომა', text: msg, type: 'error' });
-            },
-            complete: function() {
-                $('#btn-partial-save').prop('disabled', false).html('<i class="fa fa-check me-1"></i> დადასტურება');
-            }
-        });
-    };
-
-    window.submitStatus = function() {
-        var id     = $('#status_order_id').val();
-        var status = $('#new_status_id').val();
-        $.ajax({
-            url: "{{ url('purchases/update-status') }}/" + id,
-            type: 'POST',
-            data: { status_id: status, _token: "{{ csrf_token() }}" },
-            success: function(res) {
-                bootstrap.Modal.getInstance(document.getElementById('modal-status')).hide();
-                purchasesTable.ajax.reload();
-                returnsTable.ajax.reload();
-                swal({ title: '✅', text: res.message, type: 'success', timer: 1500 });
-            },
-            error: function(xhr) {
-                var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'შეცდომა!';
-                swal({ title: 'შეცდომა', text: msg, type: 'error' });
-            }
-        });
-    };
 
     // ══ GROUP RECEIVE ══
     window.openGroupReceive = function(groupId) {

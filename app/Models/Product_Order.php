@@ -19,7 +19,7 @@ class Product_Order extends Model
         'merged_id', 'is_primary', 'purchase_group_id',
         'changed_to_order_id', 'returned_purchase_id',
         'order_address', 'order_alt_tel',
-        'cancelled_at',
+        'cancelled_at', 'original_qty',
     ];
 
     protected $hidden = ['created_at', 'updated_at'];
