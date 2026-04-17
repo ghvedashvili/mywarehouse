@@ -578,8 +578,9 @@ class PurchaseOrderController extends Controller
                 $groupOrders = collect([$order]);
             }
 
-            // ─── ბლოკი: ოდესმე გაყიდვა მოხდა ჯგუფის ნებისმიერ ორდერზე? ──
+            // ─── ბლოკი: ჯგუფის ნებისმიერ ორდერზე შემოტანა ან გაყიდვა ──
             foreach ($groupOrders as $o) {
+                // გაყიდვა მოხდა
                 $soldSales = Product_Order::withoutGlobalScope('active')
                     ->where('purchase_order_id', $o->id)
                     ->whereIn('status_id', [4, 5, 6])
@@ -589,6 +590,22 @@ class PurchaseOrderController extends Controller
                     return response()->json([
                         'success' => false,
                         'message' => 'წაშლა შეუძლებელია: ' . ($o->product?->name ?? '#'.$o->id) . ' — ' . $soldSales . ' გაყიდვა უკვე განხორციელდა.'
+                    ], 422);
+                }
+
+                // საწყობში უკვე შემოტანილია (status=3 ან ნაწილობრივი მიღება)
+                if ($o->status_id == 3) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'წაშლა შეუძლებელია: ' . ($o->product?->name ?? '#'.$o->id) . ' — საწყობში უკვე შემოტანილია.'
+                    ], 422);
+                }
+
+                $alreadyReceived = ($o->original_qty > 0) ? ($o->original_qty - $o->quantity) : 0;
+                if ($o->status_id == 2 && $alreadyReceived > 0) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'წაშლა შეუძლებელია: ' . ($o->product?->name ?? '#'.$o->id) . ' — ' . $alreadyReceived . ' ერთ. უკვე საწყობში შემოტანილია.'
                     ], 422);
                 }
             }
@@ -1071,9 +1088,8 @@ class PurchaseOrderController extends Controller
                         ]);
                         $promoted++;
                     } else {
-                        // ❌ ვერ მოვიდა ამ batch-ში
                         if ($remaining > 0) {
-                            // purchase-ს კიდევ აქვს ნაშთი — sale რჩება მასთან მიბმული (status=2 უცვლელი)
+                            // purchase-ს კვლავ აქვს ნაშთი — sale რჩება მიბმული
                             continue;
                         }
                         // purchase სრულად ამოიწურა → სხვა purchase ან status=1
@@ -1112,7 +1128,7 @@ class PurchaseOrderController extends Controller
                 $stock->save();
 
                 $name = $purchase->product?->name ?? ('#'.$orderId);
-                $messages[] = $name.': '.$receivedQty.' ✅'.($remaining > 0 ? ' ('.$remaining.' კვლავ გზაში)' : '');
+                $messages[] = $name . ': ' . $receivedQty . ' ✅' . ($remaining > 0 ? ' (' . $remaining . ' კვლავ გზაში)' : '');
             }
 
             return response()->json([
