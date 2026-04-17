@@ -210,6 +210,63 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before {
 
 @include('purchases.form_purchase')
 
+{{-- ══ Group View Modal ══ --}}
+<div class="modal fade" id="modal-group-view" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-light py-2">
+                <h5 class="modal-title fw-bold">📋 ჯგუფის შემადგენლობა</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3">
+                <div class="table-responsive" id="gv-body"></div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">დახურვა</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- ══ Group Receive Modal ══ --}}
+<div class="modal fade" id="modal-group-receive" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+        <div class="modal-content" style="border-radius:8px;">
+            <div class="modal-header" style="background:#f39c12;color:#fff;border-radius:8px 8px 0 0;">
+                <h5 class="modal-title fw-bold">📦 საწყობში მიღება</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3">
+                <input type="hidden" id="gr-group-id">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>პროდუქტი</th>
+                                <th style="width:80px">ზომა</th>
+                                <th style="width:75px" class="text-center">შეკვ.</th>
+                                <th style="width:100px">
+                                    <span class="text-success">✅ მიღებული</span>
+                                </th>
+                                <th style="width:100px">
+                                    <span class="text-danger">❌ დაკარგ.</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="gr-lines-body"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">გაუქმება</button>
+                <button type="button" class="btn btn-success" id="btn-gr-save" onclick="submitGroupReceive()">
+                    <i class="fa fa-check me-1"></i> დადასტურება
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @section('bot')
@@ -219,8 +276,6 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before {
 
 <script>
 $(function() {
-
-    $('.select2-purchase').select2({ dropdownParent: $('#modal-purchase'), width: '100%' });
 
     // ══ TAB SWITCHING ══
     var currentTab = 'regular';
@@ -255,19 +310,38 @@ $(function() {
             data: { type: 'regular' }
         },
         columns: [
-            { data: 'order_number',       name: 'order_number',       responsivePriority: 2 },
-            { data: 'product_name',       name: 'product_name',       responsivePriority: 1 },
-            { data: 'product_code',       name: 'product_code',       responsivePriority: 9 },
-            { data: 'product_size',       name: 'product_size',       responsivePriority: 3 },
-            { data: 'quantity',           name: 'quantity',           responsivePriority: 4 },
-            { data: 'payment',            name: 'payment',            orderable: false, responsivePriority: 7 },
-            { data: 'price_paid',         name: 'price_paid',         orderable: false, responsivePriority: 8 },
-            { data: 'status_name',        name: 'status_name',        orderable: false, responsivePriority: 5 },
-            { data: 'created_at',         name: 'created_at',         responsivePriority: 6 },
-            { data: 'action',             name: 'action',             orderable: false, responsivePriority: 2 },
-            { data: 'is_return_purchase', name: 'is_return_purchase', visible: false },
+            { data: 'order_number',    name: 'order_number',    responsivePriority: 2 },
+            { data: 'product_name',    name: 'product_name',    responsivePriority: 1, orderable: false },
+            { data: 'product_code',    name: 'product_code',    responsivePriority: 9 },
+            { data: 'product_size',    name: 'product_size',    responsivePriority: 3 },
+            { data: 'quantity',        name: 'quantity',        responsivePriority: 4 },
+            { data: 'payment',         name: 'payment',         orderable: false, responsivePriority: 7 },
+            { data: 'price_paid',      name: 'price_paid',      orderable: false, responsivePriority: 8 },
+            { data: 'status_name',     name: 'status_name',     orderable: false, responsivePriority: 5 },
+            { data: 'created_at',      name: 'created_at',      responsivePriority: 6 },
+            { data: 'action',          name: 'action',          orderable: false, responsivePriority: 2 },
+            { data: 'is_return_purchase', visible: false },
+            { data: 'group_items_json',   visible: false },
         ]
     });
+
+    // ══ GROUP VIEW ══
+    window.openGroupView = function(groupId) {
+        $.get("{{ url('purchases/group') }}/" + groupId + "/items", function(items) {
+            var html = '<table class="table table-sm table-bordered mb-0">'
+                     + '<thead class="table-light"><tr><th>პროდუქტი</th><th>კოდი</th><th>ზომა</th><th class="text-center">რაოდ.</th><th>სტატუსი</th></tr></thead><tbody>';
+            (items || []).forEach(function(it) {
+                html += '<tr><td class="fw-semibold">' + (it.product_name||'N/A') + '</td>'
+                     +  '<td class="text-muted" style="font-size:12px;">' + (it.product_code||'—') + '</td>'
+                     +  '<td>' + (it.product_size||'—') + '</td>'
+                     +  '<td class="text-center fw-bold">' + (it.quantity||0) + '</td>'
+                     +  '<td><span class="label label-'+(it.status_color||'default')+'" style="font-size:11px;">' + (it.status_name||'-') + '</span></td></tr>';
+            });
+            html += '</tbody></table>';
+            $('#gv-body').html(html);
+            new bootstrap.Modal(document.getElementById('modal-group-view')).show();
+        });
+    };
 
     // ══ RETURNS TABLE (დაბრუნება / გაცვლა) ══
     var returnsTable = $('#returns-table').DataTable({
@@ -278,83 +352,160 @@ $(function() {
             data: { type: 'returns' }
         },
         columns: [
-            { data: 'order_number',       name: 'order_number',       responsivePriority: 2 },
-            { data: 'product_name',       name: 'product_name',       responsivePriority: 1 },
-            { data: 'product_code',       name: 'product_code',       responsivePriority: 9 },
-            { data: 'product_size',       name: 'product_size',       responsivePriority: 3 },
-            { data: 'quantity',           name: 'quantity',           responsivePriority: 4 },
-            { data: 'payment',            name: 'payment',            orderable: false, responsivePriority: 7 },
-            { data: 'price_paid',         name: 'price_paid',         orderable: false, responsivePriority: 8 },
-            { data: 'status_name',        name: 'status_name',        orderable: false, responsivePriority: 5 },
-            { data: 'created_at',         name: 'created_at',         responsivePriority: 6 },
-            { data: 'action',             name: 'action',             orderable: false, responsivePriority: 2 },
-            { data: 'is_return_purchase', name: 'is_return_purchase', visible: false },
+            { data: 'order_number',    name: 'order_number',    responsivePriority: 2 },
+            { data: 'product_name',    name: 'product_name',    responsivePriority: 1, orderable: false },
+            { data: 'product_code',    name: 'product_code',    responsivePriority: 9 },
+            { data: 'product_size',    name: 'product_size',    responsivePriority: 3 },
+            { data: 'quantity',        name: 'quantity',        responsivePriority: 4 },
+            { data: 'payment',         name: 'payment',         orderable: false, responsivePriority: 7 },
+            { data: 'price_paid',      name: 'price_paid',      orderable: false, responsivePriority: 8 },
+            { data: 'status_name',     name: 'status_name',     orderable: false, responsivePriority: 5 },
+            { data: 'created_at',      name: 'created_at',      responsivePriority: 6 },
+            { data: 'action',          name: 'action',          orderable: false, responsivePriority: 2 },
+            { data: 'is_return_purchase', visible: false },
+            { data: 'group_items_json',   visible: false },
         ],
         createdRow: function(row) {
             $(row).css('background-color', '#d9edf7');
         }
     });
 
-    // ══ PRODUCT CHANGE ══
-    $('#purchase_product_id').on('change', function() {
-        var opt   = $(this).find(':selected');
-        var sizes = opt.data('sizes') || '';
-        var image = opt.data('image') || '';
-        var geo   = opt.data('price-ge') || 0;
+    // ══ MULTI-LINE PURCHASE FORM ══
+    var purchaseLineIndex = 0;
+    var productOptionsTpl = document.getElementById('tpl-product-options').innerHTML;
 
-        var isNew = !$('#purchase_id').val();
-        if (isNew) { $('#purchase_price_geo_input').val(geo); }
+    window.addPurchaseLine = function(defaults) {
+        var idx = purchaseLineIndex++;
 
-        $('#purchase_size').empty().append('<option value="">ზომა</option>');
-        if (sizes) {
-            sizes.toString().split(',').forEach(function(s) {
-                s = s.trim();
-                if (s) $('#purchase_size').append('<option value="' + s + '">' + s + '</option>');
-            });
+        var $prodSel = $('<select required>')
+            .addClass('form-select form-select-sm line-product w-100')
+            .attr('name', 'items[' + idx + '][product_id]')
+            .html(productOptionsTpl);
+
+        var $sizeSel = $('<select required>')
+            .addClass('form-select form-select-sm line-size')
+            .attr('name', 'items[' + idx + '][product_size]')
+            .append('<option value="">—</option>');
+
+        var $qty = $('<input type="number" required>')
+            .addClass('form-control form-control-sm line-qty')
+            .attr({ name: 'items[' + idx + '][quantity]', min: 1, value: 1 });
+
+        var $priceUsa = $('<input type="number">')
+            .addClass('form-control form-control-sm line-price-usa')
+            .attr({ name: 'items[' + idx + '][price_usa]', step: '0.01', min: 0, placeholder: '0.00' });
+
+        var $transport = $('<input type="number">')
+            .addClass('form-control form-control-sm line-transport')
+            .attr({ name: 'items[' + idx + '][transport]', step: '0.01', min: 0, placeholder: '0.00', value: 0 });
+
+        var $priceGeo = $('<input type="text" readonly>')
+            .addClass('form-control form-control-sm line-price-geo bg-light')
+            .attr('name', 'items[' + idx + '][price_georgia]')
+            .attr('placeholder', '0.00');
+
+        var $fifo = $('<small class="line-fifo">');
+
+        var $removeBtn = $('<button type="button">')
+            .addClass('btn btn-outline-danger btn-sm remove-line p-1')
+            .html('<i class="fa fa-times"></i>');
+
+        var $tr = $('<tr class="purchase-line">').append(
+            $('<td>').append($prodSel),
+            $('<td>').append($sizeSel),
+            $('<td>').append($qty),
+            $('<td>').append($priceUsa).append($fifo),
+            $('<td>').append($transport),
+            $('<td>').append($priceGeo),
+            $('<td class="text-center">').append($removeBtn)
+        );
+
+        if (defaults) {
+            $prodSel.val(defaults.product_id || '');
+            var sizes = ($prodSel.find(':selected').data('sizes') || '').toString();
+            if (sizes) {
+                sizes.split(',').forEach(function(s) {
+                    s = s.trim();
+                    if (s) $sizeSel.append('<option value="' + s + '">' + s + '</option>');
+                });
+            }
+            $sizeSel.val(defaults.product_size || '');
+            $qty.val(defaults.quantity || 1);
+            $priceUsa.val(defaults.price_usa || '');
+            $transport.val(defaults.transport != null ? defaults.transport : 0);
+            $priceGeo.val(defaults.price_georgia ? parseFloat(defaults.price_georgia).toFixed(2) : '');
         }
 
-        if (image) { $('#purchase_preview').attr('src', image).show(); $('#purchase_no_img').hide(); }
-        else        { $('#purchase_preview').hide(); $('#purchase_no_img').show(); }
+        $('#purchase-lines-body').append($tr);
+        updateRemoveButtons();
+        calcPurchaseSummary();
+    };
 
-        $('#current-stock-info').hide();
-        $('#fifo_current_block').hide();
+    function updateRemoveButtons() {
+        var $rows = $('#purchase-lines-body .purchase-line');
+        $rows.find('.remove-line').toggle($rows.length > 1);
+    }
+
+    // ── line events (delegated) ──
+    $(document).on('change', '#purchase-lines-body .line-product', function() {
+        var $tr    = $(this).closest('tr');
+        var opt    = $(this).find(':selected');
+        var sizes  = (opt.data('sizes') || '').toString();
+        var geo    = opt.data('price-ge') || 0;
+
+        var $sz = $tr.find('.line-size').empty().append('<option value="">—</option>');
+        if (sizes) {
+            sizes.split(',').forEach(function(s) {
+                s = s.trim();
+                if (s) $sz.append('<option value="' + s + '">' + s + '</option>');
+            });
+        }
+        $tr.find('.line-price-geo').val(geo ? parseFloat(geo).toFixed(2) : '');
+        $tr.find('.line-fifo').text('');
         calcPurchaseSummary();
     });
 
-    // ══ SIZE CHANGE ══
-    $('#purchase_size').on('change', function() {
-        var prodId = $('#purchase_product_id').val();
+    $(document).on('change', '#purchase-lines-body .line-size', function() {
+        var $tr    = $(this).closest('tr');
+        var prodId = $tr.find('.line-product').val();
         var size   = $(this).val();
-        if (prodId && size) loadStockInfo(prodId, size);
-        else $('#current-stock-info').hide();
+        if (prodId && size) {
+            $.get("{{ route('warehouse.stockInfo') }}", { product_id: prodId, size: size }, function(d) {
+                $tr.find('.line-fifo').text(d.fifo_cost ? 'FIFO: $' + d.fifo_cost : '');
+            });
+        }
     });
 
-    // ══ INPUT LISTENERS ══
-    $('#purchase_price_usa_input').on('input', calcPurchaseSummary);
-    $('#purchase_transport_input').on('input', function() {
-        $('#purchase_transport_hidden').val($(this).val() || 0);
+    $(document).on('input', '#purchase-lines-body .line-price-usa, #purchase-lines-body .line-transport, #purchase-lines-body .line-qty', calcPurchaseSummary);
+
+    $(document).on('input', '.purchase-payment', calcPurchaseSummary);
+
+    $('#purchase_discount').on('input', calcPurchaseSummary);
+
+    $(document).on('click', '#purchase-lines-body .remove-line', function() {
+        $(this).closest('tr').remove();
+        updateRemoveButtons();
         calcPurchaseSummary();
     });
-    $('#purchase_qty, #purchase_discount').on('input', calcPurchaseSummary);
-    $(document).on('input', '.purchase-payment', calcPurchaseSummary);
 
     // ══ SUMMARY CALC ══
     function calcPurchaseSummary() {
-        var usa       = parseFloat($('#purchase_price_usa_input').val()) || 0;
-        var transport = parseFloat($('#purchase_transport_input').val()) || 0;
-        var qty       = parseInt($('#purchase_qty').val()) || 1;
-        var discount  = parseFloat($('#purchase_discount').val()) || 0;
-        var tbc  = parseFloat($('[name="paid_tbc"]', '#form-purchase').val()) || 0;
-        var bog  = parseFloat($('[name="paid_bog"]', '#form-purchase').val()) || 0;
-        var lib  = parseFloat($('[name="paid_lib"]', '#form-purchase').val()) || 0;
+        var total = 0;
+        $('#purchase-lines-body .purchase-line').each(function() {
+            var usa  = parseFloat($(this).find('.line-price-usa').val())  || 0;
+            var tr   = parseFloat($(this).find('.line-transport').val())  || 0;
+            var qty  = parseInt($(this).find('.line-qty').val())          || 1;
+            total += (usa + tr) * qty;
+        });
+        var discount = parseFloat($('#purchase_discount').val()) || 0;
+        total -= discount;
+
+        var tbc  = parseFloat($('[name="paid_tbc"]',  '#form-purchase').val()) || 0;
+        var bog  = parseFloat($('[name="paid_bog"]',  '#form-purchase').val()) || 0;
+        var lib  = parseFloat($('[name="paid_lib"]',  '#form-purchase').val()) || 0;
         var cash = parseFloat($('[name="paid_cash"]', '#form-purchase').val()) || 0;
-
-        var costPerUnit = usa + transport;
-        $('#purchase_cost_price_display').text('$' + costPerUnit.toFixed(2));
-
-        var total = (costPerUnit * qty) - discount;
-        var paid  = tbc + bog + lib + cash;
-        var diff  = total - paid;
+        var paid = tbc + bog + lib + cash;
+        var diff = total - paid;
 
         var color = diff > 0.01 ? 'red' : (diff < -0.01 ? 'green' : '#00a65a');
         var label = diff > 0.01
@@ -364,125 +515,74 @@ $(function() {
         $('#purchase_summary_text').text(label).css('color', color);
     }
 
-    // ══ STOCK INFO ══
-    function loadStockInfo(productId, size) {
-        $.get("{{ route('warehouse.stockInfo') }}", { product_id: productId, size: size }, function(data) {
-            if (data.found) {
-                $('#si-physical').text(data.physical_qty);
-                $('#si-incoming').text(data.incoming_qty);
-                $('#si-reserved').text(data.reserved_qty);
-            } else {
-                $('#si-physical, #si-incoming, #si-reserved').text(0);
-            }
-            $('#si-fifo-cost').text('$' + data.fifo_cost);
-            $('#fifo_current_display').text('$' + data.fifo_cost);
-            $('#fifo_current_block').show();
-            $('#current-stock-info').show();
-        });
-    }
-
     // ══ MODAL OPEN ══
     window.openPurchaseModal = function() {
+        purchaseLineIndex = 0;
         $('#purchase_id').val('');
         $('input[name="_method"]', '#form-purchase').val('POST');
         $('#purchase-modal-title').text('📦 ახალი შესყიდვა');
-        $('#form-purchase')[0].reset();
-        $('.select2-purchase').val(null).trigger('change');
-        $('#purchase_preview').hide();
-        $('#purchase_no_img').show();
-        $('#current-stock-info').hide();
-        $('#fifo_current_block').hide();
-        $('#purchase_size').empty().append('<option value="">ზომა</option>');
-        $('#purchase_price_geo_text').text('0');
-        $('#purchase_cost_price_display').text('$0.00');
-        $('#purchase_transport_hidden').val(0);
-        $('#purchase_summary_text').html('<span class="text-muted">შეიყვანეთ მონაცემები</span>');
-        // ── courier section reset ──
-        $('#purchase_transport_wrap').show();
+        $('#purchase-lines-body').empty();
+        $('[name="paid_tbc"],[name="paid_bog"],[name="paid_lib"],[name="paid_cash"]', '#form-purchase').val(0);
+        $('#purchase_discount').val(0);
+        $('#purchase_comment').val('');
         $('#purchase_courier_section').hide();
         $('input[name="purchase_courier_type"][value="none"]').prop('checked', true);
+        $('#btn-add-line').show();
+        addPurchaseLine();
+        $('#purchase_summary_text').html('<span class="text-muted">შეიყვანეთ მონაცემები</span>');
         $('#modal-purchase').modal('show');
     };
 
     // ══ EDIT ══
     window.editPurchase = function(id) {
         $.get("{{ url('purchases') }}/" + id + "/edit", function(data) {
+            purchaseLineIndex = 0;
             $('#purchase_id').val(data.id);
             $('input[name="_method"]', '#form-purchase').val('PATCH');
-            $('#purchase-modal-title').text('✏️ შესყიდვის რედაქტირება ' + (data.order_number || '#' + data.id));
+            $('#purchase-modal-title').text('✏️ ' + (data.order_number || '#' + data.id));
+            $('#purchase-lines-body').empty();
+            $('#btn-add-line').hide();
 
-            var opt   = $('#purchase_product_id option[value="' + data.product_id + '"]');
-            var sizes = opt.data('sizes') || '';
-
-            $('#purchase_size').empty().append('<option value="">ზომა</option>');
-            if (sizes) {
-                sizes.toString().split(',').forEach(function(s) {
-                    s = s.trim();
-                    if (s) $('#purchase_size').append('<option value="' + s + '">' + s + '</option>');
-                });
-            }
-
-            $('#purchase_product_id').val(data.product_id).trigger('change.select2');
-
-            var geo   = opt.data('price-ge') || data.price_georgia || 0;
-            var image = opt.data('image') || '';
-            $('#purchase_price_geo_text').text(geo);
-            $('#purchase_price_georgia_hidden').val(geo);
-
-            if (image) { $('#purchase_preview').attr('src', image).show(); $('#purchase_no_img').hide(); }
-            else        { $('#purchase_preview').hide(); $('#purchase_no_img').show(); }
-
-            $('#purchase_size').val(data.product_size);
-            loadStockInfo(data.product_id, data.product_size);
-
-            $('#purchase_qty').val(data.quantity);
-            $('#purchase_price_usa_input').val(data.price_usa);
-            $('#purchase_price_usa_hidden').val(data.price_usa);
-            $('#purchase_price_geo_input').val(data.price_georgia || 0);
-
-            var transport = data.courier_price_international || 0;
-            $('#purchase_transport_input').val(transport);
-            $('#purchase_transport_hidden').val(transport);
-
-            $('#purchase_discount').val(data.discount || 0);
-            $('[name="paid_tbc"]', '#form-purchase').val(data.paid_tbc || 0);
-            $('[name="paid_bog"]', '#form-purchase').val(data.paid_bog || 0);
-            $('[name="paid_lib"]', '#form-purchase').val(data.paid_lib || 0);
+            $('[name="paid_tbc"]',  '#form-purchase').val(data.paid_tbc  || 0);
+            $('[name="paid_bog"]',  '#form-purchase').val(data.paid_bog  || 0);
+            $('[name="paid_lib"]',  '#form-purchase').val(data.paid_lib  || 0);
             $('[name="paid_cash"]', '#form-purchase').val(data.paid_cash || 0);
-            $('#purchase_comment').val(data.comment || '');
+            $('#purchase_discount').val(data.discount || 0);
+            $('#purchase_comment').val(data.comment   || '');
 
-            // ─── return/exchange purchase: courier radios, hide transport ──
-            var isReturn = data.is_return_purchase || 0;
-            if (isReturn) {
-                $('#purchase_transport_wrap').hide();
+            // courier section for return/exchange
+            if (data.is_return_purchase) {
                 $('#purchase_courier_section').show();
                 var cType = 'none';
                 if ((data.courier_price_tbilisi || 0) > 0) cType = 'tbilisi';
-                else if ((data.courier_price_region || 0) > 0) cType = 'region';
+                else if ((data.courier_price_region  || 0) > 0) cType = 'region';
                 else if ((data.courier_price_village || 0) > 0) cType = 'village';
                 $('input[name="purchase_courier_type"][value="' + cType + '"]').prop('checked', true);
             } else {
-                $('#purchase_transport_wrap').show();
                 $('#purchase_courier_section').hide();
                 $('input[name="purchase_courier_type"][value="none"]').prop('checked', true);
             }
 
-            // ─── lock თუ გაყიდვა მოხდა ──────────────────────────────────
+            addPurchaseLine({
+                product_id:   data.product_id,
+                product_size: data.product_size,
+                quantity:     data.quantity,
+                price_usa:    data.price_usa,
+                transport:    data.is_return_purchase ? 0 : (data.courier_price_international || 0),
+                price_georgia: data.price_georgia || 0,
+            });
+
+            // lock if sales already dispatched
             var courierCount = data.courier_count || 0;
-            var $lockFields  = $('#purchase_product_id, #purchase_size, #purchase_price_usa_input, #purchase_transport_input');
-            var $qtyField    = $('#purchase_qty');
-
-            $lockFields.prop('disabled', false).css('background', '');
-            $qtyField.removeAttr('min').css('background', '');
-            $('#purchase-courier-lock-msg').remove();
-
             if (courierCount > 0) {
-                $lockFields.prop('disabled', true).css('background', '#f5f5f5');
-                $qtyField.attr('min', courierCount).css('background', '#fff8e1');
-                var lockMsg = '<div id="purchase-courier-lock-msg" style="background:#fff3cd; border:1px solid #ffc107;' +
-                    'border-radius:6px; padding:8px 12px; margin-bottom:10px; font-size:12px; color:#856404;">' +
-                    '⚠️ <strong>' + courierCount + ' ერთეული</strong> გაყიდულია. ' +
-                    'პროდუქტი / ზომა / ფასი / ტრანსპ. ვერ შეიცვლება.</div>';
+                var $tr = $('#purchase-lines-body .purchase-line');
+                $tr.find('.line-product, .line-size, .line-price-usa, .line-transport')
+                   .prop('disabled', true).css('background', '#f5f5f5');
+                $tr.find('.line-qty').attr('min', courierCount).css('background', '#fff8e1');
+                $('#purchase-courier-lock-msg').remove();
+                var lockMsg = '<div id="purchase-courier-lock-msg" style="background:#fff3cd;border:1px solid #ffc107;' +
+                    'border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#856404;">' +
+                    '⚠️ <strong>' + courierCount + ' ერთეული</strong> გაყიდულია — პროდუქტი/ზომა/ფასი/ტრანსპ. ვერ შეიცვლება.</div>';
                 $('#form-purchase .modal-body').prepend(lockMsg);
             }
 
@@ -492,11 +592,11 @@ $(function() {
     };
 
     $('#modal-purchase').on('hidden.bs.modal', function() {
-        $('#purchase_product_id, #purchase_size, #purchase_price_usa_input, #purchase_transport_input')
+        $('#purchase-lines-body .line-product, #purchase-lines-body .line-size, ' +
+          '#purchase-lines-body .line-price-usa, #purchase-lines-body .line-transport')
             .prop('disabled', false).css('background', '');
-        $('#purchase_qty').removeAttr('min').css('background', '');
         $('#purchase-courier-lock-msg').remove();
-        $('#purchase_transport_wrap').show();
+        $('#btn-add-line').show();
         $('#purchase_courier_section').hide();
         $('input[name="purchase_courier_type"][value="none"]').prop('checked', true);
     });
@@ -528,16 +628,38 @@ $(function() {
     // ══ SUBMIT ══
     $('#form-purchase').on('submit', function(e) {
         e.preventDefault();
-        $('#purchase_price_usa_hidden').val($('#purchase_price_usa_input').val() || 0);
-        $('#purchase_transport_hidden').val($('#purchase_transport_input').val() || 0);
-
-        var $locked = $('#purchase_product_id, #purchase_size, #purchase_price_usa_input, #purchase_transport_input').filter(':disabled');
-        $locked.prop('disabled', false);
-        var formData = $(this).serialize();
-        $locked.prop('disabled', true);
-
         var id  = $('#purchase_id').val();
         var url = id ? "{{ url('purchases') }}/" + id : "{{ url('purchases') }}";
+
+        var $locked = $(this).find(':disabled').prop('disabled', false);
+        var formData;
+
+        if (id) {
+            // EDIT — send flat fields that update() expects
+            var $tr = $('#purchase-lines-body .purchase-line').first();
+            formData = {
+                _method:                     'PATCH',
+                _token:                      "{{ csrf_token() }}",
+                order_type:                  'purchase',
+                product_id:                  $tr.find('.line-product').val(),
+                product_size:                $tr.find('.line-size').val(),
+                quantity:                    $tr.find('.line-qty').val(),
+                price_usa:                   $tr.find('.line-price-usa').val() || 0,
+                courier_price_international: $tr.find('.line-transport').val() || 0,
+                price_georgia:               $tr.find('.line-price-geo').val() || 0,
+                purchase_courier_type:       $('input[name="purchase_courier_type"]:checked').val() || 'none',
+                discount:                    $('#purchase_discount').val() || 0,
+                paid_tbc:                    $('[name="paid_tbc"]',  this).val() || 0,
+                paid_bog:                    $('[name="paid_bog"]',  this).val() || 0,
+                paid_lib:                    $('[name="paid_lib"]',  this).val() || 0,
+                paid_cash:                   $('[name="paid_cash"]', this).val() || 0,
+                comment:                     $('#purchase_comment').val(),
+            };
+        } else {
+            formData = $(this).serialize();
+        }
+
+        $locked.prop('disabled', true);
 
         $.ajax({
             url: url, type: 'POST',
@@ -662,6 +784,88 @@ $(function() {
             error: function(xhr) {
                 var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'შეცდომა!';
                 swal({ title: 'შეცდომა', text: msg, type: 'error' });
+            }
+        });
+    };
+
+    // ══ GROUP RECEIVE ══
+    window.openGroupReceive = function(groupId) {
+        $('#gr-lines-body').empty();
+        $('#gr-group-id').val(groupId);
+        $('#btn-gr-save').prop('disabled', false);
+
+        $.get("{{ url('purchases/group') }}/" + groupId + "/items", function(items) {
+            if (!items || !items.length) {
+                swal('ინფო', 'ამ ჯგუფში სტატუს=2 ორდერი არ მოიძებნა', 'info');
+                return;
+            }
+            items.forEach(function(it) {
+                var $tr = $('<tr data-order-id="' + it.id + '">').append(
+                    $('<td class="fw-semibold">').text(it.product_name),
+                    $('<td>').text(it.product_size || '—'),
+                    $('<td class="text-center fw-bold text-muted gr-ordered">').text(it.quantity),
+                    $('<td>').append(
+                        $('<input type="number" class="form-control form-control-sm text-center gr-received">')
+                            .val(it.quantity).attr({ min: 0, max: it.quantity })
+                    ),
+                    $('<td>').append(
+                        $('<input type="number" class="form-control form-control-sm text-center gr-lost">')
+                            .val(0).attr({ min: 0, max: it.quantity })
+                    )
+                );
+                $('#gr-lines-body').append($tr);
+            });
+            new bootstrap.Modal(document.getElementById('modal-group-receive')).show();
+        });
+    };
+
+    // validation: received + lost <= ordered
+    $(document).on('input', '.gr-received, .gr-lost', function() {
+        var $tr      = $(this).closest('tr');
+        var ordered  = parseInt($tr.find('.gr-ordered').text()) || 0;
+        var received = parseInt($tr.find('.gr-received').val()) || 0;
+        var lost     = parseInt($tr.find('.gr-lost').val())     || 0;
+        if (received + lost > ordered) {
+            $(this).addClass('is-invalid');
+        } else {
+            $tr.find('.gr-received, .gr-lost').removeClass('is-invalid');
+        }
+    });
+
+    window.submitGroupReceive = function() {
+        var groupId = $('#gr-group-id').val();
+        var items = [];
+        var valid = true;
+
+        $('#gr-lines-body tr').each(function() {
+            var orderId  = $(this).data('order-id');
+            var received = parseInt($(this).find('.gr-received').val()) || 0;
+            var lost     = parseInt($(this).find('.gr-lost').val())     || 0;
+            var ordered  = parseInt($(this).find('.gr-ordered').text()) || 0;
+
+            if (received + lost > ordered) { valid = false; }
+            items.push({ order_id: orderId, received_qty: received, lost_qty: lost });
+        });
+
+        if (!valid) { swal('შეცდომა', 'ერთ-ერთი ხაზის ჯამი აღემატება შეკვეთილ რაოდენობას', 'error'); return; }
+
+        $('#btn-gr-save').prop('disabled', true).text('...');
+
+        $.ajax({
+            url: "{{ url('purchases/group') }}/" + groupId + "/partial-receive",
+            type: 'POST',
+            data: { items: items, _token: "{{ csrf_token() }}" },
+            success: function(res) {
+                bootstrap.Modal.getInstance(document.getElementById('modal-group-receive')).hide();
+                purchasesTable.ajax.reload();
+                swal({ title: '✅', text: res.message, type: 'success' });
+            },
+            error: function(xhr) {
+                var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'შეცდომა!';
+                swal({ title: 'შეცდომა', text: msg, type: 'error' });
+            },
+            complete: function() {
+                $('#btn-gr-save').prop('disabled', false).html('<i class="fa fa-check me-1"></i> დადასტურება');
             }
         });
     };

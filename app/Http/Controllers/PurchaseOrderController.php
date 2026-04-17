@@ -46,114 +46,213 @@ class PurchaseOrderController extends Controller
             $query->whereNull('original_sale_id');
         }
 
-        $purchases = $query->latest()->get();
+        $all = $query->latest()->get();
 
-        return DataTables::of($purchases)
+        // Group by purchase_group_id; orders without a group use their own id
+        $grouped = $all->groupBy(fn($r) => $r->purchase_group_id ?? $r->id);
+
+        // Maps keyed by primary row id — used in addColumn closures
+        $groupCountMap = [];
+        $groupItemsMap = [];
+
+        // One row per group — primary = row where id == purchase_group_id
+        $rows = $grouped->map(function ($items) use (&$groupCountMap, &$groupItemsMap) {
+            $primary = $items->first(fn($r) => $r->purchase_group_id && $r->id == $r->purchase_group_id)
+                    ?? $items->first();
+
+            $groupCountMap[$primary->id] = $items->count();
+            $groupItemsMap[$primary->id] = $items->map(fn($r) => [
+                'id'           => $r->id,
+                'product_name' => $r->product?->name        ?? 'N/A',
+                'product_code' => $r->product?->product_code ?? '-',
+                'product_size' => $r->product_size,
+                'quantity'     => $r->quantity,
+                'status_id'    => $r->status_id,
+                'status_name'  => $r->orderStatus?->name  ?? '-',
+                'status_color' => $r->orderStatus?->color ?? 'default',
+            ])->values()->all();
+
+            return $primary;
+        })->sortByDesc('created_at')->values();
+
+        return DataTables::of($rows)
             ->addColumn('order_number', function ($row) {
                 $num   = $row->order_number ?? ('#' . $row->id);
                 $badge = '';
-
                 if ($row->original_sale_id) {
-                    $origSale = Product_Order::withoutGlobalScope('active')
-                        ->select('id', 'order_number')
-                        ->find($row->original_sale_id);
-                    $origNum = $origSale
-                        ? ($origSale->order_number ?? ('#' . $origSale->id))
-                        : ('#' . $row->original_sale_id);
-                    $prefix = str_starts_with($row->comment ?? '', '↩ გაცვლა') ? '🔄' : '↩';
-                    $badge  = '<br><small style="color:#31708f; font-style:italic;">'
-                            . $prefix . ' ' . e($origNum) . '</small>';
+                    $origSale = Product_Order::withoutGlobalScope('active')->select('id','order_number')->find($row->original_sale_id);
+                    $origNum  = $origSale ? ($origSale->order_number ?? ('#'.$origSale->id)) : ('#'.$row->original_sale_id);
+                    $prefix   = str_starts_with($row->comment ?? '', '↩ გაცვლა') ? '🔄' : '↩';
+                    $badge    = '<br><small style="color:#31708f;font-style:italic;">'.$prefix.' '.e($origNum).'</small>';
                 }
-
                 return e($num) . $badge;
             })
-            ->addColumn('product_name', fn($row) => $row->product->name ?? 'N/A')
-            ->addColumn('product_code', fn($row) => $row->product->product_code ?? '-')
+            ->addColumn('product_name', function ($row) use ($groupCountMap) {
+                $count = $groupCountMap[$row->id] ?? 1;
+                if ($count > 1) {
+                    return '<span class="badge bg-info text-dark">'.$count.' პროდუქტი</span>';
+                }
+                return e($row->product?->name ?? 'N/A');
+            })
+            ->addColumn('product_code', function ($row) use ($groupCountMap) {
+                return ($groupCountMap[$row->id] ?? 1) > 1 ? '—' : ($row->product?->product_code ?? '-');
+            })
             ->addColumn('is_return_purchase', fn($row) => $row->original_sale_id !== null ? 1 : 0)
-            ->addColumn('status_name', function ($row) {
-                $color = $row->orderStatus->color ?? 'default';
-                $name  = $row->orderStatus->name  ?? '-';
-
-                return '<span class="label label-' . $color . '"
-                              style="cursor:pointer"
-                              onclick="openStatusModal(' . $row->id . ', ' . $row->status_id . ')"
-                              title="სტატუსის შეცვლა">' . $name . '</span>';
+            ->addColumn('status_name', function ($row) use ($groupCountMap, $groupItemsMap) {
+                $count = $groupCountMap[$row->id] ?? 1;
+                if ($count > 1) {
+                    $ids = collect($groupItemsMap[$row->id] ?? [])->pluck('status_id')->unique();
+                    if ($ids->count() > 1) {
+                        return '<span class="label label-warning" style="cursor:pointer" onclick="openStatusModal('.$row->id.','.$row->status_id.')" title="შერეული სტატუსი">⚡ შერეული</span>';
+                    }
+                }
+                $color = $row->orderStatus?->color ?? 'default';
+                $name  = $row->orderStatus?->name  ?? '-';
+                return '<span class="label label-'.$color.'" style="cursor:pointer" onclick="openStatusModal('.$row->id.','.$row->status_id.')" title="სტატუსის შეცვლა">'.$name.'</span>';
             })
             ->editColumn('created_at', fn($row) => $row->created_at ? $row->created_at->format('d.m.Y H:i') : '-')
             ->addColumn('price_paid', fn($row) => number_format($row->price_georgia, 2) . ' ₾')
-            ->addColumn('payment', function ($row) {
-                $productPrice = $row->price_usa ?? 0;
-                $transport    = $row->courier_price_international ?? 0;
-                $qty          = $row->quantity ?? 1;
-                $discount     = $row->discount ?? 0;
-                $costPerUnit  = $row->cost_price ?? ($productPrice + $transport);
+            ->addColumn('payment', function ($row) use ($groupCountMap) {
+                $count    = $groupCountMap[$row->id] ?? 1;
+                $usa      = $row->price_usa ?? 0;
+                $tr       = $row->courier_price_international ?? 0;
+                $qty      = $row->quantity ?? 1;
+                $discount = $row->discount ?? 0;
+                $cost     = $row->cost_price ?? ($usa + $tr);
+                $total    = (($usa + $tr) * $qty) - $discount;
+                $paid     = ($row->paid_tbc ?? 0) + ($row->paid_bog ?? 0) + ($row->paid_lib ?? 0) + ($row->paid_cash ?? 0);
+                $diff     = $total - $paid;
 
-                $total = (($productPrice + $transport) * $qty) - $discount;
-                $paid  = ($row->paid_tbc ?? 0) + ($row->paid_bog ?? 0)
-                       + ($row->paid_lib ?? 0) + ($row->paid_cash ?? 0);
-                $diff  = $total - $paid;
+                if ($diff > 0.01)       $pay = '<span style="color:red;font-weight:bold;">💳 -$'.number_format($diff,2).'</span>';
+                elseif ($diff < -0.01)  $pay = '<span style="color:green;font-weight:bold;">+$'.number_format(abs($diff),2).'</span>';
+                else                    $pay = '<span style="color:green;">✅ გადახდილია</span>';
 
-                if ($diff > 0.01)
-                    $pay = '<span style="color:red;font-weight:bold;">💳 -$' . number_format($diff, 2) . '</span>';
-                elseif ($diff < -0.01)
-                    $pay = '<span style="color:green;font-weight:bold;">+$' . number_format(abs($diff), 2) . '</span>';
-                else
-                    $pay = '<span style="color:green;">✅ გადახდილია</span>';
-
-                return $pay . '<br><small style="color:#8e44ad;">🧮 თვითღ: $' . number_format($costPerUnit, 2) . '/ერთ.</small>';
+                $fifo = $count === 1 ? '<br><small style="color:#8e44ad;">🧮 $'.number_format($cost,2).'/ერთ.</small>' : '';
+                return $pay . $fifo;
             })
-            ->addColumn('action', function ($row) {
-                return '<center>
-                    <a onclick="editPurchase(' . $row->id . ')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i></a>
-                    <a onclick="deletePurchase(' . $row->id . ')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i></a>
-                </center>';
+            ->addColumn('group_items_json', function ($row) use ($groupItemsMap) {
+                return json_encode($groupItemsMap[$row->id] ?? []);
             })
-            ->rawColumns(['order_number', 'status_name', 'payment', 'action'])
+            ->addColumn('action', function ($row) use ($groupCountMap) {
+                $count   = $groupCountMap[$row->id] ?? 1;
+                $gid     = $row->purchase_group_id ?? $row->id;
+                $view    = $count > 1
+                    ? '<a onclick="openGroupView('.$gid.')" class="btn btn-info btn-xs" title="დათვალიერება"><i class="fa fa-eye"></i></a>'
+                    : '';
+                $receive = $row->status_id == 2
+                    ? '<a onclick="openGroupReceive('.$gid.')" class="btn btn-warning btn-xs" title="საწყობში მიღება"><i class="fa fa-inbox"></i></a>'
+                    : '';
+                $edit = $count === 1
+                    ? '<a onclick="editPurchase('.$row->id.')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i></a>'
+                    : '';
+                $del = '<a onclick="deletePurchase('.$row->id.')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i></a>';
+                return '<div class="d-flex gap-1 justify-content-center">'.$view.$receive.$edit.$del.'</div>';
+            })
+            ->rawColumns(['order_number', 'product_name', 'status_name', 'payment', 'action'])
             ->make(true);
+    }
+
+    // ─── ჯგუფის მიღება: items data ───────────────────────────────────
+    public function getGroupItems($groupId)
+    {
+        $items = Product_Order::with(['product', 'orderStatus'])
+            ->where('order_type', 'purchase')
+            ->where('purchase_group_id', $groupId)
+            ->where('status_id', 2)
+            ->get();
+
+        // Fallback: ძველი ორდერი purchase_group_id-გარეშე, ან single item
+        if ($items->isEmpty()) {
+            $single = Product_Order::with(['product', 'orderStatus'])
+                ->where('order_type', 'purchase')
+                ->where('status_id', 2)
+                ->find($groupId);
+            if ($single) $items = collect([$single]);
+        }
+
+        return response()->json($items->map(fn($r) => [
+            'id'           => $r->id,
+            'product_name' => $r->product?->name         ?? 'N/A',
+            'product_code' => $r->product?->product_code ?? '—',
+            'product_size' => $r->product_size,
+            'quantity'     => $r->quantity,
+            'status_name'  => $r->orderStatus?->name  ?? '-',
+            'status_color' => $r->orderStatus?->color ?? 'default',
+        ])->values());
     }
 
     // ─── შესყიდვის შექმნა ─────────────────────────────────────────────
     public function store(Request $request)
     {
         $this->validate($request, [
-            'product_id'   => 'required|exists:products,id',
-            'product_size' => 'required',
-            'quantity'     => 'required|integer|min:1',
+            'items'                  => 'required|array|min:1',
+            'items.*.product_id'     => 'required|exists:products,id',
+            'items.*.product_size'   => 'required',
+            'items.*.quantity'       => 'required|integer|min:1',
         ]);
 
-        $costPrice = ($request->price_usa ?? 0) + ($request->courier_price_international ?? 0);
+        $groupId   = null;
+        $isPrimary = true;
+        $count     = 0;
 
-        $data = [
-            'order_type'                  => 'purchase',
-            'product_id'                  => $request->product_id,
-            'product_size'                => $request->product_size,
-            'quantity'                    => $request->quantity,
-            'price_georgia'               => $request->price_georgia ?? 0,
-            'price_usa'                   => $request->price_usa ?? 0,
-            'cost_price'                  => $costPrice,
-            'discount'                    => $request->discount ?? 0,
-            'paid_tbc'                    => $request->paid_tbc ?? 0,
-            'paid_bog'                    => $request->paid_bog ?? 0,
-            'paid_lib'                    => $request->paid_lib ?? 0,
-            'paid_cash'                   => $request->paid_cash ?? 0,
-            'status_id'                   => $request->status_id ?? 1,
-            'comment'                     => $request->comment,
-            'customer_id'                 => null,
-            'user_id'                     => auth()->id(),
-            'courier_price_international' => $request->courier_price_international ?? 0,
-            'courier_price_tbilisi'       => 0,
-            'courier_price_region'        => 0,
-            'courier_price_village'       => 0,
-        ];
+        foreach ($request->items as $item) {
+            $costPrice = ($item['price_usa'] ?? 0) + ($item['transport'] ?? 0);
 
-        $order = Product_Order::create($data);
+            $targetStatus = (int)($request->status_id ?? 1);
 
-        if (($request->status_id ?? 1) == 2) {
-            PurchaseService::handleStockForPurchase($order->id, 2);
-            PurchaseService::syncSaleOrdersAfterPurchase($order, 1, 2);
+            $data = [
+                'order_type'                  => 'purchase',
+                'product_id'                  => $item['product_id'],
+                'product_size'                => $item['product_size'],
+                'quantity'                    => (int) $item['quantity'],
+                'price_georgia'               => $item['price_georgia'] ?? 0,
+                'price_usa'                   => $item['price_usa'] ?? 0,
+                'cost_price'                  => $costPrice,
+                'courier_price_international' => $item['transport'] ?? 0,
+                'courier_price_tbilisi'       => 0,
+                'courier_price_region'        => 0,
+                'courier_price_village'       => 0,
+                // shared fields on primary row only
+                'discount'    => $isPrimary ? ($request->discount  ?? 0) : 0,
+                'paid_tbc'    => $isPrimary ? ($request->paid_tbc  ?? 0) : 0,
+                'paid_bog'    => $isPrimary ? ($request->paid_bog  ?? 0) : 0,
+                'paid_lib'    => $isPrimary ? ($request->paid_lib  ?? 0) : 0,
+                'paid_cash'   => $isPrimary ? ($request->paid_cash ?? 0) : 0,
+                'comment'     => $isPrimary ? $request->comment            : null,
+                'status_id'   => 1, // always create as "new" first so handleStockForPurchase sees 1→2 transition
+                'customer_id' => null,
+                'user_id'     => auth()->id(),
+                'purchase_group_id' => $groupId,
+            ];
+
+            $order = Product_Order::create($data);
+
+            if ($isPrimary) {
+                $groupId = $order->id;
+                $order->purchase_group_id = $groupId;
+                $order->saveQuietly();
+                $isPrimary = false;
+            } else {
+                $order->purchase_group_id = $groupId;
+                $order->saveQuietly();
+            }
+
+            if ($targetStatus >= 2) {
+                // handleStockForPurchase reads status from DB (=1) and transitions to targetStatus → correctly updates incoming_qty
+                PurchaseService::handleStockForPurchase($order->id, $targetStatus);
+                Product_Order::where('id', $order->id)->update(['status_id' => $targetStatus]);
+                $order->status_id = $targetStatus;
+                PurchaseService::syncSaleOrdersAfterPurchase($order, 1, $targetStatus);
+            }
+
+            $count++;
         }
 
-        return response()->json(['success' => true, 'message' => 'შესყიდვა დარეგისტრირდა!']);
+        $msg = $count > 1
+            ? $count . ' პროდუქტი დარეგისტრირდა (ჯგ. #' . $groupId . ')'
+            : 'შესყიდვა დარეგისტრირდა!';
+
+        return response()->json(['success' => true, 'message' => $msg]);
     }
 
     // ─── შესყიდვის Edit ───────────────────────────────────────────────
@@ -844,6 +943,139 @@ class PurchaseOrderController extends Controller
             }
 
             return response()->json(['success' => true, 'message' => 'წარმატებით დასრულდა — ' . $remainingQty . ' ერთ. კვლავ გზაშია']);
+        });
+    }
+
+    // ─── ჯგუფის საწყობში მიღება ──────────────────────────────────────
+    public function groupPartialReceive(Request $request, $groupId)
+    {
+        $request->validate([
+            'items'                => 'required|array|min:1',
+            'items.*.order_id'     => 'required|integer',
+            'items.*.received_qty' => 'required|integer|min:0',
+            'items.*.lost_qty'     => 'nullable|integer|min:0',
+        ]);
+
+        return \DB::transaction(function () use ($request) {
+            $messages = [];
+
+            foreach ($request->items as $item) {
+                $orderId     = (int) $item['order_id'];
+                $receivedQty = (int) $item['received_qty'];
+                $lostQty     = (int) ($item['lost_qty'] ?? 0);
+                $lostNote    = $item['lost_note'] ?? null;
+
+                if ($receivedQty === 0 && $lostQty === 0) continue;
+
+                $purchase = Product_Order::where('order_type', 'purchase')
+                    ->where('status_id', 2)->find($orderId);
+
+                if (!$purchase) continue;
+
+                $totalQty = $purchase->quantity;
+                $sum      = $receivedQty + $lostQty;
+
+                if ($sum > $totalQty) {
+                    throw new \Exception(
+                        'ჯამი ('.$sum.') > შეკვეთილი ('.$totalQty.') — '.($purchase->product?->name ?? '#'.$orderId)
+                    );
+                }
+
+                $stock = Warehouse::firstOrCreate(
+                    ['product_id' => $purchase->product_id, 'size' => $purchase->product_size],
+                    ['physical_qty' => 0, 'incoming_qty' => 0, 'reserved_qty' => 0]
+                );
+
+                // დაკარგული
+                if ($lostQty > 0) {
+                    $stock->decrement('incoming_qty', $lostQty);
+                    $stock->increment('lost_qty', $lostQty);
+                    WarehouseLogService::log('lost', $purchase->product_id, $purchase->product_size ?? '',
+                        -$lostQty, 'purchase_order', $purchase->id, $lostNote ?? 'დაკარგული — group receive');
+                }
+
+                // მიღებული
+                if ($receivedQty > 0) {
+                    $qtyBefore = $stock->physical_qty;
+                    $stock->decrement('incoming_qty', $receivedQty);
+                    $stock->increment('physical_qty', $receivedQty);
+                    $stock->save();
+                    WarehouseLogService::log('purchase_in', $purchase->product_id, $purchase->product_size ?? '',
+                        +$receivedQty, 'purchase_order', $purchase->id, null, $qtyBefore);
+                } else {
+                    $stock->save();
+                }
+
+                $remaining = $totalQty - $sum;
+
+                if ($remaining === 0) {
+                    $purchase->update(['status_id' => 3, 'quantity' => max($receivedQty, 1)]);
+                } else {
+                    $purchase->update(['quantity' => $remaining]);
+                }
+
+                // linked sale-ების გადაწინაურება
+                $allLinked = Product_Order::where('purchase_order_id', $purchase->id)
+                    ->where('status_id', 2)->orderBy('created_at')->get();
+
+                $promoted = 0;
+                foreach ($allLinked as $sale) {
+                    if ($receivedQty > 0 && $promoted < $receivedQty) {
+                        // ✅ მიღებული → status=3
+                        $sale->status_id = 3;
+                        $sale->save();
+                        StatusChangeLog::create([
+                            'order_id'       => $sale->id,
+                            'user_id'        => auth()->id(),
+                            'status_id_from' => 2,
+                            'status_id_to'   => 3,
+                            'changed_at'     => now(),
+                        ]);
+                        $promoted++;
+                    } else {
+                        // ❌ ვერ მოვიდა (დაკარგული/ჭარბი) → სხვა purchase ან status=1
+                        $next = FifoService::getNextPurchase(
+                            $purchase->product_id, $purchase->product_size, $purchase->id
+                        );
+                        if ($next) {
+                            $oldStatus               = $sale->status_id;
+                            $sale->purchase_order_id = $next->id;
+                            $sale->price_usa         = (float) $next->cost_price;
+                            $sale->status_id         = $next->status_id;
+                            $sale->save();
+                            StatusChangeLog::create([
+                                'order_id'       => $sale->id,
+                                'user_id'        => auth()->id(),
+                                'status_id_from' => $oldStatus,
+                                'status_id_to'   => $next->status_id,
+                                'changed_at'     => now(),
+                            ]);
+                        } else {
+                            $stock->decrement('reserved_qty', 1);
+                            $sale->purchase_order_id = null;
+                            $sale->price_usa         = 0;
+                            $sale->status_id         = 1;
+                            $sale->save();
+                            StatusChangeLog::create([
+                                'order_id'       => $sale->id,
+                                'user_id'        => auth()->id(),
+                                'status_id_from' => 2,
+                                'status_id_to'   => 1,
+                                'changed_at'     => now(),
+                            ]);
+                        }
+                    }
+                }
+                $stock->save();
+
+                $name = $purchase->product?->name ?? ('#'.$orderId);
+                $messages[] = $name.': '.$receivedQty.' ✅'.($remaining > 0 ? ' ('.$remaining.' კვლავ გზაში)' : '');
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => implode("\n", $messages) ?: 'შესრულდა',
+            ]);
         });
     }
 }

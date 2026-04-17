@@ -16,7 +16,7 @@ class Product_Order extends Model
         'order_type', 'comment', 'status', 'cost_price', 'purchase_order_id',
         'courier_price_village', 'original_sale_id',
         'order_number', 'sale_from',
-        'merged_id', 'is_primary',
+        'merged_id', 'is_primary', 'purchase_group_id',
         'changed_to_order_id', 'returned_purchase_id',
         'order_address', 'order_alt_tel',
         'cancelled_at',
