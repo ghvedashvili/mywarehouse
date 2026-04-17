@@ -49,7 +49,6 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before {
                     <option value="purchase_in">📦 შემოსვლა</option>
                     <option value="purchase_rollback">↩ უკუქცევა (საწყობ→გზა)</option>
                     <option value="sale_out">🚚 გასვლა (გაყიდვა)</option>
-                    <option value="defect">⚠️ წუნი</option>
                     <option value="lost">❌ დაკარგული</option>
                     <option value="adjustment">✏️ კორექცია (რაოდენობის შეცვლა)</option>
                 </select>
@@ -75,25 +74,19 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before {
 
     {{-- ჯამური სტატისტიკა --}}
     <div class="row g-2 mb-3">
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-4">
             <div class="small-box bg-green mb-0">
                 <div class="inner"><h3 id="stat-in">—</h3><p>📦 შემოსული</p></div>
                 <div class="icon"><i class="fa fa-arrow-down"></i></div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-4">
             <div class="small-box bg-blue mb-0">
                 <div class="inner"><h3 id="stat-out">—</h3><p>🚚 გასული</p></div>
                 <div class="icon"><i class="fa fa-arrow-up"></i></div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
-            <div class="small-box bg-yellow mb-0">
-                <div class="inner"><h3 id="stat-defect">—</h3><p>⚠️ წუნი</p></div>
-                <div class="icon"><i class="fa fa-warning"></i></div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-4">
             <div class="small-box bg-red mb-0">
                 <div class="inner"><h3 id="stat-lost">—</h3><p>❌ დაკარგული</p></div>
                 <div class="icon"><i class="fa fa-times"></i></div>
@@ -165,17 +158,15 @@ $(function() {
         drawCallback: function() {
             // სტატისტიკა — მიმდინარე გვერდის მონაცემებიდან
             var d = this.api().rows().data();
-            var ins = 0, out = 0, def = 0, lost = 0;
+            var ins = 0, out = 0, lost = 0;
             d.each(function(r) {
                 var ch = parseInt(r.qty_change) || 0;
-                if (r.action === 'purchase_in')       ins  += ch;
-                if (r.action === 'sale_out')           out  += Math.abs(ch);
-                if (r.action === 'defect')             def  += Math.abs(ch);
-                if (r.action === 'lost')               lost += Math.abs(ch);
+                if (r.action === 'purchase_in') ins  += ch;
+                if (r.action === 'sale_out')    out  += Math.abs(ch);
+                if (r.action === 'lost')        lost += Math.abs(ch);
             });
             $('#stat-in').text(ins);
             $('#stat-out').text(out);
-            $('#stat-defect').text(def);
             $('#stat-lost').text(lost);
         }
     });

@@ -41,7 +41,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
         </div>
         <div class="d-flex flex-wrap gap-2">
             <button class="btn btn-warning btn-sm fw-bold" onclick="openWriteOffModal()">
-                <i class="fa fa-minus-circle me-1"></i> ჩამოწერა / წუნი
+                <i class="fa fa-minus-circle me-1"></i> ჩამოწერა
             </button>
             <a href="{{ route('warehouse.logs') }}" class="btn btn-secondary btn-sm fw-bold">
                 <i class="fa fa-history me-1"></i> ყველა ლოგი
@@ -73,7 +73,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
             <tr>
                 <th>პროდუქტი</th><th>კოდი</th><th>ზომა</th>
                 <th>📦 ფიზ.</th><th>🚚 გზაში</th><th>🔒 დაჯავშნ.</th>
-                <th>⚠️ წუნი</th><th>✅ ხელმისაწვდ.</th><th>🧮 FIFO</th><th>სტატუსი</th><th></th>
+                <th>✅ ხელმისაწვდ.</th><th>🧮 FIFO</th><th>სტატუსი</th><th></th>
             </tr>
         </thead>
         <tbody></tbody>
@@ -84,7 +84,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content" style="border-radius:8px;">
             <div class="modal-header" style="background:#e67e22; color:#fff; border-radius:8px 8px 0 0;">
-                <h5 class="modal-title fw-bold">📉 ჩამოწერა / წუნი</h5>
+                <h5 class="modal-title fw-bold">📉 ჩამოწერა</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -112,31 +112,9 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
                         <div class="text-muted" style="font-size:11px;">✅ ხელმისაწვდომი</div>
                     </div>
                     <div class="text-center">
-                        <div class="fw-bold" style="font-size:22px; color:#c0392b;" id="wo-defect-now">0</div>
-                        <div class="text-muted" style="font-size:11px;">⚠️ წუნი</div>
-                    </div>
-                    <div class="text-center">
                         <div class="fw-bold" style="font-size:22px; color:#555;" id="wo-physical">0</div>
                         <div class="text-muted" style="font-size:11px;">📦 ფიზ. ჯამი</div>
                     </div>
-                </div>
-
-                {{-- ტიპი --}}
-                <div class="mb-3">
-                    <label class="form-label fw-semibold" style="font-size:12px; text-transform:uppercase;">ოპერაცია</label>
-                    <div class="d-flex gap-2">
-                        <button type="button" id="wo-type-writeoff" class="btn btn-danger w-50 wo-type-btn active-type"
-                                onclick="selectWoType('writeoff')">
-                            ❌ ჩამოწერა
-                        </button>
-                        <button type="button" id="wo-type-defect" class="btn btn-outline-warning w-50 wo-type-btn"
-                                onclick="selectWoType('defect')">
-                            ⚠️ წუნი
-                        </button>
-                    </div>
-                    <small class="text-muted mt-1 d-block" id="wo-type-hint">
-                        ჩამოწერა: physical_qty-დან სრულად გამოვა
-                    </small>
                 </div>
 
                 {{-- რაოდენობა --}}
@@ -215,8 +193,6 @@ $(function() {
              render: v => `<span class="qty-badge ${v>0?'qty-incoming':'qty-zero'}">${v}</span>`},
             {data:'reserved_qty', responsivePriority: 9,
              render: v => `<span class="qty-badge ${v>0?'qty-reserved':'qty-zero'}">${v}</span>`},
-            {data:'defect_qty',   responsivePriority: 8,
-             render: v => `<span class="qty-badge" style="min-width:32px;text-align:center;font-weight:700;padding:2px 8px;border-radius:4px;font-size:13px;${v>0?'background:#fdecea;color:#c0392b;':'background:#f4f4f4;color:#aaa;'}">${v}</span>`},
             {data:'available',    responsivePriority: 3,
              render: v => `<span class="qty-badge ${v>0?'qty-available':'qty-zero'}">${v}</span>`},
             {data:'fifo_cost',    responsivePriority: 10,
@@ -232,17 +208,15 @@ $(function() {
     });
 
     // ══ WRITE-OFF MODAL ══
-    var woStockData   = [];   // ყველა available stock
+    var woStockData   = [];
     var woCurrentType = 'writeoff';
 
     window.openWriteOffModal = function() {
-        // reset
         $('#wo-product').html('<option value="">— აირჩიე —</option>');
         $('#wo-size-wrap, #wo-stock-info, #wo-qty-wrap, #wo-note-wrap').hide();
         $('#btn-writeoff-save').hide();
         $('#wo-qty').val(1);
         $('#wo-note').val('');
-        selectWoType('writeoff');
 
         // load available stock
         $.get("{{ route('warehouse.availableStock') }}", function(data) {
@@ -299,26 +273,12 @@ $(function() {
         if (!row) return;
 
         $('#wo-available').text(row.available);
-        $('#wo-defect-now').text(row.defect);
         $('#wo-physical').text(row.physical);
         $('#wo-qty').val(1).attr('max', row.available);
         $('#wo-qty-hint').text('მაქს. ხელმისაწვდომი: ' + row.available);
         $('#wo-stock-info, #wo-qty-wrap, #wo-note-wrap').show();
         $('#btn-writeoff-save').show();
     });
-
-    window.selectWoType = function(type) {
-        woCurrentType = type;
-        if (type === 'writeoff') {
-            $('#wo-type-writeoff').removeClass('btn-outline-danger').addClass('btn-danger');
-            $('#wo-type-defect').removeClass('btn-warning').addClass('btn-outline-warning');
-            $('#wo-type-hint').text('ჩამოწერა: physical_qty-დან სრულად გამოვა (დაიკარგა)');
-        } else {
-            $('#wo-type-defect').removeClass('btn-outline-warning').addClass('btn-warning');
-            $('#wo-type-writeoff').removeClass('btn-danger').addClass('btn-outline-danger');
-            $('#wo-type-hint').text('წუნი: physical_qty-ში რჩება, მაგრამ ხელმისაწვდომი აღარ არის');
-        }
-    };
 
     window.submitWriteOff = function() {
         var pid  = $('#wo-product').val();

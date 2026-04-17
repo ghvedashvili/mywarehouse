@@ -172,17 +172,12 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before {
 
                 {{-- სამი ველი გვერდიგვერდ --}}
                 <div class="row g-2 mb-2">
-                    <div class="col-4">
+                    <div class="col-6">
                         <label class="form-label fw-semibold text-success" style="font-size:11px; text-transform:uppercase; letter-spacing:.4px;">✅ მიღებული</label>
                         <input type="number" id="partial_received_qty" class="form-control text-center fw-bold partial-qty-input"
                                min="0" value="0" style="font-size:20px; border-color:#00a65a; border-width:2px;">
                     </div>
-                    <div class="col-4">
-                        <label class="form-label fw-semibold" style="font-size:11px; color:#f39c12; text-transform:uppercase; letter-spacing:.4px;">⚠️ წუნი</label>
-                        <input type="number" id="partial_defect_qty" class="form-control text-center fw-bold partial-qty-input"
-                               min="0" value="0" style="font-size:20px; border-color:#f39c12; border-width:2px;">
-                    </div>
-                    <div class="col-4">
+                    <div class="col-6">
                         <label class="form-label fw-semibold text-danger" style="font-size:11px; text-transform:uppercase; letter-spacing:.4px;">❌ დაკარგ.</label>
                         <input type="number" id="partial_lost_qty" class="form-control text-center fw-bold partial-qty-input"
                                min="0" value="0" style="font-size:20px; border-color:#dd4b39; border-width:2px;">
@@ -190,10 +185,6 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before {
                 </div>
 
                 {{-- შენიშვნები (ჩნდება თუ > 0) --}}
-                <div id="partial_defect_note_wrap" style="display:none;" class="mb-2">
-                    <input type="text" id="partial_defect_note" class="form-control form-control-sm"
-                           placeholder="⚠️ წუნის შენიშვნა (სურვილისამებრ)">
-                </div>
                 <div id="partial_lost_note_wrap" style="display:none;" class="mb-2">
                     <input type="text" id="partial_lost_note" class="form-control form-control-sm"
                            placeholder="❌ დაკარგულის შენიშვნა (სურვილისამებრ)">
@@ -576,10 +567,9 @@ $(function() {
                 $('#partial_total_display').text(total);
                 // ველების reset
                 $('#partial_received_qty').val(total);
-                $('#partial_defect_qty').val(0);
                 $('#partial_lost_qty').val(0);
-                $('#partial_defect_note, #partial_lost_note').val('');
-                $('#partial_defect_note_wrap, #partial_lost_note_wrap').hide();
+                $('#partial_lost_note').val('');
+                $('#partial_lost_note_wrap').hide();
                 updatePartialSummary();
                 new bootstrap.Modal(document.getElementById('modal-partial-receive')).show();
             } else {
@@ -593,17 +583,14 @@ $(function() {
     // ══ PARTIAL RECEIVE — input listeners ══
     $(document).on('input', '.partial-qty-input', function() {
         updatePartialSummary();
-        // შენიშვნის ველების ჩვენება/დამალვა
-        $('#partial_defect_note_wrap').toggle((parseInt($('#partial_defect_qty').val()) || 0) > 0);
         $('#partial_lost_note_wrap').toggle((parseInt($('#partial_lost_qty').val()) || 0) > 0);
     });
 
     function updatePartialSummary() {
         var total   = parseInt($('#partial_total_qty').text()) || 0;
         var got     = parseInt($('#partial_received_qty').val()) || 0;
-        var defect  = parseInt($('#partial_defect_qty').val())  || 0;
         var lost    = parseInt($('#partial_lost_qty').val())    || 0;
-        var sum     = got + defect + lost;
+        var sum     = got + lost;
         var rem     = total - sum;
 
         $('#partial_sum_display').text(sum);
@@ -614,7 +601,7 @@ $(function() {
         } else if (rem === 0 && got > 0) {
             txt = '<span style="color:#00a65a;">✅ სრულად დათვლილია</span>';
         } else if (rem === 0 && got === 0) {
-            txt = '<span style="color:#f39c12;">⚠️ ყველა წუნი/დაკარგულია</span>';
+            txt = '<span style="color:#f39c12;">⚠️ ყველა დაკარგულია</span>';
         } else if (rem > 0) {
             txt = '<span style="color:#f39c12;">⚠️ ' + rem + ' ერთ. კვლავ გზაში დარჩება</span>';
         }
@@ -624,10 +611,9 @@ $(function() {
     window.submitPartialReceive = function() {
         var id     = $('#partial_purchase_id').val();
         var got    = parseInt($('#partial_received_qty').val()) || 0;
-        var defect = parseInt($('#partial_defect_qty').val())   || 0;
         var lost   = parseInt($('#partial_lost_qty').val())     || 0;
         var max    = parseInt($('#partial_total_qty').text())   || 0;
-        var sum    = got + defect + lost;
+        var sum    = got + lost;
 
         if (sum < 1)    { swal('შეცდომა', 'შეიყვანეთ მინიმუმ 1 ერთეული', 'error'); return; }
         if (sum > max)  { swal('შეცდომა', 'ჯამი (' + sum + ') აღემატება შეკვეთილ რაოდენობას (' + max + ')', 'error'); return; }
@@ -639,9 +625,8 @@ $(function() {
             type: 'POST',
             data: {
                 received_qty: got,
-                defect_qty:   defect,
+                defect_qty:   0,
                 lost_qty:     lost,
-                defect_note:  $('#partial_defect_note').val() || '',
                 lost_note:    $('#partial_lost_note').val()   || '',
                 _token: "{{ csrf_token() }}"
             },
