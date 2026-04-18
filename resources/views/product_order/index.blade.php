@@ -849,7 +849,29 @@ var table = $('#products-out-table').DataTable({
                 dropdownParent: $('#modal-sale'),
                 placeholder: '— პროდუქტი —',
                 allowClear: true,
-                width: '100%'
+                width: '100%',
+                templateResult: function(opt) {
+                    if (!opt.id) return $('<span>' + opt.text + '</span>');
+                    var img = $(opt.element).data('image');
+                    var $el = $('<span style="display:flex;align-items:center;gap:8px;"></span>');
+                    if (img) {
+                        $el.append('<img src="' + img + '" style="width:32px;height:32px;object-fit:cover;border-radius:3px;flex-shrink:0;">');
+                    } else {
+                        $el.append('<span style="width:32px;height:32px;background:#f0f0f0;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa fa-image" style="color:#ccc;font-size:13px;"></i></span>');
+                    }
+                    $el.append('<span>' + opt.text + '</span>');
+                    return $el;
+                },
+                templateSelection: function(opt) {
+                    if (!opt.id) return $('<span>' + opt.text + '</span>');
+                    var img = $(opt.element).data('image');
+                    var $el = $('<span style="display:flex;align-items:center;gap:6px;"></span>');
+                    if (img) {
+                        $el.append('<img src="' + img + '" style="width:22px;height:22px;object-fit:cover;border-radius:2px;flex-shrink:0;">');
+                    }
+                    $el.append('<span>' + opt.text + '</span>');
+                    return $el;
+                }
             });
 
             // Set defaults
@@ -1860,11 +1882,11 @@ $(document).on('click', '.expand-btn', function() {
             + '</div>';
 
         // ── Col B: Product ────────────────────────────────────────
-        var img = order.product_image
-            ? '<img src="' + order.product_image + '" style="width:40px;height:40px;object-fit:cover;border-radius:4px;" class="img-zoom-trigger">'
-            : '';
+        var imgHtml = order.product_image
+            ? '<img src="' + order.product_image + '" class="img-zoom-trigger" style="width:48px;height:48px;object-fit:cover;border-radius:4px;cursor:pointer;">'
+            : '<div style="width:48px;height:48px;background:#f5f5f5;border:1px solid #ddd;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:16px;color:#bbb;"><i class=\'fa fa-image\'></i></div>';
         var colB = '<div style="display:flex; gap:8px; align-items:flex-start;">'
-            + (img ? '<div style="flex-shrink:0;">' + img + '</div>' : '')
+            + '<div style="flex-shrink:0;">' + imgHtml + '</div>'
             + '<div style="font-size:12px;">'
             + '<div style="font-weight:600;">' + order.product_name + '</div>'
             + (order.product_code ? '<div style="color:#888; font-size:11px;">' + order.product_code + '</div>' : '')
