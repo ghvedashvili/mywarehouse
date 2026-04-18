@@ -27,7 +27,6 @@
         text-align: center;
         font-weight: 700;
     }
-    /* Preview height: კომპაქტური mobile-ზე */
     .sale-preview-box {
         height: 90px;
         overflow: hidden;
@@ -35,7 +34,6 @@
     @media (min-width: 768px) {
         .sale-preview-box { height: 140px; }
     }
-    /* კურიერის რადიო ბათები მობილურზე ჰორიზონტალური */
     .courier-options {
         display: flex;
         flex-wrap: wrap;
@@ -45,13 +43,26 @@
         margin: 0;
         white-space: nowrap;
     }
+    .sale-item-row {
+        background: #fafafa;
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 8px;
+        padding: 8px 10px;
+        margin-bottom: 8px;
+    }
+    .sale-item-row .sale-price-gel,
+    .sale-item-row .sale-price-usd {
+        font-size: 12px;
+        font-weight: 700;
+        text-align: center;
+        padding: 4px;
+    }
 </style>
 
 <div class="modal fade" id="modal-sale" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
 
-            {{-- ── Header — direct child ── --}}
             <div class="modal-header bg-dark text-white border-0 py-2">
                 <h5 class="modal-title d-flex align-items-center gap-2">
                     <i class="bi bi-cart-plus-fill"></i>
@@ -60,68 +71,42 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
 
-            {{-- ── Body — scrollable, form inside ── --}}
             <div class="modal-body bg-light p-3">
                 <form id="form-sale-content" method="post" enctype="multipart/form-data">
                     @csrf @method('POST')
 
-                    {{-- Hidden inputs --}}
-                    <input type="hidden" name="id"                   id="id">
-                    <input type="hidden" name="order_type"           value="sale">
-                    <input type="hidden" name="price_georgia"        id="price_georgia_sale">
-                    <input type="hidden" name="price_usa"            id="price_usa_sale">
-                    <input type="hidden" name="courier_price_tbilisi" id="courier_price_tbilisi" value="0">
-                    <input type="hidden" id="db_tbilisi_price"       value="{{ $courier->tbilisi_price ?? 6 }}">
+                    <input type="hidden" name="id"    id="id">
+                    <input type="hidden" name="order_type" value="sale">
+                    <input type="hidden" id="db_tbilisi_price" value="{{ $courier->tbilisi_price ?? 6 }}">
+
+                    {{-- Hidden product options template (cloned by JS for each row) --}}
+                    <select id="product-options-template" style="display:none" aria-hidden="true">
+                        <option value="">— აირჩიეთ —</option>
+                        @foreach($all_products as $product)
+                            <option value="{{ $product->id }}"
+                                data-price-ge="{{ $product->price_geo }}"
+                                data-price-us="{{ $product->price_usa }}"
+                                data-sizes="{{ $product->sizes }}"
+                                data-image="{{ asset(ltrim($product->image, '/')) }}">
+                                {{ $product->name }}
+                            </option>
+                        @endforeach
+                    </select>
 
                     <div class="row g-2">
 
-                        {{-- ═══ LEFT: პროდუქტი + კლიენტი + ფინანსები ═══ --}}
+                        {{-- ═══ LEFT: პროდუქტები + კლიენტი + ფინანსები ═══ --}}
                         <div class="col-12 col-md-8">
 
-                            {{-- Section 1: Product --}}
+                            {{-- Section 1: Products --}}
                             <div class="modal-sale-card shadow-sm">
-                                <div class="section-title"><i class="bi bi-box-seam"></i> პროდუქტის შერჩევა</div>
-                                <div class="row g-2">
-                                    <div class="col-12 col-sm-6">
-                                        <label class="form-label small fw-bold">პროდუქტი</label>
-                                        <select name="product_id" id="product_id_sale" class="form-select select2" required>
-                                            <option value="">— აირჩიეთ —</option>
-                                            @foreach($all_products as $product)
-                                                <option value="{{ $product->id }}"
-                                                    data-price-ge="{{ $product->price_geo }}"
-                                                    data-price-us="{{ $product->price_usa }}"
-                                                    data-sizes="{{ $product->sizes }}"
-                                                    data-image="{{ asset(ltrim($product->image, '/')) }}">
-                                                    {{ $product->name }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="col-4 col-sm-2">
-                                        <label class="form-label small fw-bold">ზომა</label>
-                                        <select name="product_size" id="size_sale" class="form-select" required>
-                                            <option value="">—</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-4 col-sm-2">
-                                        <label class="form-label small fw-bold text-success">₾ GEL</label>
-                                        <div id="price_georgia_text" class="price-badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">0</div>
-                                    </div>
-                                    <div class="col-4 col-sm-2">
-                                        <label class="form-label small fw-bold text-primary">$ USD</label>
-                                        <div id="price_usa_text" class="price-badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">0</div>
-                                    </div>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div class="section-title m-0"><i class="bi bi-box-seam"></i> პროდუქტები</div>
+                                    <button type="button" class="btn btn-outline-success btn-sm py-0 px-2" id="add-sale-line" style="font-size:11px;">
+                                        <i class="bi bi-plus-circle"></i> დამატება
+                                    </button>
                                 </div>
-
-                                {{-- Stock Info --}}
-                                <div id="sale_stock_info" class="mt-2 p-2 rounded-3 border-start border-4 border-info bg-white shadow-sm" style="display:none; font-size:12px;">
-                                    <div class="d-flex flex-wrap gap-2">
-                                        <span>📦 საწყობი: <b id="sale_si_physical">0</b></span>
-                                        <span>🚚 გზაში: <b id="sale_si_incoming">0</b></span>
-                                        <span>🔒 ჯავშანი: <b id="sale_si_reserved">0</b></span>
-                                        <span class="text-success">✅ ხელმისაწვდომია: <b id="sale_si_available">0</b></span>
-                                    </div>
-                                </div>
+                                <div id="sale-items-container"></div>
                             </div>
 
                             {{-- Section 2: Customer --}}
@@ -167,15 +152,7 @@
                             <div class="modal-sale-card border-warning bg-warning bg-opacity-10 shadow-sm">
                                 <div class="section-title text-dark"><i class="bi bi-cash-stack"></i> ფინანსური ნაწილი</div>
                                 <div class="row g-2 align-items-center mb-2">
-                                    <div class="col-12 col-sm-6">
-                                        <div class="input-group input-group-sm">
-                                            <span class="input-group-text bg-white">ფასდაკლება</span>
-                                            <input type="number" name="discount" id="discount_sale"
-                                                   class="form-control fw-bold text-danger" value="0">
-                                            <span class="input-group-text bg-white">₾</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-12 col-sm-6 text-sm-end text-muted small">
+                                    <div class="col-12 text-muted small">
                                         ჯამური: <span id="sale_summary_text" class="fw-bold text-dark fs-6">—</span>
                                     </div>
                                 </div>
@@ -201,7 +178,6 @@
                         <div class="col-12 col-md-4">
                             <div class="modal-sale-card shadow-sm">
 
-                                {{-- Preview --}}
                                 <div class="section-title"><i class="bi bi-image"></i> ფოტო</div>
                                 <div class="text-center border rounded mb-2 bg-light d-flex align-items-center justify-content-center sale-preview-box">
                                     <img id="target_image" class="img-fluid" style="display:none; max-height:100%;">
@@ -211,7 +187,6 @@
                                     </div>
                                 </div>
 
-                                {{-- კურიერი — ჰორიზონტალური layout --}}
                                 <div class="section-title mt-1"><i class="bi bi-truck"></i> კურიერი</div>
                                 <div class="courier-options bg-light p-2 rounded border">
                                     <div class="form-check">
@@ -232,7 +207,6 @@
                                     </div>
                                 </div>
 
-                                {{-- კომენტარი --}}
                                 <label class="form-label small fw-bold mt-2 mb-1">კომენტარი</label>
                                 <textarea name="comment" class="form-control form-control-sm" rows="2"
                                           placeholder="დამატებითი შენიშვნა..."></textarea>
@@ -243,7 +217,6 @@
                 </form>
             </div>{{-- /modal-body --}}
 
-            {{-- ── Footer — direct child → ყოველთვის ჩანს ── --}}
             <div class="modal-footer bg-white py-2">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">გაუქმება</button>
                 <button type="submit" form="form-sale-content" class="btn btn-success px-4 fw-bold">

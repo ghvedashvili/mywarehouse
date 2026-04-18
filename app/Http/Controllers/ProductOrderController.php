@@ -45,10 +45,15 @@ class ProductOrderController extends Controller
 
     public function store(Request $request)
     {
-        $this->validate($request, [
-            'product_id'  => 'required',
-            'customer_id' => 'required',
-        ]);
+        $this->validate($request, ['customer_id' => 'required']);
+
+        // Multi-product path
+        if ($request->has('items') && is_array($request->items) && count($request->items) > 0) {
+            return $this->storeMultiple($request);
+        }
+
+        // Single-product fallback (legacy)
+        $this->validate($request, ['product_id' => 'required']);
 
         $product = Product::with('category')->findOrFail($request->product_id);
 
@@ -63,8 +68,6 @@ class ProductOrderController extends Controller
         unset($data['status_id']);
         $user = auth()->user();
 
-        // ─── order_address / order_alt_tel ────────────────────────────
-        // ფორმიდან თუ მოვიდა — ვიყენებთ, თუ არა — customer-ისგან ვიღებთ
         $customer = \App\Models\Customer::find($request->customer_id);
         $data['order_address'] = $request->filled('order_address')
             ? $request->order_address
@@ -72,18 +75,15 @@ class ProductOrderController extends Controller
         $data['order_alt_tel'] = $request->has('order_alt_tel')
             ? $request->order_alt_tel
             : ($customer->alternative_tel ?? null);
-        // ──────────────────────────────────────────────────────────────
 
         $data['user_id'] = $user->id;
         $nextPurchase = FifoService::getNextPurchase(
             (int) $request->product_id,
             $request->product_size ?? ''
         );
-        // price_georgia — პროდუქტიდან (შემდეგ არ იცვლება)
-        // price_usa     — purchase-დან (თუ მიბმული არ არის — 0, მოგვიანებით განახლდება)
         $data['price_georgia']     = (float) ($product->price_geo ?? 0);
         $data['price_usa']         = $nextPurchase ? (float) $nextPurchase->cost_price : 0;
-        $data['purchase_order_id'] = null; // დარეზერვებისას მიენიჭება
+        $data['purchase_order_id'] = null;
 
         if ($user->role === 'staff') {
             $data['discount'] = 0;
@@ -98,9 +98,7 @@ class ProductOrderController extends Controller
         $data['paid_lib']  = $data['paid_lib']  ?? 0;
         $data['paid_cash'] = $data['paid_cash'] ?? 0;
 
-        $courier       = Courier::first();
-        $categoryPrice = $product->category->international_courier_price ?? null;
-        // $data['courier_price_international'] = $categoryPrice ?? ($courier->international_price ?? 30);
+        $courier = Courier::first();
         $data['courier_price_tbilisi'] = 0;
         $data['courier_price_region']  = 0;
         $data['courier_price_village'] = 0;
@@ -114,28 +112,18 @@ class ProductOrderController extends Controller
             $data['courier_price_village'] = $courier->village_price ?? 13;
         }
 
-        // ─── დავალიანების შემოწმება ───────────────────────────────────
-        $total   = $data['price_georgia'] - ($data['discount'] ?? 0);
-        $paid    = ($data['paid_tbc']  ?? 0) + ($data['paid_bog']  ?? 0)
-                 + ($data['paid_lib']  ?? 0) + ($data['paid_cash'] ?? 0);
-        $hasDebt = ($total - $paid) > 0.01;
-        // ──────────────────────────────────────────────────────────────
-
-        // ─── Auto-status: stock ────────────────────────────────────────
         $stock = \App\Models\Warehouse::where('product_id', $data['product_id'])
                                       ->where('size', $request->product_size)
                                       ->first();
 
         if ($nextPurchase) {
-            // FIFO-მ იპოვა ადგილი შესყიდვაში — sale იღებს შესყიდვის სტატუსს
-            $data['status_id']         = $nextPurchase->status_id; // 2 (გზაში) ან 3 (საწყობში)
+            $data['status_id']         = $nextPurchase->status_id;
             $data['purchase_order_id'] = $nextPurchase->id;
             $data['price_usa']         = (float) $nextPurchase->cost_price;
             $data['sale_from']         = ($nextPurchase->status_id == 3) ? 1 : 0;
             $newOrder = Product_Order::create($data);
 
             if ($stock) {
-                // status=2: reserved from incoming; status=3: reserved in warehouse
                 $stock->increment('reserved_qty', 1);
             }
 
@@ -146,16 +134,163 @@ class ProductOrderController extends Controller
                 'status_id_to'   => $newOrder->status_id,
                 'changed_at'     => now(),
             ]);
-
         } else {
-            // ადგილი შესყიდვებში არ არის → მოლოდინში
             $data['status_id'] = 1;
             Product_Order::create($data);
         }
-        // ──────────────────────────────────────────────────────────────
 
         $this->maybeUpdateCustomer($request);
         return response()->json(['success' => true, 'message' => 'Order Created Successfully']);
+    }
+
+    private function storeMultiple(Request $request)
+    {
+        $user     = auth()->user();
+        $courier  = Courier::first();
+        $customer = \App\Models\Customer::find($request->customer_id);
+
+        $orderAddress = $request->filled('order_address')
+            ? $request->order_address
+            : ($customer->address ?? null);
+        $orderAltTel  = $request->has('order_alt_tel')
+            ? $request->order_alt_tel
+            : ($customer->alternative_tel ?? null);
+
+        $courierType = $request->courier_type ?? 'none';
+        $courierData = [
+            'courier_price_tbilisi' => 0,
+            'courier_price_region'  => 0,
+            'courier_price_village' => 0,
+            'courier_servise_local' => $courierType,
+        ];
+        if ($courierType === 'tbilisi') {
+            $courierData['courier_price_tbilisi'] = $courier->tbilisi_price ?? 6;
+        } elseif ($courierType === 'region') {
+            $courierData['courier_price_region'] = $courier->region_price ?? 9;
+        } elseif ($courierType === 'village') {
+            $courierData['courier_price_village'] = $courier->village_price ?? 13;
+        }
+
+        $createdOrders = [];
+
+        foreach ($request->items as $item) {
+            $productId   = (int) ($item['product_id'] ?? 0);
+            $productSize = trim($item['product_size'] ?? '');
+            $discount    = $user->role === 'staff' ? 0 : (float) ($item['discount'] ?? 0);
+
+            if (!$productId) continue;
+
+            $product = Product::with('category')->find($productId);
+            if (!$product || $product->product_status != 1) continue;
+
+            $nextPurchase = FifoService::getNextPurchase($productId, $productSize);
+
+            $data = array_merge($courierData, [
+                'product_id'       => $productId,
+                'product_size'     => $productSize,
+                'customer_id'      => $request->customer_id,
+                'user_id'          => $user->id,
+                'order_type'       => 'sale',
+                'price_georgia'    => (float) ($product->price_geo ?? 0),
+                'price_usa'        => $nextPurchase ? (float) $nextPurchase->cost_price : 0,
+                'discount'         => $discount,
+                'paid_tbc'         => 0,
+                'paid_bog'         => 0,
+                'paid_lib'         => 0,
+                'paid_cash'        => 0,
+                'comment'          => $request->comment,
+                'order_address'    => $orderAddress,
+                'order_alt_tel'    => $orderAltTel,
+                'purchase_order_id'=> null,
+            ]);
+
+            $stock = \App\Models\Warehouse::where('product_id', $productId)
+                                          ->where('size', $productSize)
+                                          ->first();
+
+            if ($nextPurchase) {
+                $data['status_id']         = $nextPurchase->status_id;
+                $data['purchase_order_id'] = $nextPurchase->id;
+                $data['price_usa']         = (float) $nextPurchase->cost_price;
+                $data['sale_from']         = ($nextPurchase->status_id == 3) ? 1 : 0;
+                $newOrder = Product_Order::create($data);
+
+                if ($stock) {
+                    $stock->increment('reserved_qty', 1);
+                }
+
+                StatusChangeLog::create([
+                    'order_id'       => $newOrder->id,
+                    'user_id'        => auth()->id(),
+                    'status_id_from' => 1,
+                    'status_id_to'   => $newOrder->status_id,
+                    'changed_at'     => now(),
+                ]);
+            } else {
+                $data['status_id'] = 1;
+                $newOrder = Product_Order::create($data);
+            }
+
+            $createdOrders[] = $newOrder;
+        }
+
+        if (empty($createdOrders)) {
+            return response()->json(['success' => false, 'message' => 'ვერ შეიქმნა ორდერები'], 422);
+        }
+
+        $this->distributePayment($request, $createdOrders, $user);
+        $this->mergeCreatedOrders($createdOrders);
+        $this->maybeUpdateCustomer($request);
+
+        return response()->json(['success' => true, 'message' => 'Orders Created Successfully']);
+    }
+
+    private function distributePayment(Request $request, array $orders, $user): void
+    {
+        if ($user->role === 'staff') return;
+
+        $pools = [
+            'paid_tbc'  => (float) ($request->paid_tbc  ?? 0),
+            'paid_bog'  => (float) ($request->paid_bog  ?? 0),
+            'paid_lib'  => (float) ($request->paid_lib  ?? 0),
+            'paid_cash' => (float) ($request->paid_cash ?? 0),
+        ];
+
+        foreach ($orders as $order) {
+            $due = (float) $order->price_georgia - (float) $order->discount;
+            if ($due <= 0) continue;
+
+            $payments = ['paid_tbc' => 0, 'paid_bog' => 0, 'paid_lib' => 0, 'paid_cash' => 0];
+
+            foreach (['paid_tbc', 'paid_bog', 'paid_lib', 'paid_cash'] as $ch) {
+                if ($pools[$ch] <= 0 || $due <= 0) continue;
+                $apply           = min($pools[$ch], $due);
+                $payments[$ch]   = $apply;
+                $pools[$ch]     -= $apply;
+                $due            -= $apply;
+            }
+
+            Product_Order::where('id', $order->id)->update($payments);
+        }
+    }
+
+    private function mergeCreatedOrders(array $orders): void
+    {
+        if (count($orders) <= 1) return;
+
+        $primaryId = $orders[0]->id;
+
+        Product_Order::where('id', $primaryId)->update([
+            'merged_id'  => $primaryId,
+            'is_primary' => 1,
+        ]);
+
+        for ($i = 1; $i < count($orders); $i++) {
+            Product_Order::where('id', $orders[$i]->id)->update([
+                'merged_id'  => $primaryId,
+                'is_primary' => 0,
+            ]);
+        }
     }
 
     // ─── Customer მონაცემების განახლება ორდერიდან ─────────────────────

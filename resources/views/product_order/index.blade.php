@@ -682,14 +682,6 @@ var table = $('#products-out-table').DataTable({
             placeholder: '-- Choose Customer --',
             allowClear: true
         });
-// =====================
-// Select2 — product (sale)
-// =====================
-$('#product_id_sale').select2({
-    dropdownParent: $('#modal-sale'),
-    placeholder: '— Choose Product —',
-    allowClear: true
-});
         // customer info ჩვენება — მხოლოდ ერთხელ
         $('#customer_id_sale').on('change', function() {
             var selected = $(this).find('option:selected');
@@ -728,77 +720,177 @@ $('#product_id_sale').select2({
         // მნიშვნელობა პირდაპირ იგზავნება სერვერზე name="courier_type"-ით
 
         // =====================
-        // ჯამური გამოთვლა
+        // ჯამური გამოთვლა (multi-row)
         // =====================
         function calculateSaleSummary() {
-            var priceGe = parseFloat($('#price_georgia_sale').val()) || 0;
-            var discount = parseFloat($('#discount_sale').val()) || 0;
+            var totalGe = 0;
+            $('#sale-items-container .sale-item-row').each(function() {
+                var priceGe  = parseFloat($(this).find('.sale-hidden-gel').val()) || 0;
+                var discount = parseFloat($(this).find('.sale-discount').val()) || 0;
+                totalGe += Math.max(0, priceGe - discount);
+            });
 
-            if (discount > priceGe) {
-                discount = priceGe;
-                $('#discount_sale').val(priceGe);
-            }
-
-            var totalToPay = priceGe - discount;
-
-            var paid = (parseFloat($('#modal-sale input[name="paid_tbc"]').val()) || 0) +
-                       (parseFloat($('#modal-sale input[name="paid_bog"]').val()) || 0) +
-                       (parseFloat($('#modal-sale input[name="paid_lib"]').val()) || 0) +
+            var paid = (parseFloat($('#modal-sale input[name="paid_tbc"]').val())  || 0) +
+                       (parseFloat($('#modal-sale input[name="paid_bog"]').val())  || 0) +
+                       (parseFloat($('#modal-sale input[name="paid_lib"]').val())  || 0) +
                        (parseFloat($('#modal-sale input[name="paid_cash"]').val()) || 0);
 
-            var diff = paid - totalToPay;
+            var diff    = paid - totalGe;
             var summary = $('#sale_summary_text');
 
-            if (priceGe === 0 && paid === 0) {
+            if (totalGe === 0 && paid === 0) {
                 summary.text('შეიყვანეთ მონაცემები').css('color', 'black');
             } else if (diff < -0.01) {
-                summary.text('აკლია: ' + Math.abs(diff).toFixed(2) + ' ₾ (გადასახდელია: ' + totalToPay.toFixed(2) + ')').css('color', 'red');
+                summary.text('აკლია: ' + Math.abs(diff).toFixed(2) + ' ₾ (გადასახდელია: ' + totalGe.toFixed(2) + ')').css('color', 'red');
             } else if (diff > 0.01) {
                 summary.text('ზედმეტია: ' + diff.toFixed(2) + ' ₾').css('color', 'green');
             } else {
-                summary.text('სრულად გადახდილია (' + totalToPay.toFixed(2) + ' ₾)').css('color', 'green');
+                summary.text('სრულად გადახდილია (' + totalGe.toFixed(2) + ' ₾)').css('color', 'green');
             }
         }
 
-        $(document).on('input', '#modal-sale input[name^="paid_"], #price_georgia_sale, #discount_sale', calculateSaleSummary);
+        $(document).on('input', '#modal-sale input[name^="paid_"]', calculateSaleSummary);
+        $(document).on('input', '#sale-items-container .sale-discount', calculateSaleSummary);
 
         // =====================
         // Add Sale
         // =====================
+        var saleRowIndex = 0;
+
         function addSaleForm() {
-            save_method = "add";
-             isEditMode = false;
-           $('#form-sale-content input[name=_method]').val('POST'); // შეიცვალა
+            save_method = 'add';
+            isEditMode  = false;
+            saleRowIndex = 0;
+            $('#form-sale-content input[name=_method]').val('POST');
             $('#form-sale-content')[0].reset();
-            $('#modal-sale .modal-title').text('Add New Sale');
+            $('#modal-sale-title').text('ახალი გაყიდვა');
             $('#sale_summary_text').text('შეიყვანეთ მონაცემები').css('color', 'black');
 
-            var pSelect = $('#product_id_sale');
-    var sSelect = $('#size_sale');
-    // 2. ვხსნით ბლოკირებას (ეს ხაზები აკლდა)
-    $('.edit-lock-msg').remove();
-    pSelect.prop('disabled', false);
-    sSelect.prop('disabled', false);
+            $('#sale-items-container').empty();
+            addSaleLine({});
 
-            $('#product_id_sale').val('').trigger('change');
-            $('#size_sale').empty().append('<option value="">-- Size --</option>');
             $('#target_image').hide();
             $('#no_image_text').show();
-            $('#customer_id_sale').val('').trigger('change');
+            $('#customer_id_sale').val(null).trigger('change');
             $('#customer_info_fields').hide();
             $('input[name="courier_type"][value="none"]').prop('checked', true);
+            $('#add-sale-line').show();
             $('#modal-sale').modal('show');
         }
 
         // =====================
+        // Add Sale Line (dynamic row)
+        // =====================
+        function addSaleLine(defaults) {
+            defaults = defaults || {};
+            var idx  = saleRowIndex++;
+            var optHtml = $('#product-options-template').html();
+
+            var lockProd = defaults.lockProduct ? 'disabled' : '';
+            var lockSize = defaults.lockProduct ? 'disabled' : '';
+            var canRemove = (!defaults.editMode) ? '' : 'disabled';
+
+            var row = '<div class="sale-item-row" data-idx="' + idx + '">' +
+                '<div class="row g-1 align-items-end">' +
+                    '<div class="col-12 col-sm-5">' +
+                        '<select name="items[' + idx + '][product_id]" class="form-select form-select-sm sale-product-select" required ' + lockProd + '>' +
+                            optHtml +
+                        '</select>' +
+                    '</div>' +
+                    '<div class="col-5 col-sm-2">' +
+                        '<select name="items[' + idx + '][product_size]" class="form-select form-select-sm sale-size-select" ' + lockSize + '>' +
+                            '<option value="">— ზომა —</option>' +
+                        '</select>' +
+                    '</div>' +
+                    '<div class="col-3 col-sm-1 text-center">' +
+                        '<div class="sale-price-gel text-success fw-bold" style="font-size:12px;">0 ₾</div>' +
+                        '<input type="hidden" name="items[' + idx + '][price_georgia]" value="0" class="sale-hidden-gel">' +
+                    '</div>' +
+                    '<div class="col-3 col-sm-1 text-center">' +
+                        '<div class="sale-price-usd text-primary fw-bold" style="font-size:12px;">$0</div>' +
+                        '<input type="hidden" name="items[' + idx + '][price_usa]" value="0" class="sale-hidden-usd">' +
+                    '</div>' +
+                    '<div class="col-6 col-sm-2">' +
+                        '<div class="input-group input-group-sm">' +
+                            '<input type="number" name="items[' + idx + '][discount]" class="form-control sale-discount" value="0" min="0" step="0.01" placeholder="ფასდაკ.">' +
+                            '<span class="input-group-text bg-white">₾</span>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="col-6 col-sm-1 d-flex align-items-end">' +
+                        '<button type="button" class="btn btn-outline-danger btn-sm w-100 remove-sale-line" ' + canRemove + '>' +
+                            '<i class="bi bi-x-lg"></i>' +
+                        '</button>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="sale-row-stock mt-1 p-1 rounded border-start border-3 border-info bg-white" style="display:none; font-size:11px;">' +
+                    '📦 <b class="si-physical">0</b>' +
+                    ' &nbsp;🚚 <b class="si-incoming">0</b>' +
+                    ' &nbsp;🔒 <b class="si-reserved">0</b>' +
+                    ' &nbsp;<span class="text-success">✅ <b class="si-available">0</b></span>' +
+                '</div>' +
+            '</div>';
+
+            var $row = $(row);
+            $('#sale-items-container').append($row);
+
+            // Select2 on product select
+            $row.find('.sale-product-select').select2({
+                dropdownParent: $('#modal-sale'),
+                placeholder: '— პროდუქტი —',
+                allowClear: true,
+                width: '100%'
+            });
+
+            // Set defaults
+            if (defaults.product_id) {
+                $row.find('.sale-product-select').val(defaults.product_id).trigger('change');
+
+                if (defaults.product_size) {
+                    var checkSize = setInterval(function() {
+                        if ($row.find('.sale-size-select option').length > 1) {
+                            clearInterval(checkSize);
+                            $row.find('.sale-size-select').val(defaults.product_size);
+                            if (defaults.price_georgia) {
+                                $row.find('.sale-price-gel').text(defaults.price_georgia + ' ₾');
+                                $row.find('.sale-hidden-gel').val(defaults.price_georgia);
+                            }
+                            if (defaults.price_usa) {
+                                $row.find('.sale-price-usd').text('$' + defaults.price_usa);
+                                $row.find('.sale-hidden-usd').val(defaults.price_usa);
+                            }
+                            calculateSaleSummary();
+                        }
+                    }, 100);
+                    setTimeout(function() { clearInterval(checkSize); }, 3000);
+                }
+            }
+            if (defaults.discount !== undefined) {
+                $row.find('.sale-discount').val(defaults.discount);
+            }
+
+            calculateSaleSummary();
+        }
+
+        // =====================
+        // Remove Sale Line
+        // =====================
+        $(document).on('click', '.remove-sale-line', function() {
+            $(this).closest('.sale-item-row').remove();
+            calculateSaleSummary();
+        });
+
+        // Add product line button
+        $('#add-sale-line').on('click', function() {
+            addSaleLine({});
+        });
+
+        // =====================
         // Edit Sale
         // =====================
-     // =====================
-// Edit Sale
-// =====================
 function editForm(id) {
-    save_method = 'edit';
-     isEditMode = true; // ← დაამატე თავში
+    save_method  = 'edit';
+    isEditMode   = true;
+    saleRowIndex = 0;
     $('#form-sale-content input[name=_method]').val('PATCH');
 
     $.ajax({
@@ -806,21 +898,46 @@ function editForm(id) {
         type: "GET",
         dataType: "JSON",
         success: function(data) {
-            // 1. ფორმის რესეტი და ვიზუალი
             $('#form-sale-content')[0].reset();
-            $('#modal-sale .modal-title').text('Edit Sale');
-            
-            // 2. ID და დამალული ფასები
+            $('#modal-sale-title').text('გაყიდვის რედაქტირება');
             $('#modal-sale input[name="id"]').val(data.id);
-            $('#price_georgia_sale').val(data.price_georgia);
-            $('#price_usa_sale').val(data.price_usa);
 
-            // 3. კლიენტი და სტატუსი
+            var statusId   = data.status_id ? parseInt(data.status_id) : 1;
+            var lockProd   = (statusId >= 4);
+
+            // Build product defaults; handle inactive product
+            var cp = data.current_product;
+            var prodId = data.product_id;
+
+            // If inactive product, inject into template clone so addSaleLine can use it
+            if (cp && cp.product_status == 0) {
+                var tpl = $('#product-options-template');
+                tpl.find('option[data-inactive="1"]').remove();
+                tpl.append(
+                    $('<option>', { value: cp.id, text: cp.name + ' (Inactive)' })
+                        .attr('data-inactive', '1')
+                        .attr('data-price-ge', cp.price_geo)
+                        .attr('data-price-us', cp.price_usa)
+                        .attr('data-sizes', cp.sizes || '')
+                        .attr('data-image', cp.image || '')
+                );
+            }
+
+            $('#sale-items-container').empty();
+            addSaleLine({
+                product_id:    prodId,
+                product_size:  data.product_size,
+                price_georgia: data.price_georgia,
+                price_usa:     data.price_usa,
+                discount:      data.discount || 0,
+                editMode:      true,
+                lockProduct:   lockProd
+            });
+
+            $('#add-sale-line').hide();
+
             $('#customer_id_sale').val(data.customer_id).trigger('change');
-            $('#status_id_sale').val(data.status_id);
 
-            // ─── order_address / order_alt_tel ────────────────────────
-            // null-ის შემთხვევაში customer-ის მისამართს არ ვაეწეროთ
             setTimeout(function() {
                 if (data.order_address != null) {
                     $('#customer_address_input').val(data.order_address).data('original', data.order_address);
@@ -829,89 +946,18 @@ function editForm(id) {
                     $('#customer_alt_tel_input').val(data.order_alt_tel).data('original', data.order_alt_tel);
                 }
             }, 80);
-            // ─────────────────────────────────────────────────────────
 
-            // კურიერი — customer trigger-ის შემდეგ ვაყენებთ რომ გადაეწეროს
             setTimeout(function() {
-                var courierVal = data.courier_servise_local || 'none';
-                $('input[name="courier_type"][value="' + courierVal + '"]').prop('checked', true);
+                $('input[name="courier_type"][value="' + (data.courier_servise_local || 'none') + '"]').prop('checked', true);
             }, 50);
 
-           // 🔒 პროდუქტის და ზომის ბლოკირების ლოგიკა
-var statusId = data.status_id ? parseInt(data.status_id) : 1;
-var pSelect = $('#product_id_sale');
-var sSelect = $('#size_sale');
-
-// ყოველთვის გავხსნათ პირველ რიგში
-pSelect.prop('disabled', false);
-sSelect.prop('disabled', false);
-$('.edit-lock-msg').remove();
-
-// status=4 (კურიერთან) — პროდუქტი და ზომა ჩაკეტილი
-if (statusId === 4) {
-    pSelect.prop('disabled', true);
-    sSelect.prop('disabled', true);
-    pSelect.closest('.form-group').find('label').first()
-        .append(' <span class="edit-lock-msg label label-warning" style="font-size:10px;">🔒 კურიერთანაა</span>');
-    sSelect.closest('.form-group').find('label').first()
-        .append(' <span class="edit-lock-msg label label-warning" style="font-size:10px;">🔒</span>');
-}
-
-            // 4. ბანკები და ფასდაკლება
             $('#modal-sale input[name="paid_tbc"]').val(data.paid_tbc || 0);
             $('#modal-sale input[name="paid_bog"]').val(data.paid_bog || 0);
             $('#modal-sale input[name="paid_lib"]').val(data.paid_lib || 0);
             $('#modal-sale input[name="paid_cash"]').val(data.paid_cash || 0);
-            $('#discount_sale').val(data.discount || 0);
 
-            // 5. კურიერის ლოგიკა — customer trigger-ის შემდეგ გადაეწეროს
-            var courierVal = data.courier_servise_local || 'none';
-
-            // 6. პროდუქტის სინქრონიზაცია (ინაქტიურის გათვალისწინებით)
-            var cp = data.current_product;
-            if (cp && cp.product_status == 0) {
-                pSelect.find('option[data-inactive="1"]').remove();
-                var inactiveOption = new Option(cp.name + ' (Inactive)', cp.id, true, true);
-                $(inactiveOption).attr({
-                    'data-inactive': '1',
-                    'data-price-ge': cp.price_geo,
-                    'data-price-us': cp.price_usa,
-                    'data-sizes': cp.sizes || '',
-                    'data-image': cp.image || ''
-                });
-                pSelect.append(inactiveOption).trigger('change');
-            } else {
-                pSelect.val(data.product_id).trigger('change');
-            }
-
-            // ✨ ზომის ჩატვირთვის ლოდინი
-            var checkSizeExist = setInterval(function() {
-    if ($('#size_sale option').length > 1) {
-        clearInterval(checkSizeExist);
-
-        // isEditMode დარწმუნებით true-ია ზომის დაყენებამდე
-        isEditMode = true;
-        $('#size_sale').val(data.product_size);
-
-        // display ველები პირდაპირ ჩავავსოთ — FIFO-ს არ ველოდოთ
-        $('#price_georgia_sale').val(data.price_georgia || 0);
-        $('#price_usa_sale').val(data.price_usa || 0);
-        $('#price_georgia_text').text(data.price_georgia || 0);
-        $('#price_usa_text').text(data.price_usa || 0);
-
-        if (typeof calculateSaleSummary === 'function') {
             calculateSaleSummary();
-        }
-
-        // size change event-ის დამუშავების შემდეგ გავაუქმოთ
-        setTimeout(function() { isEditMode = false; }, 500);
-    }
-}, 100);
-
-setTimeout(function() { clearInterval(checkSizeExist); }, 2000);
-
             $('#modal-sale').modal('show');
-            
         },
         error: function() {
             swal("შეცდომა", "მონაცემების წამოღება ვერ მოხერხდა", "error");
@@ -919,52 +965,93 @@ setTimeout(function() { clearInterval(checkSizeExist); }, 2000);
     });
 }
         // =====================
-        // Product change
+        // Product change (delegated — per-row)
         // =====================
-        var isEditMode = false; // ← დაამატე
+        var isEditMode = false;
 
-        $(document).on('change', '#product_id_sale', function() {
-    const selected = $(this).find('option:selected');
+        $(document).on('change', '.sale-product-select', function() {
+            var $row     = $(this).closest('.sale-item-row');
+            var selected = $(this).find('option:selected');
 
-    if (!isEditMode) {
-        let priceGe = selected.data('price-ge') || 0;
-        let priceUs = selected.data('price-us') || 0;
-        $('#price_georgia_sale').val(priceGe);
-        $('#price_georgia_text').text(priceGe);
-        $('#price_usa_sale').val(priceUs);
-        $('#price_usa_text').text(priceUs);
-    }
+            if (!isEditMode) {
+                var priceGe = selected.data('price-ge') || 0;
+                var priceUs = selected.data('price-us') || 0;
+                $row.find('.sale-price-gel').text(priceGe + ' ₾');
+                $row.find('.sale-hidden-gel').val(priceGe);
+                $row.find('.sale-price-usd').text('$' + priceUs);
+                $row.find('.sale-hidden-usd').val(priceUs);
+            }
 
-    // სურათი — ყოველთვის განახლდება
-    const imageUrl = selected.data('image');
-    if (imageUrl) {
-        $('#target_image').attr('src', imageUrl).show();
-        $('#no_image_text').hide();
-    } else {
-        $('#target_image').hide();
-        $('#no_image_text').show();
-    }
+            // Image preview — last changed product
+            var imageUrl = selected.data('image');
+            if (imageUrl) {
+                $('#target_image').attr('src', imageUrl).show();
+                $('#no_image_text').hide();
+            } else {
+                $('#target_image').hide();
+                $('#no_image_text').show();
+            }
 
-    // ზომები — ყოველთვის განახლდება
-    const sizesRaw = selected.data('sizes');
-    const sizeSelect = $('#size_sale');
-    sizeSelect.empty();
+            // Sizes
+            var sizesRaw  = selected.data('sizes');
+            var $sizeSelect = $row.find('.sale-size-select');
+            $sizeSelect.empty();
 
-    if (sizesRaw && sizesRaw.toString().trim() !== '') {
-        sizeSelect.append('<option value="">-- Select Size --</option>');
-        sizesRaw.toString().split(',').forEach(function(size) {
-            let s = size.trim();
-            if (s !== '') sizeSelect.append(`<option value="${s}">${s}</option>`);
+            if (sizesRaw && sizesRaw.toString().trim() !== '') {
+                $sizeSelect.append('<option value="">— ზომა —</option>');
+                sizesRaw.toString().split(',').forEach(function(s) {
+                    s = s.trim();
+                    if (s !== '') $sizeSelect.append('<option value="' + s + '">' + s + '</option>');
+                });
+                $sizeSelect.prop('required', true);
+            } else {
+                $sizeSelect.append('<option value="">— არ არის —</option>');
+                $sizeSelect.prop('required', false);
+            }
+
+            // Stock info
+            var productId = selected.val();
+            if (productId) {
+                $.get("{{ route('warehouse.stockInfo') }}", { product_id: productId }, function(data) {
+                    _updateRowStock($row, data);
+                });
+            } else {
+                $row.find('.sale-row-stock').hide();
+            }
+
+            calculateSaleSummary();
         });
-        sizeSelect.prop('required', true);
-    } else {
-        sizeSelect.append('<option value="">-- No Size --</option>');
-        sizeSelect.prop('required', false);
-    }
 
-    calculateSaleSummary();
-    $(this).trigger('productLoaded');
-});
+        $(document).on('change', '.sale-size-select', function() {
+            var $row      = $(this).closest('.sale-item-row');
+            var productId = $row.find('.sale-product-select').val();
+            var size      = $(this).val();
+
+            if (!isEditMode && productId && size) {
+                $.get("{{ url('api/fifo-prices') }}", { product_id: productId, size: size }, function(fifo) {
+                    $row.find('.sale-price-gel').text((fifo.price_georgia || 0) + ' ₾');
+                    $row.find('.sale-hidden-gel').val(fifo.price_georgia || 0);
+                    $row.find('.sale-price-usd').text('$' + (fifo.cost_price || 0));
+                    $row.find('.sale-hidden-usd').val(fifo.cost_price || 0);
+                    calculateSaleSummary();
+                });
+            }
+
+            if (productId && size) {
+                $.get("{{ route('warehouse.stockInfo') }}", { product_id: productId, size: size }, function(data) {
+                    _updateRowStock($row, data);
+                });
+            }
+        });
+
+        function _updateRowStock($row, data) {
+            var $s = $row.find('.sale-row-stock');
+            $s.find('.si-physical').text(data.physical_qty  || 0);
+            $s.find('.si-incoming').text(data.incoming_qty  || 0);
+            $s.find('.si-reserved').text(data.reserved_qty  || 0);
+            $s.find('.si-available').text(data.available    || data.available_qty || 0);
+            $s.show();
+        }
 
         // =====================
         // Sale Form Submit
@@ -1026,6 +1113,16 @@ setTimeout(function() { clearInterval(checkSizeExist); }, 2000);
             $locked.prop('disabled', true);
 
             formData.append('update_customer', updateCustomer);
+
+            // In edit mode, inject flat product fields so update() can read them
+            if (save_method === 'edit') {
+                var $firstRow = $('#sale-items-container .sale-item-row').first();
+                formData.set('product_id',   $firstRow.find('.sale-product-select').val() || '');
+                formData.set('product_size', $firstRow.find('.sale-size-select').val() || '');
+                formData.set('price_georgia',$firstRow.find('.sale-hidden-gel').val() || 0);
+                formData.set('price_usa',    $firstRow.find('.sale-hidden-usd').val() || 0);
+                formData.set('discount',     $firstRow.find('.sale-discount').val() || 0);
+            }
 
             $.ajax({
                 url: url,
@@ -1145,12 +1242,10 @@ setTimeout(function() { clearInterval(checkSizeExist); }, 2000);
                 $('body').addClass('modal-open');
             }
         });
-// ახალი — modal-sale დაიხურა → inactive temp option გასუფთავება
+// modal-sale დაიხურა → template-დან inactive option გასუფთავება
 $('#modal-sale').on('hidden.bs.modal', function() {
-    $('#product_id_sale option[data-inactive="1"]').remove();
-    if ($.fn.select2 && $('#product_id_sale').hasClass('select2-hidden-accessible')) {
-        $('#product_id_sale').trigger('change.select2');
-    }
+    $('#product-options-template option[data-inactive="1"]').remove();
+    isEditMode = false;
 });
 // =====================
 // Quick Status Change
@@ -1894,92 +1989,6 @@ window.sendSingleToCourier = function(id) {
         });
     });
 };
-// ── SALE FORM: size change → stock info + FIFO ფასები ──
-$(document).on('change', '#size_sale', function() {
-    var prodId = $('#product_id_sale').val();
-    var size   = $(this).val();
-
-    if (!prodId || !size) {
-        $('#sale_stock_info').hide();
-        if (!isEditMode) {
-            $('#price_georgia_sale').val(0);
-            $('#price_georgia_text').text(0);
-            $('#price_usa_sale').val(0);
-            $('#price_usa_text').text(0);
-        }
-        return;
-    }
-
-    $.get("{{ route('warehouse.stockInfo') }}", 
-        { product_id: prodId, size: size }, 
-        function(data) {
-            // FIFO ფასები მხოლოდ ახალი sale-ის დროს
-            if (!isEditMode) {
-                $.get("{{ url('api/fifo-prices') }}", 
-                    { product_id: prodId, size: size },
-                    function(fifo) {
-                        $('#price_georgia_sale').val(fifo.price_georgia || 0);
-                        $('#price_georgia_text').text(fifo.price_georgia || 0);
-                        $('#price_usa_sale').val(fifo.cost_price || 0);
-                        $('#price_usa_text').text(fifo.cost_price || 0);
-
-                        if (typeof calculateSaleSummary === 'function') {
-                            calculateSaleSummary();
-                        }
-                    }
-                );
-            } else {
-                // edit-ის დროს display ველები ჩავავსოთ hidden-იდან
-                $('#price_georgia_text').text($('#price_georgia_sale').val() || 0);
-                $('#price_usa_text').text($('#price_usa_sale').val() || 0);
-                if (typeof calculateSaleSummary === 'function') {
-                    calculateSaleSummary();
-                }
-            }
-
-            if (!data.found) {
-                $('#sale_si_physical').text(0);
-                $('#sale_si_incoming').text(0);
-                $('#sale_si_reserved').text(0);
-                $('#sale_si_available').text(0);
-                $('#sale_si_badge').html('<span class="label label-danger">ნაშთი არ არის</span>');
-                $('#sale_stock_info').show();
-                return;
-            }
-
-            var avail = data.available;
-            $('#sale_si_physical').text(data.physical_qty);
-            $('#sale_si_incoming').text(data.incoming_qty);
-            $('#sale_si_reserved').text(data.reserved_qty);
-            $('#sale_si_available').text(avail);
-
-            var color, badge;
-            if (avail <= 0) {
-                color = '#e74c3c';
-                badge = '<span class="label label-danger">ნაშთი არ არის — მოლოდინში წავა</span>';
-            } else if (avail <= 3) {
-                color = '#f39c12';
-                badge = '<span class="label label-warning">მცირე ნაშთი</span>';
-            } else {
-                color = '#00a65a';
-                badge = '<span class="label label-success">ხელმისაწვდომია</span>';
-            }
-            $('#sale_si_available').css('color', color);
-            $('#sale_si_badge').html(badge);
-            $('#sale_stock_info').show();
-        }
-    );
-});
-
-// ── პროდუქტის შეცვლისას stock info დამალვა ──
-$(document).on('change', '#product_id_sale', function() {
-    $('#sale_stock_info').hide();
-});
-
-// ── modal დახურვისას stock info დამალვა ──
-$('#modal-sale').on('hidden.bs.modal', function() {
-    $('#sale_stock_info').hide();
-});
 
 // ════════════════════════════════════════════════════════════
 // 🔄 CHANGE ORDER JS
