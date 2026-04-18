@@ -653,6 +653,14 @@ var table = $('#products-out-table').DataTable({
             </label>
         </div>
 
+        <div style="display:inline-flex; align-items:center; gap:6px; margin-left:15px; vertical-align:middle;">
+            <label style="font-size:13px; color:#666; margin:0;">თარიღი:</label>
+            <input type="date" id="filter-date-from" style="font-size:12px; padding:3px 6px; border:1px solid #ccc; border-radius:4px; height:28px;">
+            <span style="font-size:13px; color:#999;">—</span>
+            <input type="date" id="filter-date-to" style="font-size:12px; padding:3px 6px; border:1px solid #ccc; border-radius:4px; height:28px;">
+            <button id="filter-date-clear" type="button" style="font-size:11px; padding:2px 7px; border:1px solid #ccc; border-radius:4px; background:#f8f8f8; cursor:pointer; height:28px; color:#888;" title="გასუფთავება">✕</button>
+        </div>
+
         <div style="display:inline-flex; align-items:center; gap:6px; margin-left:15px; vertical-align:middle; position:relative;">
             <label style="font-size:13px; color:#666; margin:0;">სტატუსი:</label>
             <div id="status-filter-wrapper" style="position:relative;">
@@ -1476,8 +1484,22 @@ function reloadTableWithFilters() {
     $('.status-filter-check:checked').each(function() { selected.push($(this).val()); });
     if (selected.length) params.push('statuses[]=' + selected.join('&statuses[]='));
 
+    var dateFrom = $('#filter-date-from').val();
+    var dateTo   = $('#filter-date-to').val();
+    if (dateFrom) params.push('date_from=' + dateFrom);
+    if (dateTo)   params.push('date_to='   + dateTo);
+
     table.ajax.url("{{ route('api.productsOut') }}?" + params.join('&')).load();
 }
+
+$(document).on('change', '#filter-date-from, #filter-date-to', function() {
+    reloadTableWithFilters();
+});
+
+$(document).on('click', '#filter-date-clear', function() {
+    $('#filter-date-from, #filter-date-to').val('');
+    reloadTableWithFilters();
+});
 
 // index.blade.php - სკრიპტების ბოლოს
 
@@ -1840,6 +1862,34 @@ function unmergeOrder(id) {
 }
 
 // =====================
+// Split — ამ ორდერის გამოყოფა ჯგუფიდან
+// =====================
+function splitFromGroup(id) {
+    swal({
+        title: 'გამოყოფა?',
+        text: 'ეს ორდერი გამოვა ჯგუფიდან და დამოუკიდებელი გახდება.',
+        type: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'დიახ',
+        cancelButtonText: 'გაუქმება'
+    }).then(function() {
+        $.ajax({
+            url: "{{ url('productsOut') }}/" + id + "/split",
+            type: "POST",
+            data: { _token: $('meta[name="csrf-token"]').attr('content') },
+            success: function(data) {
+                $('tr.child-row-' + id).remove();
+                table.ajax.reload(null, false);
+                swal("წარმატება!", data.message, "success");
+            },
+            error: function(xhr) {
+                swal("შეცდომა", xhr.responseJSON ? xhr.responseJSON.message : "ვერ გამოიყო", "error");
+            }
+        });
+    });
+}
+
+// =====================
 // Expand / Collapse — შვილების გაშლა
 // =====================
 $(document).on('click', '.expand-btn', function() {
@@ -1924,7 +1974,8 @@ $(document).on('click', '.expand-btn', function() {
             + 'style="background:' + (chIsPaid ? '#198754' : '#dc3545') + ';color:#fff;">'
             + '<i class="fa fa-credit-card"></i></a>';
 
-        var colD = chPayBtn;
+        var splitBtn = '<a onclick="splitFromGroup(' + order.id + ')" class="btn btn-outline-warning btn-xs" title="ჯგუფიდან გამოყოფა"><i class="fa fa-scissors"></i></a>';
+        var colD = chPayBtn + splitBtn;
         if (isAdmin) {
             var canDel  = order.status_id != 4;
             var delBtn  = canDel
@@ -1943,7 +1994,7 @@ $(document).on('click', '.expand-btn', function() {
             }
 
             colD = '<div style="display:flex; flex-wrap:wrap; gap:3px;">'
-                + editBtn + delBtn + histBtn + exchBtn + pdfBtn + mailBtn + chPayBtn
+                + editBtn + delBtn + histBtn + exchBtn + pdfBtn + mailBtn + chPayBtn + splitBtn
                 + '</div>';
         }
 

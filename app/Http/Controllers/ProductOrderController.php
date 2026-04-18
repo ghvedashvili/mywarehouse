@@ -777,6 +777,13 @@ class ProductOrderController extends Controller
             $query->where('status', 'active');
         }
 
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
+
         // ─── Merge filter: კონკრეტული customer-ის გასაერთიანებელი ───────
         if ($request->filled('merge_customer_id')) {
             $query->where('customer_id', $request->merge_customer_id)
@@ -1635,14 +1642,19 @@ class ProductOrderController extends Controller
         $ids = $request->input('ids', []);
 
         if (count($ids) < 2) {
-            return response()->json(['success' => false, 'message' => 'მინიმუმ 2 ორდერი აირჩიე']);
+            return response()->json(['message' => 'მინიმუმ 2 ორდერი აირჩიე'], 422);
         }
 
         $orders = Product_Order::whereIn('id', $ids)->get();
 
         $primaries = $orders->where('is_primary', 1);
         if ($primaries->count() > 1) {
-            return response()->json(['success' => false, 'message' => 'ორი გაერთიანებული ჯგუფის შერწყმა შეუძლებელია']);
+            return response()->json(['message' => 'ორი გაერთიანებული ჯგუფის შერწყმა შეუძლებელია'], 422);
+        }
+
+        $uniqueCustomers = $orders->pluck('customer_id')->unique();
+        if ($uniqueCustomers->count() > 1) {
+            return response()->json(['message' => 'სხვადასხვა კლიენტის ორდერების გაერთიანება შეუძლებელია'], 422);
         }
 
         $existingPrimary = $primaries->first();
@@ -1657,10 +1669,7 @@ class ProductOrderController extends Controller
 
         $realTypes = $orders->map($getType)->filter(fn($t) => $t !== 'none')->unique();
         if ($realTypes->count() > 1) {
-            return response()->json([
-                'success' => false,
-                'message' => 'სხვადასხვა ტიპის კურიერი — გაერთიანება შეუძლებელია'
-            ]);
+            return response()->json(['message' => 'სხვადასხვა ტიპის კურიერი — გაერთიანება შეუძლებელია'], 422);
         }
 
         $courierType = $realTypes->first() ?? 'none';
@@ -1718,6 +1727,48 @@ class ProductOrderController extends Controller
         }
 
         return response()->json(['success' => true, 'message' => 'ორდერები წარმატებით დაიშალა']);
+    }
+
+    public function splitOrder($id)
+    {
+        $order    = Product_Order::findOrFail($id);
+        $mergedId = $order->merged_id;
+
+        if (!$mergedId) {
+            return response()->json(['message' => 'ეს ორდერი გაერთიანებული არ არის'], 422);
+        }
+
+        $wasPrimary  = (bool) $order->is_primary;
+        $allInGroup  = Product_Order::where('merged_id', $mergedId)->get();
+        $primary     = $allInGroup->firstWhere('is_primary', 1);
+        $tbilisi     = $primary ? (float) $primary->courier_price_tbilisi : 0;
+        $region      = $primary ? (float) $primary->courier_price_region  : 0;
+        $village     = $primary ? (float) $primary->courier_price_village : 0;
+
+        // Remove this order from the group
+        $order->update([
+            'merged_id'             => null,
+            'is_primary'            => 0,
+            'courier_price_tbilisi' => $tbilisi,
+            'courier_price_region'  => $region,
+            'courier_price_village' => $village,
+        ]);
+
+        $remaining = $allInGroup->where('id', '!=', $id);
+
+        if ($remaining->count() === 1) {
+            // Only one order left — dissolve the group entirely
+            $remaining->first()->update(['merged_id' => null, 'is_primary' => 0]);
+        } elseif ($remaining->count() > 1 && $wasPrimary) {
+            // Primary was split out — promote the next order
+            $newPrimary = $remaining->sortBy('id')->first();
+            $newPrimary->update(['is_primary' => 1, 'merged_id' => $newPrimary->id]);
+            foreach ($remaining->where('id', '!=', $newPrimary->id) as $sibling) {
+                $sibling->update(['merged_id' => $newPrimary->id]);
+            }
+        }
+
+        return response()->json(['success' => true, 'message' => 'ორდერი გამოვიდა ჯგუფიდან']);
     }
 
     public function mergeUpdateStatus(Request $request)
