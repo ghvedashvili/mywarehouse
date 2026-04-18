@@ -1,5 +1,5 @@
 @extends('layouts.master')
-@section('page_title')<i class="fa fa-right-from-bracket me-2" style="color:#e74c3c;"></i>გაყიდვების ორდერები@endsection
+@section('page_title')<i class="fa fa-right-from-bracket me-2" style="color:#e74c3c;"></i>გაყიდვები@endsection
 
 @section('top')
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
@@ -56,36 +56,83 @@ tr[class*="child-row-"] td { border-left: 3px solid #f39c12 !important; }
 
 @section('content')
 <div class="p-2 p-md-3">
-    <div class="card">
-        <div class="card-header">
-            <div class="row align-items-center g-2">
-                <div class="col-12 col-sm-auto">
-                    <h5 class="box-title mb-0">Outgoing Products</h5>
-                </div>
-                <div class="col-12 col-sm-auto ms-sm-auto d-flex align-items-center gap-2 flex-wrap">
+    <div class="card shadow-sm">
+        <div class="card-header d-flex align-items-center flex-wrap gap-2">
 
-                    {{-- წაშლილი toggle --}}
-                    <div class="d-flex align-items-center gap-2">
-                        <label for="toggle-show-deleted" class="mb-0 text-muted small" style="cursor:pointer;">წაშლილი</label>
-                        <div class="form-check form-switch mb-0">
-                            <input class="form-check-input" type="checkbox" id="toggle-show-deleted" role="switch">
-                        </div>
-                    </div>
+            {{-- Page length --}}
+            <select id="dt-page-length" class="form-select form-select-sm" style="width:75px; flex-shrink:0;">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="-1">ყველა</option>
+            </select>
 
-                    <button onclick="addSaleForm()" class="btn btn-success btn-sm">
-                        <i class="fa fa-plus"></i> <span class="d-none d-sm-inline">Add Sale</span>
-                    </button>
-                    <button onclick="exportFilteredPDF()" class="btn btn-warning btn-sm">
-                        <i class="fa fa-file-pdf"></i> <span class="d-none d-md-inline">Filtered PDF</span>
-                    </button>
-                    <a href="{{ route('exportPDF.productOrderAll') }}" class="btn btn-danger btn-sm">
-                        <i class="fa fa-file-pdf"></i> <span class="d-none d-md-inline">All PDF</span>
-                    </a>
-                    <button onclick="mergeSelected()" class="btn btn-info btn-sm" id="btn-merge" style="display:none;">
-                        <i class="fa fa-link"></i> <span class="d-none d-sm-inline">გაერთიანება</span>
-                    </button>
+            {{-- Search --}}
+            <input id="dt-search" type="search" class="form-control form-control-sm"
+                   placeholder="ძებნა..." style="flex:1 1 150px; min-width:100px; max-width:220px;">
+
+            {{-- Date range filter --}}
+            <div class="d-flex align-items-center gap-1" style="flex-shrink:0;">
+                <input type="date" id="filter-date-from"
+                       class="form-control form-control-sm" style="width:135px;">
+                <span class="text-muted">—</span>
+                <input type="date" id="filter-date-to"
+                       class="form-control form-control-sm" style="width:135px;">
+                <button id="filter-date-clear" type="button"
+                        class="btn btn-outline-secondary btn-sm px-2" title="გასუფთავება">✕</button>
+            </div>
+
+            {{-- Status filter --}}
+            <div id="status-filter-wrapper" style="position:relative; flex-shrink:0;">
+                <button id="status-filter-btn" type="button"
+                        class="btn btn-outline-secondary btn-sm" style="min-width:130px; text-align:left;">
+                    ყველა სტატუსი <span style="float:right;">▾</span>
+                </button>
+                <div id="status-filter-dropdown" style="
+                    display:none; position:absolute; top:100%; left:0; z-index:9999;
+                    background:#fff; border:1px solid #ccc; border-radius:6px;
+                    box-shadow:0 4px 12px rgba(0,0,0,.15); min-width:180px; padding:6px 0;">
+                    @foreach($statuses as $status)
+                    <label style="display:flex;align-items:center;gap:8px;padding:5px 12px;cursor:pointer;font-size:13px;font-weight:normal;margin:0;">
+                        <input type="checkbox" class="status-filter-check" value="{{ $status->id }}"> {{ $status->name }}
+                    </label>
+                    @endforeach
                 </div>
             </div>
+
+            {{-- Debt toggle --}}
+            <div class="d-flex align-items-center gap-1" style="flex-shrink:0;">
+                <label for="toggle-deleted" class="mb-0 text-muted small" style="cursor:pointer; white-space:nowrap;">დავალიანება</label>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="toggle-deleted" role="switch">
+                </div>
+            </div>
+
+            {{-- Deleted toggle --}}
+            <div class="d-flex align-items-center gap-1" style="flex-shrink:0;">
+                <label for="toggle-show-deleted" class="mb-0 text-muted small" style="cursor:pointer; white-space:nowrap;">წაშლილი</label>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="toggle-show-deleted" role="switch">
+                </div>
+            </div>
+
+            {{-- Spacer --}}
+            <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
+                <button onclick="addSaleForm()" class="btn btn-success btn-sm">
+                    <i class="fa fa-plus"></i> <span class="d-none d-sm-inline">Add Sale</span>
+                </button>
+                <button onclick="exportFilteredPDF()" class="btn btn-warning btn-sm">
+                    <i class="fa fa-file-pdf"></i> <span class="d-none d-md-inline">Filtered PDF</span>
+                </button>
+                <a href="{{ route('exportPDF.productOrderAll') }}" class="btn btn-danger btn-sm">
+                    <i class="fa fa-file-pdf"></i> <span class="d-none d-md-inline">All PDF</span>
+                </a>
+                <button onclick="mergeSelected()" class="btn btn-info btn-sm" id="btn-merge" style="display:none;">
+                    <i class="fa fa-link"></i> <span class="d-none d-sm-inline">გაერთიანება</span>
+                </button>
+            </div>
+
         </div>
         <div class="card-body p-2 p-md-3">
             <div class="table-responsive">
@@ -624,6 +671,9 @@ var table = $('#products-out-table').DataTable({
     ajax: "{{ route('api.productsOut') }}",
     columns: columns,
     order: [[1, 'desc']],
+    dom: 't<"d-flex justify-content-between align-items-center mt-2"ip>',
+    pageLength: 25,
+    language: { info: '_START_–_END_ / _TOTAL_', paginate: { previous: '‹', next: '›' } },
     createdRow: function(row, data) {
         // Group header row
         if (data.is_primary && data.children_count > 1) {
@@ -642,56 +692,18 @@ var table = $('#products-out-table').DataTable({
                    parseFloat(data.paid_lib || 0) + parseFloat(data.paid_cash || 0);
         $(row).css('background-color', (geo - paid) > 0.01 ? '#f2dede' : '');
     },
-    initComplete: function() {
-    var switchHtml = `
-        <div style="display:inline-flex; align-items:center; gap:8px; margin-left:15px; vertical-align:middle;">
-            <label for="toggle-deleted" style="font-size:13px; color:#666; margin:0; cursor:pointer;">დავალიანება</label>
-            <label style="position:relative; display:inline-block; width:42px; height:24px; margin:0; cursor:pointer;">
-                <input type="checkbox" id="toggle-deleted" style="opacity:0; width:0; height:0;">
-                <span id="toggle-track" style="position:absolute; top:0; left:0; right:0; bottom:0; background:#ccc; border-radius:24px; transition:.3s;"></span>
-                <span id="toggle-thumb" style="position:absolute; height:18px; width:18px; left:3px; bottom:3px; background:white; border-radius:50%; transition:.3s; box-shadow:0 1px 3px rgba(0,0,0,0.3);"></span>
-            </label>
-        </div>
-
-        <div style="display:inline-flex; align-items:center; gap:6px; margin-left:15px; vertical-align:middle;">
-            <label style="font-size:13px; color:#666; margin:0;">თარიღი:</label>
-            <input type="date" id="filter-date-from" style="font-size:12px; padding:3px 6px; border:1px solid #ccc; border-radius:4px; height:28px;">
-            <span style="font-size:13px; color:#999;">—</span>
-            <input type="date" id="filter-date-to" style="font-size:12px; padding:3px 6px; border:1px solid #ccc; border-radius:4px; height:28px;">
-            <button id="filter-date-clear" type="button" style="font-size:11px; padding:2px 7px; border:1px solid #ccc; border-radius:4px; background:#f8f8f8; cursor:pointer; height:28px; color:#888;" title="გასუფთავება">✕</button>
-        </div>
-
-        <div style="display:inline-flex; align-items:center; gap:6px; margin-left:15px; vertical-align:middle; position:relative;">
-            <label style="font-size:13px; color:#666; margin:0;">სტატუსი:</label>
-            <div id="status-filter-wrapper" style="position:relative;">
-                <button id="status-filter-btn" type="button" style="
-                    font-size:13px; padding:3px 10px; border:1px solid #ccc;
-                    border-radius:4px; background:#fff; cursor:pointer; min-width:130px; text-align:left;">
-                    ყველა სტატუსი <span style="float:right;">▾</span>
-                </button>
-                <div id="status-filter-dropdown" style="
-                    display:none; position:absolute; top:100%; left:0; z-index:9999;
-                    background:#fff; border:1px solid #ccc; border-radius:4px;
-                    box-shadow:0 4px 12px rgba(0,0,0,0.15); min-width:180px; padding:6px 0;">
-                    @foreach($statuses as $status)
-                    <label style="display:flex; align-items:center; gap:8px; padding:5px 12px; cursor:pointer; font-size:13px; font-weight:normal; margin:0;">
-                        <input type="checkbox" class="status-filter-check" value="{{ $status->id }}"> {{ $status->name }}
-                    </label>
-                    @endforeach
-                </div>
-            </div>
-        </div>`;
-
-    $('#products-out-table_length').append(switchHtml);
-}
 });
-// $('#filter-debt').on('change', function() {
-//     if ($(this).is(':checked')) {
-//         table.ajax.url("{{ route('api.productsOut') }}?debt_only=1").load();
-//     } else {
-//         table.ajax.url("{{ route('api.productsOut') }}").load();
-//     }
-// });
+
+        // =====================
+        // Custom length + search
+        // =====================
+        $('#dt-page-length').on('change', function() {
+            table.page.len(parseInt($(this).val())).draw();
+        });
+        $('#dt-search').on('input', function() {
+            table.search($(this).val()).draw();
+        });
+
         // =====================
         // Select2 — customer
         // =====================
@@ -1291,7 +1303,8 @@ function editForm(id) {
         type: 'warning',
         showCancelButton: true,
         confirmButtonText: 'დიახ, წაშალე!'
-    }).then(function() {
+    }).then(function(result) {
+        if (!result.isConfirmed) return;
         $.ajax({
             url: "{{ url('productsOut') }}/" + id,
             type: "POST",
@@ -1433,13 +1446,6 @@ function exportFilteredPDF() {
 }
 
 $(document).on('change', '#toggle-deleted', function() {
-    if ($(this).is(':checked')) {
-        $('#toggle-track').css('background', '#e74c3c');
-        $('#toggle-thumb').css('transform', 'translateX(18px)');
-    } else {
-        $('#toggle-track').css('background', '#ccc');
-        $('#toggle-thumb').css('transform', 'translateX(0)');
-    }
     reloadTableWithFilters();
 });
 
@@ -1512,7 +1518,8 @@ function restoreData(id) {
         showCancelButton: true,
         confirmButtonText: 'დიახ, აღადგინე!',
         cancelButtonText: 'გაუქმება'
-    }).then(function() {
+    }).then(function(result) {
+        if (!result.isConfirmed) return;
         $.ajax({
             url: "{{ url('productsOut') }}/" + id + "/restore",
             type: "POST",
@@ -1792,9 +1799,8 @@ function mergeSelected() {
         showCancelButton: true,
         confirmButtonText: 'დიახ, გავაერთიანო',
         cancelButtonText: 'გაუქმება'
-    }).then(function() {
-        // ✅ SweetAlert v1-ში .then() პირდაპირ იძახება დადასტურებისას
-        // result.value შემოწმება არ არის საჭირო
+    }).then(function(result) {
+        if (!result.isConfirmed) return;
         $.ajax({
             url: "{{ url('productsOut/merge') }}",
             type: "POST",
@@ -1845,7 +1851,8 @@ function unmergeOrder(id) {
         showCancelButton: true,
         confirmButtonText: 'დიახ',
         cancelButtonText: 'გაუქმება'
-    }).then(function() {
+    }).then(function(result) {
+        if (!result.isConfirmed) return;
         $.ajax({
             url: "{{ url('productsOut') }}/" + id + "/unmerge",
             type: "POST",
@@ -1872,7 +1879,8 @@ function splitFromGroup(id) {
         showCancelButton: true,
         confirmButtonText: 'დიახ',
         cancelButtonText: 'გაუქმება'
-    }).then(function() {
+    }).then(function(result) {
+        if (!result.isConfirmed) return;
         $.ajax({
             url: "{{ url('productsOut') }}/" + id + "/split",
             type: "POST",

@@ -548,7 +548,8 @@ $(function() {
             type: 'warning', showCancelButton: true,
             confirmButtonColor: '#dd4b39',
             cancelButtonText: 'გაუქმება', confirmButtonText: 'წაშლა'
-        }).then(function() {
+        }).then(function(result) {
+            if (!result.isConfirmed) return;
             $.ajax({
                 url: "{{ url('purchases') }}/" + id, type: 'POST',
                 data: { _method: 'DELETE', _token: "{{ csrf_token() }}" },
