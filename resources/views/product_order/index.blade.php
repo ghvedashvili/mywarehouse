@@ -42,6 +42,9 @@ table.dataTable thead th { font-size:12px; }
 table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     background-color:#0d6efd; border-radius:50%; font-size:11px;
 }
+/* ── Group header row ── */
+tr.group-header-row td { border-top: 2px solid #bdc3c7 !important; }
+tr[class*="child-row-"] td { border-left: 3px solid #f39c12 !important; }
 
 /* ── Header mobile ── */
 @media (max-width:576px) {
@@ -98,6 +101,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
         <th style="display:none;"></th> {{-- cross_ref_html --}}
         <th style="display:none;"></th> {{-- has_mergeable --}}
         <th style="display:none;"></th> {{-- children_by_status --}}
+        <th style="display:none;"></th> {{-- group_oldest_date --}}
     </tr>
 </thead>
                 <tbody></tbody>
@@ -472,14 +476,55 @@ var columns = [
         orderable: false,
         searchable: false,
         responsivePriority: 1,
-        width: '105px',
+        width: '115px',
         render: function(data) {
-            var orderNo = data.order_number || ('S' + data.id);
+            var isGroup = data.is_primary && data.children_count > 1;
             var bc      = statusColorMap[data.status_color] || '#6c757d';
+            var dt      = fmtDate(data.created_at);
 
-            var cb = (data.merged_id && !data.is_primary)
-                ? ''
-                : '<input type="checkbox" class="row-check" data-id="' + data.id + '" data-status="' + data.status_id + '" style="margin:0; vertical-align:middle;">';
+            // ── Store children for expand ──
+            if (data.is_primary && data.children_count > 0) {
+                window._childrenStore = window._childrenStore || {};
+                window._childrenStore[data.id] = Array.isArray(data.children_json)
+                    ? data.children_json
+                    : (typeof data.children_json === 'string' ? JSON.parse(data.children_json || '[]') : []);
+            }
+
+            if (isGroup) {
+                // ── GROUP HEADER row ─────────────────────────────────────
+                var groups = Array.isArray(data.children_by_status)
+                    ? data.children_by_status
+                    : (typeof data.children_by_status === 'string' ? JSON.parse(data.children_by_status || '[]') : []);
+
+                var badges = '';
+                groups.forEach(function(g) {
+                    badges += '<div style="margin-bottom:3px;">'
+                        + '<span class="label label-' + g.color + '" style="font-size:10px; padding:3px 7px;">'
+                        + '<i class="fa fa-cube" style="font-size:9px;"></i> ' + g.count + '× ' + g.name
+                        + '</span></div>';
+                });
+
+                var groupDt = fmtDate(data.group_oldest_date || data.created_at);
+                return '<div style="border-left:4px solid #7f8c8d; padding-left:6px;">'
+                    + '<div style="margin-bottom:4px;">'
+                    + '<input type="checkbox" class="row-check" data-id="' + data.id + '" data-status="' + data.status_id + '" style="margin:0 4px 0 0; vertical-align:middle;">'
+                    + '<strong style="font-size:11px; color:#555;">ჯგუფი</strong>'
+                    + '</div>'
+                    + badges
+                    + '<small class="text-muted" style="font-size:10px; display:block; margin-top:2px;">' + groupDt + '</small>'
+                    + (data.status_label ? '<div style="margin-top:4px;">' + data.status_label + '</div>' : '')
+                    + '<div style="margin-top:4px;">'
+                    + '<span class="expand-btn" data-id="' + data.id + '" style="cursor:pointer; color:#7f8c8d; font-size:11px;">'
+                    + '<i class="fa fa-chevron-right"></i> <small style="font-size:10px;">ჩამოსაშლელი (' + data.children_count + ')</small>'
+                    + '</span></div>'
+                    + '</div>';
+            }
+
+            // ── REGULAR row ─────────────────────────────────────────────
+            var orderNo   = data.order_number || ('S' + data.id);
+            var crossRef  = data.cross_ref_html || '';
+
+            var cb = '<input type="checkbox" class="row-check" data-id="' + data.id + '" data-status="' + data.status_id + '" style="margin:0; vertical-align:middle;">';
 
             var mergeHint = '';
             if (data.has_mergeable && data.customer_id && data.status !== 'deleted') {
@@ -488,35 +533,6 @@ var columns = [
                     + 'style="cursor:pointer; color:#e67e22; font-size:10px;"><i class="fa fa-search"></i></span>';
             }
 
-            var expandBtn = '';
-            if (data.is_primary && data.children_count > 0) {
-                window._childrenStore = window._childrenStore || {};
-                window._childrenStore[data.id] = Array.isArray(data.children_json)
-                    ? data.children_json
-                    : (typeof data.children_json === 'string' ? JSON.parse(data.children_json || '[]') : []);
-                expandBtn = '<div style="margin-top:3px;">'
-                    + '<span class="expand-btn" data-id="' + data.id + '" style="cursor:pointer; color:#aaa; font-size:11px;">'
-                    + '<i class="fa fa-chevron-right"></i>'
-                    + ' <small style="font-size:10px; color:#bbb;">' + data.children_count + '</small>'
-                    + '</span></div>';
-            } else if (!data.is_primary && data.merged_id) {
-                expandBtn = '<div style="margin-top:3px; color:#bbb; font-size:11px;"><i class="fa fa-level-up fa-rotate-90"></i></div>';
-            }
-
-            var groupBadges = '';
-            if (data.is_primary && data.children_count > 0) {
-                var groups = Array.isArray(data.children_by_status)
-                    ? data.children_by_status
-                    : (typeof data.children_by_status === 'string' ? JSON.parse(data.children_by_status || '[]') : []);
-                groups.forEach(function(g) {
-                    groupBadges += '<span class="label label-' + g.color + '" style="font-size:9px; margin-right:2px;">'
-                        + '<i class="fa fa-cube" style="font-size:8px;"></i> ' + g.count + '</span>';
-                });
-            }
-
-            var dt       = fmtDate(data.created_at);
-            var crossRef = data.cross_ref_html || '';
-
             return '<div style="border-left:3px solid ' + bc + '; padding-left:6px;">'
                 + '<div style="display:flex; align-items:center; gap:4px; flex-wrap:nowrap; margin-bottom:3px;">'
                 + cb
@@ -524,10 +540,8 @@ var columns = [
                 + mergeHint
                 + '</div>'
                 + data.status_label
-                + (groupBadges ? '<div style="margin-top:2px;">' + groupBadges + '</div>' : '')
                 + '<small class="text-muted" style="font-size:10px; display:block; margin-top:2px; white-space:nowrap;">' + dt + '</small>'
                 + (crossRef ? '<div style="font-size:10px; margin-top:2px;">' + crossRef + '</div>' : '')
-                + expandBtn
                 + '</div>';
         }
     },
@@ -574,6 +588,10 @@ var columns = [
         responsivePriority: 2,
         render: function(data) {
             if (data.status === 'deleted') return data.action || '';
+            // Group header: action already has only unmerge (no pay needed here)
+            if (data.is_primary && data.children_count > 1) {
+                return data.action || '';
+            }
             var geo    = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
             var paid   = parseFloat(data.paid_tbc  || 0) + parseFloat(data.paid_bog  || 0)
                        + parseFloat(data.paid_lib  || 0) + parseFloat(data.paid_cash || 0);
@@ -589,7 +607,6 @@ var columns = [
                 + ')" class="btn btn-xs" title="გადახდა" '
                 + 'style="background:' + (isPaid ? '#198754' : '#dc3545') + ';color:#fff;">'
                 + '<i class="fa fa-credit-card"></i></a>';
-            // pay ღილაკი action HTML-ში ჩავსვათ d-flex div-ის შიგნით
             return (data.action || '').replace('</div>', payBtn + '</div>');
         }
     },
@@ -597,6 +614,7 @@ var columns = [
     { data: 'cross_ref_html',     name: 'cross_ref_html',     orderable: false, searchable: false, visible: false },
     { data: 'has_mergeable',      name: 'has_mergeable',      orderable: false, searchable: false, visible: false },
     { data: 'children_by_status', name: 'children_by_status', orderable: false, searchable: false, visible: false },
+    { data: 'group_oldest_date',  name: 'group_oldest_date',  orderable: false, searchable: false, visible: false },
 ];
 
 var table = $('#products-out-table').DataTable({
@@ -607,30 +625,22 @@ var table = $('#products-out-table').DataTable({
     columns: columns,
     order: [[1, 'desc']],
     createdRow: function(row, data) {
-        // გაცვლილი (status=6) — ღია მოიისფერი ფონი
-        if (data.status_id == 6) {
-            $(row).css('background-color', '#f5eef8');
+        // Group header row
+        if (data.is_primary && data.children_count > 1) {
+            $(row).addClass('group-header-row').css({ 'background-color': '#ecf0f1', 'font-weight': '500' });
             return;
         }
-        // დაბრუნებული (status=5) — ღია ნაცრისფერი ფონი
-        if (data.status_id == 5) {
-            $(row).css('background-color', '#f2f3f4');
-            return;
-        }
-        // change ორდერი — ლურჯი ფონი
-        if (data.original_sale_id) {
-            $(row).css('background-color', '#d9edf7');
-            return;
-        }
-        // დავალიანება — წითელი ფონი
+        // გაცვლილი (status=6)
+        if (data.status_id == 6) { $(row).css('background-color', '#f5eef8'); return; }
+        // დაბრუნებული (status=5)
+        if (data.status_id == 5) { $(row).css('background-color', '#f2f3f4'); return; }
+        // change ორდერი
+        if (data.original_sale_id) { $(row).css('background-color', '#d9edf7'); return; }
+        // დავალიანება
         var geo  = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
         var paid = parseFloat(data.paid_tbc || 0) + parseFloat(data.paid_bog || 0) +
                    parseFloat(data.paid_lib || 0) + parseFloat(data.paid_cash || 0);
-        if ((geo - paid) > 0.01) {
-            $(row).css('background-color', '#f2dede');
-        } else {
-            $(row).css('background-color', '');
-        }
+        $(row).css('background-color', (geo - paid) > 0.01 ? '#f2dede' : '');
     },
     initComplete: function() {
     var switchHtml = `
@@ -775,6 +785,7 @@ var table = $('#products-out-table').DataTable({
             $('#customer_info_fields').hide();
             $('input[name="courier_type"][value="none"]').prop('checked', true);
             $('#add-sale-line').show();
+            $('#sale-finance-section').hide();
             $('#modal-sale').modal('show');
         }
 
@@ -936,6 +947,14 @@ function editForm(id) {
 
             $('#add-sale-line').hide();
 
+            // Fetch stock info for the pre-filled product/size
+            if (prodId && data.product_size) {
+                var $firstRow = $('#sale-items-container .sale-item-row').first();
+                $.get("{{ route('warehouse.stockInfo') }}", { product_id: prodId, size: data.product_size }, function(sd) {
+                    _updateRowStock($firstRow, sd, prodId, data.product_size);
+                });
+            }
+
             $('#customer_id_sale').val(data.customer_id).trigger('change');
 
             setTimeout(function() {
@@ -955,6 +974,7 @@ function editForm(id) {
             $('#modal-sale input[name="paid_bog"]').val(data.paid_bog || 0);
             $('#modal-sale input[name="paid_lib"]').val(data.paid_lib || 0);
             $('#modal-sale input[name="paid_cash"]').val(data.paid_cash || 0);
+            $('#sale-finance-section').show();
 
             calculateSaleSummary();
             $('#modal-sale').modal('show');
@@ -1009,11 +1029,11 @@ function editForm(id) {
                 $sizeSelect.prop('required', false);
             }
 
-            // Stock info
+            // Stock info (product level only — size not yet selected)
             var productId = selected.val();
             if (productId) {
                 $.get("{{ route('warehouse.stockInfo') }}", { product_id: productId }, function(data) {
-                    _updateRowStock($row, data);
+                    _updateRowStock($row, data, productId, null);
                 });
             } else {
                 $row.find('.sale-row-stock').hide();
@@ -1039,17 +1059,47 @@ function editForm(id) {
 
             if (productId && size) {
                 $.get("{{ route('warehouse.stockInfo') }}", { product_id: productId, size: size }, function(data) {
-                    _updateRowStock($row, data);
+                    _updateRowStock($row, data, productId, size);
                 });
+            } else {
+                $row.find('.sale-row-stock').hide();
             }
         });
 
-        function _updateRowStock($row, data) {
+        function _updateRowStock($row, data, productId, size) {
+            var physical  = data.physical_qty  || 0;
+            var incoming  = data.incoming_qty  || 0;
+            var reserved  = data.reserved_qty  || 0;
+            var available = parseInt(data.available != null ? data.available : (data.available_qty || 0));
+
+            // Count how many OTHER rows in the form select the same product+size
+            var otherCount = 0;
+            if (productId && size) {
+                $('#sale-items-container .sale-item-row').not($row).each(function() {
+                    if ($(this).find('.sale-product-select').val() == productId &&
+                        $(this).find('.sale-size-select').val()    == size) {
+                        otherCount++;
+                    }
+                });
+            }
+            var adjustedAvail = available - otherCount;
+
             var $s = $row.find('.sale-row-stock');
-            $s.find('.si-physical').text(data.physical_qty  || 0);
-            $s.find('.si-incoming').text(data.incoming_qty  || 0);
-            $s.find('.si-reserved').text(data.reserved_qty  || 0);
-            $s.find('.si-available').text(data.available    || data.available_qty || 0);
+            $s.find('.si-physical').text(physical);
+            $s.find('.si-incoming').text(incoming);
+            $s.find('.si-reserved').text(reserved);
+            $s.find('.si-available').text(adjustedAvail);
+
+            // Warning if another row already uses this slot
+            $s.find('.si-duplicate-warn').remove();
+            if (otherCount > 0) {
+                var warnColor = adjustedAvail <= 0 ? 'red' : '#e67e22';
+                var warnMsg   = adjustedAvail <= 0
+                    ? '⚠️ ამ ფორმაში ეს ნაშთი უკვე დარეზერვებულია!'
+                    : '⚠️ ' + otherCount + ' სხვა სტრიქონი ირჩევს ამ ზომას';
+                $s.append('<span class="si-duplicate-warn" style="color:' + warnColor + '; font-weight:700; margin-left:6px; font-size:11px;">' + warnMsg + '</span>');
+            }
+
             $s.show();
         }
 
@@ -1773,7 +1823,7 @@ function unmergeOrder(id) {
 $(document).on('click', '.expand-btn', function() {
     var btn       = $(this);
     var parentId  = btn.data('id');
-    var children  = (window._childrenStore || {})[parentId] || [];
+    var allOrders = (window._childrenStore || {})[parentId] || [];
     var icon      = btn.find('i');
     var parentRow = btn.closest('tr');
 
@@ -1787,101 +1837,108 @@ $(document).on('click', '.expand-btn', function() {
     btn.addClass('expanded');
     icon.removeClass('fa-chevron-right').addClass('fa-chevron-down');
 
-    if (!children || children.length === 0) return;
+    if (!allOrders || allOrders.length === 0) return;
 
     var totalCols = columns.length;
 
-    children.forEach(function(child) {
-        var bc     = statusColorMap[child.status_color] || '#f39c12';
-        var orderNo = child.order_number || ('#' + child.id);
+    var rowsHtml = '';
+    allOrders.forEach(function(order) {
+        var bc      = statusColorMap[order.status_color] || '#f39c12';
+        var orderNo = order.order_number || ('#' + order.id);
 
-        // ── Col 0: № + status + date ──────────────────────────────
-        var crossRefHtml = (child.cross_ref && child.cross_ref.length > 0)
-            ? '<div style="font-size:10px; color:#31708f; font-style:italic; margin-top:2px;">' + child.cross_ref + '</div>'
+        // ── Col A: № + status + date ──────────────────────────────
+        var crossRefHtml = (order.cross_ref && order.cross_ref.length > 0)
+            ? '<div style="font-size:10px; color:#31708f; font-style:italic; margin-top:2px;">' + order.cross_ref + '</div>'
             : '';
-        var col0 = '<div style="border-left:3px solid ' + bc + '; padding-left:6px;">'
-            + '<div style="display:flex; align-items:center; gap:4px; margin-bottom:3px;">'
-            + '<i class="fa fa-level-up fa-rotate-90" style="color:#bbb; font-size:11px;"></i>'
+        var colA = '<div style="border-left:3px solid ' + bc + '; padding-left:6px;">'
+            + '<div style="display:flex; align-items:center; gap:3px; margin-bottom:3px; flex-wrap:wrap;">'
             + '<strong style="font-size:11px; color:#333; white-space:nowrap;">' + orderNo + '</strong>'
             + '</div>'
-            + '<span class="label label-' + child.status_color + '">' + child.status_name + '</span>'
-            + '<small class="text-muted" style="font-size:10px; display:block; margin-top:2px; white-space:nowrap;">' + child.created_at + '</small>'
+            + '<span class="label label-' + order.status_color + '" style="font-size:10px;">' + order.status_name + '</span>'
+            + '<small class="text-muted" style="font-size:10px; display:block; margin-top:2px; white-space:nowrap;">' + order.created_at + '</small>'
             + crossRefHtml
             + '</div>';
 
-        // ── Col 1: Product ────────────────────────────────────────
-        var img = child.product_image
-            ? '<img src="' + child.product_image + '" style="width:42px;height:42px;object-fit:cover;border-radius:4px;" class="img-zoom-trigger">'
+        // ── Col B: Product ────────────────────────────────────────
+        var img = order.product_image
+            ? '<img src="' + order.product_image + '" style="width:40px;height:40px;object-fit:cover;border-radius:4px;" class="img-zoom-trigger">'
             : '';
-        var col1 = '<div style="display:flex; gap:8px; align-items:flex-start;">'
+        var colB = '<div style="display:flex; gap:8px; align-items:flex-start;">'
             + (img ? '<div style="flex-shrink:0;">' + img + '</div>' : '')
             + '<div style="font-size:12px;">'
-            + '<div style="font-weight:600;">' + child.product_name + '</div>'
-            + (child.product_code ? '<div style="color:#888; font-size:11px;">' + child.product_code + '</div>' : '')
-            + (child.product_size ? '<span class="label label-info" style="margin-top:2px; display:inline-block;">' + child.product_size + '</span>' : '')
+            + '<div style="font-weight:600;">' + order.product_name + '</div>'
+            + (order.product_code ? '<div style="color:#888; font-size:11px;">' + order.product_code + '</div>' : '')
+            + (order.product_size ? '<span class="label label-info" style="margin-top:2px; display:inline-block;">' + order.product_size + '</span>' : '')
             + '</div>'
             + '</div>';
 
-        // ── Col 2: Customer ───────────────────────────────────────
-        var col2 = '<div style="font-size:12px;">'
-            + '<strong>' + child.customer_name + '</strong><br>'
-            + '<i class="fa fa-map-marker"></i> ' + child.customer_city + ', ' + child.customer_address + '<br>'
-            + '<i class="fa fa-phone"></i> ' + child.customer_tel
-            + (child.customer_alt ? ' / ' + child.customer_alt : '')
-            + '</div>';
-
-        // ── Col 3: Payment ────────────────────────────────────────
-        var col3 = '<div style="font-size:12px;">'
-            + '<span style="color:' + child.payment_color + '; font-weight:700;">' + child.payment + '</span><br>'
-            + '<small><b>GE:</b> ' + child.price_georgia + ' ₾'
-            + (isAdmin ? ' <b>US:</b> ' + child.price_usa + ' $' : '')
+        // ── Col C: Price + payment ────────────────────────────────
+        var chGeo  = parseFloat(order.price_georgia || 0) - parseFloat(order.discount || 0);
+        var chPaid = parseFloat(order.paid_tbc || 0) + parseFloat(order.paid_bog || 0)
+                   + parseFloat(order.paid_lib || 0) + parseFloat(order.paid_cash || 0);
+        var chIsPaid = (chGeo - chPaid) <= 0.01;
+        var discBadge = (order.discount > 0.01)
+            ? '<small style="color:#8e44ad; display:block;">🏷️ -' + parseFloat(order.discount).toFixed(2) + ' ₾</small>'
+            : '';
+        var colC = '<div style="font-size:12px;">'
+            + discBadge
+            + '<span style="color:' + order.payment_color + '; font-weight:700;">' + order.payment + '</span>'
+            + '<hr style="margin:3px 0;">'
+            + '<small><b>GE:</b> ' + parseFloat(order.price_georgia).toFixed(2) + ' ₾'
+            + (isAdmin ? ' <b>US:</b> ' + parseFloat(order.price_usa).toFixed(2) + ' $' : '')
             + '</small>'
             + '</div>';
 
-        // ── Col 4: Actions ────────────────────────────────────────
-        var deleteBtn2 = child.status_id == 4
-            ? '<span class="btn btn-danger btn-xs disabled" style="opacity:0.4;"><i class="fa fa-trash"></i></span>'
-            : '<a onclick="deleteData(' + child.id + ')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i></a>';
-
-        var chGeo    = parseFloat(child.price_georgia || 0) - parseFloat(child.discount || 0);
-        var chPaid   = parseFloat(child.paid_tbc || 0) + parseFloat(child.paid_bog || 0)
-                     + parseFloat(child.paid_lib || 0) + parseFloat(child.paid_cash || 0);
-        var chIsPaid = (chGeo - chPaid) <= 0.01;
+        // ── Col D: Actions ────────────────────────────────────────
         var chPayBtn = '<a onclick="openPayModal('
-            + child.id + ','
-            + (child.price_georgia || 0) + ','
-            + (child.discount  || 0) + ','
-            + (child.paid_tbc  || 0) + ','
-            + (child.paid_bog  || 0) + ','
-            + (child.paid_lib  || 0) + ','
-            + (child.paid_cash || 0)
+            + order.id + ','
+            + (order.price_georgia || 0) + ','
+            + (order.discount  || 0) + ','
+            + (order.paid_tbc  || 0) + ','
+            + (order.paid_bog  || 0) + ','
+            + (order.paid_lib  || 0) + ','
+            + (order.paid_cash || 0)
             + ')" class="btn btn-xs" title="გადახდა" '
             + 'style="background:' + (chIsPaid ? '#198754' : '#dc3545') + ';color:#fff;">'
             + '<i class="fa fa-credit-card"></i></a>';
 
-        var col4 = isAdmin
-            ? '<div style="display:flex; flex-wrap:wrap; gap:3px;">'
-              + '<a onclick="editForm(' + child.id + ')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i></a>'
-              + deleteBtn2
-              + '<a onclick="showStatusLog(' + child.id + ')" class="btn btn-warning btn-xs"><i class="fa fa-history"></i></a>'
-              + chPayBtn
-              + '</div>'
-            : chPayBtn;
+        var colD = chPayBtn;
+        if (isAdmin) {
+            var canDel  = order.status_id != 4;
+            var delBtn  = canDel
+                ? '<a onclick="deleteData(' + order.id + ')" class="btn btn-danger btn-xs" title="წაშლა"><i class="fa fa-trash"></i></a>'
+                : '<span class="btn btn-danger btn-xs" style="opacity:0.35; cursor:not-allowed;"><i class="fa fa-trash"></i></span>';
+            var editBtn = '<a onclick="editForm(' + order.id + ')" class="btn btn-primary btn-xs" title="რედაქტირება"><i class="fa fa-pen"></i></a>';
+            var histBtn = '<a onclick="showStatusLog(' + order.id + ')" class="btn btn-warning btn-xs" title="ისტორია"><i class="fa fa-clock-rotate-left"></i></a>';
+            var pdfBtn  = '<a href="' + (order.export_pdf_url || '#') + '" target="_blank" class="btn btn-info btn-xs" title="PDF"><i class="fa fa-file-pdf"></i></a>';
+            var mailBtn = '<a onclick="openMailModal(' + order.id + ',' + order.customer_id + ',\'' + (order.customer_email || '') + '\')" class="btn btn-secondary btn-xs" title="მეილი"><i class="fa fa-envelope"></i></a>';
 
-        // ── Child row ─────────────────────────────────────────────
-        var row = '<tr class="child-row-' + parentId + '" style="background:#fffde7;">'
-            + '<td colspan="' + totalCols + '" style="padding:4px 10px 6px;">'
+            var exchBtn = '';
+            if (order.status_id == 4 && order.order_type !== 'purchase') {
+                if (!order.has_change_orders) {
+                    exchBtn = '<a onclick="openChangeModal(' + order.id + ')" class="btn btn-warning btn-xs" title="გაცვლა/დაბრუნება"><i class="fa fa-arrow-right-arrow-left"></i></a>';
+                }
+            }
+
+            colD = '<div style="display:flex; flex-wrap:wrap; gap:3px;">'
+                + editBtn + delBtn + histBtn + exchBtn + pdfBtn + mailBtn + chPayBtn
+                + '</div>';
+        }
+
+        // ── Sub-row ───────────────────────────────────────────────
+        var subBg = order.is_primary ? '#f8f9fa' : '#fffde7';
+        rowsHtml += '<tr class="child-row-' + parentId + '" style="background:' + subBg + ';">'
+            + '<td colspan="' + totalCols + '" style="padding:5px 12px 6px 24px;">'
             + '<div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-start;">'
-            + '<div style="min-width:100px; width:105px; flex-shrink:0;">' + col0 + '</div>'
-            + '<div style="flex:2; min-width:150px;">'                      + col1 + '</div>'
-            + '<div style="flex:2; min-width:140px;">'                      + col2 + '</div>'
-            + '<div style="flex:1; min-width:90px;">'                       + col3 + '</div>'
-            + '<div style="flex-shrink:0;">'                                + col4 + '</div>'
+            + '<div style="min-width:100px; width:110px; flex-shrink:0;">' + colA + '</div>'
+            + '<div style="flex:2; min-width:140px;">'                      + colB + '</div>'
+            + '<div style="flex:1; min-width:90px;">'                       + colC + '</div>'
+            + '<div style="flex-shrink:0;">'                                + colD + '</div>'
             + '</div>'
             + '</td></tr>';
-
-        parentRow.after(row);
     });
+
+    parentRow.after(rowsHtml);
 });
 
 // table reload-ისას გაშლილი სტრიქონები გაქრება — ეს ნორმალურია

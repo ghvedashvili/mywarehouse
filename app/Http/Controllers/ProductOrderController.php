@@ -622,18 +622,24 @@ class ProductOrderController extends Controller
             if ($order->merged_id) {
 
                 if ($order->is_primary) {
-                    // მშობლის წაშლა — ჯერ გავშალოთ, შემდეგ წავშალოთ
+                    // მშობლის წაშლა — შემდეგი შვილი ხდება ახალი მშობელი
                     $mergedId = $order->merged_id;
                     $children = Product_Order::where('merged_id', $mergedId)
-                        ->where('is_primary', 0)->get();
+                        ->where('is_primary', 0)
+                        ->orderBy('id', 'asc')
+                        ->get();
 
-                    foreach ($children as $child) {
-                        $child->merged_id             = null;
-                        $child->is_primary            = 0;
-                        $child->courier_price_tbilisi = $order->courier_price_tbilisi;
-                        $child->courier_price_region  = $order->courier_price_region;
-                        $child->courier_price_village = $order->courier_price_village;
-                        $child->save();
+                    if ($children->isNotEmpty()) {
+                        $newPrimary = $children->first();
+                        $newPrimary->is_primary = 1;
+                        $newPrimary->merged_id  = $newPrimary->id;
+                        $newPrimary->save();
+
+                        $newPrimaryId = $newPrimary->id;
+                        foreach ($children->slice(1) as $sibling) {
+                            $sibling->merged_id = $newPrimaryId;
+                            $sibling->save();
+                        }
                     }
 
                 } else {
@@ -809,7 +815,7 @@ class ProductOrderController extends Controller
         foreach ($productOrder as $order) {
             if ($order->is_primary) {
                 $order->children = Product_Order::withoutGlobalScope('active')
-                    ->with(['product', 'customer.city', 'orderStatus'])
+                    ->with(['product', 'customer.city', 'orderStatus', 'changeOrders'])
                     ->where('merged_id', $order->merged_id)
                     ->where('is_primary', 0)
                     ->get();
@@ -954,83 +960,112 @@ class ProductOrderController extends Controller
                     ];
                 })->values()->toArray();
             })
-            ->addColumn('children_json', function ($item) {
-                return $item->children->map(function($child) {
-                    $geo  = $child->price_georgia - ($child->discount ?? 0);
-                    $paid = ($child->paid_tbc ?? 0) + ($child->paid_bog ?? 0) +
-                            ($child->paid_lib ?? 0) + ($child->paid_cash ?? 0);
+            ->addColumn('children_json', function ($item) use ($isAdmin) {
+                if (!$item->is_primary) return [];
+
+                $buildRow = function ($order) use ($isAdmin) {
+                    $geo  = (float)$order->price_georgia - (float)($order->discount ?? 0);
+                    $paid = (float)($order->paid_tbc ?? 0) + (float)($order->paid_bog ?? 0) +
+                            (float)($order->paid_lib ?? 0) + (float)($order->paid_cash ?? 0);
                     $diff = $geo - $paid;
 
                     if ($diff < -0.01) {
-                        $payment      = '+' . number_format(abs($diff), 2) . ' ₾';
+                        $paymentStr   = '+' . number_format(abs($diff), 2) . ' ₾';
                         $paymentColor = 'green';
                     } elseif (abs($diff) <= 0.01) {
-                        $payment      = 'გადახდილია';
+                        $paymentStr   = 'გადახდილია';
                         $paymentColor = 'green';
                     } else {
-                        $payment      = '-' . number_format($diff, 2) . ' ₾';
+                        $paymentStr   = '-' . number_format($diff, 2) . ' ₾';
                         $paymentColor = 'red';
                     }
 
+                    $crossRef = '';
+                    if ($order->status_id == 6 && $order->changed_to_order_id) {
+                        $ref = \App\Models\Product_Order::withoutGlobalScope('active')
+                            ->select('id','order_number')->find($order->changed_to_order_id);
+                        $crossRef .= '🔄 → ' . ($ref ? ($ref->order_number ?? ('#'.$ref->id)) : ('#'.$order->changed_to_order_id));
+                    }
+                    if ($order->status_id == 5 && $order->returned_purchase_id) {
+                        $ref = \App\Models\Product_Order::withoutGlobalScope('active')
+                            ->select('id','order_number')->find($order->returned_purchase_id);
+                        $crossRef .= '↩ → ' . ($ref ? ($ref->order_number ?? ('#'.$ref->id)) : ('#'.$order->returned_purchase_id));
+                    }
+                    if ($order->order_type === 'change' && $order->original_sale_id) {
+                        $ref = \App\Models\Product_Order::withoutGlobalScope('active')
+                            ->select('id','order_number')->find($order->original_sale_id);
+                        $crossRef .= '🔄 ' . ($ref ? ($ref->order_number ?? ('#'.$ref->id)) : ('#'.$order->original_sale_id));
+                    }
+
+                    $exportPdfUrl = $order->order_type === 'change'
+                        ? route('exportPDF.changeOrder', ['id' => $order->id])
+                        : route('exportPDF.productOrder', ['id' => $order->id]);
+
+                    $hasChangeOrders = $order->changeOrders ? $order->changeOrders->isNotEmpty() : false;
+
                     return [
-                        'id'               => $child->id,
-                        'order_number'     => $child->order_number ?? ('#' . $child->id),
-                        'cross_ref'        => (function() use ($child) {
-                            $html = '';
-                            if ($child->status_id == 6 && $child->changed_to_order_id) {
-                                $ref = \App\Models\Product_Order::withoutGlobalScope('active')
-                                    ->select('id','order_number')->find($child->changed_to_order_id);
-                                $num = $ref ? ($ref->order_number ?? ('#'.$ref->id)) : ('#'.$child->changed_to_order_id);
-                                $html .= '🔄 → ' . $num;
-                            }
-                            if ($child->status_id == 5 && $child->returned_purchase_id) {
-                                $ref = \App\Models\Product_Order::withoutGlobalScope('active')
-                                    ->select('id','order_number')->find($child->returned_purchase_id);
-                                $num = $ref ? ($ref->order_number ?? ('#'.$ref->id)) : ('#'.$child->returned_purchase_id);
-                                $html .= '↩ → ' . $num;
-                            }
-                            if ($child->order_type === 'change' && $child->original_sale_id) {
-                                $ref = \App\Models\Product_Order::withoutGlobalScope('active')
-                                    ->select('id','order_number')->find($child->original_sale_id);
-                                $num = $ref ? ($ref->order_number ?? ('#'.$ref->id)) : ('#'.$child->original_sale_id);
-                                $html .= '🔄 ' . $num;
-                            }
-                            return $html;
-                        })(),
-                        'product_name'     => $child->product->name ?? 'N/A',
-                        'product_code'     => $child->product->product_code ?? '-',
-                        'product_size'     => $child->product_size ?? '',
-                        'product_image'    => $child->product && $child->product->image ? url($child->product->image) : null,
-                        'price_georgia'    => $child->price_georgia,
-                        'price_usa'        => $child->price_usa,
-                        'status_name'      => $child->orderStatus->name ?? '-',
-                        'status_color'     => $child->orderStatus->color ?? 'default',
-                        'status_id'        => $child->status_id,
-                        'customer_name'    => $child->customer->name ?? '-',
-                        'customer_city'    => $child->customer->city->name ?? '-',
-                        'customer_address' => $child->order_address ?? ($child->customer->address ?? '-'),
-                        'customer_tel'     => $child->customer->tel ?? '-',
-                        'customer_alt'     => $child->order_alt_tel ?? ($child->customer->alternative_tel ?? ''),
-                        'created_at'       => $child->created_at ? $child->created_at->format('d.m.Y') : '-',
-                        'payment'          => $payment,
+                        'id'               => $order->id,
+                        'is_primary'       => (bool) $order->is_primary,
+                        'order_number'     => $order->order_number ?? ('#' . $order->id),
+                        'order_type'       => $order->order_type,
+                        'cross_ref'        => $crossRef,
+                        'product_name'     => $order->product->name ?? 'N/A',
+                        'product_code'     => $order->product->product_code ?? '',
+                        'product_size'     => $order->product_size ?? '',
+                        'product_image'    => $order->product && $order->product->image ? url($order->product->image) : null,
+                        'price_georgia'    => (float)$order->price_georgia,
+                        'price_usa'        => (float)$order->price_usa,
+                        'status_name'      => $order->orderStatus->name ?? '-',
+                        'status_color'     => $order->orderStatus->color ?? 'default',
+                        'status_id'        => $order->status_id,
+                        'created_at'       => $order->created_at ? $order->created_at->format('d.m.Y') : '-',
+                        'payment'          => $paymentStr,
                         'payment_color'    => $paymentColor,
-                        'discount'         => $child->discount  ?? 0,
-                        'paid_tbc'         => $child->paid_tbc  ?? 0,
-                        'paid_bog'         => $child->paid_bog  ?? 0,
-                        'paid_lib'         => $child->paid_lib  ?? 0,
-                        'paid_cash'        => $child->paid_cash ?? 0,
+                        'discount'         => (float)($order->discount  ?? 0),
+                        'paid_tbc'         => (float)($order->paid_tbc  ?? 0),
+                        'paid_bog'         => (float)($order->paid_bog  ?? 0),
+                        'paid_lib'         => (float)($order->paid_lib  ?? 0),
+                        'paid_cash'        => (float)($order->paid_cash ?? 0),
+                        'export_pdf_url'   => $exportPdfUrl,
+                        'customer_email'   => $order->customer->email ?? '',
+                        'customer_id'      => $order->customer_id,
+                        'has_change_orders'=> $hasChangeOrders,
+                        'merged_id'        => $order->merged_id,
+                        'is_admin'         => $isAdmin,
                     ];
-                })->values()->toArray();
+                };
+
+                $all = collect([$item])->merge($item->children);
+                return $all->map($buildRow)->values()->toArray();
             })
             ->addColumn('show_photo', function ($item) {
+                // Group header — no photo (multiple products)
+                if ($item->is_primary && $item->children->isNotEmpty()) return '';
                 if (!$item->product || !$item->product->image) {
                     return '<span class="label label-default">No Image</span>';
                 }
-                return '<img src="' . url($item->product->image) . '" 
+                return '<img src="' . url($item->product->image) . '"
                             class="img-thumbnail img-zoom-trigger"
                             style="width:60px; height:60px; object-fit:cover; cursor:pointer;">';
             })
+            ->addColumn('group_oldest_date', function ($item) {
+                if (!$item->is_primary || $item->children->isEmpty()) return null;
+                $all    = collect([$item])->merge($item->children);
+                $oldest = $all->sortBy('created_at')->first();
+                return $oldest->created_at ? $oldest->created_at->format('Y-m-d H:i:s') : null;
+            })
             ->addColumn('product_info', function ($item) {
+                // Group header: show product count + each product/size
+                if ($item->is_primary && $item->children->isNotEmpty()) {
+                    $count = $item->children->count() + 1;
+                    $all   = collect([$item])->merge($item->children);
+                    $lines = $all->map(function ($o) {
+                        $name = e($o->product->name ?? 'N/A');
+                        $size = $o->product_size ? ' <span class="label label-info" style="font-size:9px;">' . e($o->product_size) . '</span>' : '';
+                        return '<div style="font-size:10px; color:#555; margin-top:2px;">• ' . $name . $size . '</div>';
+                    })->implode('');
+                    return '<div style="font-size:13px; font-weight:700; color:#2c3e50;">📦 ' . $count . ' პროდუქტი</div>' . $lines;
+                }
                 $name = $item->product->name ?? 'N/A';
                 $code = $item->product->product_code ?? '-';
                 $size = $item->product_size
@@ -1072,9 +1107,28 @@ class ProductOrderController extends Controller
                      . '</small>';
             })
             ->addColumn('payment', function ($item) use ($isAdmin) {
-                $geo      = $item->price_georgia - ($item->discount ?? 0);
-                $paid     = ($item->paid_tbc ?? 0) + ($item->paid_bog ?? 0) +
-                            ($item->paid_lib ?? 0) + ($item->paid_cash ?? 0);
+                // Group header: show total across all orders
+                if ($item->is_primary && $item->children->isNotEmpty()) {
+                    $all       = collect([$item])->merge($item->children);
+                    $totalDue  = $all->sum(fn($o) => (float)$o->price_georgia - (float)($o->discount ?? 0));
+                    $totalPaid = $all->sum(fn($o) =>
+                        (float)($o->paid_tbc ?? 0) + (float)($o->paid_bog ?? 0) +
+                        (float)($o->paid_lib ?? 0) + (float)($o->paid_cash ?? 0));
+                    $diff = $totalDue - $totalPaid;
+
+                    if ($diff <= 0.01) {
+                        $statusHtml = '<span style="color:green; font-weight:700;"><i class="fa fa-check-circle"></i> გადახდილია</span>';
+                    } else {
+                        $statusHtml = '<span style="color:red; font-weight:700;"><i class="fa fa-exclamation-circle"></i> -' . number_format($diff, 2) . ' ₾</span>';
+                    }
+                    return $statusHtml
+                        . '<hr style="margin:4px 0;">'
+                        . '<small>ჯამი: <b>' . number_format($totalDue, 2) . ' ₾</b></small>';
+                }
+
+                $geo      = (float)$item->price_georgia - (float)($item->discount ?? 0);
+                $paid     = (float)($item->paid_tbc ?? 0) + (float)($item->paid_bog ?? 0) +
+                            (float)($item->paid_lib ?? 0) + (float)($item->paid_cash ?? 0);
                 $diff     = $geo - $paid;
                 $discount = (float) ($item->discount ?? 0);
 
@@ -1210,6 +1264,11 @@ class ProductOrderController extends Controller
                 }
 
                 $wrap = '<div class="d-flex justify-content-center flex-wrap gap-1">';
+
+                // Group header row — no edit/delete/history (accessible from sub-rows)
+                if ($item->is_primary && $item->children->isNotEmpty()) {
+                    return $wrap . $pdfBtn . $mailBtn . $unmergeBtn . '</div>';
+                }
 
                 // სტატუს 5,6 — მხოლოდ PDF, Mail, History
                 if (in_array($item->status_id, [5, 6])) {

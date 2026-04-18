@@ -149,7 +149,7 @@
 
                             {{-- Section 3: Admin Finance --}}
                             @if($isAdmin)
-                            <div class="modal-sale-card border-warning bg-warning bg-opacity-10 shadow-sm">
+                            <div id="sale-finance-section" class="modal-sale-card border-warning bg-warning bg-opacity-10 shadow-sm" style="display:none;">
                                 <div class="section-title text-dark"><i class="bi bi-cash-stack"></i> ფინანსური ნაწილი</div>
                                 <div class="row g-2 align-items-center mb-2">
                                     <div class="col-12 text-muted small">

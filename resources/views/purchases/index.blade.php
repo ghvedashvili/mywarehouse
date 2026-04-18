@@ -452,10 +452,6 @@ $(function() {
 
     $(document).on('input', '#purchase-lines-body .line-price-usa, #purchase-lines-body .line-transport, #purchase-lines-body .line-qty', calcPurchaseSummary);
 
-    $(document).on('input', '.purchase-payment', calcPurchaseSummary);
-
-    $('#purchase_discount').on('input', calcPurchaseSummary);
-
     $(document).on('click', '#purchase-lines-body .remove-line', function() {
         $(this).closest('tr').remove();
         updateRemoveButtons();
@@ -464,29 +460,7 @@ $(function() {
 
     // ══ SUMMARY CALC ══
     function calcPurchaseSummary() {
-        var total = 0;
-        $('#purchase-lines-body .purchase-line').each(function() {
-            var usa  = parseFloat($(this).find('.line-price-usa').val())  || 0;
-            var tr   = parseFloat($(this).find('.line-transport').val())  || 0;
-            var qty  = parseInt($(this).find('.line-qty').val())          || 1;
-            total += (usa + tr) * qty;
-        });
-        var discount = parseFloat($('#purchase_discount').val()) || 0;
-        total -= discount;
-
-        var tbc  = parseFloat($('[name="paid_tbc"]',  '#form-purchase').val()) || 0;
-        var bog  = parseFloat($('[name="paid_bog"]',  '#form-purchase').val()) || 0;
-        var lib  = parseFloat($('[name="paid_lib"]',  '#form-purchase').val()) || 0;
-        var cash = parseFloat($('[name="paid_cash"]', '#form-purchase').val()) || 0;
-        var paid = tbc + bog + lib + cash;
-        var diff = total - paid;
-
-        var color = diff > 0.01 ? 'red' : (diff < -0.01 ? 'green' : '#00a65a');
-        var label = diff > 0.01
-            ? '💳 დავალიანება: $' + diff.toFixed(2)
-            : (diff < -0.01 ? '💚 ზედმეტი: $' + Math.abs(diff).toFixed(2) : '✅ გადახდილია');
-
-        $('#purchase_summary_text').text(label).css('color', color);
+        // summary display removed (payment section removed from form)
     }
 
     // ══ MODAL OPEN ══
@@ -496,14 +470,11 @@ $(function() {
         $('input[name="_method"]', '#form-purchase').val('POST');
         $('#purchase-modal-title').text('📦 ახალი შესყიდვა');
         $('#purchase-lines-body').empty();
-        $('[name="paid_tbc"],[name="paid_bog"],[name="paid_lib"],[name="paid_cash"]', '#form-purchase').val(0);
-        $('#purchase_discount').val(0);
         $('#purchase_comment').val('');
         $('#purchase_courier_section').hide();
         $('input[name="purchase_courier_type"][value="none"]').prop('checked', true);
         $('#btn-add-line').show();
         addPurchaseLine();
-        $('#purchase_summary_text').html('<span class="text-muted">შეიყვანეთ მონაცემები</span>');
         $('#modal-purchase').modal('show');
     };
 
@@ -517,12 +488,7 @@ $(function() {
             $('#purchase-lines-body').empty();
             $('#btn-add-line').hide();
 
-            $('[name="paid_tbc"]',  '#form-purchase').val(data.paid_tbc  || 0);
-            $('[name="paid_bog"]',  '#form-purchase').val(data.paid_bog  || 0);
-            $('[name="paid_lib"]',  '#form-purchase').val(data.paid_lib  || 0);
-            $('[name="paid_cash"]', '#form-purchase').val(data.paid_cash || 0);
-            $('#purchase_discount').val(data.discount || 0);
-            $('#purchase_comment').val(data.comment   || '');
+            $('#purchase_comment').val(data.comment || '');
 
             // courier section for return/exchange
             if (data.is_return_purchase) {
@@ -622,11 +588,6 @@ $(function() {
                 courier_price_international: $tr.find('.line-transport').val() || 0,
                 price_georgia:               $tr.find('.line-price-geo').val() || 0,
                 purchase_courier_type:       $('input[name="purchase_courier_type"]:checked').val() || 'none',
-                discount:                    $('#purchase_discount').val() || 0,
-                paid_tbc:                    $('[name="paid_tbc"]',  this).val() || 0,
-                paid_bog:                    $('[name="paid_bog"]',  this).val() || 0,
-                paid_lib:                    $('[name="paid_lib"]',  this).val() || 0,
-                paid_cash:                   $('[name="paid_cash"]', this).val() || 0,
                 comment:                     $('#purchase_comment').val(),
             };
         } else {

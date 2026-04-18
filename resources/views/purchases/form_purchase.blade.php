@@ -66,49 +66,11 @@
                         </div>
                     </div>
 
-                    {{-- ─── Shared: payment + discount + comment ─── --}}
-                    <div class="row g-2">
-                        <div class="col-12 col-md-7">
-                            <div class="p-2 border rounded bg-light">
-                                <div class="fw-semibold mb-2" style="font-size:13px;">გადახდა ($)</div>
-                                <div class="row g-2">
-                                    <div class="col-6 col-md-3">
-                                        <label class="form-label form-label-sm text-muted mb-1">TBC</label>
-                                        <input type="number" name="paid_tbc" class="form-control form-control-sm purchase-payment" placeholder="0" step="0.01" value="0">
-                                    </div>
-                                    <div class="col-6 col-md-3">
-                                        <label class="form-label form-label-sm text-muted mb-1">BOG</label>
-                                        <input type="number" name="paid_bog" class="form-control form-control-sm purchase-payment" placeholder="0" step="0.01" value="0">
-                                    </div>
-                                    <div class="col-6 col-md-3">
-                                        <label class="form-label form-label-sm text-muted mb-1">Lib</label>
-                                        <input type="number" name="paid_lib" class="form-control form-control-sm purchase-payment" placeholder="0" step="0.01" value="0">
-                                    </div>
-                                    <div class="col-6 col-md-3">
-                                        <label class="form-label form-label-sm text-muted mb-1">Cash</label>
-                                        <input type="number" name="paid_cash" class="form-control form-control-sm purchase-payment" placeholder="0" step="0.01" value="0">
-                                    </div>
-                                </div>
-                                <div class="mt-1 pt-1 border-top">
-                                    <small class="text-muted">Summary: </small>
-                                    <strong id="purchase_summary_text" style="font-size:13px;">შეიყვანეთ მონაცემები</strong>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-md-5">
-                            <div class="row g-2 mb-2">
-                                <div class="col-6">
-                                    <label class="form-label fw-semibold">Discount ($)</label>
-                                    <input type="number" name="discount" id="purchase_discount"
-                                           class="form-control" step="0.01" min="0" value="0">
-                                </div>
-                            </div>
-                            <div>
-                                <label class="form-label fw-semibold">შენიშვნა</label>
-                                <textarea name="comment" id="purchase_comment"
-                                          class="form-control form-control-sm" rows="3" placeholder="შენიშვნა..."></textarea>
-                            </div>
-                        </div>
+                    {{-- ─── Comment ─── --}}
+                    <div>
+                        <label class="form-label fw-semibold">შენიშვნა</label>
+                        <textarea name="comment" id="purchase_comment"
+                                  class="form-control form-control-sm" rows="3" placeholder="შენიშვნა..."></textarea>
                     </div>
 
                 </form>
