@@ -121,6 +121,7 @@ $(function() {
         serverSide: true,
         responsive: { details: { type: 'column', target: 0 } },
         autoWidth: false,
+        order: [],
         ajax: "{{ route('api.products') }}",
         columns: [
             { data: 'name',                                                                                         responsivePriority: 1 },

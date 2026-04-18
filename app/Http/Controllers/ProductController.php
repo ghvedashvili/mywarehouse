@@ -222,7 +222,7 @@ public function apiDeletedProducts(Request $request)
    public function apiProducts(Request $request)
 {
     // ვიყენებთ select('products.*') და eager loading-ს კატეგორიისთვის
-    $products = \App\Models\Product::with('category')->select('products.*');
+   $products = \App\Models\Product::with('category')->select('products.*')->orderBy('updated_at', 'DESC');
 
     // --- ფილტრაციის ლოგიკა ---
 
