@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
 use App\Models\Product;
 use App\Models\Warehouse;
 use App\Models\WarehouseLog;
@@ -23,7 +24,8 @@ class WarehouseController extends Controller
     // ─── მთავარი გვერდი (ნაშთი) ──────────────────────────────────────
     public function index()
     {
-        return view('warehouse.index');
+        $categories = Category::orderBy('name')->get(['id', 'name']);
+        return view('warehouse.index', compact('categories'));
     }
 
     // ─── ლოგის გვერდი (ყველა) ────────────────────────────────────────
@@ -34,11 +36,22 @@ class WarehouseController extends Controller
     }
 
     // ─── ნაშთის DataTable ─────────────────────────────────────────────
-    public function apiStock()
+    public function apiStock(Request $request)
     {
-        $stock = Warehouse::with('product')->get();
+        $query = Warehouse::with('product');
+        if ($request->filled('category_id')) {
+            $query->whereHas('product', fn($q) => $q->where('category_id', $request->category_id));
+        }
+        $stock = $query->get();
 
         return DataTables::of($stock)
+            ->addColumn('product_image', function ($row) {
+                $img = $row->product->image ?? null;
+                if (!$img) return '<span class="text-muted" style="font-size:10px;">ფოტო<br>არ არის</span>';
+                $url = asset(ltrim($img, '/'));
+                return '<img src="' . $url . '" style="height:36px;width:36px;object-fit:cover;border-radius:4px;cursor:zoom-in;"
+                            onclick="whZoom(\'' . $url . '\')">';
+            })
             ->addColumn('product_name', fn($row) => $row->product->name ?? 'N/A')
             ->addColumn('product_code', fn($row) => $row->product->product_code ?? '-')
             ->addColumn('available',    fn($row) => $row->available_qty)
@@ -62,7 +75,7 @@ class WarehouseController extends Controller
                     <i class="fa fa-history"></i>
                 </button>';
             })
-            ->rawColumns(['status_badge', 'action'])
+            ->rawColumns(['product_image', 'status_badge', 'action'])
             ->make(true);
     }
 

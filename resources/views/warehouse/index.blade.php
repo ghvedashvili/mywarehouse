@@ -2,13 +2,10 @@
 @section('page_title')<i class="fa fa-warehouse me-2" style="color:#8e44ad;"></i>საწყობი@endsection
 
 @section('top')
-{{-- DataTables Responsive extension --}}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
 <link href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css" rel="stylesheet">
 <style>
 :root { --wh-green:#00a65a; --wh-orange:#f39c12; --wh-red:#dd4b39; --wh-blue:#357ca5; --wh-dark:#222d32; --wh-border:#dee2e6; }
-.wh-header { background:var(--wh-dark); color:#fff; padding:14px 20px; border-radius:6px 6px 0 0; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
-.wh-header h3 { margin:0; font-size:16px; font-weight:700; }
-.wh-header .wh-subtitle { font-size:11px; color:#aaa; margin-top:2px; }
 .stat-card { background:#fff; border:1px solid var(--wh-border); border-radius:8px; padding:14px 18px; border-left:4px solid var(--wh-green); box-shadow:0 1px 4px rgba(0,0,0,0.06); }
 .stat-card.orange { border-left-color:var(--wh-orange); }
 .stat-card.blue   { border-left-color:var(--wh-blue); }
@@ -33,52 +30,83 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
 @endsection
 
 @section('content')
-<div class="py-3 px-3 px-md-4">
-    <div class="wh-header">
-        <div>
-            <h3>🏭 საწყობი — ნაშთი</h3>
-            <div class="wh-subtitle">Warehouse Stock Management</div>
+<div class="p-2 p-md-3">
+<div class="card shadow-sm">
+    
+
+    {{-- Stat cards --}}
+    <div class="px-3 pt-3">
+        <div class="row g-2 mb-2">
+            <div class="col-6 col-md-3">
+                <div class="stat-card"><div class="val" id="stat-physical">—</div><div class="lbl">📦 ფიზიკური ნაშთი</div></div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card orange"><div class="val" id="stat-incoming">—</div><div class="lbl">🚚 გზაში</div></div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card blue"><div class="val" id="stat-reserved">—</div><div class="lbl">🔒 დაჯავშნული</div></div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card red"><div class="val" id="stat-low">—</div><div class="lbl">⚠️ მცირე ნაშთი</div></div>
+            </div>
         </div>
-        <div class="d-flex flex-wrap gap-2">
-            <button class="btn btn-warning btn-sm fw-bold" onclick="openWriteOffModal()">
+    </div>
+<div class="card-header d-flex align-items-center flex-wrap gap-2">
+        <select id="dt-page-length" class="form-select form-select-sm" style="width:auto; flex-shrink:0;">
+            <option value="10">10</option>
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="-1">ყველა</option>
+        </select>
+        <input id="dt-search" type="search" class="form-control form-control-sm" placeholder="ძებნა..." style="flex:1 1 120px; min-width:80px;">
+        <select id="filter-category" class="form-select form-select-sm" style="width:170px; flex-shrink:0;">
+            <option value="">ყველა კატეგორია</option>
+            @foreach($categories as $cat)
+                <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+            @endforeach
+        </select>
+        <div class="ms-auto d-flex align-items-center flex-wrap gap-2">
+            <button class="btn btn-warning btn-sm" onclick="openWriteOffModal()">
                 <i class="fa fa-minus-circle me-1"></i> ჩამოწერა
             </button>
-            <a href="{{ route('warehouse.logs') }}" class="btn btn-secondary btn-sm fw-bold">
+            <a href="{{ route('warehouse.logs') }}" class="btn btn-secondary btn-sm">
                 <i class="fa fa-history me-1"></i> ყველა ლოგი
             </a>
-            <a href="{{ url('purchases') }}" class="btn btn-info btn-sm fw-bold">
+            <a href="{{ url('purchases') }}" class="btn btn-info btn-sm">
                 <i class="fa fa-cart-shopping me-1"></i> შესყიდვები
             </a>
         </div>
     </div>
-
-    {{-- Stat cards: 2 on mobile, 4 on desktop --}}
-    <div class="row g-2 mt-3 mb-3">
-        <div class="col-6 col-md-3">
-            <div class="stat-card"><div class="val" id="stat-physical">—</div><div class="lbl">📦 ფიზიკური ნაშთი</div></div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="stat-card orange"><div class="val" id="stat-incoming">—</div><div class="lbl">🚚 გზაში</div></div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="stat-card blue"><div class="val" id="stat-reserved">—</div><div class="lbl">🔒 დაჯავშნული</div></div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="stat-card red"><div class="val" id="stat-low">—</div><div class="lbl">⚠️ მცირე ნაშთი</div></div>
+    <div class="card-body p-0 p-md-3">
+        <div class="table-responsive">
+        <table id="stock-table" class="table wh-table table-hover table-bordered w-100">
+            <thead>
+                <tr>
+                    <th></th><th>პროდუქტი</th><th>კოდი</th><th>ზომა</th>
+                    <th>📦 ფიზ.</th><th>🚚 გზაში</th><th>🔒 დაჯავშნ.</th>
+                    <th>✅ ხელმისაწვდ.</th><th>🧮 FIFO</th><th>სტატუსი</th><th></th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
         </div>
     </div>
-
-    <table id="stock-table" class="table wh-table table-hover table-bordered w-100">
-        <thead>
-            <tr>
-                <th>პროდუქტი</th><th>კოდი</th><th>ზომა</th>
-                <th>📦 ფიზ.</th><th>🚚 გზაში</th><th>🔒 დაჯავშნ.</th>
-                <th>✅ ხელმისაწვდ.</th><th>🧮 FIFO</th><th>სტატუსი</th><th></th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+    
 </div>
+</div>
+{{-- Image Zoom Modal --}}
+<div class="modal fade" id="modal-img-zoom" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:90vw;width:auto;">
+        <div class="modal-content border-0 bg-transparent shadow-none">
+            <div class="modal-body p-0 text-center position-relative">
+                <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-2" data-bs-dismiss="modal" style="z-index:10;"></button>
+                <img id="zoom-img-src" src="" style="max-height:85vh;max-width:85vw;border-radius:8px;object-fit:contain;">
+            </div>
+        </div>
+    </div>
+</div>
+
 {{-- Write-Off Modal --}}
 <div class="modal fade" id="modal-writeoff" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
@@ -172,18 +200,30 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
 @endsection
 
 @section('bot')
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
 <script>
+window.whZoom = function(url) {
+    document.getElementById('zoom-img-src').src = url;
+    new bootstrap.Modal(document.getElementById('modal-img-zoom')).show();
+};
+
 $(function() {
     var logTable = null;
 
     var stockTable = $('#stock-table').DataTable({
         processing: true, serverSide: true,
         responsive: true,
-        ajax: "{{ route('warehouse.apiStock') }}",
+        pageLength: 25,
+        dom: 't<"d-flex justify-content-between align-items-center mt-2 px-2"ip>',
+        ajax: {
+            url: "{{ route('warehouse.apiStock') }}",
+            data: function(d) { d.category_id = $('#filter-category').val(); }
+        },
         columns: [
             // priority: დაბალი რიცხვი = პირველი რჩება ეკრანზე, მაღალი = პირველი იმალება
+            {data:'product_image', orderable:false, searchable:false, responsivePriority: 3, width:'46px'},
             {data:'product_name', responsivePriority: 1},
             {data:'product_code', responsivePriority: 9},
             {data:'size',         responsivePriority: 2},
@@ -206,6 +246,11 @@ $(function() {
             $('#stat-physical').text(ph); $('#stat-incoming').text(inc); $('#stat-reserved').text(res); $('#stat-low').text(low);
         }
     });
+
+    $('#dt-search').on('keyup', function() { stockTable.search(this.value).draw(); });
+    $('#dt-page-length').on('change', function() { stockTable.page.len(this.value).draw(); });
+    $('#filter-category').select2({ placeholder: 'ყველა კატეგორია', allowClear: true, width: '170px' });
+    $('#filter-category').on('change', function() { stockTable.ajax.reload(); });
 
     // ══ WRITE-OFF MODAL ══
     var woStockData   = [];
