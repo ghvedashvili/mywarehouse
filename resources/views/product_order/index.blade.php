@@ -849,7 +849,7 @@ var table = $('#products-out-table').DataTable({
                     '</div>' +
                     '<div class="col-6 col-sm-1 d-flex align-items-end">' +
                         '<button type="button" class="btn btn-outline-danger btn-sm w-100 remove-sale-line" ' + canRemove + '>' +
-                            '<i class="bi bi-x-lg"></i>' +
+                            '<i class="fa fa-trash"></i>' +
                         '</button>' +
                     '</div>' +
                 '</div>' +
