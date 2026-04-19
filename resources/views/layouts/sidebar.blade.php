@@ -52,6 +52,9 @@
             <a href="{{ route('user.index') }}" class="sidebar-link {{ request()->is('user*') ? 'active' : '' }}" onclick="closeSidebar()">
                 <i class="fa fa-user-shield"></i> System Users
             </a>
+            <a href="{{ route('salary-policy.index') }}" class="sidebar-link {{ request()->is('salary-policy*') ? 'active' : '' }}" onclick="closeSidebar()">
+                <i class="fa fa-sliders"></i> სახელფასო პოლიტიკა
+            </a>
         @endif
     </div>
 </div>

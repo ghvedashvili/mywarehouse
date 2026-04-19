@@ -3,32 +3,19 @@
 namespace App\Services;
 
 use App\Models\Product_Order;
+use App\Models\SalaryPolicy;
 use App\Models\User;
 use Carbon\Carbon;
 
 class SalaryService
 {
-    // ───────────────────────────────────────────────────────────────
-    // კონფიგურაცია (განაკვეთები)
-    // ───────────────────────────────────────────────────────────────
-    const SALE_BASE_PER_ORDER   = 3.00;  // ₾ ორდერზე
-    const SALE_BONUS_PERCENT    = 0.01;  // 1% — საწყობიდან გაყიდვა
-    const WAREHOUSE_PER_ORDER   = 1.00;  // ₾ ყველა sale ორდერზე
-
-    /**
-     * Sale Operator-ის ხელფასი კონკრეტული მომხმარებლისა და პერიოდისთვის.
-     *
-     * @param  int    $userId
-     * @param  string $month   "2026-04"
-     * @return array
-     */
     public function calculateSaleOperator(int $userId, string $month): array
     {
+        $policy = SalaryPolicy::forRole('sale_operator', $month);
+
         $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $end   = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
 
-        // ── დასათვლელი ორდერები ────────────────────────────────────
-        // order_type=sale, ამ თვეში შექმნილი, არ არის გაუქმებული ან დაბრუნებული
         $positiveOrders = Product_Order::withoutGlobalScope('active')
             ->where('user_id', $userId)
             ->where('order_type', 'sale')
@@ -37,32 +24,29 @@ class SalaryService
             ->whereNotIn('status_id', [5, 6])
             ->get();
 
-        // ── გამოსაქვითი ორდერები ───────────────────────────────────
-        // წინა თვეებში შექმნილი, ამ თვეში გაუქმდა/დაბრუნდა
         $deductionOrders = Product_Order::withoutGlobalScope('active')
             ->where('user_id', $userId)
             ->where('order_type', 'sale')
-            ->where('created_at', '<', $start)       // წინა თვე(ებ)ი
-            ->whereBetween('cancelled_at', [$start, $end])  // ამ თვეში გაუქმდა
+            ->where('created_at', '<', $start)
+            ->whereBetween('cancelled_at', [$start, $end])
             ->where(function ($q) {
                 $q->where('status', 'deleted')
                   ->orWhere('status_id', 5);
             })
             ->get();
 
-        // ── გამოთვლა ───────────────────────────────────────────────
         $orderCount     = $positiveOrders->count();
         $deductionCount = $deductionOrders->count();
 
-        $base    = $orderCount * self::SALE_BASE_PER_ORDER;
-        $bonus   = $positiveOrders
+        $base  = $orderCount * $policy->sale_base_per_order;
+        $bonus = $positiveOrders
             ->where('sale_from', 1)
-            ->sum(fn($o) => $o->price_georgia * self::SALE_BONUS_PERCENT);
+            ->sum(fn($o) => $o->price_georgia * $policy->sale_bonus_percent);
 
-        $deductBase  = $deductionCount * self::SALE_BASE_PER_ORDER;
+        $deductBase  = $deductionCount * $policy->sale_base_per_order;
         $deductBonus = $deductionOrders
             ->where('sale_from', 1)
-            ->sum(fn($o) => $o->price_georgia * self::SALE_BONUS_PERCENT);
+            ->sum(fn($o) => $o->price_georgia * $policy->sale_bonus_percent);
 
         $total = ($base + $bonus) - ($deductBase + $deductBonus);
 
@@ -78,14 +62,10 @@ class SalaryService
         ];
     }
 
-    /**
-     * Warehouse Operator-ის ხელფასი — ყველა sale ორდერი ამ თვეში × 1₾.
-     *
-     * @param  string $month "2026-04"
-     * @return array
-     */
     public function calculateWarehouseOperator(string $month): array
     {
+        $policy = SalaryPolicy::forRole('warehouse_operator', $month);
+
         $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $end   = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
 
@@ -96,17 +76,12 @@ class SalaryService
             ->whereNotIn('status_id', [5, 6])
             ->count();
 
-        $suggested = $orderCount * self::WAREHOUSE_PER_ORDER;
-
         return [
-            'order_count'     => $orderCount,
-            'suggested_amount' => round($suggested, 2),
+            'order_count'      => $orderCount,
+            'suggested_amount' => round($orderCount * $policy->warehouse_per_order, 2),
         ];
     }
 
-    /**
-     * ყველა თანამშრომლის მოსალოდნელი ხელფასი მოცემული თვისთვის.
-     */
     public function calculateAll(string $month): array
     {
         $users = User::all();
@@ -119,22 +94,23 @@ class SalaryService
 
         foreach ($users as $user) {
             if ($user->role === 'sale_operator') {
-                $data              = $this->calculateSaleOperator($user->id, $month);
-                $data['user']      = $user;
-                $saleOperators[]   = $data;
+                $data            = $this->calculateSaleOperator($user->id, $month);
+                $data['user']    = $user;
+                $saleOperators[] = $data;
 
             } elseif ($user->role === 'warehouse_operator') {
                 $warehouseOperators[] = [
                     'user'             => $user,
                     'order_count'      => $warehouseData['order_count'],
                     'suggested_amount' => $warehouseData['suggested_amount'],
-                    'total_amount'     => $warehouseData['suggested_amount'], // admin ჩაასწორებს
+                    'total_amount'     => $warehouseData['suggested_amount'],
                 ];
 
             } elseif ($user->role === 'admin') {
+                $policy = SalaryPolicy::forRole('admin', $month);
                 $admins[] = [
                     'user'         => $user,
-                    'total_amount' => 0, // ხელით შეიყვანება
+                    'total_amount' => $policy->fixed_salary ?? 0,
                 ];
             }
         }

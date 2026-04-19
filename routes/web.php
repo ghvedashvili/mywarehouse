@@ -64,6 +64,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/salary/record',    [SalaryController::class, 'record'])->name('salary.record');
     Route::get('/salary/history',    [SalaryController::class, 'history'])->name('salary.history');
 
+    // ── Salary Policy ─────────────────────────────────────────────────
+    Route::get('/salary-policy',         [\App\Http\Controllers\SalaryPolicyController::class, 'index'])->name('salary-policy.index');
+    Route::post('/salary-policy',        [\App\Http\Controllers\SalaryPolicyController::class, 'store'])->name('salary-policy.store');
+    Route::patch('/salary-policy/{id}',  [\App\Http\Controllers\SalaryPolicyController::class, 'update'])->name('salary-policy.update');
+    Route::delete('/salary-policy/{id}', [\App\Http\Controllers\SalaryPolicyController::class, 'destroy'])->name('salary-policy.destroy');
+
 
     // ── Products ──────────────────────────────────────────────────────
     Route::resource('products', ProductController::class);
