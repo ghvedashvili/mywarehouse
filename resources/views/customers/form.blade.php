@@ -55,10 +55,10 @@
                             <div class="bg-white p-3 rounded-3 shadow-sm border">
                                 <div class="mb-3">
                                     <label class="form-label fw-600 text-muted small mb-1">
-                                        <i class="fa fa-envelope text-warning me-1"></i> Email მისამართი *
+                                        <i class="fa fa-envelope text-warning me-1"></i> Email მისამართი
                                     </label>
-                                    <input type="email" class="form-control form-control-lg fs-6 border-light-subtle bg-light" 
-                                           id="email" name="email" required placeholder="example@mail.com">
+                                    <input type="email" class="form-control form-control-lg fs-6 border-light-subtle bg-light"
+                                           id="email" name="email" placeholder="example@mail.com (არასავალდებულო)">
                                     <div class="invalid-feedback small">ჩაწერეთ ვალიდური Email</div>
                                 </div>
 
@@ -87,7 +87,7 @@
                         </div>
                     </div>
                     
-                    <div class="text-muted small mt-3 ps-2">* ნიშნით აღნიშნული ველები სავალდებულოა</div>
+                    <div class="text-muted small mt-3 ps-2">* ნიშნით აღნიშნული ველები სავალდებულოა. Email არასავალდებულოა.</div>
                 </div>
 
                 <div class="modal-footer bg-white border-top-0 p-3 justify-content-center justify-content-md-end">

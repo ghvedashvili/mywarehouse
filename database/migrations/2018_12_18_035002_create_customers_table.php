@@ -17,7 +17,7 @@ class CreateCustomersTable extends Migration
                   ->constrained('cities')
                   ->onDelete('set null');
             $table->string('address');
-            $table->string('email')->unique();
+            $table->string('email')->nullable();
             $table->string('tel')->unique();
             $table->string('alternative_tel', 20)->nullable();
             $table->text('comment')->nullable();

@@ -37,7 +37,7 @@ class CustomerController extends Controller
         'name'    => 'required|string|max:255',
         'city_id' => 'required|exists:cities,id',
         'address' => 'required|string|max:255',
-        'email'   => 'required|email|unique:customers,email',
+        'email'   => 'nullable|email|unique:customers,email',
         'tel'     => 'required|unique:customers,tel',
     ]);
 
@@ -64,7 +64,7 @@ public function update(Request $request, $id)
         'name'    => 'required|string|max:255',
         'city_id' => 'required|exists:cities,id',
         'address' => 'required|string|max:255',
-        'email'   => 'required|email|unique:customers,email,' . $id,
+        'email'   => 'nullable|email|unique:customers,email,' . $id,
         'tel'     => 'required|unique:customers,tel,' . $id,
     ]);
 

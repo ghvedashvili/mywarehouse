@@ -24,39 +24,48 @@
     .invalid-feedback { font-size: 0.75rem; }
 </style>
 
-<div class="container-fluid py-3 app-container">
-    <div class="card border-0 shadow-sm" style="border-radius: 10px;">
-        <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between flex-wrap gap-2 border-bottom">
-            <h6 class="mb-0 fw-bold text-dark"><i class="fa fa-users me-2 text-primary"></i> კლიენტების მართვა</h6>
-            <div class="d-flex gap-2">
-                <button onclick="addForm()" class="btn btn-success btn-sm rounded-pill px-3 shadow-sm">
+<div class="p-2 p-md-3 app-container">
+    <div class="card shadow-sm">
+        <div class="card-header d-flex align-items-center flex-wrap gap-2">
+            
+                {{-- DataTable length --}}
+                <select id="dt-page-length" class="form-select form-select-sm" style="width:75px;">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+{{-- DataTable search --}}
+                <input type="text" id="dt-search" class="form-control form-control-sm" placeholder="ძებნა..." style="width:160px;">
+
+            <div class="ms-auto d-flex align-items-center flex-wrap gap-2">
+                {{-- ქალაქის ფილტრი --}}
+                <select id="filter_city" class="form-select form-select-sm" style="width:140px;">
+                    <option value="">ყველა ქალაქი</option>
+                    @foreach($cities as $city)
+                        <option value="{{ $city->id }}">{{ $city->name }}</option>
+                    @endforeach
+                </select>
+
+                
+
+                <button onclick="addForm()" class="btn btn-success btn-sm">
                     <i class="fa fa-plus me-1"></i> დამატება
                 </button>
+
                 <div class="dropdown">
-                    <button class="btn btn-light btn-sm border rounded-pill dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <button class="btn btn-light btn-sm border dropdown-toggle" type="button" data-bs-toggle="dropdown">
                         <i class="fa fa-download me-1"></i> ექსპორტი
                     </button>
-                    <ul class="dropdown-menu shadow-sm border-0">
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
                         <li><a class="dropdown-item" href="{{ route('exportPDF.customersAll') }}"><i class="fa fa-file-pdf text-danger me-2"></i> PDF</a></li>
                         <li><a class="dropdown-item" href="{{ route('exportExcel.customersAll') }}"><i class="fa fa-file-excel text-success me-2"></i> Excel</a></li>
                     </ul>
                 </div>
             </div>
         </div>
-        
-        <div class="card-body">
-            <div class="row mb-4">
-                <div class="col-md-3">
-                    <label class="form-label fw-bold text-muted small">გაფილტვრა ქალაქით</label>
-                    <select id="filter_city" class="form-select form-select-sm border-0 bg-light">
-                        <option value="">ყველა ქალაქი</option>
-                        @foreach($cities as $city)
-                            <option value="{{ $city->id }}">{{ $city->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-            </div>
 
+        <div class="card-body p-2 p-md-3">
             <div class="table-responsive">
                 <table id="customer-table" class="table table-hover align-middle w-100">
                     <thead class="bg-light">
@@ -87,24 +96,22 @@ var table = $('#customer-table').DataTable({
     processing: true,
     serverSide: true,
     paging: true,
-    pageLength: 10,
-    ajax: { 
-        url: "{{ route('api.customers') }}", 
-        data: function(d) { d.city_id = $('#filter_city').val(); } 
+    pageLength: 25,
+    ajax: {
+        url: "{{ route('api.customers') }}",
+        data: function(d) { d.city_id = $('#filter_city').val(); }
     },
     columns: [
         {data:'id'}, {data:'name'}, {data:'city_name'}, {data:'address'},
         {data:'email'}, {data:'contact_info'}, {data:'comment'},
         {data:'action', orderable:false, searchable:false}
     ],
-    language: {
-        "url": "//cdn.datatables.net/plug-ins/1.13.4/i18n/ka.json"
-    },
-    dom: "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
-         "<'row'<'col-sm-12'tr>>" +
-         "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
-    renderer: 'bootstrap'
+    language: { search: '', searchPlaceholder: 'ძებნა...' },
+    dom: 't<"d-flex justify-content-between align-items-center mt-2"ip>',
 });
+
+$('#dt-search').on('keyup', function() { table.search(this.value).draw(); });
+$('#dt-page-length').on('change', function() { table.page.len(this.value).draw(); });
 
 $('#filter_city').change(function() { table.draw(); });
 
