@@ -69,12 +69,15 @@ class ProductOrderController extends Controller
         $user = auth()->user();
 
         $customer = \App\Models\Customer::find($request->customer_id);
-        $data['order_address'] = $request->filled('order_address')
+        $data['order_address']  = $request->filled('order_address')
             ? $request->order_address
             : ($customer->address ?? null);
-        $data['order_alt_tel'] = $request->has('order_alt_tel')
+        $data['order_alt_tel']  = $request->has('order_alt_tel')
             ? $request->order_alt_tel
             : ($customer->alternative_tel ?? null);
+        $data['order_city_id']  = $request->filled('order_city_id')
+            ? $request->order_city_id
+            : ($customer->city_id ?? null);
 
         $data['user_id'] = $user->id;
         $nextPurchase = FifoService::getNextPurchase(
@@ -155,6 +158,9 @@ class ProductOrderController extends Controller
         $orderAltTel  = $request->has('order_alt_tel')
             ? $request->order_alt_tel
             : ($customer->alternative_tel ?? null);
+        $orderCityId  = $request->filled('order_city_id')
+            ? $request->order_city_id
+            : ($customer->city_id ?? null);
 
         $courierType = $request->courier_type ?? 'none';
         $courierData = [
@@ -201,6 +207,7 @@ class ProductOrderController extends Controller
                 'comment'          => $request->comment,
                 'order_address'    => $orderAddress,
                 'order_alt_tel'    => $orderAltTel,
+                'order_city_id'    => $orderCityId,
                 'purchase_order_id'=> null,
             ]);
 
@@ -311,6 +318,9 @@ class ProductOrderController extends Controller
         if ($request->has('order_alt_tel')) {
             $updates['alternative_tel'] = $request->order_alt_tel;
         }
+        if ($request->filled('order_city_id')) {
+            $updates['city_id'] = $request->order_city_id;
+        }
 
         if (!empty($updates)) {
             $customer->update($updates);
@@ -327,12 +337,15 @@ class ProductOrderController extends Controller
                 $oldSize      = $order->product_size;
                 $data         = $request->all();
 
-                // ─── order_address / order_alt_tel ────────────────────
+                // ─── order_address / order_alt_tel / order_city_id ───
                 if ($request->filled('order_address')) {
                     $data['order_address'] = $request->order_address;
                 }
                 if ($request->has('order_alt_tel')) {
                     $data['order_alt_tel'] = $request->order_alt_tel;
+                }
+                if ($request->filled('order_city_id')) {
+                    $data['order_city_id'] = $request->order_city_id;
                 }
                 // ─────────────────────────────────────────────────────
 
@@ -742,7 +755,7 @@ class ProductOrderController extends Controller
         $statuses = $request->has('statuses') ? $request->input('statuses') : [];
 
         $query = Product_Order::withoutGlobalScope('active')
-            ->with(['product', 'customer.city', 'orderStatus', 'changeOrders'])
+            ->with(['product', 'customer.city', 'orderCity', 'orderStatus', 'changeOrders'])
             ->where(function($q) {
                 $q->where('is_primary', 1)
                   ->orWhereNull('merged_id');
@@ -822,7 +835,7 @@ class ProductOrderController extends Controller
         foreach ($productOrder as $order) {
             if ($order->is_primary) {
                 $order->children = Product_Order::withoutGlobalScope('active')
-                    ->with(['product', 'customer.city', 'orderStatus', 'changeOrders'])
+                    ->with(['product', 'customer.city', 'orderCity', 'orderStatus', 'changeOrders'])
                     ->where('merged_id', $order->merged_id)
                     ->where('is_primary', 0)
                     ->get();
@@ -1091,7 +1104,7 @@ class ProductOrderController extends Controller
                 if (!$customer) return '<span class="text-muted">N/A</span>';
 
                 $name = e($customer->name);
-                $city = e($customer->city->name ?? '-');
+                $city = e($item->orderCity->name ?? $customer->city->name ?? '-');
                 $tel  = e($customer->tel ?? '-');
 
                 // ორდერის საკუთარი მისამართი და ალტ. ტელ. — customer-ის მონაცემებთან შედარება
@@ -1100,9 +1113,10 @@ class ProductOrderController extends Controller
                 $altDisplay = $altTel ? ' / ' . e($altTel) : '';
 
                 // მინიშნება თუ ორდერის მონაცემი განსხვავდება customer-ისგან
-                $addrDiff = $item->order_address && $item->order_address !== $customer->address;
-                $altDiff  = $item->order_alt_tel !== null && $item->order_alt_tel !== $customer->alternative_tel;
-                $diffBadge = ($addrDiff || $altDiff)
+                $addrDiff  = $item->order_address && $item->order_address !== $customer->address;
+                $altDiff   = $item->order_alt_tel !== null && $item->order_alt_tel !== $customer->alternative_tel;
+                $cityDiff  = $item->order_city_id && $item->order_city_id != $customer->city_id;
+                $diffBadge = ($addrDiff || $altDiff || $cityDiff)
                     ? ' <span title="ორდერის მონაცემი განსხვავდება Customer-ისგან" style="color:#e67e22; cursor:help;">✏️</span>'
                     : '';
 
@@ -1655,6 +1669,16 @@ class ProductOrderController extends Controller
         $uniqueCustomers = $orders->pluck('customer_id')->unique();
         if ($uniqueCustomers->count() > 1) {
             return response()->json(['message' => 'სხვადასხვა კლიენტის ორდერების გაერთიანება შეუძლებელია'], 422);
+        }
+
+        $addresses = $orders->map(fn($o) => trim($o->order_address ?? $o->customer->address ?? ''))->unique();
+        if ($addresses->count() > 1) {
+            return response()->json(['message' => 'სხვადასხვა მისამართის ორდერების გაერთიანება შეუძლებელია'], 422);
+        }
+
+        $cities = $orders->map(fn($o) => (string)($o->order_city_id ?? $o->customer->city_id ?? ''))->unique();
+        if ($cities->count() > 1) {
+            return response()->json(['message' => 'სხვადასხვა ქალაქის ორდერების გაერთიანება შეუძლებელია'], 422);
         }
 
         $existingPrimary = $primaries->first();

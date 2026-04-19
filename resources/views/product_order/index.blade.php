@@ -43,8 +43,17 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     background-color:#0d6efd; border-radius:50%; font-size:11px;
 }
 /* ── Group header row ── */
-tr.group-header-row td { border-top: 2px solid #bdc3c7 !important; }
-tr[class*="child-row-"] td { border-left: 3px solid #f39c12 !important; }
+tr.group-header-row td { border-top: 2px solid #2980b9 !important; border-bottom: 1px solid #aed6f1 !important; }
+tr[class*="child-row-"] { background: #eaf4fb !important; }
+tr[class*="child-row-"] td { border-left: 4px solid #2980b9 !important; }
+
+/* ── Period filter (finance style) ── */
+.btn-period { padding:4px 12px; border-radius:20px; border:1.5px solid #dfe6e9; background:#fff; font-size:12px; font-weight:600; color:#636e72; cursor:pointer; transition:all .2s; }
+.btn-period.active, .btn-period:hover { background:#198754; border-color:#198754; color:#fff; }
+.custom-dates { display:none; align-items:center; gap:5px; }
+.custom-dates.show { display:flex; }
+.custom-dates input[type=date] { border:1.5px solid #dfe6e9; border-radius:6px; padding:3px 7px; font-size:12px; color:#2d3436; width:120px; }
+.btn-apply { background:#0d6efd; color:#fff; border:none; border-radius:6px; padding:4px 10px; font-size:12px; font-weight:600; cursor:pointer; }
 
 /* ── Header mobile ── */
 @media (max-width:576px) {
@@ -72,15 +81,19 @@ tr[class*="child-row-"] td { border-left: 3px solid #f39c12 !important; }
             <input id="dt-search" type="search" class="form-control form-control-sm"
                    placeholder="ძებნა..." style="flex:1 1 150px; min-width:100px; max-width:220px;">
 
-            {{-- Date range filter --}}
-            <div class="d-flex align-items-center gap-1" style="flex-shrink:0;">
-                <input type="date" id="filter-date-from"
-                       class="form-control form-control-sm" style="width:135px;">
-                <span class="text-muted">—</span>
-                <input type="date" id="filter-date-to"
-                       class="form-control form-control-sm" style="width:135px;">
-                <button id="filter-date-clear" type="button"
-                        class="btn btn-outline-secondary btn-sm px-2" title="გასუფთავება">✕</button>
+            {{-- Date range filter (finance style) --}}
+            <div class="d-flex align-items-center flex-wrap gap-1" style="flex-shrink:0;">
+                <button class="btn-period active" data-period="all">ყველა</button>
+                <button class="btn-period" data-period="today">დღეს</button>
+                <button class="btn-period" data-period="week">კვირა</button>
+                <button class="btn-period" data-period="month">თვე</button>
+                <button class="btn-period" data-period="custom">Custom</button>
+                <div class="custom-dates" id="customDates">
+                    <input type="date" id="filter-date-from">
+                    <span style="color:#b2bec3;">—</span>
+                    <input type="date" id="filter-date-to">
+                    <button class="btn-apply" id="applyCustom">გამოყენება</button>
+                </div>
             </div>
 
             {{-- Status filter --}}
@@ -552,14 +565,26 @@ var columns = [
                 });
 
                 var groupDt = fmtDate(data.group_oldest_date || data.created_at);
+
+                var courierBadge = '';
+                var courierPrice = parseFloat(data.courier_price_tbilisi) || parseFloat(data.courier_price_region) || parseFloat(data.courier_price_village) || 0;
+                if (courierPrice > 0) {
+                    var courierLabel = parseFloat(data.courier_price_tbilisi) > 0 ? 'თბილისი'
+                                     : parseFloat(data.courier_price_region)  > 0 ? 'რაიონი'
+                                     : 'სოფელი';
+                    courierBadge = '<span style="display:inline-block; margin-top:3px; font-size:10px; background:#e8f4fd; color:#1a6fa3; border:1px solid #aed6f1; border-radius:4px; padding:1px 6px;">'
+                        + '<i class="fa fa-truck" style="font-size:9px;"></i> ' + courierLabel + ' ' + courierPrice + '₾'
+                        + '</span>';
+                }
+
                 return '<div style="border-left:4px solid #7f8c8d; padding-left:6px;">'
                     + '<div style="margin-bottom:4px;">'
                     + '<input type="checkbox" class="row-check" data-id="' + data.id + '" data-status="' + data.status_id + '" style="margin:0 4px 0 0; vertical-align:middle;">'
                     + '<strong style="font-size:11px; color:#555;">ჯგუფი</strong>'
+                    + (courierBadge ? ' ' + courierBadge : '')
                     + '</div>'
                     + badges
                     + '<small class="text-muted" style="font-size:10px; display:block; margin-top:2px;">' + groupDt + '</small>'
-                    + (data.status_label ? '<div style="margin-top:4px;">' + data.status_label + '</div>' : '')
                     + '<div style="margin-top:4px;">'
                     + '<span class="expand-btn" data-id="' + data.id + '" style="cursor:pointer; color:#7f8c8d; font-size:11px;">'
                     + '<i class="fa fa-chevron-right"></i> <small style="font-size:10px;">ჩამოსაშლელი (' + data.children_count + ')</small>'
@@ -677,7 +702,7 @@ var table = $('#products-out-table').DataTable({
     createdRow: function(row, data) {
         // Group header row
         if (data.is_primary && data.children_count > 1) {
-            $(row).addClass('group-header-row').css({ 'background-color': '#ecf0f1', 'font-weight': '500' });
+            $(row).addClass('group-header-row').css({ 'background-color': '#d6eaf8', 'font-weight': '600' });
             return;
         }
         // გაცვლილი (status=6)
@@ -705,6 +730,17 @@ var table = $('#products-out-table').DataTable({
         });
 
         // =====================
+        // Helper: courier by city
+        // =====================
+        function updateCourierByCity(cityId) {
+            if (cityId === 1) {
+                $('input[name="courier_type"][value="tbilisi"]').prop('checked', true);
+            } else {
+                $('input[name="courier_type"][value="none"]').prop('checked', true);
+            }
+        }
+
+        // =====================
         // Select2 — customer
         // =====================
         $('#customer_id_sale').select2({
@@ -723,24 +759,34 @@ var table = $('#products-out-table').DataTable({
 
             var address = selected.data('address') || '';
             var altTel  = selected.data('alt') || '';
+            var comment = selected.data('comment') || '';
+            var cityId  = selected.data('city-id') || '';
 
             $('#customer_tel').text(selected.data('tel') || '');
-            $('#customer_comment').text(selected.data('comment') || '');
             $('#customer_address_input').val(address);
             $('#customer_alt_tel_input').val(altTel);
+            $('#customer_city_select').val(cityId);
+
+            if (comment) {
+                $('#customer_comment').text(comment);
+                $('#customer_comment_wrap').show();
+            } else {
+                $('#customer_comment_wrap').hide();
+            }
 
             // ორიგინალი მნიშვნელობები შენახვა
             $('#customer_address_input').data('original', address);
             $('#customer_alt_tel_input').data('original', altTel);
+            $('#customer_city_select').data('original', String(cityId));
 
             $('#customer_info_fields').show();
 
-            var cityId = parseInt(selected.data('city-id'));
-            if (cityId === 1) {
-                $('input[name="courier_type"][value="tbilisi"]').prop('checked', true);
-            } else {
-                $('input[name="courier_type"][value="none"]').prop('checked', true);
-            }
+            updateCourierByCity(parseInt(cityId));
+
+            // city dropdown change → courier_type auto-select
+            $('#customer_city_select').off('change.courier').on('change.courier', function() {
+                updateCourierByCity(parseInt($(this).val()));
+            });
         });
 
         // =====================
@@ -751,36 +797,6 @@ var table = $('#products-out-table').DataTable({
 
         // =====================
         // ჯამური გამოთვლა (multi-row)
-        // =====================
-        function calculateSaleSummary() {
-            var totalGe = 0;
-            $('#sale-items-container .sale-item-row').each(function() {
-                var priceGe  = parseFloat($(this).find('.sale-hidden-gel').val()) || 0;
-                var discount = parseFloat($(this).find('.sale-discount').val()) || 0;
-                totalGe += Math.max(0, priceGe - discount);
-            });
-
-            var paid = (parseFloat($('#modal-sale input[name="paid_tbc"]').val())  || 0) +
-                       (parseFloat($('#modal-sale input[name="paid_bog"]').val())  || 0) +
-                       (parseFloat($('#modal-sale input[name="paid_lib"]').val())  || 0) +
-                       (parseFloat($('#modal-sale input[name="paid_cash"]').val()) || 0);
-
-            var diff    = paid - totalGe;
-            var summary = $('#sale_summary_text');
-
-            if (totalGe === 0 && paid === 0) {
-                summary.text('შეიყვანეთ მონაცემები').css('color', 'black');
-            } else if (diff < -0.01) {
-                summary.text('აკლია: ' + Math.abs(diff).toFixed(2) + ' ₾ (გადასახდელია: ' + totalGe.toFixed(2) + ')').css('color', 'red');
-            } else if (diff > 0.01) {
-                summary.text('ზედმეტია: ' + diff.toFixed(2) + ' ₾').css('color', 'green');
-            } else {
-                summary.text('სრულად გადახდილია (' + totalGe.toFixed(2) + ' ₾)').css('color', 'green');
-            }
-        }
-
-        $(document).on('input', '#modal-sale input[name^="paid_"]', calculateSaleSummary);
-        $(document).on('input', '#sale-items-container .sale-discount', calculateSaleSummary);
 
         // =====================
         // Add Sale
@@ -794,7 +810,6 @@ var table = $('#products-out-table').DataTable({
             $('#form-sale-content input[name=_method]').val('POST');
             $('#form-sale-content')[0].reset();
             $('#modal-sale-title').text('ახალი გაყიდვა');
-            $('#sale_summary_text').text('შეიყვანეთ მონაცემები').css('color', 'black');
 
             $('#sale-items-container').empty();
             addSaleLine({});
@@ -804,8 +819,9 @@ var table = $('#products-out-table').DataTable({
             $('#customer_id_sale').val(null).trigger('change');
             $('#customer_info_fields').hide();
             $('input[name="courier_type"][value="none"]').prop('checked', true);
+            $('#customer_city_select, #customer_address_input, input[name="courier_type"]')
+                .prop('disabled', false).removeAttr('title');
             $('#add-sale-line').show();
-            $('#sale-finance-section').hide();
             $('#modal-sale').modal('show');
         }
 
@@ -911,7 +927,6 @@ var table = $('#products-out-table').DataTable({
                                 $row.find('.sale-price-usd').text('$' + defaults.price_usa);
                                 $row.find('.sale-hidden-usd').val(defaults.price_usa);
                             }
-                            calculateSaleSummary();
                         }
                     }, 100);
                     setTimeout(function() { clearInterval(checkSize); }, 3000);
@@ -921,7 +936,6 @@ var table = $('#products-out-table').DataTable({
                 $row.find('.sale-discount').val(defaults.discount);
             }
 
-            calculateSaleSummary();
         }
 
         // =====================
@@ -929,7 +943,6 @@ var table = $('#products-out-table').DataTable({
         // =====================
         $(document).on('click', '.remove-sale-line', function() {
             $(this).closest('.sale-item-row').remove();
-            calculateSaleSummary();
         });
 
         // Add product line button
@@ -1006,19 +1019,28 @@ function editForm(id) {
                 if (data.order_alt_tel != null) {
                     $('#customer_alt_tel_input').val(data.order_alt_tel).data('original', data.order_alt_tel);
                 }
+                if (data.order_city_id != null) {
+                    $('#customer_city_select').val(data.order_city_id).data('original', String(data.order_city_id));
+                }
+
+                var isMerged = !!(data.merged_id);
+                $('#customer_city_select, #customer_address_input').prop('disabled', isMerged);
+                $('input[name="courier_type"]').prop('disabled', isMerged);
+                if (isMerged) {
+                    $('#customer_city_select, #customer_address_input')
+                        .attr('title', 'ჯგუფური ორდერის მისამართი/ქალაქი ვერ შეიცვლება');
+                    $('input[name="courier_type"]')
+                        .attr('title', 'ჯგუფური ორდერის კურიერი ვერ შეიცვლება');
+                } else {
+                    $('#customer_city_select, #customer_address_input').removeAttr('title');
+                    $('input[name="courier_type"]').removeAttr('title');
+                }
             }, 80);
 
             setTimeout(function() {
                 $('input[name="courier_type"][value="' + (data.courier_servise_local || 'none') + '"]').prop('checked', true);
             }, 50);
 
-            $('#modal-sale input[name="paid_tbc"]').val(data.paid_tbc || 0);
-            $('#modal-sale input[name="paid_bog"]').val(data.paid_bog || 0);
-            $('#modal-sale input[name="paid_lib"]').val(data.paid_lib || 0);
-            $('#modal-sale input[name="paid_cash"]').val(data.paid_cash || 0);
-            $('#sale-finance-section').show();
-
-            calculateSaleSummary();
             $('#modal-sale').modal('show');
         },
         error: function() {
@@ -1080,8 +1102,6 @@ function editForm(id) {
             } else {
                 $row.find('.sale-row-stock').hide();
             }
-
-            calculateSaleSummary();
         });
 
         $(document).on('change', '.sale-size-select', function() {
@@ -1095,7 +1115,6 @@ function editForm(id) {
                     $row.find('.sale-hidden-gel').val(fifo.price_georgia || 0);
                     $row.find('.sale-price-usd').text('$' + (fifo.cost_price || 0));
                     $row.find('.sale-hidden-usd').val(fifo.cost_price || 0);
-                    calculateSaleSummary();
                 });
             }
 
@@ -1155,17 +1174,21 @@ function editForm(id) {
             var customerId  = $('#customer_id_sale').val();
             var newAddress  = String($('#customer_address_input').val() || '');
             var newAltTel   = String($('#customer_alt_tel_input').val() || '');
+            var newCityId   = String($('#customer_city_select').val() || '');
             var origAddress = String($('#customer_address_input').data('original') || '');
             var origAltTel  = String($('#customer_alt_tel_input').data('original') || '');
+            var origCityId  = String($('#customer_city_select').data('original') || '');
 
             var addressChanged  = customerId && (newAddress.trim() !== origAddress.trim());
             var altTelChanged   = customerId && (newAltTel.trim() !== origAltTel.trim());
-            var customerChanged = addressChanged || altTelChanged;
+            var cityChanged     = customerId && (newCityId !== origCityId);
+            var customerChanged = addressChanged || altTelChanged || cityChanged;
 
             if (customerChanged) {
                 var changedFields = [];
                 if (addressChanged) changedFields.push('მისამართი');
                 if (altTelChanged)  changedFields.push('ალტ. ტელეფონი');
+                if (cityChanged)    changedFields.push('ქალაქი');
 
                 window._pendingSaleForm = form;
 
@@ -1227,13 +1250,17 @@ function editForm(id) {
                     table.ajax.reload();
 
                     if (updateCustomer === '1') {
-                        var custId  = $('#customer_id_sale').val();
-                        var newAddr = $('#customer_address_input').val();
-                        var newAlt  = $('#customer_alt_tel_input').val();
-                        var $opt    = $('#customer_id_sale option[value="' + custId + '"]');
+                        var custId    = $('#customer_id_sale').val();
+                        var newAddr   = $('#customer_address_input').val();
+                        var newAlt    = $('#customer_alt_tel_input').val();
+                        var newCityId = $('#customer_city_select').val();
+                        var newCityTx = $('#customer_city_select option:selected').text();
+                        var $opt      = $('#customer_id_sale option[value="' + custId + '"]');
                         if ($opt.length) {
                             $opt.data('address', newAddr).attr('data-address', newAddr);
                             $opt.data('alt',     newAlt).attr('data-alt',     newAlt);
+                            $opt.data('city-id', newCityId).attr('data-city-id', newCityId);
+                            $opt.data('city',    newCityTx).attr('data-city',    newCityTx);
                         }
                     }
 
@@ -1498,12 +1525,42 @@ function reloadTableWithFilters() {
     table.ajax.url("{{ route('api.productsOut') }}?" + params.join('&')).load();
 }
 
-$(document).on('change', '#filter-date-from, #filter-date-to', function() {
+// ── Period buttons ──────────────────────────────────────────────
+function applyPeriod(period) {
+    var from = '', to = '';
+    var now  = new Date();
+    var pad  = function(n) { return n < 10 ? '0' + n : '' + n; };
+    var fmt  = function(d) { return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); };
+
+    if (period === 'today') {
+        from = to = fmt(now);
+    } else if (period === 'week') {
+        var mon = new Date(now); mon.setDate(now.getDate() - now.getDay() + 1);
+        from = fmt(mon); to = fmt(now);
+    } else if (period === 'month') {
+        from = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-01';
+        to   = fmt(now);
+    }
+    // 'all' and 'custom' — leave blank or let user pick
+
+    $('#filter-date-from').val(from);
+    $('#filter-date-to').val(to);
     reloadTableWithFilters();
+}
+
+$(document).on('click', '.btn-period', function() {
+    $('.btn-period').removeClass('active');
+    $(this).addClass('active');
+    var period = $(this).data('period');
+    if (period === 'custom') {
+        $('#customDates').addClass('show');
+    } else {
+        $('#customDates').removeClass('show');
+        applyPeriod(period);
+    }
 });
 
-$(document).on('click', '#filter-date-clear', function() {
-    $('#filter-date-from, #filter-date-to').val('');
+$(document).on('click', '#applyCustom', function() {
     reloadTableWithFilters();
 });
 
@@ -2007,8 +2064,7 @@ $(document).on('click', '.expand-btn', function() {
         }
 
         // ── Sub-row ───────────────────────────────────────────────
-        var subBg = order.is_primary ? '#f8f9fa' : '#fffde7';
-        rowsHtml += '<tr class="child-row-' + parentId + '" style="background:' + subBg + ';">'
+        rowsHtml += '<tr class="child-row-' + parentId + '">'
             + '<td colspan="' + totalCols + '" style="padding:5px 12px 6px 24px;">'
             + '<div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-start;">'
             + '<div style="min-width:100px; width:110px; flex-shrink:0;">' + colA + '</div>'

@@ -124,54 +124,70 @@
                                         <option value="{{ $customer->id }}"
                                             data-address="{{ $customer->address }}"
                                             data-city-id="{{ $customer->city_id }}"
+                                            data-city="{{ $customer->city->name ?? '' }}"
                                             data-tel="{{ $customer->tel }}"
-                                            data-alt="{{ $customer->alternative_tel }}">
+                                            data-alt="{{ $customer->alternative_tel }}"
+                                            data-comment="{{ $customer->comment ?? '' }}">
                                             {{ $customer->name }} ({{ $customer->tel }})
                                         </option>
                                     @endforeach
                                 </select>
 
-                                <div id="customer_info_fields" class="mt-2 p-2 border rounded bg-white shadow-sm" style="display:none; font-size:12px;">
+                                <div id="customer_info_fields" class="mt-2 p-2 border rounded bg-light shadow-sm" style="display:none; font-size:12px;">
                                     <div class="row g-2">
+
+                                        {{-- ტელეფონი (read-only) --}}
                                         <div class="col-12 col-sm-6">
-                                            <div class="mb-1"><i class="bi bi-telephone"></i> <span id="customer_tel" class="fw-bold"></span></div>
-                                            <input type="text" id="customer_alt_tel_input" name="order_alt_tel"
-                                                   class="form-control form-control-sm" placeholder="ალტერნატიული ნომერი">
+                                            <label class="form-label mb-1 fw-semibold text-muted" style="font-size:11px;">
+                                                <i class="bi bi-telephone me-1"></i>ძირითადი ტელ.
+                                            </label>
+                                            <div class="form-control form-control-sm bg-white fw-bold" id="customer_tel" style="cursor:default;"></div>
                                         </div>
+
+                                        {{-- ალტ. ტელ. --}}
                                         <div class="col-12 col-sm-6">
-                                            <div class="mb-1"><i class="bi bi-geo-alt"></i> მისამართი:</div>
+                                            <label class="form-label mb-1 fw-semibold text-muted" style="font-size:11px;">
+                                                <i class="bi bi-telephone-plus me-1"></i>ალტ. ტელეფონი
+                                            </label>
+                                            <input type="text" id="customer_alt_tel_input" name="order_alt_tel"
+                                                   class="form-control form-control-sm" placeholder="სურვილისამებრ">
+                                        </div>
+
+                                        {{-- ქალაქი --}}
+                                        <div class="col-12 col-sm-6">
+                                            <label class="form-label mb-1 fw-semibold text-muted" style="font-size:11px;">
+                                                <i class="bi bi-building me-1"></i>ქალაქი
+                                            </label>
+                                            <select id="customer_city_select" name="order_city_id"
+                                                    class="form-select form-select-sm">
+                                                <option value="">-- ქალაქი --</option>
+                                                @foreach($cities as $city)
+                                                    <option value="{{ $city->id }}">{{ $city->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        {{-- მისამართი --}}
+                                        <div class="col-12 col-sm-6">
+                                            <label class="form-label mb-1 fw-semibold text-muted" style="font-size:11px;">
+                                                <i class="bi bi-geo-alt me-1"></i>მისამართი
+                                            </label>
                                             <input type="text" id="customer_address_input" name="order_address"
                                                    class="form-control form-control-sm" placeholder="ქუჩა, კორპუსი, ბინა">
                                         </div>
+
+                                        {{-- კომენტარი --}}
+                                        <div id="customer_comment_wrap" class="col-12" style="display:none;">
+                                            <div class="text-warning-emphasis bg-warning-subtle border border-warning-subtle rounded px-2 py-1">
+                                                <i class="bi bi-chat-left-text me-1"></i><span id="customer_comment"></span>
+                                            </div>
+                                        </div>
+
                                     </div>
                                 </div>
                             </div>
 
                             {{-- Section 3: Admin Finance --}}
-                            @if($isAdmin)
-                            <div id="sale-finance-section" class="modal-sale-card border-warning bg-warning bg-opacity-10 shadow-sm" style="display:none;">
-                                <div class="section-title text-dark"><i class="bi bi-cash-stack"></i> ფინანსური ნაწილი</div>
-                                <div class="row g-2 align-items-center mb-2">
-                                    <div class="col-12 text-muted small">
-                                        ჯამური: <span id="sale_summary_text" class="fw-bold text-dark fs-6">—</span>
-                                    </div>
-                                </div>
-                                <div class="row g-1">
-                                    <div class="col-6 col-sm-3">
-                                        <input type="number" name="paid_tbc" class="form-control form-control-sm" placeholder="TBC" step="0.01">
-                                    </div>
-                                    <div class="col-6 col-sm-3">
-                                        <input type="number" name="paid_bog" class="form-control form-control-sm" placeholder="BOG" step="0.01">
-                                    </div>
-                                    <div class="col-6 col-sm-3">
-                                        <input type="number" name="paid_lib" class="form-control form-control-sm" placeholder="LIB" step="0.01">
-                                    </div>
-                                    <div class="col-6 col-sm-3">
-                                        <input type="number" name="paid_cash" class="form-control form-control-sm" placeholder="CASH" step="0.01">
-                                    </div>
-                                </div>
-                            </div>
-                            @endif
                         </div>
 
                         {{-- ═══ RIGHT: ფოტო + კურიერი + კომენტარი ═══ --}}
