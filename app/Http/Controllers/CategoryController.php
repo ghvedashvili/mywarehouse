@@ -13,7 +13,7 @@ class CategoryController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
-        $this->middleware('role:admin,staff');
+        $this->middleware('role:admin,staff,sale_operator');
     }
 
     public function index()

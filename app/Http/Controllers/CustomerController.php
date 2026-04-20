@@ -16,7 +16,7 @@ class CustomerController extends Controller
     public function __construct()
     {
         // Middleware როლებისთვის
-        $this->middleware('role:admin,staff');
+        $this->middleware('role:admin,staff,sale_operator');
     }
 
     /**
