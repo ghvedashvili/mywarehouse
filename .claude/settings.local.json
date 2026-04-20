@@ -19,7 +19,8 @@
       "Bash(sed -i \"s|@section\\('page_title'\\)<i class=\\\\\"fa fa-warehouse me-2\\\\\"></i>საწყობი@endsection|@section\\('page_title'\\)<i class=\\\\\"fa fa-warehouse me-2\\\\\" style=\\\\\"color:#8e44ad;\\\\\"></i>საწყობი@endsection|\" c:/xampp/htdocs/mywarehouse/resources/views/warehouse/index.blade.php)",
       "Bash(sed -i \"s|@section\\('page_title'\\)<i class=\\\\\"fa fa-truck me-2\\\\\"></i>შესყიდვები@endsection|@section\\('page_title'\\)<i class=\\\\\"fa fa-cart-shopping me-2\\\\\" style=\\\\\"color:#2980b9;\\\\\"></i>შესყიდვები@endsection|\" c:/xampp/htdocs/mywarehouse/resources/views/purchases/index.blade.php)",
       "Bash(php -r \"echo date\\('Y_m_d_His'\\);\")",
-      "Bash(where php *)"
+      "Bash(where php *)",
+      "Bash(grep -n \"^use App\\\\\\\\\\\\Exports\" d:/mywarehouse/app/Http/Controllers/ProductOrderController.php)"
     ]
   }
 }

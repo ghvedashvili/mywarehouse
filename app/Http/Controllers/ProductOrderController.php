@@ -10,6 +10,7 @@ use App\Models\Courier;
 use App\Models\Product_Order;
 use App\Models\StatusChangeLog;
 use App\Exports\ExportProdukOrder;
+use App\Exports\ExportCourierOrders;
 
 use App\Services\FifoService;
 use App\Services\PurchaseService;
@@ -806,26 +807,28 @@ class ProductOrderController extends Controller
 
         if ($search !== '') {
             $query->where(function($q) use ($search) {
-                $q->whereHas('product', function($pq) use ($search) {
-                    $pq->where('name', 'like', "%{$search}%")
-                       ->orWhere('product_code', 'like', "%{$search}%");
-                })
-                ->orWhereHas('customer', function($cq) use ($search) {
-                    $cq->where('name', 'like', "%{$search}%")
-                       ->orWhere('tel', 'like', "%{$search}%")
-                       ->orWhere('alternative_tel', 'like', "%{$search}%");
-                })
-                ->orWhereHas('siblings', function($sq) use ($search) {
-                    $sq->whereHas('product', function($pq) use ($search) {
-                        $pq->where('name', 'like', "%{$search}%")
-                           ->orWhere('product_code', 'like', "%{$search}%");
-                    })
-                    ->orWhereHas('customer', function($cq) use ($search) {
-                        $cq->where('name', 'like', "%{$search}%")
-                           ->orWhere('tel', 'like', "%{$search}%")
-                           ->orWhere('alternative_tel', 'like', "%{$search}%");
-                    });
-                });
+                $q->where('order_number', 'like', "%{$search}%")
+                  ->orWhereRaw("CONCAT('S', id) LIKE ?", ["%{$search}%"])
+                  ->orWhereHas('product', function($pq) use ($search) {
+                      $pq->where('name', 'like', "%{$search}%")
+                         ->orWhere('product_code', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('customer', function($cq) use ($search) {
+                      $cq->where('name', 'like', "%{$search}%")
+                         ->orWhere('tel', 'like', "%{$search}%")
+                         ->orWhere('alternative_tel', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('siblings', function($sq) use ($search) {
+                      $sq->whereHas('product', function($pq) use ($search) {
+                          $pq->where('name', 'like', "%{$search}%")
+                             ->orWhere('product_code', 'like', "%{$search}%");
+                      })
+                      ->orWhereHas('customer', function($cq) use ($search) {
+                          $cq->where('name', 'like', "%{$search}%")
+                             ->orWhere('tel', 'like', "%{$search}%")
+                             ->orWhere('alternative_tel', 'like', "%{$search}%");
+                      });
+                  });
             });
         }
 
@@ -1545,6 +1548,12 @@ class ProductOrderController extends Controller
     public function exportExcel()
     {
         return (new ExportProdukOrder)->download('orders.xlsx');
+    }
+
+    public function exportCourierOrders()
+    {
+        $filename = 'courier-orders-' . now()->format('Y-m-d') . '.xlsx';
+        return (new ExportCourierOrders)->download($filename);
     }
 
     public function exportFilteredOrders(Request $request)

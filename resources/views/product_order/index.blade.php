@@ -137,6 +137,9 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                 <a href="{{ route('exportPDF.productOrderAll') }}" class="btn btn-danger btn-sm">
                     <i class="fa fa-file-pdf"></i> <span class="d-none d-md-inline">All PDF</span>
                 </a>
+                <a href="{{ route('exportExcel.courierOrders') }}" class="btn btn-success btn-sm">
+                    <i class="fa fa-file-excel"></i> <span class="d-none d-md-inline">კურიერი დღეს</span>
+                </a>
                 <button onclick="mergeSelected()" class="btn btn-info btn-sm" id="btn-merge" style="display:none;">
                     <i class="fa fa-link"></i> <span class="d-none d-sm-inline">გაერთიანება</span>
                 </button>
@@ -530,7 +533,7 @@ var columns = [
     {
         data: null,
         orderable: false,
-        searchable: false,
+        searchable: true,
         responsivePriority: 1,
         width: '115px',
         render: function(data) {
@@ -576,7 +579,7 @@ var columns = [
                 return '<div style="border-left:4px solid #7f8c8d; padding-left:6px;">'
                     + '<div style="margin-bottom:4px;">'
                     + '<input type="checkbox" class="row-check" data-id="' + data.id + '" data-status="' + data.status_id + '" style="margin:0 4px 0 0; vertical-align:middle;">'
-                    + '<strong style="font-size:11px; color:#555;">ჯგუფი</strong>'
+                    + '<strong style="font-size:11px; color:#555;">group-' + (data.order_number || ('S' + data.id)) + '</strong>'
                     + (courierBadge ? ' ' + courierBadge : '')
                     + '</div>'
                     + badges

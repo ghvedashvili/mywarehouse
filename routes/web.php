@@ -91,6 +91,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/apiProductsOut', [ProductOrderController::class, 'apiProductsOut'])->name('api.productsOut');
     Route::get('/exportProductOrderAll', [ProductOrderController::class, 'exportProductOrderAll'])->name('exportPDF.productOrderAll');
     Route::get('/exportProductOrderAllExcel', [ProductOrderController::class, 'exportExcel'])->name('exportExcel.productOrderAll');
+    Route::get('/exportCourierOrders', [ProductOrderController::class, 'exportCourierOrders'])->name('exportExcel.courierOrders');
     Route::get('/exportProductOrder/{id}', [ProductOrderController::class, 'exportProductOrder'])->name('exportPDF.productOrder');
     Route::get('productsOut/{id}/export-change-pdf', [ProductOrderController::class, 'exportChangePDF'])->name('exportPDF.changeOrder');
     Route::post('productsOut/{id}/restore', [ProductOrderController::class, 'restore'])->name('productsOut.restore');
