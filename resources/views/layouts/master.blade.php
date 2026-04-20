@@ -469,20 +469,24 @@ $(function() {
 
 @yield('bot')
 
-<!-- Facebook Messenger Button -->
-<a href="https://m.me/1953170501618069" target="_blank"
-   style="position:fixed; bottom:24px; right:24px; z-index:9999;
-          width:52px; height:52px; border-radius:50%;
-          background:linear-gradient(135deg,#0084ff,#0050d0);
-          display:flex; align-items:center; justify-content:center;
-          box-shadow:0 4px 16px rgba(0,132,255,.45);
-          transition:transform .2s;"
-   onmouseover="this.style.transform='scale(1.1)'"
-   onmouseout="this.style.transform='scale(1)'">
-    <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="white">
-        <path d="M12 2C6.477 2 2 6.145 2 11.259c0 2.82 1.324 5.338 3.408 7.02V22l3.101-1.701A10.8 10.8 0 0 0 12 20.52c5.523 0 10-4.144 10-9.261S17.523 2 12 2zm1.007 12.476-2.548-2.717-4.976 2.717 5.474-5.812 2.612 2.717 4.911-2.717-5.473 5.812z"/>
-    </svg>
-</a>
+<!-- Facebook Messenger Chat -->
+<div id="fb-root"></div>
+<script>
+window.fbAsyncInit = function() {
+    FB.init({ xfbml: true, version: 'v18.0' });
+};
+(function(d, s, id) {
+    var js, fjs = d.getElementsByTagName(s)[0];
+    if (d.getElementById(id)) return;
+    js = d.createElement(s); js.id = id;
+    js.src = 'https://connect.facebook.net/ka_GE/sdk/xfbml.customerchat.js';
+    fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));
+</script>
+<div class="fb-customerchat"
+     attribution="biz_inbox"
+     page_id="1953170501618069">
+</div>
 
 </body>
 </html>
