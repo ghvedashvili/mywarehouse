@@ -21,7 +21,11 @@
       "Bash(php -r \"echo date\\('Y_m_d_His'\\);\")",
       "Bash(where php *)",
       "Bash(grep -n \"^use App\\\\\\\\\\\\Exports\" d:/mywarehouse/app/Http/Controllers/ProductOrderController.php)",
-      "Bash(grep -n \"FifoService\\\\|use App\\\\\\\\\\\\\\\\Services\" d:/mywarehouse/app/Http/Controllers/ProductOrderController.php)"
+      "Bash(grep -n \"FifoService\\\\|use App\\\\\\\\\\\\\\\\Services\" d:/mywarehouse/app/Http/Controllers/ProductOrderController.php)",
+      "Bash(php -l \"d:/mywarehouse/app/Models/Product.php\")",
+      "Bash(php -l \"d:/mywarehouse/app/Http/Controllers/ProductController.php\")",
+      "Bash(php -l \"d:/mywarehouse/app/Http/Controllers/ProductOrderController.php\")",
+      "Bash(php -l \"d:/mywarehouse/app/Http/Controllers/WarehouseController.php\")"
     ]
   }
 }

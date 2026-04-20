@@ -128,7 +128,7 @@
                                 data-price-ge="{{ $product->price_geo }}"
                                 data-price-us="{{ $product->price_usa }}"
                                 data-sizes="{{ $product->sizes }}"
-                                data-image="{{ asset(ltrim($product->image, '/')) }}">
+                                data-image="{{ $product->image_url ?? '' }}">
                                 {{ $product->name }}
                             </option>
                         @endforeach

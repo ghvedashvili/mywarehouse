@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class Product extends Model
 {
@@ -13,6 +14,24 @@ class Product extends Model
     ];
 
     protected $hidden = ['created_at', 'updated_at'];
+
+    protected $appends = ['image_url'];
+
+    public function getImageUrlAttribute(): ?string
+    {
+        if (!$this->image) return null;
+        // ძველი ლოკალური ფაილები /upload/products/... — asset()-ით
+        if (str_starts_with($this->image, '/')) {
+            return asset(ltrim($this->image, '/'));
+        }
+        // ახალი ფაილები — disk-ის მიხედვით (local→public, production→s3)
+        $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
+        try {
+            return Storage::disk($disk)->url($this->image);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
 
     protected static function booted()
     {

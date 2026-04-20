@@ -46,9 +46,8 @@ class WarehouseController extends Controller
 
         return DataTables::of($stock)
             ->addColumn('product_image', function ($row) {
-                $img = $row->product->image ?? null;
-                if (!$img) return '<span class="text-muted" style="font-size:10px;">ფოტო<br>არ არის</span>';
-                $url = asset(ltrim($img, '/'));
+                if (!$row->product?->image_url) return '<span class="text-muted" style="font-size:10px;">ფოტო<br>არ არის</span>';
+                $url = $row->product->image_url;
                 return '<img src="' . $url . '" style="height:36px;width:36px;object-fit:cover;border-radius:4px;cursor:zoom-in;"
                             onclick="whZoom(\'' . $url . '\')">';
             })
