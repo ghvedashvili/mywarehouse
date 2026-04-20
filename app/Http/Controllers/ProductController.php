@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 use Yajra\DataTables\DataTables;
 
 class ProductController extends Controller
@@ -49,11 +50,10 @@ public function store(Request $request)
     // ზომების დამუშავება (Blade-დან მოდის product_sizes სახელით)
     $input['sizes'] = $request->has('product_sizes') ? implode(',', $request->product_sizes) : null;
 
-    // სურათის ატვირთვა...
     if ($request->hasFile('image')) {
         $filename = Str::slug($request->product_code, '-') . '-' . time() . '.' . $request->image->getClientOriginalExtension();
-        $input['image'] = '/upload/products/' . $filename;
-        $request->image->move(public_path('/upload/products/'), $filename);
+        Storage::disk('s3')->putFileAs('products', $request->file('image'), $filename, 'public');
+        $input['image'] = 'products/' . $filename;
     }
 
     Product::create($input);
@@ -72,8 +72,7 @@ public function store(Request $request)
     // ვიყენებთ with('category')-ს, თუ მომავალში დაგჭირდებათ კატეგორიის მონაცემებიც
     $product = Product::findOrFail($id);
 
-    // ვამატებთ სრულ URL-ს სურათისთვის, რომ JS-ში მარტივად გამოაჩინოთ
-    $product->image_url = $product->image ? url($product->image) : null;
+    // image_url accessor handles URL generation (local legacy or S3)
 
     // ვინაიდან ბაზაში sizes ინახება როგორც "S,M,L", 
     // აქ არაფრის შეცვლა არ გჭირდებათ, რადგან JS-ში უკვე გავაკეთეთ .split(',')
@@ -103,14 +102,14 @@ public function store(Request $request)
     $input['in_warehouse']   = $request->has('in_warehouse') ? 1 : 0;
     $input['sizes'] = $request->has('product_sizes') ? implode(',', $request->product_sizes) : null;
 
-    // სურათის დამუშავება...
     if ($request->hasFile('image')) {
-        if ($product->image && file_exists(public_path($product->image))) {
-            unlink(public_path($product->image));
+        // Delete old file if it's on public disk (not legacy local)
+        if ($product->image && !str_starts_with($product->image, '/')) {
+            Storage::disk('s3')->delete($product->image);
         }
         $filename = Str::slug($request->product_code, '-') . '-' . time() . '.' . $request->image->getClientOriginalExtension();
-        $input['image'] = '/upload/products/' . $filename;
-        $request->image->move(public_path('/upload/products/'), $filename);
+        Storage::disk('s3')->putFileAs('products', $request->file('image'), $filename, 'public');
+        $input['image'] = 'products/' . $filename;
     }
 
     $product->update($input);
@@ -190,10 +189,10 @@ public function apiDeletedProducts(Request $request)
         if (!$product->image) {
             return '<span class="label label-default">No Image</span>';
         }
-        // დავამატოთ asset() ან url(), რომ სურათი გაიხსნას
-        return '<img src="'.asset($product->image).'" class="img-thumbnail img-thumb" 
-                 style="width:50px; height:50px; object-fit:cover; cursor:pointer;" 
-                 data-src="'.asset($product->image).'">';
+        $url = $product->image_url;
+        return '<img src="'.$url.'" class="img-thumbnail img-thumb"
+                 style="width:50px; height:50px; object-fit:cover; cursor:pointer;"
+                 data-src="'.$url.'">';
     })
         ->addColumn('format_sizes', function ($product) {
             if (!$product->sizes) return '<span class="text-muted">-</span>';
@@ -249,12 +248,11 @@ public function apiDeletedProducts(Request $request)
         ->addColumn('category_name', function ($product) {
             return $product->category ? $product->category->name : '<span class="label label-default">N/A</span>';
         })
-        // პროდუქტის სურათი
         ->addColumn('show_photo', function ($product) {
             if (!$product->image) {
                 return '<span class="label label-default">No Image</span>';
             }
-            return '<img src="'.url($product->image).'" class="img-thumbnail img-thumb" style="width:50px; height:50px; object-fit:cover;">';
+            return '<img src="'.$product->image_url.'" class="img-thumbnail img-thumb" style="width:50px; height:50px; object-fit:cover;">';
         })
         ->addColumn('status_stock', function ($product) {
     $label = $product->product_status == 1 ? 'Active' : 'Inactive';

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class Product extends Model
 {
@@ -13,6 +14,18 @@ class Product extends Model
     ];
 
     protected $hidden = ['created_at', 'updated_at'];
+
+    protected $appends = ['image_url'];
+
+    public function getImageUrlAttribute(): ?string
+    {
+        if (!$this->image) return null;
+        // Legacy paths start with /upload/products/...
+        if (str_starts_with($this->image, '/')) {
+            return asset(ltrim($this->image, '/'));
+        }
+        return Storage::disk('s3')->url($this->image);
+    }
 
     protected static function booted()
     {

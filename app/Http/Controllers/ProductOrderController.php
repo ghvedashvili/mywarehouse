@@ -598,7 +598,7 @@ class ProductOrderController extends Controller
             'price_geo'      => $product->price_geo,
             'price_usa'      => $product->price_usa,
             'sizes'          => $product->sizes,
-            'image'          => $product->image ? url($product->image) : null,
+            'image'          => $product->image_url,
             'product_status' => $product->product_status,
         ] : null;
 
@@ -1035,7 +1035,7 @@ class ProductOrderController extends Controller
                         'product_name'     => $order->product->name ?? 'N/A',
                         'product_code'     => $order->product->product_code ?? '',
                         'product_size'     => $order->product_size ?? '',
-                        'product_image'    => $order->product && $order->product->image ? url($order->product->image) : null,
+                        'product_image'    => $order->product?->image_url,
                         'price_georgia'    => (float)$order->price_georgia,
                         'price_usa'        => (float)$order->price_usa,
                         'status_name'      => $order->orderStatus->name ?? '-',
@@ -1067,7 +1067,7 @@ class ProductOrderController extends Controller
                 if (!$item->product || !$item->product->image) {
                     return '<span class="label label-default">No Image</span>';
                 }
-                return '<img src="' . url($item->product->image) . '"
+                return '<img src="' . $item->product->image_url . '"
                             class="img-thumbnail img-zoom-trigger"
                             style="width:60px; height:60px; object-fit:cover; cursor:pointer;">';
             })
@@ -1658,21 +1658,7 @@ class ProductOrderController extends Controller
         }
 
         foreach ($product_Order as $order) {
-            $order->imageBase64 = null;
-            if ($order->product && $order->product->image) {
-                $imageField = ltrim($order->product->image, '/');
-                $pathsToTry = [
-                    public_path($imageField),
-                    base_path('public/' . $imageField),
-                ];
-
-                foreach ($pathsToTry as $path) {
-                    if (file_exists($path) && !is_dir($path)) {
-                        $order->imageBase64 = 'data:' . mime_content_type($path) . ';base64,' . base64_encode(file_get_contents($path));
-                        break;
-                    }
-                }
-            }
+            $order->imageBase64 = $this->productImageBase64($order->product);
         }
 
         $pdf = Pdf::loadView('product_order.productOrderFilteredPDF', compact('product_Order', 'logoBase64'))
@@ -1973,13 +1959,7 @@ class ProductOrderController extends Controller
         }
 
         foreach ($all as $o) {
-            $o->imageBase64 = null;
-            if ($o->product && $o->product->image) {
-                $path = public_path(ltrim($o->product->image, '/'));
-                if (file_exists($path) && !is_dir($path)) {
-                    $o->imageBase64 = 'data:' . mime_content_type($path) . ';base64,' . base64_encode(file_get_contents($path));
-                }
-            }
+            $o->imageBase64 = $this->productImageBase64($o->product);
         }
 
         return $all;
@@ -2233,17 +2213,31 @@ public function exportChangePDF($id)
     return $pdf->download('change_order_' . $changeOrder->id . '.pdf');
 }
 
-// helper — სურათს base64-ად ამატებს ორდერ ობიექტზე
-// (თუ exportProductOrder-შიც გაქვს მსგავსი helper, ერთი გამოიყენე)
 private function attachImageBase64(Product_Order $order): void
 {
-    $order->imageBase64 = null;
-    if ($order->product && $order->product->image) {
-        $imgPath = public_path($order->product->image);
-        if (file_exists($imgPath)) {
-            $mime = mime_content_type($imgPath);
-            $order->imageBase64 = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($imgPath));
+    $order->imageBase64 = $this->productImageBase64($order->product);
+}
+
+private function productImageBase64(?\App\Models\Product $product): ?string
+{
+    if (!$product || !$product->image) return null;
+    try {
+        if (str_starts_with($product->image, '/')) {
+            $path = public_path(ltrim($product->image, '/'));
+        } else {
+            // S3/R2 — fetch content directly
+            try {
+                $contents = \Illuminate\Support\Facades\Storage::disk('s3')->get($product->image);
+                if (!$contents) return null;
+                $ext  = strtolower(pathinfo($product->image, PATHINFO_EXTENSION));
+                $mime = match($ext) { 'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp', default => 'image/jpeg' };
+                return 'data:' . $mime . ';base64,' . base64_encode($contents);
+            } catch (\Throwable) { return null; }
         }
+        if (!file_exists($path)) return null;
+        return 'data:' . mime_content_type($path) . ';base64,' . base64_encode(file_get_contents($path));
+    } catch (\Throwable) {
+        return null;
     }
 }
     private function promotePendingSalesAfterReturn(int $productId, string $size, \App\Models\Warehouse $stock): void
