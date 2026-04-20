@@ -42,10 +42,6 @@ table.dataTable thead th { font-size:12px; }
 table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     background-color:#0d6efd; border-radius:50%; font-size:11px;
 }
-/* ── Group header row ── */
-tr.group-header-row td { border-top: 2px solid #2980b9 !important; border-bottom: 1px solid #aed6f1 !important; }
-tr[class*="child-row-"] { background: #eaf4fb !important; }
-tr[class*="child-row-"] td { border-left: 4px solid #2980b9 !important; }
 
 /* ── Period filter (finance style) ── */
 .btn-period { padding:4px 12px; border-radius:20px; border:1.5px solid #dfe6e9; background:#fff; font-size:12px; font-weight:600; color:#636e72; cursor:pointer; transition:all .2s; }
@@ -584,6 +580,7 @@ var columns = [
                     + (courierBadge ? ' ' + courierBadge : '')
                     + '</div>'
                     + badges
+                    + (data.status_label ? '<div style="margin-top:4px;">' + data.status_label + '</div>' : '')
                     + '<small class="text-muted" style="font-size:10px; display:block; margin-top:2px;">' + groupDt + '</small>'
                     + '<div style="margin-top:4px;">'
                     + '<span class="expand-btn" data-id="' + data.id + '" style="cursor:pointer; color:#7f8c8d; font-size:11px;">'
@@ -605,12 +602,24 @@ var columns = [
                     + 'style="cursor:pointer; color:#e67e22; font-size:10px;"><i class="fa fa-search"></i></span>';
             }
 
+            var courierPrice = parseFloat(data.courier_price_tbilisi) || parseFloat(data.courier_price_region) || parseFloat(data.courier_price_village) || 0;
+            var courierBadge = '';
+            if (courierPrice > 0) {
+                var courierLabel = parseFloat(data.courier_price_tbilisi) > 0 ? 'თბილისი'
+                                 : parseFloat(data.courier_price_region)  > 0 ? 'რაიონი'
+                                 : 'სოფელი';
+                courierBadge = '<span style="display:inline-block; margin-top:3px; font-size:10px; background:#e8f4fd; color:#1a6fa3; border:1px solid #aed6f1; border-radius:4px; padding:1px 6px;">'
+                    + '<i class="fa fa-truck" style="font-size:9px;"></i> ' + courierLabel + ' ' + courierPrice + '₾'
+                    + '</span>';
+            }
+
             return '<div style="border-left:3px solid ' + bc + '; padding-left:6px;">'
                 + '<div style="display:flex; align-items:center; gap:4px; flex-wrap:nowrap; margin-bottom:3px;">'
                 + cb
                 + '<strong style="font-size:11px; color:#333; white-space:nowrap;">' + orderNo + '</strong>'
                 + mergeHint
                 + '</div>'
+                + (courierBadge ? '<div style="margin-bottom:3px;">' + courierBadge + '</div>' : '')
                 + data.status_label
                 + '<small class="text-muted" style="font-size:10px; display:block; margin-top:2px; white-space:nowrap;">' + dt + '</small>'
                 + (crossRef ? '<div style="font-size:10px; margin-top:2px;">' + crossRef + '</div>' : '')
@@ -702,7 +711,7 @@ var table = $('#products-out-table').DataTable({
     createdRow: function(row, data) {
         // Group header row
         if (data.is_primary && data.children_count > 1) {
-            $(row).addClass('group-header-row').css({ 'background-color': '#d6eaf8', 'font-weight': '600' });
+            $(row).addClass('group-header-row').css({ 'font-weight': '600' });
             return;
         }
         // გაცვლილი (status=6)
@@ -2076,6 +2085,7 @@ $(document).on('click', '.expand-btn', function() {
     });
 
     parentRow.after(rowsHtml);
+    $('tr.child-row-' + parentId).last().addClass('group-last-child');
 });
 
 // table reload-ისას გაშლილი სტრიქონები გაქრება — ეს ნორმალურია

@@ -1194,6 +1194,13 @@ class ProductOrderController extends Controller
 
                 if ($isAdmin) {
                     if ($item->is_primary) {
+                        $anyPending = in_array($item->status_id, [1, 2])
+                            || $item->children->contains(fn($c) => in_array($c->status_id, [1, 2]));
+
+                        if ($anyPending) {
+                            return '';
+                        }
+
                         $allStatus3 = $item->status_id == 3 && $item->children->every(fn($c) => $c->status_id == 3);
                         $allPaid    = $isPaid($item) && $item->children->every(fn($c) => $isPaid($c));
 
