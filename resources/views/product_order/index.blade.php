@@ -849,43 +849,55 @@ var table = $('#products-out-table').DataTable({
             var lockSize = defaults.lockProduct ? 'disabled' : '';
             var canRemove = (!defaults.editMode) ? '' : 'disabled';
 
-            var row = '<div class="sale-item-row" data-idx="' + idx + '">' +
-                '<div class="row g-1 align-items-end">' +
+            var row =
+            '<div class="sale-item-row" data-idx="' + idx + '">' +
+                '<div class="row g-2 align-items-end">' +
+
                     '<div class="col-12 col-sm-5">' +
-                        '<select name="items[' + idx + '][product_id]" class="form-select form-select-sm sale-product-select" required ' + lockProd + '>' +
+                        '<div class="sale-col-label">პროდუქტი</div>' +
+                        '<select name="items[' + idx + '][product_id]" class="form-select form-select-sm sale-product-select" required ' + lockProd + ' style="border-radius:8px;border:1.5px solid #e0e4f0;">' +
                             optHtml +
                         '</select>' +
                     '</div>' +
-                    '<div class="col-5 col-sm-2">' +
-                        '<select name="items[' + idx + '][product_size]" class="form-select form-select-sm sale-size-select" ' + lockSize + '>' +
+
+                    '<div class="col-6 col-sm-2">' +
+                        '<div class="sale-col-label">ზომა</div>' +
+                        '<select name="items[' + idx + '][product_size]" class="form-select form-select-sm sale-size-select" ' + lockSize + ' style="border-radius:8px;border:1.5px solid #e0e4f0;">' +
                             '<option value="">— ზომა —</option>' +
                         '</select>' +
                     '</div>' +
-                    '<div class="col-3 col-sm-1 text-center">' +
-                        '<div class="sale-price-gel text-success fw-bold" style="font-size:12px;">0 ₾</div>' +
-                        '<input type="hidden" name="items[' + idx + '][price_georgia]" value="0" class="sale-hidden-gel">' +
-                    '</div>' +
-                    '<div class="col-3 col-sm-1 text-center">' +
-                        '<div class="sale-price-usd text-primary fw-bold" style="font-size:12px;">$0</div>' +
-                        '<input type="hidden" name="items[' + idx + '][price_usa]" value="0" class="sale-hidden-usd">' +
-                    '</div>' +
+
                     '<div class="col-6 col-sm-2">' +
+                        '<div class="sale-col-label">ფასდაკლება</div>' +
                         '<div class="input-group input-group-sm">' +
-                            '<input type="number" name="items[' + idx + '][discount]" class="form-control sale-discount" value="0" min="0" step="0.01" placeholder="ფასდაკ.">' +
-                            '<span class="input-group-text bg-white">₾</span>' +
+                            '<span class="input-group-text" style="background:#fdf0f8;border:1.5px solid #e0e4f0;border-right:0;border-radius:8px 0 0 8px;color:#9b59b6;font-weight:700;">🏷</span>' +
+                            '<input type="number" name="items[' + idx + '][discount]" class="form-control sale-discount" value="0" min="0" step="0.01" placeholder="0.00" style="border:1.5px solid #e0e4f0;border-left:0;border-radius:0 8px 8px 0;">' +
                         '</div>' +
                     '</div>' +
-                    '<div class="col-6 col-sm-1 d-flex align-items-end">' +
-                        '<button type="button" class="btn btn-outline-danger btn-sm w-100 remove-sale-line" ' + canRemove + '>' +
+
+                    '<div class="col-6 col-sm-2">' +
+                        '<div class="sale-col-label">ფასი</div>' +
+                        '<div class="d-flex gap-1 align-items-center">' +
+                            '<span class="price-pill-gel sale-price-gel">0 ₾</span>' +
+                            '<span class="price-pill-usd sale-price-usd">$0</span>' +
+                        '</div>' +
+                        '<input type="hidden" name="items[' + idx + '][price_georgia]" value="0" class="sale-hidden-gel">' +
+                        '<input type="hidden" name="items[' + idx + '][price_usa]"     value="0" class="sale-hidden-usd">' +
+                    '</div>' +
+
+                    '<div class="col-6 col-sm-1 d-flex align-items-end justify-content-end">' +
+                        '<button type="button" class="btn btn-sm remove-sale-line" ' + canRemove + ' ' +
+                            'style="background:#fff0f0;border:1.5px solid #fcc;color:#e74c3c;border-radius:8px;padding:5px 10px;">' +
                             '<i class="fa fa-trash"></i>' +
                         '</button>' +
                     '</div>' +
+
                 '</div>' +
-                '<div class="sale-row-stock mt-1 p-1 rounded border-start border-3 border-info bg-white" style="display:none; font-size:11px;">' +
-                    '📦 <b class="si-physical">0</b>' +
-                    ' &nbsp;🚚 <b class="si-incoming">0</b>' +
-                    ' &nbsp;🔒 <b class="si-reserved">0</b>' +
-                    ' &nbsp;<span class="text-success">✅ <b class="si-available">0</b></span>' +
+                '<div class="sale-row-stock" style="display:none;">' +
+                    '<span>📦 <b class="si-physical">0</b></span>' +
+                    '<span class="ms-2">🚚 <b class="si-incoming">0</b></span>' +
+                    '<span class="ms-2">🔒 <b class="si-reserved">0</b></span>' +
+                    '<span class="ms-2 text-success fw-bold">✅ <b class="si-available">0</b></span>' +
                 '</div>' +
             '</div>';
 

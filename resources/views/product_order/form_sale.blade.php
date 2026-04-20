@@ -1,85 +1,126 @@
-@php
-    $isAdmin = auth()->check() && auth()->user()->role == 'admin';
-@endphp
+@php $isAdmin = auth()->check() && auth()->user()->role == 'admin'; @endphp
 
 <style>
-    .modal-sale-card {
-        border: 1px solid #eee;
-        border-radius: 10px;
-        padding: 10px 12px;
-        background: #fff;
-        margin-bottom: 10px;
-    }
-    .section-title {
-        font-size: 11px;
-        text-transform: uppercase;
-        color: #6c757d;
-        font-weight: 700;
-        margin-bottom: 8px;
-        display: flex;
-        align-items: center;
-        gap: 5px;
-    }
-    .price-badge {
-        font-size: 14px;
-        padding: 6px 8px;
-        border-radius: 8px;
-        text-align: center;
-        font-weight: 700;
-    }
-    .sale-preview-box {
-        height: 90px;
-        overflow: hidden;
-    }
-    @media (min-width: 768px) {
-        .sale-preview-box { height: 140px; }
-    }
-    .courier-options {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-    }
-    .courier-options .form-check {
-        margin: 0;
-        white-space: nowrap;
-    }
-    .sale-item-row {
-        background: #fafafa;
-        border: 1px solid #e0e0e0 !important;
-        border-radius: 8px;
-        padding: 8px 10px;
-        margin-bottom: 8px;
-    }
-    .sale-item-row .sale-price-gel,
-    .sale-item-row .sale-price-usd {
-        font-size: 12px;
-        font-weight: 700;
-        text-align: center;
-        padding: 4px;
-    }
+/* ── Modal shell ── */
+#modal-sale .modal-content { border-radius: 16px; overflow: hidden; }
+#modal-sale .modal-header  { background: linear-gradient(135deg,#1a1a2e 0%,#16213e 60%,#0f3460 100%); padding: 14px 20px; }
+#modal-sale .modal-body    { background: #f4f6fb; padding: 18px; }
+#modal-sale .modal-footer  { background: #fff; border-top: 1px solid #e9ecef; padding: 10px 18px; }
+
+/* ── Section cards ── */
+.sc { background:#fff; border-radius:12px; padding:14px 16px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+.sc-title {
+    font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.8px;
+    color:#8e9bb5; margin-bottom:12px; display:flex; align-items:center; gap:6px;
+}
+.sc-title i { font-size:13px; }
+
+/* ── Product item row ── */
+.sale-item-row {
+    background: #fafbff;
+    border: 1.5px solid #e8eaf0;
+    border-radius: 10px;
+    padding: 10px 12px 8px;
+    margin-bottom: 8px;
+    transition: border-color .2s;
+}
+.sale-item-row:focus-within { border-color: #6c8ebf; }
+
+.sale-col-label {
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    color: #aab; letter-spacing: .5px; margin-bottom: 3px;
+}
+
+/* Price badges */
+.price-pill-gel {
+    background: #e8faf0; color: #1a7a4a; border: 1px solid #b7e4c7;
+    border-radius: 20px; padding: 0 10px; font-size: 12px; font-weight: 700;
+    white-space: nowrap; text-align: center; min-width: 60px;
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 31px; box-sizing: border-box;
+}
+.price-pill-usd {
+    background: #eaf2ff; color: #1a4fa0; border: 1px solid #b8d0f5;
+    border-radius: 20px; padding: 0 10px; font-size: 12px; font-weight: 700;
+    white-space: nowrap; text-align: center; min-width: 60px;
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 31px; box-sizing: border-box;
+}
+
+/* Stock indicator */
+.sale-row-stock { font-size: 11px; margin-top: 6px; padding: 4px 8px; background: #f0f4ff; border-radius: 6px; }
+
+/* ── Customer info block ── */
+#customer_info_fields {
+    background: #f8f9ff; border: 1.5px solid #dde3f5; border-radius: 10px;
+    padding: 12px; margin-top: 10px;
+}
+.cust-field-label { font-size: 10px; font-weight: 700; color: #8e9bb5; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px; }
+.cust-tel-display {
+    background: #fff; border: 1.5px solid #e0e4f0; border-radius: 8px;
+    padding: 5px 10px; font-weight: 700; font-size: 13px; color: #2d3a5a;
+}
+
+/* ── Courier pills ── */
+.courier-pill-group { display: flex; flex-wrap: wrap; gap: 6px; }
+.courier-pill-group input[type=radio] { display: none; }
+.courier-pill-group label {
+    padding: 5px 12px; border-radius: 20px; border: 1.5px solid #d0d7e8;
+    font-size: 12px; font-weight: 600; color: #5a6480; cursor: pointer;
+    background: #fff; transition: all .15s; white-space: nowrap;
+}
+.courier-pill-group input[type=radio]:checked + label {
+    background: #0f3460; border-color: #0f3460; color: #fff;
+}
+.courier-pill-group label:hover { border-color: #0f3460; color: #0f3460; }
+
+/* ── Photo box ── */
+.sale-photo-box {
+    height: 130px; border-radius: 10px; border: 2px dashed #d0d7e8;
+    display: flex; align-items: center; justify-content: center;
+    background: #f8f9ff; overflow: hidden; margin-bottom: 12px;
+}
+.sale-photo-box img { max-height: 100%; max-width: 100%; object-fit: cover; border-radius: 8px; }
+
+/* ── Save button ── */
+#btn-sale-save {
+    background: linear-gradient(135deg,#1a7a4a,#28a063);
+    border: none; border-radius: 10px; padding: 9px 28px;
+    font-weight: 700; font-size: 14px; letter-spacing: .3px;
+}
+#btn-sale-save:hover { opacity: .92; }
+
+/* ── Scrollable stock info ── */
+.sale-items-wrapper { max-height: 320px; overflow-y: auto; padding-right: 2px; }
 </style>
 
 <div class="modal fade" id="modal-sale" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
 
-            <div class="modal-header bg-dark text-white border-0 py-2">
-                <h5 class="modal-title d-flex align-items-center gap-2">
-                    <i class="bi bi-cart-plus-fill"></i>
-                    <span id="modal-sale-title">ახალი გაყიდვა</span>
-                </h5>
+            {{-- HEADER --}}
+            <div class="modal-header border-0">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:36px;height:36px;background:rgba(255,255,255,.15);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-cart-plus-fill text-white" style="font-size:17px;"></i>
+                    </div>
+                    <div>
+                        <div id="modal-sale-title" class="text-white fw-bold" style="font-size:15px; line-height:1.2;">ახალი გაყიდვა</div>
+                        <div class="text-white-50" style="font-size:11px;">გაყიდვის ორდერი</div>
+                    </div>
+                </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
 
-            <div class="modal-body bg-light p-3">
+            {{-- BODY --}}
+            <div class="modal-body">
                 <form id="form-sale-content" method="post" enctype="multipart/form-data">
                     @csrf @method('POST')
-
-                    <input type="hidden" name="id"    id="id">
+                    <input type="hidden" name="id" id="id">
                     <input type="hidden" name="order_type" value="sale">
                     <input type="hidden" id="db_tbilisi_price" value="{{ $courier->tbilisi_price ?? 6 }}">
 
-                    {{-- Hidden product options template (cloned by JS for each row) --}}
+                    {{-- Hidden product template --}}
                     <select id="product-options-template" style="display:none" aria-hidden="true">
                         <option value="">— აირჩიეთ —</option>
                         @foreach($all_products as $product)
@@ -93,32 +134,38 @@
                         @endforeach
                     </select>
 
-                    <div class="row g-2">
+                    <div class="row g-3">
 
-                        {{-- ═══ LEFT: პროდუქტები + კლიენტი + ფინანსები ═══ --}}
+                        {{-- ══════ LEFT (8 cols) ══════ --}}
                         <div class="col-12 col-md-8">
 
-                            {{-- Section 1: Products --}}
-                            <div class="modal-sale-card shadow-sm">
+                            {{-- Products --}}
+                            <div class="sc">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <div class="section-title m-0"><i class="bi bi-box-seam"></i> პროდუქტები</div>
-                                    <button type="button" class="btn btn-outline-success btn-sm py-0 px-2" id="add-sale-line" style="font-size:11px;">
-                                        <i class="bi bi-plus-circle"></i> დამატება
+                                    <div class="sc-title m-0"><i class="bi bi-box-seam-fill"></i> პროდუქტები</div>
+                                    <button type="button" id="add-sale-line"
+                                            class="btn btn-sm fw-semibold"
+                                            style="background:#e8faf0;color:#1a7a4a;border:1.5px solid #b7e4c7;border-radius:20px;font-size:11px;padding:3px 12px;">
+                                        <i class="bi bi-plus-lg me-1"></i>დამატება
                                     </button>
                                 </div>
-                                <div id="sale-items-container"></div>
+                                <div class="sale-items-wrapper">
+                                    <div id="sale-items-container"></div>
+                                </div>
                             </div>
 
-                            {{-- Section 2: Customer --}}
-                            <div class="modal-sale-card shadow-sm">
+                            {{-- Customer --}}
+                            <div class="sc">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <div class="section-title m-0"><i class="bi bi-person-circle"></i> კლიენტი</div>
-                                    <button type="button" class="btn btn-outline-primary btn-sm rounded-pill py-0"
-                                            onclick="openCustomerCreate()" style="font-size:11px;">
-                                        + ახალი კლიენტი
+                                    <div class="sc-title m-0"><i class="bi bi-person-circle"></i> კლიენტი</div>
+                                    <button type="button" onclick="openCustomerCreate()"
+                                            class="btn btn-sm fw-semibold"
+                                            style="background:#eaf2ff;color:#1a4fa0;border:1.5px solid #b8d0f5;border-radius:20px;font-size:11px;padding:3px 12px;">
+                                        <i class="bi bi-person-plus me-1"></i>ახალი
                                     </button>
                                 </div>
-                                <select name="customer_id" id="customer_id_sale" class="form-select select2" required>
+
+                                <select name="customer_id" id="customer_id_sale" class="form-select form-select-sm select2" required>
                                     <option value="">— აირჩიეთ კლიენტი —</option>
                                     @foreach($customers as $customer)
                                         <option value="{{ $customer->id }}"
@@ -133,110 +180,99 @@
                                     @endforeach
                                 </select>
 
-                                <div id="customer_info_fields" class="mt-2 p-2 border rounded bg-light shadow-sm" style="display:none; font-size:12px;">
-                                    <div class="row g-2">
-
-                                        {{-- ტელეფონი (read-only) --}}
-                                        <div class="col-12 col-sm-6">
-                                            <label class="form-label mb-1 fw-semibold text-muted" style="font-size:11px;">
-                                                <i class="bi bi-telephone me-1"></i>ძირითადი ტელ.
-                                            </label>
-                                            <div class="form-control form-control-sm bg-white fw-bold" id="customer_tel" style="cursor:default;"></div>
+                                <div id="customer_info_fields" style="display:none;">
+                                    <div class="row g-2 mt-1">
+                                        <div class="col-6">
+                                            <div class="cust-field-label"><i class="bi bi-telephone me-1"></i>ძირითადი ტელ.</div>
+                                            <div class="cust-tel-display" id="customer_tel"></div>
                                         </div>
-
-                                        {{-- ალტ. ტელ. --}}
-                                        <div class="col-12 col-sm-6">
-                                            <label class="form-label mb-1 fw-semibold text-muted" style="font-size:11px;">
-                                                <i class="bi bi-telephone-plus me-1"></i>ალტ. ტელეფონი
-                                            </label>
+                                        <div class="col-6">
+                                            <div class="cust-field-label"><i class="bi bi-telephone-plus me-1"></i>ალტ. ტელეფონი</div>
                                             <input type="text" id="customer_alt_tel_input" name="order_alt_tel"
-                                                   class="form-control form-control-sm" placeholder="სურვილისამებრ">
+                                                   class="form-control form-control-sm" placeholder="სურვილისამებრ"
+                                                   style="border-radius:8px;border:1.5px solid #e0e4f0;">
                                         </div>
-
-                                        {{-- ქალაქი --}}
-                                        <div class="col-12 col-sm-6">
-                                            <label class="form-label mb-1 fw-semibold text-muted" style="font-size:11px;">
-                                                <i class="bi bi-building me-1"></i>ქალაქი
-                                            </label>
+                                        <div class="col-6">
+                                            <div class="cust-field-label"><i class="bi bi-building me-1"></i>ქალაქი</div>
                                             <select id="customer_city_select" name="order_city_id"
-                                                    class="form-select form-select-sm">
+                                                    class="form-select form-select-sm"
+                                                    style="border-radius:8px;border:1.5px solid #e0e4f0;">
                                                 <option value="">-- ქალაქი --</option>
                                                 @foreach($cities as $city)
                                                     <option value="{{ $city->id }}">{{ $city->name }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
-
-                                        {{-- მისამართი --}}
-                                        <div class="col-12 col-sm-6">
-                                            <label class="form-label mb-1 fw-semibold text-muted" style="font-size:11px;">
-                                                <i class="bi bi-geo-alt me-1"></i>მისამართი
-                                            </label>
+                                        <div class="col-6">
+                                            <div class="cust-field-label"><i class="bi bi-geo-alt me-1"></i>მისამართი</div>
                                             <input type="text" id="customer_address_input" name="order_address"
-                                                   class="form-control form-control-sm" placeholder="ქუჩა, კორპუსი, ბინა">
+                                                   class="form-control form-control-sm" placeholder="ქუჩა, კორპუსი, ბინა"
+                                                   style="border-radius:8px;border:1.5px solid #e0e4f0;">
                                         </div>
-
-                                        {{-- კომენტარი --}}
                                         <div id="customer_comment_wrap" class="col-12" style="display:none;">
-                                            <div class="text-warning-emphasis bg-warning-subtle border border-warning-subtle rounded px-2 py-1">
-                                                <i class="bi bi-chat-left-text me-1"></i><span id="customer_comment"></span>
+                                            <div class="rounded px-3 py-2 d-flex align-items-center gap-2"
+                                                 style="background:#fffbea;border:1.5px solid #ffe58f;font-size:12px;color:#7d6608;">
+                                                <i class="bi bi-chat-left-text-fill"></i>
+                                                <span id="customer_comment"></span>
                                             </div>
                                         </div>
-
                                     </div>
                                 </div>
                             </div>
 
-                            {{-- Section 3: Admin Finance --}}
-                        </div>
+                        </div>{{-- /col left --}}
 
-                        {{-- ═══ RIGHT: ფოტო + კურიერი + კომენტარი ═══ --}}
+                        {{-- ══════ RIGHT (4 cols) ══════ --}}
                         <div class="col-12 col-md-4">
-                            <div class="modal-sale-card shadow-sm">
+                            <div class="sc">
 
-                                <div class="section-title"><i class="bi bi-image"></i> ფოტო</div>
-                                <div class="text-center border rounded mb-2 bg-light d-flex align-items-center justify-content-center sale-preview-box">
-                                    <img id="target_image" class="img-fluid" style="display:none; max-height:100%;">
-                                    <div id="no_image_text" class="text-muted small">
-                                        <i class="bi bi-image-fill fs-3 d-block"></i>
-                                        არ არის ფოტო
+                                {{-- Photo --}}
+                                <div class="sc-title"><i class="bi bi-image-fill"></i> პროდუქტის ფოტო</div>
+                                <div class="sale-photo-box">
+                                    <img id="target_image" style="display:none;">
+                                    <div id="no_image_text" class="text-center text-muted">
+                                        <i class="bi bi-image-fill d-block mb-1" style="font-size:28px;opacity:.3;"></i>
+                                        <span style="font-size:11px;">ფოტო არ არის</span>
                                     </div>
                                 </div>
 
-                                <div class="section-title mt-1"><i class="bi bi-truck"></i> კურიერი</div>
-                                <div class="courier-options bg-light p-2 rounded border">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="courier_type" id="courier_tbilisi" value="tbilisi">
-                                        <label class="form-check-label small" for="courier_tbilisi">თბილისი (+{{ $courier->tbilisi_price ?? 6 }}₾)</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="courier_type" id="courier_region" value="region">
-                                        <label class="form-check-label small" for="courier_region">რაიონი (+{{ $courier->region_price ?? 9 }}₾)</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="courier_type" id="courier_village" value="village">
-                                        <label class="form-check-label small" for="courier_village">სოფელი (+{{ $courier->village_price ?? 13 }}₾)</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="courier_type" id="courier_none" value="none" checked>
-                                        <label class="form-check-label small text-muted" for="courier_none">არ გამოიყენება</label>
-                                    </div>
+                                {{-- Courier --}}
+                                <div class="sc-title mt-2"><i class="bi bi-truck-front-fill"></i> მიწოდება</div>
+                                <div class="courier-pill-group mb-3">
+                                    <input type="radio" name="courier_type" id="courier_none"     value="none"    checked>
+                                    <label for="courier_none">არა</label>
+
+                                    <input type="radio" name="courier_type" id="courier_tbilisi"  value="tbilisi">
+                                    <label for="courier_tbilisi">თბ. +{{ $courier->tbilisi_price ?? 6 }}₾</label>
+
+                                    <input type="radio" name="courier_type" id="courier_region"   value="region">
+                                    <label for="courier_region">რაიონი +{{ $courier->region_price ?? 9 }}₾</label>
+
+                                    <input type="radio" name="courier_type" id="courier_village"  value="village">
+                                    <label for="courier_village">სოფელი +{{ $courier->village_price ?? 13 }}₾</label>
                                 </div>
 
-                                <label class="form-label small fw-bold mt-2 mb-1">კომენტარი</label>
-                                <textarea name="comment" class="form-control form-control-sm" rows="2"
-                                          placeholder="დამატებითი შენიშვნა..."></textarea>
+                                {{-- Comment --}}
+                                <div class="sc-title"><i class="bi bi-chat-left-dots-fill"></i> კომენტარი</div>
+                                <textarea name="comment" class="form-control form-control-sm" rows="3"
+                                          placeholder="დამატებითი შენიშვნა..."
+                                          style="border-radius:8px;border:1.5px solid #e0e4f0;resize:none;font-size:12px;"></textarea>
+
                             </div>
-                        </div>
+                        </div>{{-- /col right --}}
 
                     </div>{{-- /row --}}
                 </form>
-            </div>{{-- /modal-body --}}
+            </div>{{-- /body --}}
 
-            <div class="modal-footer bg-white py-2">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">გაუქმება</button>
-                <button type="submit" form="form-sale-content" class="btn btn-success px-4 fw-bold">
-                    <i class="bi bi-check-lg me-1"></i> შენახვა
+            {{-- FOOTER --}}
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-light fw-semibold px-4" data-bs-dismiss="modal"
+                        style="border-radius:10px;border:1.5px solid #dee2e6;">
+                    <i class="bi bi-x-lg me-1"></i>გაუქმება
+                </button>
+                <button type="submit" form="form-sale-content" id="btn-sale-save" class="btn text-white">
+                    <i class="bi bi-check2-circle me-1"></i>შენახვა
                 </button>
             </div>
 
