@@ -1294,11 +1294,16 @@ class ProductOrderController extends Controller
                     }
                 }
 
+                $revertBtn = '';
+                if ($item->status_id == 4 && in_array($item->order_type, ['sale', 'change'])) {
+                    $revertBtn = '<a onclick="revertFromCourier(' . $id . ')" class="btn btn-outline-danger btn-xs" title="საწყობში დაბრუნება"><i class="fa fa-rotate-left"></i></a>';
+                }
+
                 $wrap = '<div class="d-flex justify-content-center flex-wrap gap-1">';
 
                 // Group header row — no edit/delete/history (accessible from sub-rows)
                 if ($item->is_primary && $item->children->isNotEmpty()) {
-                    return $wrap . $pdfBtn . $mailBtn . $unmergeBtn . '</div>';
+                    return $wrap . $revertBtn . $pdfBtn . $mailBtn . $unmergeBtn . '</div>';
                 }
 
                 // სტატუს 5,6 — მხოლოდ PDF, Mail, History
@@ -1307,10 +1312,10 @@ class ProductOrderController extends Controller
                 }
 
                 if ($item->is_primary) {
-                    return $wrap . $editBtn . $deleteBtn . $exchangeBtn . $pdfBtn . $mailBtn . $histBtn . $unmergeBtn . '</div>';
+                    return $wrap . $revertBtn . $editBtn . $deleteBtn . $exchangeBtn . $pdfBtn . $mailBtn . $histBtn . $unmergeBtn . '</div>';
                 }
 
-                return $wrap . $editBtn . $deleteBtn . $exchangeBtn . $pdfBtn . $mailBtn . $histBtn . '</div>';
+                return $wrap . $revertBtn . $editBtn . $deleteBtn . $exchangeBtn . $pdfBtn . $mailBtn . $histBtn . '</div>';
             })
             ->addColumn('status_color', function ($item) {
                 return $item->orderStatus->color ?? 'default';
@@ -1389,6 +1394,77 @@ class ProductOrderController extends Controller
                 'success' => true,
                 'message' => 'ორდერი კურიერს გადაეცა! ✅'
             ]);
+        });
+    }
+
+    public function revertFromCourier(Request $request, $id)
+    {
+        return \DB::transaction(function () use ($id) {
+            $order = Product_Order::withoutGlobalScope('active')->findOrFail($id);
+
+            if ($order->status_id != 4) {
+                return response()->json(['success' => false, 'message' => 'ორდერი კურიერთან გაგზავნილი არ არის!'], 422);
+            }
+
+            // ჯგუფი თუ ერთი ორდერი
+            $orders = $order->is_primary
+                ? Product_Order::withoutGlobalScope('active')->where('merged_id', $order->merged_id)->get()
+                : collect([$order]);
+
+            foreach ($orders as $o) {
+                // 1. Stock 4→3 (handleStockChange-ში უკვე არსებობს)
+                $this->handleStockChange($o->id, 3);
+
+                // 2. Status განახლება
+                $o->update(['status_id' => 3]);
+
+                // 3. Log
+                StatusChangeLog::create([
+                    'order_id'       => $o->id,
+                    'user_id'        => auth()->id(),
+                    'status_id_from' => 4,
+                    'status_id_to'   => 3,
+                    'changed_at'     => now(),
+                ]);
+
+                // 4. FIFO: purchase over-subscribed?
+                if (!$o->purchase_order_id) continue;
+
+                $purchase  = Product_Order::withoutGlobalScope('active')->find($o->purchase_order_id);
+                if (!$purchase) continue;
+
+                $usedCount = Product_Order::withoutGlobalScope('active')
+                    ->whereIn('order_type', ['sale', 'change'])
+                    ->where('purchase_order_id', $purchase->id)
+                    ->whereIn('status_id', [1, 2, 3])
+                    ->count();
+
+                if ($usedCount <= $purchase->quantity) continue;
+
+                // Over-subscribed — გამოვდევნოთ უახლესი sale-ები (ისინი "დაიჭირეს" ჩვენი ადგილი)
+                $toDisplace = Product_Order::withoutGlobalScope('active')
+                    ->whereIn('order_type', ['sale', 'change'])
+                    ->where('purchase_order_id', $purchase->id)
+                    ->whereIn('status_id', [1, 2, 3])
+                    ->where('id', '!=', $o->id)
+                    ->orderBy('created_at', 'desc')
+                    ->take($usedCount - $purchase->quantity)
+                    ->get();
+
+                foreach ($toDisplace as $displaced) {
+                    $next = FifoService::getNextPurchase(
+                        $displaced->product_id,
+                        $displaced->product_size,
+                        $purchase->id
+                    );
+                    $displaced->update([
+                        'purchase_order_id' => $next ? $next->id   : null,
+                        'price_usa'         => $next ? (float)$next->cost_price : $displaced->price_usa,
+                    ]);
+                }
+            }
+
+            return response()->json(['success' => true, 'message' => 'ორდერი საწყობში დაბრუნდა! ✅']);
         });
     }
 

@@ -2197,6 +2197,33 @@ window.sendSingleToCourier = function(id) {
     });
 };
 
+window.revertFromCourier = function(id) {
+    swal({
+        title: 'საწყობში დაბრუნება?',
+        text: 'ორდერი კურიერს ჩამოერთმევა და სტატუსი "საწყობში" დაუბრუნდება',
+        type: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e74c3c',
+        cancelButtonText: 'გაუქმება',
+        confirmButtonText: 'დიახ, დაბრუნება!'
+    }).then(function(result) {
+        if (!result.isConfirmed) return;
+        $.ajax({
+            url: "{{ url('productsOut') }}/" + id + "/revert-from-courier",
+            type: 'POST',
+            data: { _token: "{{ csrf_token() }}" },
+            success: function(res) {
+                table.ajax.reload(null, false);
+                swal('✅ დაბრუნდა!', res.message, 'success');
+            },
+            error: function(xhr) {
+                var msg = xhr.responseJSON ? xhr.responseJSON.message : 'შეცდომა!';
+                swal('შეცდომა', msg, 'error');
+            }
+        });
+    });
+};
+
 // ════════════════════════════════════════════════════════════
 // 🔄 CHANGE ORDER JS
 // ════════════════════════════════════════════════════════════

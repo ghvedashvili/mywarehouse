@@ -20,7 +20,8 @@
       "Bash(sed -i \"s|@section\\('page_title'\\)<i class=\\\\\"fa fa-truck me-2\\\\\"></i>შესყიდვები@endsection|@section\\('page_title'\\)<i class=\\\\\"fa fa-cart-shopping me-2\\\\\" style=\\\\\"color:#2980b9;\\\\\"></i>შესყიდვები@endsection|\" c:/xampp/htdocs/mywarehouse/resources/views/purchases/index.blade.php)",
       "Bash(php -r \"echo date\\('Y_m_d_His'\\);\")",
       "Bash(where php *)",
-      "Bash(grep -n \"^use App\\\\\\\\\\\\Exports\" d:/mywarehouse/app/Http/Controllers/ProductOrderController.php)"
+      "Bash(grep -n \"^use App\\\\\\\\\\\\Exports\" d:/mywarehouse/app/Http/Controllers/ProductOrderController.php)",
+      "Bash(grep -n \"FifoService\\\\|use App\\\\\\\\\\\\\\\\Services\" d:/mywarehouse/app/Http/Controllers/ProductOrderController.php)"
     ]
   }
 }

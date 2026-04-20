@@ -86,6 +86,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('productsOut/{id}/unmerge', [ProductOrderController::class, 'unmergeOrder'])->name('productsOut.unmerge');
     Route::post('productsOut/{id}/split',   [ProductOrderController::class, 'splitOrder'])->name('productsOut.split');
     Route::post('productsOut/{id}/send-to-courier', [ProductOrderController::class, 'singleUpdateStatus'])->name('productsOut.sendToCourier');
+    Route::post('productsOut/{id}/revert-from-courier', [ProductOrderController::class, 'revertFromCourier'])->name('productsOut.revertFromCourier');
     Route::post('exportPDF/productOrder/filtered', [ProductOrderController::class, 'exportFilteredOrders'])->name('exportPDF.productOrderFiltered');
     Route::resource('productsOut', ProductOrderController::class);
     Route::get('/apiProductsOut', [ProductOrderController::class, 'apiProductsOut'])->name('api.productsOut');
