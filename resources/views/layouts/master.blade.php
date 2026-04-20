@@ -473,7 +473,7 @@ $(function() {
 <div id="fb-root"></div>
 <script>
 window.fbAsyncInit = function() {
-    FB.init({ xfbml: true, version: 'v18.0' });
+    FB.init({ appId: '2257873808285058', xfbml: true, version: 'v18.0' });
 };
 (function(d, s, id) {
     var js, fjs = d.getElementsByTagName(s)[0];
