@@ -52,9 +52,13 @@ public function store(Request $request)
 
     if ($request->hasFile('image')) {
         $filename = Str::slug($request->product_code, '-') . '-' . time() . '.' . $request->image->getClientOriginalExtension();
-        $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
-        Storage::disk($disk)->putFileAs('products', $request->file('image'), $filename, 'public');
-        $input['image'] = 'products/' . $filename;
+        if (config('filesystems.default') === 's3') {
+            Storage::disk('s3')->putFileAs('products', $request->file('image'), $filename, 'public');
+            $input['image'] = 'products/' . $filename;
+        } else {
+            $request->image->move(public_path('/upload/products/'), $filename);
+            $input['image'] = '/upload/products/' . $filename;
+        }
     }
 
     Product::create($input);
@@ -104,13 +108,20 @@ public function store(Request $request)
     $input['sizes'] = $request->has('product_sizes') ? implode(',', $request->product_sizes) : null;
 
     if ($request->hasFile('image')) {
-        $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
-        if ($product->image && !str_starts_with($product->image, '/')) {
-            Storage::disk($disk)->delete($product->image);
-        }
         $filename = Str::slug($request->product_code, '-') . '-' . time() . '.' . $request->image->getClientOriginalExtension();
-        Storage::disk($disk)->putFileAs('products', $request->file('image'), $filename, 'public');
-        $input['image'] = 'products/' . $filename;
+        if (config('filesystems.default') === 's3') {
+            if ($product->image && !str_starts_with($product->image, '/')) {
+                Storage::disk('s3')->delete($product->image);
+            }
+            Storage::disk('s3')->putFileAs('products', $request->file('image'), $filename, 'public');
+            $input['image'] = 'products/' . $filename;
+        } else {
+            if ($product->image && file_exists(public_path($product->image))) {
+                unlink(public_path($product->image));
+            }
+            $request->image->move(public_path('/upload/products/'), $filename);
+            $input['image'] = '/upload/products/' . $filename;
+        }
     }
 
     $product->update($input);

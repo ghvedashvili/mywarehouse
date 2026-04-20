@@ -192,8 +192,8 @@ function editForm(id) {
             var currentSizes = data.sizes ? data.sizes.split(',').map(s => s.trim()) : [];
             filterSizes(currentSizes);
 
-            if (data.image) {
-                $('#image-preview').html('<img src="' + data.image + '" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">');
+            if (data.image_url) {
+                $('#image-preview').html('<img src="' + data.image_url + '" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">');
             } else {
                 $('#image-preview').html('<span class="text-muted">No Preview</span>');
             }
