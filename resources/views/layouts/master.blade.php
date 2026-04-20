@@ -468,5 +468,25 @@ $(function() {
 </script>
 
 @yield('bot')
+
+<!-- Facebook Messenger Chat -->
+<div id="fb-root"></div>
+<script>
+window.fbAsyncInit = function() {
+    FB.init({ appId: '2257873808285058', xfbml: true, version: 'v18.0' });
+};
+(function(d, s, id) {
+    var js, fjs = d.getElementsByTagName(s)[0];
+    if (d.getElementById(id)) return;
+    js = d.createElement(s); js.id = id;
+    js.src = 'https://connect.facebook.net/ka_GE/sdk/xfbml.customerchat.js';
+    fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));
+</script>
+<div class="fb-customerchat"
+     attribution="biz_inbox"
+     page_id="1953170501618069">
+</div>
+
 </body>
 </html>
