@@ -152,7 +152,7 @@ class PurchaseOrderController extends Controller
                 if (($groupCountMap[$row->id] ?? 1) > 1) return '';
                 $url = $row->product?->image_url;
                 if (!$url) return '<span class="text-muted">—</span>';
-                return '<img src="'.$url.'" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">';
+                return '<img src="'.$url.'" onclick="zoomPurchaseImg(this)" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;">';
             })
             ->addColumn('group_items_json', function ($row) use ($groupItemsMap) {
                 return json_encode($groupItemsMap[$row->id] ?? []);

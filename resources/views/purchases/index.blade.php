@@ -135,6 +135,18 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before {
 
 @include('purchases.form_purchase')
 
+{{-- ══ Image Zoom Modal ══ --}}
+<div class="modal fade" id="modal-img-zoom" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+        <div class="modal-content bg-transparent border-0 shadow-none">
+            <div class="modal-body p-0 text-center position-relative">
+                <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-2" data-bs-dismiss="modal" style="z-index:10;"></button>
+                <img id="zoom-img-src" src="" alt="" style="max-width:100%;max-height:80vh;border-radius:8px;">
+            </div>
+        </div>
+    </div>
+</div>
+
 {{-- ══ Group View Modal ══ --}}
 <div class="modal fade" id="modal-group-view" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
@@ -202,6 +214,12 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before {
 
 <script>
 $(function() {
+
+    // ══ IMAGE ZOOM ══
+    window.zoomPurchaseImg = function(el) {
+        $('#zoom-img-src').attr('src', el.src);
+        new bootstrap.Modal(document.getElementById('modal-img-zoom')).show();
+    };
 
     // ══ TAB SWITCHING ══
     var currentTab = 'regular';
