@@ -2,26 +2,32 @@
 @section('page_title')<i class="fa fa-user-shield me-2" style="color:#c0392b;"></i>მომხმარებლები@endsection
 
 @section('content')
-<div class="p-2 p-md-3">
-<div class="card">
-    <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
-        <span class="fw-bold">System Users</span>
-        @if(Auth::user()->role === 'admin')
-        <a href="/register" class="btn btn-success btn-sm"><i class="fa fa-plus me-1"></i> Add User</a>
-        @endif
+<div class="mod-wrap">
+
+    <div class="mod-header">
+        <div>
+            <h2 class="mod-title"><i class="fa fa-user-shield me-2" style="color:#c0392b;"></i>სისტემის მომხმარებლები</h2>
+            <p class="mod-subtitle">მომხმარებლებისა და როლების მართვა</p>
+        </div>
+        <div class="mod-actions">
+            @if(Auth::user()->role === 'admin')
+            <a href="/register" class="btn btn-success btn-sm"><i class="fa fa-plus me-1"></i><span class="d-none d-sm-inline"> დამატება</span></a>
+            @endif
+        </div>
     </div>
-    <div class="card-body p-2 p-md-3">
+
+    <div class="mod-card">
         <div class="table-responsive">
-        <table id="user-table" class="table table-bordered table-hover table-striped w-100">
-            <thead>
-                <tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-        </div>{{-- /table-responsive --}}
+            <table id="user-table" class="table table-hover align-middle w-100">
+                <thead>
+                    <tr><th>ID</th><th>სახელი</th><th>Email</th><th>როლი</th><th>მოქმედება</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
     </div>
-</div>
-</div>{{-- /p-2 p-md-3 --}}
+
+</div>{{-- /mod-wrap --}}
 
 @if(Auth::user()->role === 'admin')
 <div class="modal fade" id="role-modal" tabindex="-1">

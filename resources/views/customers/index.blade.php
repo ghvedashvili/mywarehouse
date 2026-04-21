@@ -24,68 +24,65 @@
     .invalid-feedback { font-size: 0.75rem; }
 </style>
 
-<div class="p-2 p-md-3 app-container">
-    <div class="card shadow-sm">
-        <div class="card-header d-flex align-items-center flex-wrap gap-2">
-            
-                {{-- DataTable length --}}
-                <select id="dt-page-length" class="form-select form-select-sm" style="width:75px;">
-                    <option value="10">10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                </select>
-{{-- DataTable search --}}
-                <input type="text" id="dt-search" class="form-control form-control-sm" placeholder="ძებნა..." style="width:160px;">
+<div class="mod-wrap">
 
-            <div class="ms-auto d-flex align-items-center flex-wrap gap-2">
-                {{-- ქალაქის ფილტრი --}}
-                <select id="filter_city" class="form-select form-select-sm" style="width:140px;">
-                    <option value="">ყველა ქალაქი</option>
-                    @foreach($cities as $city)
-                        <option value="{{ $city->id }}">{{ $city->name }}</option>
-                    @endforeach
-                </select>
-
-                
-
-                <button onclick="addForm()" class="btn btn-success btn-sm">
-                    <i class="fa fa-plus me-1"></i> დამატება
-                </button>
-
-                <div class="dropdown">
-                    <button class="btn btn-light btn-sm border dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                        <i class="fa fa-download me-1"></i> ექსპორტი
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
-                        <li><a class="dropdown-item" href="{{ route('exportPDF.customersAll') }}"><i class="fa fa-file-pdf text-danger me-2"></i> PDF</a></li>
-                        <li><a class="dropdown-item" href="{{ route('exportExcel.customersAll') }}"><i class="fa fa-file-excel text-success me-2"></i> Excel</a></li>
-                    </ul>
-                </div>
-            </div>
+    <div class="mod-header">
+        <div>
+            <h2 class="mod-title"><i class="fa fa-users me-2" style="color:#27ae60;"></i>მომხმარებლები</h2>
+            <p class="mod-subtitle">კლიენტების მართვა</p>
         </div>
-
-        <div class="card-body p-2 p-md-3">
-            <div class="table-responsive">
-                <table id="customer-table" class="table table-hover align-middle w-100">
-                    <thead class="bg-light">
-                        <tr>
-                            <th class="border-0">ID</th>
-                            <th class="border-0">სახელი</th>
-                            <th class="border-0">ქალაქი</th>
-                            <th class="border-0">მისამართი</th>
-                            <th class="border-0">Email</th>
-                            <th class="border-0">კონტაქტი</th>
-                            <th class="border-0">შენიშვნა</th>
-                            <th class="border-0 text-center">მოქმედება</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
+        <div class="mod-actions">
+            <button onclick="addForm()" class="btn btn-success btn-sm">
+                <i class="fa fa-plus me-1"></i><span class="d-none d-sm-inline">დამატება</span>
+            </button>
+            <a href="{{ route('exportPDF.customersAll') }}" class="btn btn-sm" style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;">
+                <i class="fa fa-file-pdf me-1"></i><span class="d-none d-sm-inline">PDF</span>
+            </a>
+            <a href="{{ route('exportExcel.customersAll') }}" class="btn btn-sm" style="background:#f0fdf4;color:#059669;border:1px solid #bbf7d0;">
+                <i class="fa fa-file-excel me-1"></i><span class="d-none d-sm-inline">Excel</span>
+            </a>
         </div>
     </div>
-</div>
+
+    <div class="mod-card">
+        <div class="mod-toolbar">
+            <select id="dt-page-length" class="form-select form-select-sm" style="width:75px;">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+            <div class="mod-toolbar-search">
+                <i class="fa fa-search search-icon"></i>
+                <input type="text" id="dt-search" class="form-control form-control-sm" placeholder="ძებნა...">
+            </div>
+            <select id="filter_city" class="form-select form-select-sm" style="width:150px;">
+                <option value="">ყველა ქალაქი</option>
+                @foreach($cities as $city)
+                    <option value="{{ $city->id }}">{{ $city->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="table-responsive">
+            <table id="customer-table" class="table table-hover align-middle w-100">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>სახელი</th>
+                        <th>ქალაქი</th>
+                        <th>მისამართი</th>
+                        <th>Email</th>
+                        <th>კონტაქტი</th>
+                        <th>შენიშვნა</th>
+                        <th class="text-center">მოქმედება</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+</div>{{-- /mod-wrap --}}
 
 @include('customers.form')
 @endsection

@@ -25,50 +25,65 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control { cursor: poi
 @endsection
 
 @section('content')
-<div class="p-2 p-md-3">
-<div class="card shadow-sm">
-    <div class="card-header d-flex align-items-center flex-wrap gap-2">
-        <select id="dt-page-length" class="form-select form-select-sm" style="width:auto; flex-shrink:0;">
-            <option value="10">10</option>
-            <option value="25" selected>25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-            <option value="-1">ყველა</option>
-        </select>
-        <input id="dt-search" type="search" class="form-control form-control-sm" placeholder="ძებნა..." style="flex:1 1 120px; min-width:80px;">
-        @if(Auth::user()->role === 'admin')
-        <button onclick="addForm()" class="btn btn-success btn-sm" style="flex-shrink:0;">
-            <i class="fa fa-plus"></i><span class="d-none d-md-inline"> Add Product</span>
-        </button>
-        <div class="d-flex align-items-center gap-2" style="flex-shrink:0;">
-            <span class="text-muted" style="font-size:13px; cursor:pointer;">Deleted</span>
-            <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" id="toggle-deleted" role="switch">
-            </div>
+<div class="mod-wrap">
+
+    <div class="mod-header">
+        <div>
+            <h2 class="mod-title"><i class="fa fa-cubes me-2" style="color:#3498db;"></i>პროდუქტები</h2>
+            <p class="mod-subtitle">პროდუქტების კატალოგის მართვა</p>
         </div>
-        @endif
+        <div class="mod-actions">
+            @if(Auth::user()->role === 'admin')
+            <button onclick="addForm()" class="btn btn-success btn-sm">
+                <i class="fa fa-plus me-1"></i><span class="d-none d-sm-inline">ახალი</span>
+            </button>
+            @endif
+        </div>
     </div>
-    <div class="card-body p-0 p-md-3">
+
+    <div class="mod-card">
+        <div class="mod-toolbar">
+            <select id="dt-page-length" class="form-select form-select-sm" style="width:75px;">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="-1">ყველა</option>
+            </select>
+            <div class="mod-toolbar-search">
+                <i class="fa fa-search search-icon"></i>
+                <input id="dt-search" type="search" class="form-control form-control-sm" placeholder="ძებნა...">
+            </div>
+            <div class="mod-spacer"></div>
+            @if(Auth::user()->role === 'admin')
+            <div class="d-flex align-items-center gap-2">
+                <span style="font-size:12px;color:#94a3b8;font-weight:500;">Deleted</span>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="toggle-deleted" role="switch">
+                </div>
+            </div>
+            @endif
+        </div>
         <div class="table-responsive">
-            <table id="products-table" class="table table-bordered table-hover align-middle mb-0">
-                <thead class="table-light">
+            <table id="products-table" class="table table-hover align-middle w-100">
+                <thead>
                     <tr>
-                        <th>Name</th>
-                        <th>Code</th>
-                        <th>Category</th>
-                        <th class="text-end">Price</th>
+                        <th>სახელი</th>
+                        <th>კოდი</th>
+                        <th>კატეგორია</th>
+                        <th class="text-end">ფასი</th>
                         <th class="text-center" style="width:56px;">Img</th>
-                        <th>Sizes</th>
-                        <th class="text-center" style="width:62px;">Status</th>
-                        <th class="text-center" style="width:70px;">Actions</th>
+                        <th>ზომები</th>
+                        <th class="text-center" style="width:62px;">სტატუსი</th>
+                        <th class="text-center" style="width:70px;">მოქმედება</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
             </table>
         </div>
     </div>
-</div>
-</div>{{-- /p-2 p-md-3 --}}
+
+</div>{{-- /mod-wrap --}}
 
 @include('products.form')
 

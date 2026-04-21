@@ -2,20 +2,22 @@
 @section('page_title')<i class="fa fa-sliders me-2" style="color:#8e44ad;"></i>სახელფასო პოლიტიკა@endsection
 
 @section('content')
-<div class="p-2 p-md-3">
-<div class="card shadow-sm">
-    <div class="card-header d-flex align-items-center flex-wrap gap-2">
-        <span class="fw-bold" style="font-size:15px;">
-            <i class="fa fa-sliders me-1" style="color:#8e44ad;"></i>სახელფასო პოლიტიკა
-        </span>
-        <div class="ms-auto">
+<div class="mod-wrap">
+
+    <div class="mod-header">
+        <div>
+            <h2 class="mod-title"><i class="fa fa-sliders me-2" style="color:#8e44ad;"></i>სახელფასო პოლიტიკა</h2>
+            <p class="mod-subtitle">თანამშრომელთა სახელფასო წესების მართვა</p>
+        </div>
+        <div class="mod-actions">
             <button class="btn btn-success btn-sm" onclick="openForm()">
-                <i class="fa fa-plus"></i> ახალი პოლიტიკა
+                <i class="fa fa-plus me-1"></i><span class="d-none d-sm-inline">ახალი პოლიტიკა</span>
             </button>
         </div>
     </div>
 
-    <div class="card-body p-2 p-md-3">
+    <div class="mod-card">
+    <div class="p-3">
 
         <div class="alert alert-info py-2 mb-3" style="font-size:13px;">
             <i class="fa fa-info-circle me-1"></i>
@@ -133,8 +135,10 @@
         @endforeach
 
     </div>
-</div>
-</div>
+    </div>{{-- /p-3 --}}
+    </div>{{-- /mod-card --}}
+
+</div>{{-- /mod-wrap --}}
 
 {{-- Modal --}}
 <div class="modal fade" id="modal-policy" tabindex="-1" data-bs-backdrop="static">

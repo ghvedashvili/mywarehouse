@@ -20,54 +20,61 @@
 @endsection
 
 @section('content')
-<div class="p-2 p-md-3">
-<div class="card">
-    <div class="card-header d-flex align-items-center flex-wrap gap-2">
-        <select id="dt-page-length" class="form-select form-select-sm" style="width:auto; flex-shrink:0;">
-            <option value="10">10</option>
-            <option value="25">25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-            <option value="-1">ყველა</option>
-        </select>
-        <input id="dt-search" type="search" class="form-control form-control-sm" placeholder="ძებნა..." style="flex:1 1 120px; min-width:80px;">
-        @if(Auth::user()->role === 'admin')
-        <button onclick="addForm()" class="btn btn-success btn-sm" style="flex-shrink:0;">
-            <i class="fa fa-plus"></i><span class="d-none d-md-inline"> Add New</span>
-        </button>
-        <div class="d-flex align-items-center gap-2" style="flex-shrink:0;">
-            <label for="toggle-deleted" class="mb-0 text-muted" style="font-size:13px; cursor:pointer;">Deleted</label>
-            <label class="switch mb-0">
-                <input type="checkbox" id="toggle-deleted">
-                <span class="switch-slider"></span>
-            </label>
+<div class="mod-wrap">
+
+    <div class="mod-header">
+        <div>
+            <h2 class="mod-title"><i class="fa fa-tags me-2" style="color:#f59e0b;"></i>კატეგორიები</h2>
+            <p class="mod-subtitle">პროდუქტების კატეგორიების მართვა</p>
         </div>
-        @endif
-        <a href="{{ route('exportPDF.categoriesAll') }}" class="btn btn-danger btn-sm" style="flex-shrink:0;">
-            <i class="fa fa-file-pdf"></i><span class="d-none d-md-inline"> PDF</span>
-        </a>
-        <a href="{{ route('exportExcel.categoriesAll') }}" class="btn btn-primary btn-sm" style="flex-shrink:0;">
-            <i class="fa fa-file-excel"></i><span class="d-none d-md-inline"> Excel</span>
-        </a>
+        <div class="mod-actions">
+            @if(Auth::user()->role === 'admin')
+            <button onclick="addForm()" class="btn btn-success btn-sm">
+                <i class="fa fa-plus me-1"></i> ახალი
+            </button>
+            @endif
+            <a href="{{ route('exportPDF.categoriesAll') }}" class="btn btn-sm" style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;">
+                <i class="fa fa-file-pdf me-1"></i><span class="d-none d-sm-inline">PDF</span>
+            </a>
+            <a href="{{ route('exportExcel.categoriesAll') }}" class="btn btn-sm" style="background:#f0fdf4;color:#059669;border:1px solid #bbf7d0;">
+                <i class="fa fa-file-excel me-1"></i><span class="d-none d-sm-inline">Excel</span>
+            </a>
+        </div>
     </div>
-    <div class="card-body p-2 p-md-3">
+
+    <div class="mod-card">
+        <div class="mod-toolbar">
+            <select id="dt-page-length" class="form-select form-select-sm" style="width:75px;">
+                <option value="10">10</option><option value="25">25</option>
+                <option value="50">50</option><option value="100">100</option>
+                <option value="-1">ყველა</option>
+            </select>
+            <div class="mod-toolbar-search">
+                <i class="fa fa-search search-icon"></i>
+                <input id="dt-search" type="search" class="form-control form-control-sm" placeholder="ძებნა...">
+            </div>
+            <div class="mod-spacer"></div>
+            @if(Auth::user()->role === 'admin')
+            <div class="d-flex align-items-center gap-2">
+                <span style="font-size:12px;color:#94a3b8;font-weight:500;">Deleted</span>
+                <label class="switch mb-0">
+                    <input type="checkbox" id="toggle-deleted">
+                    <span class="switch-slider"></span>
+                </label>
+            </div>
+            @endif
+        </div>
         <div class="table-responsive">
-        <table id="categories-table" class="table table-bordered table-hover table-striped w-100">
-            <thead>
-                <tr>
-                    <!-- <th>ID</th> -->
-                    <th>Name</th>
-                    <th>Sizes</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-        </div>{{-- /table-responsive --}}
+            <table id="categories-table" class="table table-hover w-100">
+                <thead><tr>
+                    <th>სახელი</th><th>ზომები</th><th>სტატუსი</th><th>მოქმედება</th>
+                </tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
     </div>
+
 </div>
-</div>{{-- /p-2 p-md-3 --}}
 
 @include('categories.form')
 @endsection

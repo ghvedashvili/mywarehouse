@@ -264,9 +264,15 @@
 .fin-modal-header { background: #f8f9fa; }
 </style>
 
-<div class="fin-wrap">
+<div class="mod-wrap">
+<div class="fin-wrap" style="padding:0;">
 
-    <div class="fin-title">💰 ფინანსების <span>დაშბორდი</span></div>
+    <div class="mod-header" style="margin-bottom:16px;">
+        <div>
+            <h2 class="mod-title"><i class="fa fa-chart-line me-2" style="color:#16a085;"></i>ფინანსების დაშბორდი</h2>
+            <p class="mod-subtitle">შემოსავლები, გასავლები და მოგება</p>
+        </div>
+    </div>
 
     {{-- ══ PERIOD FILTER ══ --}}
     <div class="period-bar" id="periodBar">
@@ -617,6 +623,7 @@
     </div>
 
 </div>{{-- /fin-wrap --}}
+</div>{{-- /mod-wrap --}}
 
 {{-- ══ MODAL: ADD ENTRY ══ --}}
 @if(auth()->user()->role === 'admin')

@@ -47,19 +47,22 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before {
 @endsection
 
 @section('content')
-<div class="py-3 px-3 px-md-4">
+<div class="mod-wrap">
 
-    <div class="wh-header">
+    <div class="mod-header">
         <div>
-            <h3>📦 შესყიდვების ორდერები</h3>
-            <div class="wh-subtitle">Purchase Orders Management</div>
+            <h2 class="mod-title"><i class="fa fa-cart-shopping me-2" style="color:#2980b9;"></i>შესყიდვები</h2>
+            <p class="mod-subtitle">შესყიდვების ორდერების მართვა</p>
         </div>
-        <button id="btn-new-purchase" onclick="openPurchaseModal()" class="btn btn-success btn-sm fw-bold">
-            <i class="fa fa-plus me-1"></i> ახალი შესყიდვა
-        </button>
+        <div class="mod-actions">
+            <button id="btn-new-purchase" onclick="openPurchaseModal()" class="btn btn-success btn-sm">
+                <i class="fa fa-plus me-1"></i><span class="d-none d-sm-inline">ახალი შესყიდვა</span>
+            </button>
+        </div>
     </div>
 
-    <div class="mt-3">
+    <div class="mod-card p-3">
+    <div>
 
         {{-- ══ TABS ══ --}}
         <ul class="nav nav-tabs mb-3" id="purchaseTabs" role="tablist">
@@ -129,8 +132,9 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before {
         </div>
 
     </div>
+    </div>{{-- /mod-card --}}
 
-</div>
+</div>{{-- /mod-wrap --}}
 
 
 @include('purchases.form_purchase')

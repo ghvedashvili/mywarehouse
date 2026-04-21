@@ -30,71 +30,77 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
 @endsection
 
 @section('content')
-<div class="p-2 p-md-3">
-<div class="card shadow-sm">
-    
+<div class="mod-wrap">
 
-    {{-- Stat cards --}}
-    <div class="px-3 pt-3">
-        <div class="row g-2 mb-2">
-            <div class="col-6 col-md-3">
-                <div class="stat-card"><div class="val" id="stat-physical">—</div><div class="lbl">📦 ფიზიკური ნაშთი</div></div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="stat-card orange"><div class="val" id="stat-incoming">—</div><div class="lbl">🚚 გზაში</div></div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="stat-card blue"><div class="val" id="stat-reserved">—</div><div class="lbl">🔒 დაჯავშნული</div></div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="stat-card red"><div class="val" id="stat-low">—</div><div class="lbl">⚠️ მცირე ნაშთი</div></div>
-            </div>
+    <div class="mod-header">
+        <div>
+            <h2 class="mod-title"><i class="fa fa-warehouse me-2" style="color:#8e44ad;"></i>საწყობი</h2>
+            <p class="mod-subtitle">ნაშთების მართვა და კონტროლი</p>
         </div>
-    </div>
-<div class="card-header d-flex align-items-center flex-wrap gap-2">
-        <select id="dt-page-length" class="form-select form-select-sm" style="width:auto; flex-shrink:0;">
-            <option value="10">10</option>
-            <option value="25" selected>25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-            <option value="-1">ყველა</option>
-        </select>
-        <input id="dt-search" type="search" class="form-control form-control-sm" placeholder="ძებნა..." style="flex:1 1 120px; min-width:80px;">
-        <select id="filter-category" class="form-select form-select-sm" style="width:170px; flex-shrink:0;">
-            <option value="">ყველა კატეგორია</option>
-            @foreach($categories as $cat)
-                <option value="{{ $cat->id }}">{{ $cat->name }}</option>
-            @endforeach
-        </select>
-        <div class="ms-auto d-flex align-items-center flex-wrap gap-2">
+        <div class="mod-actions">
             <button class="btn btn-warning btn-sm" onclick="openWriteOffModal()">
-                <i class="fa fa-minus-circle me-1"></i> ჩამოწერა
+                <i class="fa fa-minus-circle me-1"></i><span class="d-none d-sm-inline"> ჩამოწერა</span>
             </button>
             <a href="{{ route('warehouse.logs') }}" class="btn btn-secondary btn-sm">
-                <i class="fa fa-history me-1"></i> ყველა ლოგი
+                <i class="fa fa-history me-1"></i><span class="d-none d-sm-inline"> ლოგი</span>
             </a>
             <a href="{{ url('purchases') }}" class="btn btn-info btn-sm">
-                <i class="fa fa-cart-shopping me-1"></i> შესყიდვები
+                <i class="fa fa-cart-shopping me-1"></i><span class="d-none d-sm-inline"> შესყიდვები</span>
             </a>
         </div>
     </div>
-    <div class="card-body p-0 p-md-3">
-        <div class="table-responsive">
-        <table id="stock-table" class="table wh-table table-hover table-bordered w-100">
-            <thead>
-                <tr>
-                    <th></th><th>პროდუქტი</th><th>კოდი</th><th>ზომა</th>
-                    <th>📦 ფიზ.</th><th>🚚 გზაში</th><th>🔒 დაჯავშნ.</th>
-                    <th>✅ ხელმისაწვდ.</th><th>🧮 FIFO</th><th>სტატუსი</th><th></th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+
+    {{-- Stat cards --}}
+    <div class="row g-2 mb-3">
+        <div class="col-6 col-md-3">
+            <div class="stat-card"><div class="val" id="stat-physical">—</div><div class="lbl">📦 ფიზიკური ნაშთი</div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card orange"><div class="val" id="stat-incoming">—</div><div class="lbl">🚚 გზაში</div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card blue"><div class="val" id="stat-reserved">—</div><div class="lbl">🔒 დაჯავშნული</div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card red"><div class="val" id="stat-low">—</div><div class="lbl">⚠️ მცირე ნაშთი</div></div>
         </div>
     </div>
-    
-</div>
-</div>
+
+    <div class="mod-card">
+        <div class="mod-toolbar">
+            <select id="dt-page-length" class="form-select form-select-sm" style="width:75px;">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="-1">ყველა</option>
+            </select>
+            <div class="mod-toolbar-search">
+                <i class="fa fa-search search-icon"></i>
+                <input id="dt-search" type="search" class="form-control form-control-sm" placeholder="ძებნა...">
+            </div>
+            <select id="filter-category" class="form-select form-select-sm" style="width:170px;">
+                <option value="">ყველა კატეგორია</option>
+                @foreach($categories as $cat)
+                    <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="table-responsive">
+            <table id="stock-table" class="table wh-table table-hover table-bordered w-100">
+                <thead>
+                    <tr>
+                        <th></th><th>პროდუქტი</th><th>კოდი</th><th>ზომა</th>
+                        <th>📦 ფიზ.</th><th>🚚 გზაში</th><th>🔒 დაჯავშნ.</th>
+                        <th>✅ ხელმისაწვდ.</th><th>🧮 FIFO</th><th>სტატუსი</th><th></th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+</div>{{-- /mod-wrap --}}
 {{-- Image Zoom Modal --}}
 <div class="modal fade" id="modal-img-zoom" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered" style="max-width:90vw;width:auto;">
