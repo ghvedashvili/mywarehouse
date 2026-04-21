@@ -381,9 +381,39 @@
 {{-- SweetAlert2 --}}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 
+
+<div id="fb-root"></div>
+<div id="fb-customer-chat" class="fb-customerchat"></div>
+
+<script>
+  var chatbox = document.getElementById('fb-customer-chat');
+  chatbox.setAttribute("page_id", "196409790221137");
+  chatbox.setAttribute("attribution", "biz_inbox");
+  chatbox.setAttribute("theme_color", "#0084ff");
+</script>
+
+<script>
+  window.fbAsyncInit = function () {
+    FB.init({
+      xfbml: true,
+      version: 'v18.0'
+    });
+  };
+
+  (function(d, s, id) {
+    if (d.getElementById(id)) return;
+    var js = d.createElement(s);
+    js.id = id;
+    js.src = "https://connect.facebook.net/en_US/sdk/xfbml.customerchat.js";
+    var fjs = d.getElementsByTagName(s)[0];
+    fjs.parentNode.insertBefore(js, fjs);
+  }(document, 'script', 'facebook-jssdk'));
+</script>
+
+
+
 <script>
 // ── Bootstrap 3 modal API → Bootstrap 5 shim ──────────────────────────
-// ამით ძველი $.fn.modal('show') კოდი კვლავ მუშაობს
 (function($) {
     var _modal = $.fn.modal;
     $.fn.modal = function(option) {
@@ -410,36 +440,26 @@
         return $el;
     };
 
-    // Bootstrap 3 events → Bootstrap 5 events shim
     $(document).on('show.bs.modal', '.modal', function() {
         $(this).trigger('show.bs.modal.bs3');
-    });
-    $(document).on('hidden.bs.modal', '.modal', function() {
-        // Bootstrap 5-ში backdrop ავტომატურად იშლება
-        // body-ს overflow ავტომატურად ბრუნდება
     });
 }(jQuery));
 
 // ── swal shim (SweetAlert2) ────────────────────────────────────────────
-// ძველი swal({type:...}) → swal({icon:...})
 window.swal = function(titleOrObj, text, type) {
     var opts = {};
     if (typeof titleOrObj === 'object') {
         opts = $.extend({}, titleOrObj);
-        // type → icon
         if (opts.type && !opts.icon) { opts.icon = opts.type; delete opts.type; }
-        // buttons → showCancelButton
         if (opts.showCancelButton === undefined && opts.buttons === true) {
             opts.showCancelButton = true;
         }
     } else {
         opts = { title: titleOrObj, text: text, icon: type };
     }
-    // timer-ის string → number
     if (opts.timer && typeof opts.timer === 'string') {
         opts.timer = parseInt(opts.timer);
     }
-    // willDelete / willRestore pattern → .then(result => result.isConfirmed)
     return Swal.fire(opts);
 };
 
