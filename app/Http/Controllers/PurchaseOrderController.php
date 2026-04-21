@@ -148,6 +148,12 @@ class PurchaseOrderController extends Controller
                 $fifo = $count === 1 ? '<br><small style="color:#8e44ad;">🧮 $'.number_format($cost,2).'/ერთ.</small>' : '';
                 return $pay . $fifo;
             })
+            ->addColumn('show_photo', function ($row) use ($groupCountMap) {
+                if (($groupCountMap[$row->id] ?? 1) > 1) return '';
+                $url = $row->product?->image_url;
+                if (!$url) return '<span class="text-muted">—</span>';
+                return '<img src="'.$url.'" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">';
+            })
             ->addColumn('group_items_json', function ($row) use ($groupItemsMap) {
                 return json_encode($groupItemsMap[$row->id] ?? []);
             })
@@ -164,7 +170,7 @@ class PurchaseOrderController extends Controller
                 $del = '<a onclick="deletePurchase('.$row->id.')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i></a>';
                 return '<div class="d-flex gap-1 justify-content-center">'.$view.$receive.$edit.$del.'</div>';
             })
-            ->rawColumns(['order_number', 'product_name', 'status_name', 'payment', 'action'])
+            ->rawColumns(['order_number', 'product_name', 'show_photo', 'status_name', 'payment', 'action'])
             ->make(true);
     }
 
@@ -185,15 +191,16 @@ class PurchaseOrderController extends Controller
         }
 
         return response()->json($items->map(fn($r) => [
-            'id'           => $r->id,
-            'product_name' => $r->product?->name         ?? 'N/A',
-            'product_code' => $r->product?->product_code ?? '—',
-            'product_size' => $r->product_size,
-            'quantity'     => $r->quantity,
-            'original_qty' => $r->original_qty ?? $r->quantity,
-            'status_id'    => $r->status_id,
-            'status_name'  => $r->orderStatus?->name  ?? '-',
-            'status_color' => $r->orderStatus?->color ?? 'default',
+            'id'            => $r->id,
+            'product_name'  => $r->product?->name         ?? 'N/A',
+            'product_code'  => $r->product?->product_code ?? '—',
+            'product_image' => $r->product?->image_url,
+            'product_size'  => $r->product_size,
+            'quantity'      => $r->quantity,
+            'original_qty'  => $r->original_qty ?? $r->quantity,
+            'status_id'     => $r->status_id,
+            'status_name'   => $r->orderStatus?->name  ?? '-',
+            'status_color'  => $r->orderStatus?->color ?? 'default',
         ])->values());
     }
 
@@ -216,11 +223,15 @@ class PurchaseOrderController extends Controller
 
             $targetStatus = (int)($request->status_id ?? 1);
 
+            $qty      = (int) $item['quantity'];
+            $discount = $isPrimary ? (float)($request->discount ?? 0) : 0;
+            $autoCash = round($costPrice * $qty - $discount, 2);
+
             $data = [
                 'order_type'                  => 'purchase',
                 'product_id'                  => $item['product_id'],
                 'product_size'                => $item['product_size'],
-                'quantity'                    => (int) $item['quantity'],
+                'quantity'                    => $qty,
                 'price_georgia'               => $item['price_georgia'] ?? 0,
                 'price_usa'                   => $item['price_usa'] ?? 0,
                 'cost_price'                  => $costPrice,
@@ -230,10 +241,10 @@ class PurchaseOrderController extends Controller
                 'courier_price_village'       => 0,
                 // shared fields on primary row only
                 'discount'    => $isPrimary ? ($request->discount  ?? 0) : 0,
-                'paid_tbc'    => $isPrimary ? ($request->paid_tbc  ?? 0) : 0,
-                'paid_bog'    => $isPrimary ? ($request->paid_bog  ?? 0) : 0,
-                'paid_lib'    => $isPrimary ? ($request->paid_lib  ?? 0) : 0,
-                'paid_cash'   => $isPrimary ? ($request->paid_cash ?? 0) : 0,
+                'paid_tbc'    => 0,
+                'paid_bog'    => 0,
+                'paid_lib'    => 0,
+                'paid_cash'   => $isPrimary ? $autoCash : 0,
                 'comment'     => $isPrimary ? $request->comment            : null,
                 'status_id'   => 1, // always create as "new" first so handleStockForPurchase sees 1→2 transition
                 'original_qty' => (int) $item['quantity'],
@@ -326,6 +337,7 @@ class PurchaseOrderController extends Controller
             }
 
             $newCostPrice = ($request->price_usa ?? 0) + $cInternational;
+            $autoCash     = round($newCostPrice * $newQty - (float)($request->discount ?? 0), 2);
 
             // ─── ამ purchase-დან ოდესმე გაყიდვა მოხდა? ───────────────────
             $courierCount = Product_Order::withoutGlobalScope('active')
@@ -434,10 +446,10 @@ class PurchaseOrderController extends Controller
                     'courier_price_region'        => $cRegion,
                     'courier_price_village'       => $cVillage,
                     'discount'                    => $request->discount ?? 0,
-                    'paid_tbc'                    => $request->paid_tbc ?? 0,
-                    'paid_bog'                    => $request->paid_bog ?? 0,
-                    'paid_lib'                    => $request->paid_lib ?? 0,
-                    'paid_cash'                   => $request->paid_cash ?? 0,
+                    'paid_tbc'                    => 0,
+                    'paid_bog'                    => 0,
+                    'paid_lib'                    => 0,
+                    'paid_cash'                   => $autoCash,
                     'comment'                     => $request->comment,
                 ]);
 
@@ -466,10 +478,10 @@ class PurchaseOrderController extends Controller
                     'courier_price_region'        => $cRegion,
                     'courier_price_village'       => $cVillage,
                     'discount'                    => $request->discount ?? 0,
-                    'paid_tbc'                    => $request->paid_tbc ?? 0,
-                    'paid_bog'                    => $request->paid_bog ?? 0,
-                    'paid_lib'                    => $request->paid_lib ?? 0,
-                    'paid_cash'                   => $request->paid_cash ?? 0,
+                    'paid_tbc'                    => 0,
+                    'paid_bog'                    => 0,
+                    'paid_lib'                    => 0,
+                    'paid_cash'                   => $autoCash,
                     'comment'                     => $request->comment,
                 ]);
 

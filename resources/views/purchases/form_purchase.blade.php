@@ -94,7 +94,7 @@
         <option value="{{ $p->id }}"
                 data-price-ge="{{ $p->price_geo }}"
                 data-sizes="{{ $p->sizes ?? '' }}"
-                data-image="{{ $p->image ? asset(ltrim($p->image ?? '', '/')) : '' }}">
+                data-image="{{ $p->image_url ?? '' }}">
             {{ $p->name }}@if($p->product_code) ({{ $p->product_code }})@endif
         </option>
     @endforeach

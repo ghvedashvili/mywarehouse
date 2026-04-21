@@ -90,6 +90,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before {
                 <thead>
                     <tr>
                         <th>ნომერი</th>
+                        <th style="width:52px"></th>
                         <th>პროდუქტი</th>
                         <th>კოდი</th>
                         <th>ზომა</th>
@@ -111,6 +112,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before {
                 <thead>
                     <tr>
                         <th>ნომერი</th>
+                        <th style="width:52px"></th>
                         <th>პროდუქტი</th>
                         <th>კოდი</th>
                         <th>ზომა</th>
@@ -165,6 +167,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before {
                     <table class="table table-sm table-bordered align-middle mb-0">
                         <thead class="table-light">
                             <tr>
+                                <th style="width:52px"></th>
                                 <th>პროდუქტი</th>
                                 <th style="width:80px">ზომა</th>
                                 <th style="width:75px" class="text-center">შეკვ.</th>
@@ -239,14 +242,15 @@ $(function() {
         },
         columns: [
             { data: 'order_number',    name: 'order_number',    responsivePriority: 2 },
+            { data: 'show_photo',      name: 'show_photo',      orderable: false, responsivePriority: 3 },
             { data: 'product_name',    name: 'product_name',    responsivePriority: 1, orderable: false },
             { data: 'product_code',    name: 'product_code',    responsivePriority: 9 },
-            { data: 'product_size',    name: 'product_size',    responsivePriority: 3 },
-            { data: 'quantity',        name: 'quantity',        responsivePriority: 4 },
+            { data: 'product_size',    name: 'product_size',    responsivePriority: 4 },
+            { data: 'quantity',        name: 'quantity',        responsivePriority: 5 },
             { data: 'payment',         name: 'payment',         orderable: false, responsivePriority: 7 },
             { data: 'price_paid',      name: 'price_paid',      orderable: false, responsivePriority: 8 },
-            { data: 'status_name',     name: 'status_name',     orderable: false, responsivePriority: 5 },
-            { data: 'created_at',      name: 'created_at',      responsivePriority: 6 },
+            { data: 'status_name',     name: 'status_name',     orderable: false, responsivePriority: 6 },
+            { data: 'created_at',      name: 'created_at',      responsivePriority: 9 },
             { data: 'action',          name: 'action',          orderable: false, responsivePriority: 2 },
             { data: 'is_return_purchase', visible: false },
             { data: 'group_items_json',   visible: false },
@@ -282,6 +286,7 @@ $(function() {
 
             var html = '<table class="table table-sm table-bordered mb-0">'
                      + '<thead class="table-light"><tr>'
+                     + '<th style="width:52px"></th>'
                      + '<th>პროდუქტი</th><th>კოდი</th><th>ზომა</th>'
                      + '<th class="text-center">შეკვეთა</th><th class="text-center">გზაშია</th>'
                      + '</tr></thead><tbody>';
@@ -294,12 +299,17 @@ $(function() {
                     ? '<span class="text-warning fw-bold">' + remaining + '</span>'
                     : '<span class="text-muted">—</span>';
 
+                var imgCell = it.product_image
+                    ? '<img src="' + it.product_image + '" style="width:44px;height:44px;object-fit:cover;border-radius:4px;">'
+                    : '<span class="text-muted" style="font-size:18px;">📦</span>';
+
                 html += '<tr>'
-                     +  '<td class="fw-semibold">' + (it.product_name||'N/A') + '</td>'
-                     +  '<td class="text-muted" style="font-size:12px;">' + (it.product_code||'—') + '</td>'
-                     +  '<td>' + (it.product_size||'—') + '</td>'
-                     +  '<td class="text-center fw-bold">' + orig + '</td>'
-                     +  '<td class="text-center">' + remainCell + '</td>'
+                     +  '<td class="text-center align-middle">' + imgCell + '</td>'
+                     +  '<td class="fw-semibold align-middle">' + (it.product_name||'N/A') + '</td>'
+                     +  '<td class="text-muted align-middle" style="font-size:12px;">' + (it.product_code||'—') + '</td>'
+                     +  '<td class="align-middle">' + (it.product_size||'—') + '</td>'
+                     +  '<td class="text-center fw-bold align-middle">' + orig + '</td>'
+                     +  '<td class="text-center align-middle">' + remainCell + '</td>'
                      +  '</tr>';
             });
             html += '</tbody></table>';
@@ -327,14 +337,15 @@ $(function() {
         },
         columns: [
             { data: 'order_number',    name: 'order_number',    responsivePriority: 2 },
+            { data: 'show_photo',      name: 'show_photo',      orderable: false, responsivePriority: 3 },
             { data: 'product_name',    name: 'product_name',    responsivePriority: 1, orderable: false },
             { data: 'product_code',    name: 'product_code',    responsivePriority: 9 },
-            { data: 'product_size',    name: 'product_size',    responsivePriority: 3 },
-            { data: 'quantity',        name: 'quantity',        responsivePriority: 4 },
+            { data: 'product_size',    name: 'product_size',    responsivePriority: 4 },
+            { data: 'quantity',        name: 'quantity',        responsivePriority: 5 },
             { data: 'payment',         name: 'payment',         orderable: false, responsivePriority: 7 },
             { data: 'price_paid',      name: 'price_paid',      orderable: false, responsivePriority: 8 },
-            { data: 'status_name',     name: 'status_name',     orderable: false, responsivePriority: 5 },
-            { data: 'created_at',      name: 'created_at',      responsivePriority: 6 },
+            { data: 'status_name',     name: 'status_name',     orderable: false, responsivePriority: 6 },
+            { data: 'created_at',      name: 'created_at',      responsivePriority: 9 },
             { data: 'action',          name: 'action',          orderable: false, responsivePriority: 2 },
             { data: 'is_return_purchase', visible: false },
             { data: 'group_items_json',   visible: false },
@@ -394,9 +405,35 @@ $(function() {
             $('<td class="text-center">').append($removeBtn)
         );
 
+        $('#purchase-lines-body').append($tr);
+
+        // Select2 with product image templates
+        $prodSel.select2({
+            dropdownParent: $('#modal-purchase'),
+            width: '100%',
+            templateResult: function(opt) {
+                if (!opt.id) return opt.text;
+                var img = $(opt.element).attr('data-image');
+                var $s = $('<span style="display:flex;align-items:center;gap:8px;">');
+                if (img) $s.append($('<img>').attr('src', img).css({ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '3px', flexShrink: 0 }));
+                $s.append(document.createTextNode(opt.text));
+                return $s;
+            },
+            templateSelection: function(opt) {
+                if (!opt.id) return opt.text;
+                var img = $(opt.element).attr('data-image');
+                if (!img) return opt.text;
+                var $s = $('<span style="display:flex;align-items:center;gap:6px;">');
+                $s.append($('<img>').attr('src', img).css({ width: '24px', height: '24px', objectFit: 'cover', borderRadius: '2px', flexShrink: 0 }));
+                $s.append(document.createTextNode(opt.text));
+                return $s;
+            }
+        });
+
         if (defaults) {
-            $prodSel.val(defaults.product_id || '');
-            var sizes = ($prodSel.find(':selected').data('sizes') || '').toString();
+            $prodSel.val(defaults.product_id || '').trigger('change.select2');
+            var opt   = $prodSel.find(':selected');
+            var sizes = (opt.attr('data-sizes') || '').toString();
             if (sizes) {
                 sizes.split(',').forEach(function(s) {
                     s = s.trim();
@@ -410,7 +447,6 @@ $(function() {
             $priceGeo.val(defaults.price_georgia ? parseFloat(defaults.price_georgia).toFixed(2) : '');
         }
 
-        $('#purchase-lines-body').append($tr);
         updateRemoveButtons();
         calcPurchaseSummary();
     };
@@ -422,10 +458,10 @@ $(function() {
 
     // ── line events (delegated) ──
     $(document).on('change', '#purchase-lines-body .line-product', function() {
-        var $tr    = $(this).closest('tr');
-        var opt    = $(this).find(':selected');
-        var sizes  = (opt.data('sizes') || '').toString();
-        var geo    = opt.data('price-ge') || 0;
+        var $tr  = $(this).closest('tr');
+        var opt  = $(this).find(':selected');
+        var sizes = (opt.attr('data-sizes') || '').toString();
+        var geo   = opt.attr('data-price-ge') || 0;
 
         var $sz = $tr.find('.line-size').empty().append('<option value="">—</option>');
         if (sizes) {
@@ -453,7 +489,9 @@ $(function() {
     $(document).on('input', '#purchase-lines-body .line-price-usa, #purchase-lines-body .line-transport, #purchase-lines-body .line-qty', calcPurchaseSummary);
 
     $(document).on('click', '#purchase-lines-body .remove-line', function() {
-        $(this).closest('tr').remove();
+        var $tr = $(this).closest('tr');
+        $tr.find('.line-product').select2('destroy');
+        $tr.remove();
         updateRemoveButtons();
         calcPurchaseSummary();
     });
@@ -532,6 +570,9 @@ $(function() {
     };
 
     $('#modal-purchase').on('hidden.bs.modal', function() {
+        $('#purchase-lines-body .line-product').each(function() {
+            if ($(this).data('select2')) $(this).select2('destroy');
+        });
         $('#purchase-lines-body .line-product, #purchase-lines-body .line-size, ' +
           '#purchase-lines-body .line-price-usa, #purchase-lines-body .line-transport')
             .prop('disabled', false).css('background', '');
@@ -626,9 +667,17 @@ $(function() {
                 return;
             }
             items.forEach(function(it) {
+                var $imgCell = $('<td class="text-center align-middle" style="width:52px;">');
+                if (it.product_image) {
+                    $imgCell.append($('<img>').attr('src', it.product_image)
+                        .css({ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '4px' }));
+                } else {
+                    $imgCell.text('📦');
+                }
                 var $tr = $('<tr data-order-id="' + it.id + '">').append(
-                    $('<td class="fw-semibold">').text(it.product_name),
-                    $('<td>').text(it.product_size || '—'),
+                    $imgCell,
+                    $('<td class="fw-semibold align-middle">').text(it.product_name),
+                    $('<td class="align-middle">').text(it.product_size || '—'),
                     $('<td class="text-center fw-bold text-muted gr-ordered">').text(it.quantity),
                     $('<td>').append(
                         $('<input type="number" class="form-control form-control-sm text-center gr-received">')
