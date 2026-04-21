@@ -1055,6 +1055,7 @@ class ProductOrderController extends Controller
                         'has_change_orders'=> $hasChangeOrders,
                         'merged_id'        => $order->merged_id,
                         'is_admin'         => $isAdmin,
+                        'comment'          => $order->comment,
                     ];
                 };
 
@@ -1123,12 +1124,25 @@ class ProductOrderController extends Controller
                     ? ' <span title="ორდერის მონაცემი განსხვავდება Customer-ისგან" style="color:#e67e22; cursor:help;">✏️</span>'
                     : '';
 
-                return '<strong>' . $name . '</strong>' . $diffBadge
-                     . '<hr style="margin:3px 0;">'
-                     . '<small class="text-muted">'
-                     . '<i class="fa fa-map-marker"></i> ' . $city . ', ' . $address . '<br>'
-                     . '<i class="fa fa-phone"></i> ' . $tel . $altDisplay
-                     . '</small>';
+                $html = '<strong>' . $name . '</strong>' . $diffBadge
+                      . '<hr style="margin:3px 0;">'
+                      . '<small class="text-muted">'
+                      . '<i class="fa fa-map-marker"></i> ' . $city . ', ' . $address . '<br>'
+                      . '<i class="fa fa-phone"></i> ' . $tel . $altDisplay
+                      . '</small>';
+
+                if ($customer->comment) {
+                    $html .= '<br><small style="color:#7d6608;background:#fffbea;border-radius:3px;padding:1px 4px;display:inline-block;margin-top:2px;">'
+                           . '<i class="fa fa-comment"></i> ' . e($customer->comment) . '</small>';
+                }
+
+                $isGroupHeader = $item->is_primary && $item->children->isNotEmpty();
+                if ($item->comment && !$isGroupHeader) {
+                    $html .= '<br><small style="color:#1a5276;background:#eaf4fb;border-radius:3px;padding:1px 4px;display:inline-block;margin-top:2px;">'
+                           . '<i class="fa fa-file-text"></i> ' . e($item->comment) . '</small>';
+                }
+
+                return $html;
             })
             ->addColumn('payment', function ($item) use ($isAdmin) {
                 // Group header: show total across all orders

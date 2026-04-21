@@ -1039,6 +1039,7 @@ function editForm(id) {
             }
 
             $('#customer_id_sale').val(data.customer_id).trigger('change');
+            $('#form-sale-content textarea[name="comment"]').val(data.comment || '');
 
             setTimeout(function() {
                 if (data.order_address != null) {
@@ -2028,12 +2029,17 @@ $(document).on('click', '.expand-btn', function() {
         var imgHtml = order.product_image
             ? '<img src="' + order.product_image + '" class="img-zoom-trigger" style="width:48px;height:48px;object-fit:cover;border-radius:4px;cursor:pointer;">'
             : '<div style="width:48px;height:48px;background:#f5f5f5;border:1px solid #ddd;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:16px;color:#bbb;"><i class=\'fa fa-image\'></i></div>';
+        var commentHtml = order.comment
+            ? '<div style="margin-top:4px;font-size:11px;color:#1a5276;background:#eaf4fb;border-radius:3px;padding:1px 5px;display:inline-block;">'
+              + '<i class="fa fa-file-text"></i> ' + order.comment + '</div>'
+            : '';
         var colB = '<div style="display:flex; gap:8px; align-items:flex-start;">'
             + '<div style="flex-shrink:0;">' + imgHtml + '</div>'
             + '<div style="font-size:12px;">'
             + '<div style="font-weight:600;">' + order.product_name + '</div>'
             + (order.product_code ? '<div style="color:#888; font-size:11px;">' + order.product_code + '</div>' : '')
             + (order.product_size ? '<span class="label label-info" style="margin-top:2px; display:inline-block;">' + order.product_size + '</span>' : '')
+            + commentHtml
             + '</div>'
             + '</div>';
 
