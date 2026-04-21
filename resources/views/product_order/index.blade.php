@@ -514,7 +514,8 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
         // DataTable
         // =====================
         var save_method;
-        var isAdmin = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
+        var isAdmin       = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
+        var isSaleOperator = {{ auth()->user()->role == 'sale_operator' ? 'true' : 'false' }};
 
 // სტატუს ფერების map: Bootstrap label class → CSS color
 var statusColorMap = {
@@ -680,17 +681,20 @@ var columns = [
             var paid   = parseFloat(data.paid_tbc  || 0) + parseFloat(data.paid_bog  || 0)
                        + parseFloat(data.paid_lib  || 0) + parseFloat(data.paid_cash || 0);
             var isPaid = (geo - paid) <= 0.01;
-            var payBtn = '<a onclick="openPayModal('
-                + data.id + ','
-                + (data.price_georgia || 0) + ','
-                + (data.discount  || 0) + ','
-                + (data.paid_tbc  || 0) + ','
-                + (data.paid_bog  || 0) + ','
-                + (data.paid_lib  || 0) + ','
-                + (data.paid_cash || 0)
-                + ')" class="btn btn-xs" title="გადახდა" '
-                + 'style="background:' + (isPaid ? '#198754' : '#dc3545') + ';color:#fff;">'
-                + '<i class="fa fa-credit-card"></i></a>';
+            var payBtn = '';
+            if (!isSaleOperator) {
+                payBtn = '<a onclick="openPayModal('
+                    + data.id + ','
+                    + (data.price_georgia || 0) + ','
+                    + (data.discount  || 0) + ','
+                    + (data.paid_tbc  || 0) + ','
+                    + (data.paid_bog  || 0) + ','
+                    + (data.paid_lib  || 0) + ','
+                    + (data.paid_cash || 0)
+                    + ')" class="btn btn-xs" title="გადახდა" '
+                    + 'style="background:' + (isPaid ? '#198754' : '#dc3545') + ';color:#fff;">'
+                    + '<i class="fa fa-credit-card"></i></a>';
+            }
             return (data.action || '').replace('</div>', payBtn + '</div>');
         }
     },
@@ -2051,17 +2055,20 @@ $(document).on('click', '.expand-btn', function() {
             + '</div>';
 
         // ── Col D: Actions ────────────────────────────────────────
-        var chPayBtn = '<a onclick="openPayModal('
-            + order.id + ','
-            + (order.price_georgia || 0) + ','
-            + (order.discount  || 0) + ','
-            + (order.paid_tbc  || 0) + ','
-            + (order.paid_bog  || 0) + ','
-            + (order.paid_lib  || 0) + ','
-            + (order.paid_cash || 0)
-            + ')" class="btn btn-xs" title="გადახდა" '
-            + 'style="background:' + (chIsPaid ? '#198754' : '#dc3545') + ';color:#fff;">'
-            + '<i class="fa fa-credit-card"></i></a>';
+        var chPayBtn = '';
+        if (!isSaleOperator) {
+            chPayBtn = '<a onclick="openPayModal('
+                + order.id + ','
+                + (order.price_georgia || 0) + ','
+                + (order.discount  || 0) + ','
+                + (order.paid_tbc  || 0) + ','
+                + (order.paid_bog  || 0) + ','
+                + (order.paid_lib  || 0) + ','
+                + (order.paid_cash || 0)
+                + ')" class="btn btn-xs" title="გადახდა" '
+                + 'style="background:' + (chIsPaid ? '#198754' : '#dc3545') + ';color:#fff;">'
+                + '<i class="fa fa-credit-card"></i></a>';
+        }
 
         var splitBtn = '<a onclick="splitFromGroup(' + order.id + ')" class="btn btn-outline-warning btn-xs" title="ჯგუფიდან გამოყოფა"><i class="fa fa-scissors"></i></a>';
         var colD = chPayBtn + splitBtn;

@@ -1257,7 +1257,8 @@ class ProductOrderController extends Controller
                         </span>';
             })
             ->addColumn('action', function ($item) use ($isAdmin) {
-                if (!$isAdmin) return '';
+                $role = auth()->user()->role;
+                if (!$isAdmin && $role !== 'sale_operator') return '';
 
                 if ($item->status === 'deleted') {
                     return '<div class="d-flex justify-content-center">' .

@@ -131,11 +131,15 @@ class CategoryController extends Controller
             return '<span class="label label-success">active</span>';
         })
         ->addColumn('action', function($category) {
-            if (auth()->user()->role === 'admin') {
+            $role = auth()->user()->role;
+            if ($role === 'admin') {
                 return '<div class="d-flex gap-1">' .
                     '<a onclick="editForm('. $category->id .')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a>' .
                     '<a onclick="deleteData('. $category->id .')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a>' .
                 '</div>';
+            }
+            if ($role === 'sale_operator') {
+                return '<a onclick="editForm('. $category->id .')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a>';
             }
             return '';
         })
