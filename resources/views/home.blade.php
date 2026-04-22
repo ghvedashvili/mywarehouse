@@ -13,6 +13,8 @@
     $totalSales      = Product_Order::whereIn('order_type',['sale','change'])->count();
     $todaySales      = Product_Order::whereIn('order_type',['sale','change'])->whereDate('created_at', today())->count();
     $pendingOrders   = Product_Order::whereIn('order_type',['sale','change'])->where('status_id', 1)->count();
+    $inTransitOrders = Product_Order::whereIn('order_type',['sale','change'])->where('status_id', 2)->count();
+    $warehouseOrders = Product_Order::whereIn('order_type',['sale','change'])->where('status_id', 3)->count();
     $courierOrders   = Product_Order::whereIn('order_type',['sale','change'])->where('status_id', 4)->count();
     $deliveredOrders = Product_Order::whereIn('order_type',['sale','change'])->where('status_id', 6)->count();
     $pendingPurchases= Product_Order::where('order_type','purchase')->where('status_id', 2)->count();
@@ -76,8 +78,9 @@
     gap: 12px;
     margin-bottom: 24px;
 }
-@media(min-width:576px){ .kpi-grid { grid-template-columns: repeat(2,1fr); } }
-@media(min-width:992px){ .kpi-grid { grid-template-columns: repeat(4,1fr); gap:16px; } }
+@media(min-width:576px)  { .kpi-grid { grid-template-columns: repeat(2,1fr); } }
+@media(min-width:768px)  { .kpi-grid { grid-template-columns: repeat(3,1fr); } }
+@media(min-width:1100px) { .kpi-grid { grid-template-columns: repeat(5,1fr); gap:14px; } }
 
 .kpi-card {
     background: #fff;
@@ -408,7 +411,12 @@
             </div>
             <div class="kpi-value">{{ $totalSales }}</div>
             <div class="kpi-label">გაყიდვები</div>
-            <div class="kpi-sub"><i class="fa fa-circle-dot" style="font-size:7px;color:#f59e0b;"></i> {{ $pendingOrders }} მოლოდინში</div>
+            <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:3px 6px;">
+                <div style="font-size:10px;color:#94a3b8;"><span style="color:#f59e0b;font-weight:700;">{{ $pendingOrders }}</span> მოლოდინში</div>
+                <div style="font-size:10px;color:#94a3b8;"><span style="color:#3b82f6;font-weight:700;">{{ $inTransitOrders }}</span> გზაშია</div>
+                <div style="font-size:10px;color:#94a3b8;"><span style="color:#f97316;font-weight:700;">{{ $warehouseOrders }}</span> საწყობშია</div>
+                <div style="font-size:10px;color:#94a3b8;"><span style="color:#8b5cf6;font-weight:700;">{{ $courierOrders }}</span> კურიერთან</div>
+            </div>
         </a>
 
         <a href="{{ route('purchases.index') }}" class="kpi-card" style="--kpi-color:#7c3aed;--kpi-bg:#f5f3ff;">
@@ -429,7 +437,16 @@
             </div>
             <div class="kpi-value">{{ $totalCustomers }}</div>
             <div class="kpi-label">მომხმარებლები</div>
-            <div class="kpi-sub"><i class="fa fa-tags" style="font-size:9px;color:#059669;"></i> {{ $totalCategories }} კატეგორია</div>
+            <div class="kpi-sub"><i class="fa fa-user" style="font-size:9px;color:#059669;"></i> {{ $totalUsers }} სისტ. მომხ.</div>
+        </a>
+
+        <a href="{{ route('categories.index') }}" class="kpi-card" style="--kpi-color:#0891b2;--kpi-bg:#ecfeff;">
+            <div class="kpi-top">
+                <div class="kpi-icon"><i class="fa fa-tags"></i></div>
+            </div>
+            <div class="kpi-value">{{ $totalCategories }}</div>
+            <div class="kpi-label">კატეგორიები</div>
+            <div class="kpi-sub"><i class="fa fa-cubes" style="font-size:9px;color:#0891b2;"></i> {{ $activeProducts }}/{{ $totalProducts }} პროდ.</div>
         </a>
 
         <a href="{{ route('warehouse.index') }}" class="kpi-card" style="--kpi-color:#dc2626;--kpi-bg:#fef2f2;">

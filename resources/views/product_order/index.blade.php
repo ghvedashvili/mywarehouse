@@ -2,173 +2,539 @@
 @section('page_title')<i class="fa fa-right-from-bracket me-2" style="color:#e74c3c;"></i>გაყიდვები@endsection
 
 @section('top')
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
 <link href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css" rel="stylesheet">
 <style>
-/* ── Pagination ── */
-.dataTables_wrapper .dataTables_paginate .paginate_button { padding:4px 10px!important; font-size:13px!important; border-radius:6px!important; margin:0 2px!important; border:1px solid #dee2e6!important; background:#fff!important; color:#333!important; }
-.dataTables_wrapper .dataTables_paginate .paginate_button.current,
-.dataTables_wrapper .dataTables_paginate .paginate_button.current:hover { background:#0d6efd!important; color:#fff!important; border-color:#0d6efd!important; }
-.dataTables_wrapper .dataTables_paginate .paginate_button:hover { background:#e9ecef!important; color:#333!important; }
-.dataTables_wrapper .dataTables_paginate .paginate_button.disabled { color:#aaa!important; }
-
-/* ── Table font ── */
-#products-out-table th, #products-out-table td { font-size:13px; vertical-align:middle; }
-table.dataTable thead th { font-size:12px; }
-
-/* ── Action buttons ── */
-.btn-xs { padding:3px 7px!important; font-size:12px!important; line-height:1.4!important; border-radius:5px!important; }
-.btn-xs i { font-size:12px; }
-
 /* ── Select2 ── */
-.select2-container--default .select2-selection--single { height:34px; border:1px solid #dee2e6; border-radius:6px; }
-.select2-container--default .select2-selection--single .select2-selection__rendered { line-height:34px; padding-left:8px; color:#333; }
+.select2-container--default .select2-selection--single { height:34px; border:1px solid #e8eaed; border-radius:8px; }
+.select2-container--default .select2-selection--single .select2-selection__rendered { line-height:34px; padding-left:10px; color:#111827; font-size:13px; }
 .select2-container--default .select2-selection--single .select2-selection__arrow { height:34px; }
-
 /* ── Nested modal ── */
 #modal-form { z-index:1060; }
 #modal-form + .modal-backdrop { z-index:1055; }
-
-/* ── Bootstrap 3 compat ── */
-.label { display:inline-block; padding:2px 7px; font-size:11px; font-weight:600; border-radius:4px; color:#fff; }
-.label-default { background:#6c757d; } .label-primary { background:#0d6efd; }
-.label-success  { background:#198754; } .label-info    { background:#0dcaf0; color:#000; }
-.label-warning  { background:#ffc107; color:#000; } .label-danger { background:#dc3545; }
-.label-purple   { background:#6f42c1; }
-.box { background:#fff; border-radius:10px; box-shadow:0 1px 4px rgba(0,0,0,.06); margin-bottom:20px; }
+/* ── Bootstrap 3 compat box ── */
+.box { background:#fff; border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.05); margin-bottom:20px; }
 .box-title { font-size:15px; font-weight:600; margin:0; }
+table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before { background-color:#2563eb; border-radius:50%; }
 
-/* ── Responsive expand button ── */
-table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
-    background-color:#0d6efd; border-radius:50%; font-size:11px;
+/* ═══════════════════════════════════════════════
+   PAGE TOKENS
+═══════════════════════════════════════════════ */
+.po-page {
+  --po-bg:          #f4f5f7;
+  --po-surface:     #ffffff;
+  --po-surface2:    #f9fafb;
+  --po-border:      #e8eaed;
+  --po-border-soft: #f0f1f3;
+  --po-text-1:      #111827;
+  --po-text-2:      #4b5563;
+  --po-text-3:      #9ca3af;
+  --po-accent:      #2563eb;
+  --po-accent-soft: #eff4ff;
+  --po-green:       #16a34a;
+  --po-green-soft:  #f0fdf4;
+  --po-red:         #dc2626;
+  --po-red-soft:    #fef2f2;
+  --po-amber:       #d97706;
+  --po-amber-soft:  #fffbeb;
+  --po-purple:      #7c3aed;
+  --po-purple-soft: #f5f3ff;
+  --po-teal:        #0d9488;
+  --po-teal-soft:   #f0fdfa;
+  --po-radius:      12px;
+  --po-radius-sm:   8px;
+  --po-trans:       .18s cubic-bezier(.4,0,.2,1);
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+}
+.po-page.po-dark {
+  --po-bg:          #0f1117;
+  --po-surface:     #1a1d27;
+  --po-surface2:    #22263a;
+  --po-border:      #2a2e42;
+  --po-border-soft: #232740;
+  --po-text-1:      #f1f5f9;
+  --po-text-2:      #94a3b8;
+  --po-text-3:      #475569;
+  --po-accent:      #3b82f6;
+  --po-accent-soft: #1e2d4a;
+  --po-green-soft:  #0d2d1a;
+  --po-red-soft:    #2d1010;
+  --po-amber-soft:  #2d2010;
+  --po-purple-soft: #1e1030;
+  --po-teal-soft:   #0d2d2a;
+  background: var(--po-bg) !important;
+  color: var(--po-text-1);
 }
 
-/* ── Period filter (finance style) ── */
-.btn-period { padding:4px 12px; border-radius:20px; border:1.5px solid #dfe6e9; background:#fff; font-size:12px; font-weight:600; color:#636e72; cursor:pointer; transition:all .2s; }
-.btn-period.active, .btn-period:hover { background:#198754; border-color:#198754; color:#fff; }
-.custom-dates { display:none; align-items:center; gap:5px; }
-.custom-dates.show { display:flex; }
-.custom-dates input[type=date] { border:1.5px solid #dfe6e9; border-radius:6px; padding:3px 7px; font-size:12px; color:#2d3436; width:120px; }
-.btn-apply { background:#0d6efd; color:#fff; border:none; border-radius:6px; padding:4px 10px; font-size:12px; font-weight:600; cursor:pointer; }
+/* ═══════════════════════════════════════════════
+   STATS STRIP
+═══════════════════════════════════════════════ */
+.po-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:16px; }
+.po-stat {
+  background:var(--po-surface); border:1px solid var(--po-border);
+  border-radius:var(--po-radius); padding:16px 18px;
+  box-shadow:0 1px 3px rgba(0,0,0,.06);
+  transition:box-shadow var(--po-trans), transform var(--po-trans), background var(--po-trans);
+}
+.po-stat:hover { box-shadow:0 4px 16px rgba(0,0,0,.08); transform:translateY(-1px); }
+.po-stat-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:15px; margin-bottom:10px; }
+.po-stat-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.6px; color:var(--po-text-3); margin-bottom:5px; }
+.po-stat-value { font-size:22px; font-weight:700; letter-spacing:-.5px; color:var(--po-text-1); }
+.po-stat-sub { font-size:11px; color:var(--po-text-3); margin-top:4px; }
+@media(max-width:1100px){ .po-stats { grid-template-columns:repeat(2,1fr); } }
+@media(max-width:600px)  { .po-stats { grid-template-columns:repeat(2,1fr); gap:10px; } .po-stat-value { font-size:18px; } }
 
-/* ── Header mobile ── */
-@media (max-width:576px) {
-    .card-header .btn { font-size:12px; padding:4px 8px; }
-    .card-header { gap:6px!important; }
+/* ═══════════════════════════════════════════════
+   FILTER BAR
+═══════════════════════════════════════════════ */
+.po-filter-bar {
+  background:var(--po-surface); border:1px solid var(--po-border);
+  border-radius:var(--po-radius); padding:12px 16px;
+  display:flex; align-items:center; flex-wrap:wrap; gap:10px;
+  box-shadow:0 1px 3px rgba(0,0,0,.06); margin-bottom:16px;
+  transition:background var(--po-trans);
+}
+.po-search {
+  display:flex; align-items:center; gap:8px;
+  background:var(--po-bg); border:1px solid var(--po-border);
+  border-radius:var(--po-radius-sm); padding:7px 12px;
+  flex:1; min-width:160px; max-width:260px;
+  transition:border-color var(--po-trans);
+}
+.po-search:focus-within { border-color:var(--po-accent); }
+.po-search input { background:none; border:none; outline:none; color:var(--po-text-1); font-size:13px; width:100%; font-family:inherit; }
+.po-search input::placeholder { color:var(--po-text-3); }
+.po-search i { color:var(--po-text-3); font-size:12px; flex-shrink:0; }
+.po-pill-group { display:flex; gap:4px; flex-wrap:wrap; }
+.po-pill {
+  padding:5px 12px; border-radius:20px; font-size:12px; font-weight:600;
+  border:1.5px solid var(--po-border); background:var(--po-surface);
+  color:var(--po-text-2); cursor:pointer; transition:all var(--po-trans); white-space:nowrap;
+}
+.po-pill:hover { border-color:var(--po-accent); color:var(--po-accent); }
+.po-pill.active { background:var(--po-accent); border-color:var(--po-accent); color:#fff; }
+.po-filter-sep { width:1px; height:28px; background:var(--po-border); flex-shrink:0; }
+@media(max-width:768px){ .po-filter-sep { display:none; } }
+.po-select {
+  background:var(--po-bg); border:1px solid var(--po-border);
+  border-radius:var(--po-radius-sm); color:var(--po-text-1);
+  font-size:12.5px; padding:6px 10px; outline:none;
+  cursor:pointer; transition:border-color var(--po-trans); font-family:inherit;
+}
+.po-select:focus { border-color:var(--po-accent); }
+.po-toggle-wrap { display:flex; align-items:center; gap:7px; }
+.po-toggle-wrap label { font-size:12px; font-weight:500; color:var(--po-text-2); cursor:pointer; white-space:nowrap; }
+/* custom dates */
+.po-custom-dates { display:none; align-items:center; gap:5px; }
+.po-custom-dates.show { display:flex; }
+.po-custom-dates input[type=date] {
+  border:1.5px solid var(--po-border); border-radius:var(--po-radius-sm);
+  padding:4px 8px; font-size:12px; color:var(--po-text-1); width:120px;
+  background:var(--po-bg); outline:none; font-family:inherit;
+}
+.po-apply-btn {
+  background:var(--po-accent); color:#fff; border:none; border-radius:var(--po-radius-sm);
+  padding:4px 10px; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;
+}
+/* status dropdown */
+#po-status-dropdown {
+  display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:9999;
+  background:var(--po-surface); border:1.5px solid var(--po-border);
+  border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.12); min-width:190px; padding:8px 0;
+}
+#po-status-dropdown label {
+  display:flex; align-items:center; gap:9px; padding:6px 14px; cursor:pointer;
+  font-size:12.5px; font-weight:500; color:var(--po-text-2); margin:0;
+  transition:background var(--po-trans);
+}
+#po-status-dropdown label:hover { background:var(--po-bg); }
+#po-status-dropdown input[type=checkbox] { accent-color:var(--po-accent); width:14px; height:14px; }
+
+/* ═══════════════════════════════════════════════
+   BULK BAR
+═══════════════════════════════════════════════ */
+.po-bulk-bar {
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  background:var(--po-accent); color:#fff;
+  padding:8px 16px; border-radius:var(--po-radius-sm);
+  font-size:13px; font-weight:600; margin-bottom:16px;
+  animation:po-slidedown .2s ease-out;
+}
+@keyframes po-slidedown { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+.po-bulk-btn {
+  padding:5px 12px; border-radius:6px; font-size:12px; font-weight:700;
+  background:rgba(255,255,255,.2); color:#fff; cursor:pointer;
+  display:flex; align-items:center; gap:6px; border:none; font-family:inherit;
+  transition:background var(--po-trans);
+}
+.po-bulk-btn:hover { background:rgba(255,255,255,.3); }
+
+/* ═══════════════════════════════════════════════
+   TABLE CARD
+═══════════════════════════════════════════════ */
+.po-table-card {
+  background:var(--po-surface); border:1px solid var(--po-border);
+  border-radius:var(--po-radius); box-shadow:0 1px 3px rgba(0,0,0,.06);
+  overflow:hidden; transition:background var(--po-trans);
+}
+#products-out-table { border-collapse:collapse !important; width:100%; }
+#products-out-table thead tr { background:var(--po-surface2); }
+#products-out-table thead th {
+  padding:10px 14px !important; text-align:left;
+  font-size:11px !important; font-weight:700 !important; text-transform:uppercase !important;
+  letter-spacing:.6px !important; color:var(--po-text-3) !important;
+  border-bottom:1px solid var(--po-border) !important; white-space:nowrap;
+}
+#products-out-table tbody td {
+  padding:13px 14px !important; vertical-align:middle !important;
+  border-bottom:1px solid var(--po-border-soft) !important; font-size:13px;
+  color:var(--po-text-1);
+}
+#products-out-table tbody tr { transition:background var(--po-trans); cursor:pointer; }
+/* subtle row separation — every non-child row gets a slightly thicker bottom border */
+#products-out-table tbody tr:not(.po-child-row) td {
+  border-bottom:2px solid var(--po-border) !important;
+}
+#products-out-table tbody tr:last-child td { border-bottom:none !important; }
+#products-out-table tbody tr:hover td { background:var(--po-bg) !important; }
+/* Row states */
+#products-out-table tbody tr.po-row-debt   td:first-child { box-shadow:inset 3px 0 0 var(--po-red); }
+#products-out-table tbody tr.po-row-change td:first-child { box-shadow:inset 3px 0 0 var(--po-accent); }
+#products-out-table tbody tr.po-row-returned td { opacity:.72; }
+#products-out-table tbody tr.po-row-exchanged td { background:color-mix(in srgb,var(--po-purple-soft) 60%,transparent) !important; }
+#products-out-table tbody tr.po-group-row td { background:var(--po-surface2) !important; border-top:2px solid var(--po-border) !important; }
+#products-out-table tbody tr.po-child-row { animation:po-expandrow .2s ease-out; }
+#products-out-table tbody tr.po-child-row td { background:color-mix(in srgb,var(--po-accent-soft) 40%,transparent) !important; }
+@keyframes po-expandrow { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+
+/* ═══════════════════════════════════════════════
+   TABLE CELL COMPONENTS
+═══════════════════════════════════════════════ */
+/* Status labels (Bootstrap 3 compat — server-rendered) */
+.label {
+  display:inline-flex !important; align-items:center !important; gap:4px !important;
+  padding:3px 9px !important; border-radius:20px !important;
+  font-size:11px !important; font-weight:600 !important; white-space:nowrap !important;
+  line-height:1.3 !important;
+}
+.label-default  { background:var(--po-surface2,#f9fafb) !important; color:var(--po-text-3,#9ca3af) !important; }
+.label-primary  { background:var(--po-accent-soft,#eff4ff) !important; color:var(--po-accent,#2563eb) !important; }
+.label-success  { background:var(--po-green-soft,#f0fdf4) !important; color:var(--po-green,#16a34a) !important; }
+.label-info     { background:var(--po-teal-soft,#f0fdfa) !important; color:var(--po-teal,#0d9488) !important; }
+.label-warning  { background:var(--po-amber-soft,#fffbeb) !important; color:var(--po-amber,#d97706) !important; }
+.label-danger   { background:var(--po-red-soft,#fef2f2) !important; color:var(--po-red,#dc2626) !important; }
+.label-purple   { background:var(--po-purple-soft,#f5f3ff) !important; color:var(--po-purple,#7c3aed) !important; }
+
+/* Order number badge */
+.po-order-num {
+  font-family:'DM Mono','Cascadia Code','SF Mono',monospace;
+  font-size:12px; font-weight:500; color:var(--po-text-2);
+  background:var(--po-bg); padding:2px 7px;
+  border-radius:5px; border:1px solid var(--po-border); white-space:nowrap;
+  display:inline-block;
+}
+.po-order-num.group { color:var(--po-purple); border-color:var(--po-purple); background:var(--po-purple-soft); }
+
+/* Courier tag */
+.po-courier-tag {
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:10px; font-weight:600; color:var(--po-accent);
+  background:var(--po-accent-soft); border-radius:4px; padding:2px 6px;
+}
+/* Merge hint */
+.po-merge-hint {
+  color:var(--po-amber); font-size:10px; cursor:pointer;
+  opacity:.65; transition:opacity var(--po-trans); margin-left:2px;
+}
+.po-merge-hint:hover { opacity:1; }
+/* Expand button */
+.po-expand-btn {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:3px 8px; border-radius:5px;
+  background:var(--po-bg); border:1px solid var(--po-border);
+  color:var(--po-text-2); font-size:11px; font-weight:600;
+  cursor:pointer; transition:all var(--po-trans); user-select:none;
+  margin-top:5px;
+}
+.po-expand-btn:hover { background:var(--po-border); }
+.po-expand-btn.open i { transform:rotate(90deg); }
+.po-expand-btn i { transition:transform var(--po-trans); }
+.po-group-badges { display:flex; flex-direction:column; gap:3px; margin-top:4px; }
+
+/* Product cell */
+.po-product-cell { display:flex; align-items:center; gap:10px; }
+.po-product-thumb {
+  width:40px; height:40px; border-radius:8px; flex-shrink:0; overflow:hidden;
+  background:var(--po-bg); border:1px solid var(--po-border);
+  cursor:zoom-in; transition:transform .15s;
+}
+.po-product-thumb:hover { transform:scale(1.08); }
+.po-product-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+
+/* Finance cell */
+.po-finance-total { font-size:14px; font-weight:700; letter-spacing:-.3px; color:var(--po-text-1); }
+.po-paid-row { display:flex; align-items:center; gap:6px; margin-top:3px; }
+.po-paid-bar { height:3px; border-radius:3px; background:var(--po-border); flex:1; max-width:60px; overflow:hidden; }
+.po-paid-fill { height:100%; border-radius:3px; }
+.po-paid-tag { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:var(--po-green); background:var(--po-green-soft); border-radius:20px; padding:2px 8px; }
+.po-debt-tag { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:var(--po-red); background:var(--po-red-soft); border-radius:20px; padding:2px 8px; }
+
+/* Date cell */
+.po-date-cell { font-size:12px; color:var(--po-text-2); white-space:nowrap; }
+.po-date-cell small { display:block; font-size:10px; color:var(--po-text-3); }
+
+/* Action buttons */
+.po-actions { display:flex; align-items:center; gap:4px; flex-wrap:wrap; justify-content:flex-end; }
+.btn-xs {
+  width:28px !important; height:28px !important;
+  display:inline-flex !important; align-items:center !important; justify-content:center !important;
+  padding:0 !important; border-radius:6px !important;
+  font-size:11px !important; line-height:1 !important;
+  border:1px solid transparent !important;
+  transition:all var(--po-trans,.18s) !important; cursor:pointer;
+}
+.btn-xs:hover { transform:scale(1.1); box-shadow:0 2px 8px rgba(0,0,0,.18) !important; }
+.btn-xs.btn-warning  { background:var(--po-amber-soft,#fffbeb) !important; color:var(--po-amber,#d97706) !important; border-color:color-mix(in srgb,#d97706 25%,transparent) !important; }
+.btn-xs.btn-warning:hover  { background:var(--po-amber,#d97706) !important; color:#fff !important; }
+.btn-xs.btn-danger   { background:var(--po-red-soft,#fef2f2) !important; color:var(--po-red,#dc2626) !important; border-color:color-mix(in srgb,#dc2626 25%,transparent) !important; }
+.btn-xs.btn-danger:hover   { background:var(--po-red,#dc2626) !important; color:#fff !important; }
+.btn-xs.btn-success  { background:var(--po-green-soft,#f0fdf4) !important; color:var(--po-green,#16a34a) !important; border-color:color-mix(in srgb,#16a34a 25%,transparent) !important; }
+.btn-xs.btn-success:hover  { background:var(--po-green,#16a34a) !important; color:#fff !important; }
+.btn-xs.btn-info     { background:var(--po-teal-soft,#f0fdfa) !important; color:var(--po-teal,#0d9488) !important; border-color:color-mix(in srgb,#0d9488 25%,transparent) !important; }
+.btn-xs.btn-info:hover     { background:var(--po-teal,#0d9488) !important; color:#fff !important; }
+.btn-xs.btn-primary  { background:var(--po-accent-soft,#eff4ff) !important; color:var(--po-accent,#2563eb) !important; border-color:color-mix(in srgb,#2563eb 25%,transparent) !important; }
+.btn-xs.btn-primary:hover  { background:var(--po-accent,#2563eb) !important; color:#fff !important; }
+.btn-xs.btn-default, .btn-xs.btn-secondary { background:var(--po-surface2,#f9fafb) !important; color:var(--po-text-2,#4b5563) !important; border-color:var(--po-border,#e8eaed) !important; }
+.btn-xs.btn-default:hover, .btn-xs.btn-secondary:hover { background:var(--po-border,#e8eaed) !important; }
+/* Pay button states */
+.po-pay-paid    { background:var(--po-green,#16a34a) !important; color:#fff !important; border-color:var(--po-green,#16a34a) !important; }
+.po-pay-debt    { background:var(--po-red,#dc2626)   !important; color:#fff !important; border-color:var(--po-red,#dc2626)   !important; }
+.po-pay-partial { background:var(--po-amber,#d97706) !important; color:#fff !important; border-color:var(--po-amber,#d97706) !important; }
+/* Send-to-courier button is text+icon, lives in Col 1 (not .po-actions) — needs auto width */
+.po-page td:nth-child(2) .btn-xs, .po-page td:nth-child(2) span.btn-xs {
+  width:auto !important; padding:3px 10px !important; gap:5px; margin-top:3px; display:inline-flex !important;
+}
+
+/* ═══════════════════════════════════════════════
+   PAGINATION
+═══════════════════════════════════════════════ */
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+  padding:5px 10px !important; font-size:12px !important; border-radius:6px !important;
+  margin:0 2px !important; border:1px solid var(--po-border,#e8eaed) !important;
+  background:var(--po-surface,#fff) !important; color:var(--po-text-2,#4b5563) !important;
+  font-weight:500 !important; transition:all .15s !important;
+}
+.dataTables_wrapper .dataTables_paginate .paginate_button.current,
+.dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+  background:var(--po-accent,#2563eb) !important; color:#fff !important;
+  border-color:var(--po-accent,#2563eb) !important;
+}
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover:not(.current):not(.disabled) {
+  background:var(--po-bg,#f4f5f7) !important; color:var(--po-text-1,#111827) !important;
+}
+.dataTables_wrapper .dataTables_paginate .paginate_button.disabled { color:var(--po-text-3,#9ca3af) !important; }
+.dataTables_wrapper .dataTables_info { font-size:12px; color:var(--po-text-3,#9ca3af); }
+
+/* ═══════════════════════════════════════════════
+   HEADER EXTRAS
+═══════════════════════════════════════════════ */
+.po-theme-btn {
+  width:32px; height:32px; border-radius:8px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--po-bg,#f4f5f7); border:1px solid var(--po-border,#e8eaed);
+  color:var(--po-text-2,#4b5563); cursor:pointer; font-size:14px;
+  transition:all var(--po-trans); margin:0;
+}
+.po-theme-btn:hover { background:var(--po-border,#e8eaed); }
+.po-drop-item {
+  display:flex; align-items:center; gap:8px;
+  padding:9px 14px; font-size:13px; color:var(--po-text-2,#4b5563);
+  cursor:pointer; transition:background var(--po-trans); text-decoration:none;
+}
+.po-drop-item:hover { background:var(--po-bg,#f4f5f7); color:var(--po-text-1,#111827); }
+.po-drop-item i { width:16px; text-align:center; font-size:12px; }
+
+/* ── Checkboxes — hidden by default, shown only in merge mode ── */
+#check-all, .row-check { accent-color:var(--po-accent,#2563eb); cursor:pointer; }
+.po-page:not(.po-merge-mode) #products-out-table th:nth-child(1),
+.po-page:not(.po-merge-mode) #products-out-table td:nth-child(1) {
+  width:0 !important; min-width:0 !important; padding:0 !important;
+  overflow:hidden; border:none !important;
+}
+.po-page:not(.po-merge-mode) #check-all,
+.po-page:not(.po-merge-mode) .row-check { display:none !important; }
+
+/* ── Mobile ── */
+@media(max-width:640px) {
+  .po-product-thumb { display:none; }
+  .po-filter-sep { display:none; }
+  #products-out-table th:nth-child(6),
+  #products-out-table td:nth-child(6) { display:none; }
 }
 </style>
 @endsection
 
 @section('content')
-<div class="p-2 p-md-3">
-    <div class="card shadow-sm">
-        <div class="card-header d-flex align-items-center flex-wrap gap-2">
+<div class="mod-wrap po-page" id="po-page-root">
 
-            {{-- Page length --}}
-            <select id="dt-page-length" class="form-select form-select-sm" style="width:75px; flex-shrink:0;">
-                <option value="10">10</option>
-                <option value="25" selected>25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                <option value="-1">ყველა</option>
-            </select>
-
-            {{-- Search --}}
-            <input id="dt-search" type="search" class="form-control form-control-sm"
-                   placeholder="ძებნა..." style="flex:1 1 150px; min-width:100px; max-width:220px;">
-
-            {{-- Date range filter (finance style) --}}
-            <div class="d-flex align-items-center flex-wrap gap-1" style="flex-shrink:0;">
-                <button class="btn-period active" data-period="all">ყველა</button>
-                <button class="btn-period" data-period="today">დღეს</button>
-                <button class="btn-period" data-period="week">კვირა</button>
-                <button class="btn-period" data-period="month">თვე</button>
-                <button class="btn-period" data-period="custom">Custom</button>
-                <div class="custom-dates" id="customDates">
-                    <input type="date" id="filter-date-from">
-                    <span style="color:#b2bec3;">—</span>
-                    <input type="date" id="filter-date-to">
-                    <button class="btn-apply" id="applyCustom">გამოყენება</button>
-                </div>
-            </div>
-
-            {{-- Status filter --}}
-            <div id="status-filter-wrapper" style="position:relative; flex-shrink:0;">
-                <button id="status-filter-btn" type="button"
-                        class="btn btn-outline-secondary btn-sm" style="min-width:130px; text-align:left;">
-                    ყველა სტატუსი <span style="float:right;">▾</span>
-                </button>
-                <div id="status-filter-dropdown" style="
-                    display:none; position:absolute; top:100%; left:0; z-index:9999;
-                    background:#fff; border:1px solid #ccc; border-radius:6px;
-                    box-shadow:0 4px 12px rgba(0,0,0,.15); min-width:180px; padding:6px 0;">
-                    @foreach($statuses as $status)
-                    <label style="display:flex;align-items:center;gap:8px;padding:5px 12px;cursor:pointer;font-size:13px;font-weight:normal;margin:0;">
-                        <input type="checkbox" class="status-filter-check" value="{{ $status->id }}"> {{ $status->name }}
-                    </label>
-                    @endforeach
-                </div>
-            </div>
-
-            {{-- Debt toggle --}}
-            <div class="d-flex align-items-center gap-1" style="flex-shrink:0;">
-                <label for="toggle-deleted" class="mb-0 text-muted small" style="cursor:pointer; white-space:nowrap;">დავალიანება</label>
-                <div class="form-check form-switch mb-0">
-                    <input class="form-check-input" type="checkbox" id="toggle-deleted" role="switch">
-                </div>
-            </div>
-
-            {{-- Deleted toggle --}}
-            <div class="d-flex align-items-center gap-1" style="flex-shrink:0;">
-                <label for="toggle-show-deleted" class="mb-0 text-muted small" style="cursor:pointer; white-space:nowrap;">წაშლილი</label>
-                <div class="form-check form-switch mb-0">
-                    <input class="form-check-input" type="checkbox" id="toggle-show-deleted" role="switch">
-                </div>
-            </div>
-
-            {{-- Spacer --}}
-            <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
-                <button onclick="addSaleForm()" class="btn btn-success btn-sm">
-                    <i class="fa fa-plus"></i> <span class="d-none d-sm-inline">Add Sale</span>
-                </button>
-                <button onclick="exportFilteredPDF()" class="btn btn-warning btn-sm">
-                    <i class="fa fa-file-pdf"></i> <span class="d-none d-md-inline">Filtered PDF</span>
-                </button>
-                <a href="{{ route('exportPDF.productOrderAll') }}" class="btn btn-danger btn-sm">
-                    <i class="fa fa-file-pdf"></i> <span class="d-none d-md-inline">All PDF</span>
-                </a>
-                <a href="{{ route('exportExcel.courierOrders') }}" class="btn btn-success btn-sm">
-                    <i class="fa fa-file-excel"></i> <span class="d-none d-md-inline">კურიერი დღეს</span>
-                </a>
-                <button onclick="mergeSelected()" class="btn btn-info btn-sm" id="btn-merge" style="display:none;">
-                    <i class="fa fa-link"></i> <span class="d-none d-sm-inline">გაერთიანება</span>
-                </button>
-            </div>
-
+    {{-- ── HEADER ── --}}
+    <div class="mod-header">
+        <div>
+            <h2 class="mod-title"><i class="fa fa-right-from-bracket me-2" style="color:var(--po-red,#dc2626);font-size:16px;"></i>გაყიდვები</h2>
+            <p class="mod-subtitle">გაყიდვის ორდერების მართვა</p>
         </div>
-        <div class="card-body p-2 p-md-3">
-            <div class="table-responsive">
-            <table id="products-out-table" class="table table-bordered table-striped w-100">
-                <thead class="fs-1">
-    <tr>
-        <th style="width:105px;">№ / <input type="checkbox" id="check-all" title="ყველას მონიშვნა"></th>
-        <th style="display:none;"></th> {{-- created_at — sort only --}}
-        <th>პროდუქტი</th>
-        <th>მომხმარებელი</th>
-        <th>ფინანსები</th>
-        <th>ღილაკები</th>
-        <th style="display:none;"></th> {{-- cross_ref_html --}}
-        <th style="display:none;"></th> {{-- has_mergeable --}}
-        <th style="display:none;"></th> {{-- children_by_status --}}
-        <th style="display:none;"></th> {{-- group_oldest_date --}}
-    </tr>
-</thead>
-                <tbody></tbody>
-            </table>
-            </div>{{-- /table-responsive --}}
+        <div class="mod-actions" style="align-items:center;">
+            <button onclick="addSaleForm()" class="btn btn-sm" style="background:var(--po-accent,#2563eb);color:#fff;border:none;border-radius:8px;font-weight:600;padding:6px 14px;">
+                <i class="fa fa-plus me-1"></i><span class="d-none d-sm-inline">ახალი გაყიდვა</span>
+            </button>
+            {{-- კურიერი დღეს --}}
+            <a href="{{ route('exportExcel.courierOrders') }}" class="btn btn-sm" style="background:var(--po-green-soft,#f0fdf4);color:var(--po-green,#16a34a);border:1px solid color-mix(in srgb,#16a34a 25%,transparent);border-radius:8px;font-weight:600;padding:6px 12px;text-decoration:none;">
+                <i class="fa fa-file-excel me-1"></i><span class="d-none d-sm-inline">კურიერი დღეს</span>
+            </a>
+            {{-- Export dropdown --}}
+            <div style="position:relative;" id="po-export-wrap">
+                <button id="po-export-btn" class="btn btn-sm" style="background:var(--po-bg,#f4f5f7);color:var(--po-text-2,#4b5563);border:1px solid var(--po-border,#e8eaed);border-radius:8px;font-weight:600;padding:6px 12px;">
+                    <i class="fa fa-download me-1"></i><span class="d-none d-sm-inline">ექსპორტი</span>
+                    <i class="fa fa-chevron-down ms-1" style="font-size:10px;"></i>
+                </button>
+                <div id="po-export-menu" style="display:none;position:absolute;top:calc(100% + 4px);right:0;z-index:9999;background:var(--po-surface,#fff);border:1.5px solid var(--po-border,#e8eaed);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:180px;overflow:hidden;">
+                    <a onclick="exportFilteredPDF();" class="po-drop-item"><i class="fa fa-file-pdf" style="color:var(--po-red,#dc2626);"></i> Filtered PDF</a>
+                    <a href="{{ route('exportPDF.productOrderAll') }}" class="po-drop-item"><i class="fa fa-file-pdf" style="color:#aaa;"></i> All PDF</a>
+                </div>
+            </div>
+            {{-- Merge (hidden) --}}
+            <button onclick="mergeSelected()" class="btn btn-sm" id="btn-merge" style="display:none;background:var(--po-accent-soft,#eff4ff);color:var(--po-accent,#2563eb);border:1px solid var(--po-accent,#2563eb);border-radius:8px;font-weight:600;">
+                <i class="fa fa-link me-1"></i><span class="d-none d-sm-inline">გაერთიანება</span>
+            </button>
+            {{-- Dark toggle --}}
+            <button onclick="togglePoTheme()" class="po-theme-btn" title="Dark Mode" id="po-theme-btn">
+                <i class="fa fa-moon" id="po-theme-icon"></i>
+            </button>
         </div>
     </div>
-</div>{{-- /p-2 p-md-3 --}}
+
+    {{-- ── STATS STRIP ── --}}
+    <div class="po-stats">
+        <div class="po-stat">
+            <div class="po-stat-icon" style="background:var(--po-accent-soft);color:var(--po-accent);"><i class="fa fa-cart-shopping"></i></div>
+            <div class="po-stat-label">სულ ორდერი</div>
+            <div class="po-stat-value" id="stat-total">—</div>
+            <div class="po-stat-sub">ბოლო 30 დღე</div>
+        </div>
+        <div class="po-stat">
+            <div class="po-stat-icon" style="background:var(--po-red-soft);color:var(--po-red);"><i class="fa fa-circle-exclamation"></i></div>
+            <div class="po-stat-label">დავალიანება</div>
+            <div class="po-stat-value" id="stat-debt" style="color:var(--po-red);">—</div>
+            <div class="po-stat-sub" id="stat-debt-sub">—</div>
+        </div>
+        <div class="po-stat">
+            <div class="po-stat-icon" style="background:var(--po-green-soft);color:var(--po-green);"><i class="fa fa-check-circle"></i></div>
+            <div class="po-stat-label">გადახდილი</div>
+            <div class="po-stat-value" id="stat-paid" style="color:var(--po-green);">—</div>
+            <div class="po-stat-sub">ამ თვეში</div>
+        </div>
+        <div class="po-stat">
+            <div class="po-stat-icon" style="background:var(--po-purple-soft);color:var(--po-purple);"><i class="fa fa-truck"></i></div>
+            <div class="po-stat-label">კურიერთან</div>
+            <div class="po-stat-value" id="stat-courier" style="color:var(--po-purple);">—</div>
+            <div class="po-stat-sub">გასაგზავნი</div>
+        </div>
+    </div>
+
+    {{-- ── FILTER BAR ── --}}
+    <div class="po-filter-bar">
+        <div class="po-search">
+            <i class="fa fa-magnifying-glass"></i>
+            <input type="search" id="dt-search" placeholder="ძებნა ორდერი, კლიენტი...">
+        </div>
+        <div class="po-pill-group">
+            <button class="po-pill active" data-period="all">ყველა</button>
+            <button class="po-pill" data-period="today">დღეს</button>
+            <button class="po-pill" data-period="week">კვირა</button>
+            <button class="po-pill" data-period="month">თვე</button>
+            <button class="po-pill" data-period="custom">Custom</button>
+        </div>
+        <div class="po-custom-dates" id="customDates">
+            <input type="date" id="filter-date-from">
+            <span style="color:var(--po-text-3);">—</span>
+            <input type="date" id="filter-date-to">
+            <button class="po-apply-btn" id="applyCustom">გამოყენება</button>
+        </div>
+        <div class="po-filter-sep"></div>
+        {{-- Status dropdown --}}
+        <div style="position:relative;" id="po-status-wrap">
+            <button id="status-filter-btn" type="button" class="po-select" style="cursor:pointer;min-width:140px;text-align:left;display:flex;align-items:center;gap:6px;">
+                <i class="fa fa-filter" style="font-size:10px;opacity:.6;"></i>
+                <span id="status-filter-label" style="flex:1;">სტატუსი</span>
+                <span style="opacity:.5;font-size:11px;">▾</span>
+            </button>
+            <div id="po-status-dropdown">
+                @foreach($statuses as $status)
+                <label>
+                    <input type="checkbox" class="status-filter-check" value="{{ $status->id }}"> {{ $status->name }}
+                </label>
+                @endforeach
+            </div>
+        </div>
+        {{-- Page length --}}
+        <select id="dt-page-length" class="po-select" style="width:80px;">
+            <option value="10">10</option>
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="-1">ყველა</option>
+        </select>
+        <div class="po-filter-sep"></div>
+        <div class="po-toggle-wrap">
+            <label for="toggle-deleted">დავ.</label>
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="toggle-deleted" role="switch" style="cursor:pointer;">
+            </div>
+        </div>
+        <div class="po-toggle-wrap">
+            <label for="toggle-show-deleted">წაშ.</label>
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="toggle-show-deleted" role="switch" style="cursor:pointer;">
+            </div>
+        </div>
+    </div>
+
+    {{-- ── BULK BAR ── --}}
+    <div class="po-bulk-bar" id="po-bulk-bar" style="display:none;">
+        <i class="fa fa-check-square"></i>
+        <span id="po-bulk-count">0 მონიშნული</span>
+        <button class="po-bulk-btn" onclick="mergeSelected()"><i class="fa fa-link"></i> გაერთიანება</button>
+        <button class="po-bulk-btn" onclick="exportFilteredPDF()"><i class="fa fa-file-pdf"></i> PDF</button>
+        <span style="margin-left:auto;opacity:.8;cursor:pointer;font-size:16px;" onclick="clearPoSelection()">✕</span>
+    </div>
+
+    {{-- ── TABLE ── --}}
+    <div class="po-table-card">
+        <div class="table-responsive">
+            <table id="products-out-table" class="table w-100">
+                <thead>
+                    <tr>
+                        <th style="width:36px;"><input type="checkbox" id="check-all" title="ყველას მონიშვნა"></th>
+                        <th>№ / სტატუსი</th>
+                        <th style="display:none;"></th>{{-- created_at sort --}}
+                        <th>პროდუქტი</th>
+                        <th>კლიენტი</th>
+                        <th>ფინანსები</th>
+                        <th>თარიღი</th>
+                        <th style="text-align:right;">მოქმედება</th>
+                        <th style="display:none;"></th>{{-- cross_ref_html --}}
+                        <th style="display:none;"></th>{{-- has_mergeable --}}
+                        <th style="display:none;"></th>{{-- children_by_status --}}
+                        <th style="display:none;"></th>{{-- group_oldest_date --}}
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+</div>{{-- /mod-wrap po-page --}}
 
 <div class="modal fade" id="modal-status" tabindex="-1" role="dialog">
     <div class="modal-dialog modal-sm"> <div class="modal-content" style="border-radius: 8px;">
@@ -514,35 +880,44 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
         // DataTable
         // =====================
         var save_method;
-        var isAdmin       = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
+        var isAdmin        = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
         var isSaleOperator = {{ auth()->user()->role == 'sale_operator' ? 'true' : 'false' }};
-
-// სტატუს ფერების map: Bootstrap label class → CSS color
-var statusColorMap = {
-    success: '#198754', warning: '#e67e22', danger: '#dc3545',
-    info: '#17a2b8',  primary: '#0d6efd', default: '#6c757d', purple: '#6f42c1'
-};
+        var mergeMode      = false;
 
 function fmtDate(dt) {
     if (!dt) return '';
     var d = new Date(dt);
     return ('0'+d.getDate()).slice(-2) + '.' + ('0'+(d.getMonth()+1)).slice(-2) + '.' + d.getFullYear();
 }
+function fmtTime(dt) {
+    if (!dt) return '';
+    var d = new Date(dt);
+    return ('0'+d.getHours()).slice(-2) + ':' + ('0'+d.getMinutes()).slice(-2);
+}
 
 var columns = [
-    // Col 0: № + checkbox + status + date + expand
+    // Col 0: Checkbox only
+    {
+        data: null,
+        orderable: false,
+        searchable: false,
+        width: '36px',
+        render: function(data) {
+            return '<input type="checkbox" class="row-check" data-id="' + data.id + '" data-status="' + data.status_id + '">';
+        }
+    },
+    // Col 1: Order identity
     {
         data: null,
         orderable: false,
         searchable: true,
         responsivePriority: 1,
-        width: '115px',
+        /* placeholder width — keep old signature intact */
+        width: '160px',
         render: function(data) {
             var isGroup = data.is_primary && data.children_count > 1;
-            var bc      = statusColorMap[data.status_color] || '#6c757d';
-            var dt      = fmtDate(data.created_at);
 
-            // ── Store children for expand ──
+            // Store children for expand
             if (data.is_primary && data.children_count > 0) {
                 window._childrenStore = window._childrenStore || {};
                 window._childrenStore[data.id] = Array.isArray(data.children_json)
@@ -550,152 +925,126 @@ var columns = [
                     : (typeof data.children_json === 'string' ? JSON.parse(data.children_json || '[]') : []);
             }
 
+            // Courier tag helper
+            var courierPrice = parseFloat(data.courier_price_tbilisi) || parseFloat(data.courier_price_region) || parseFloat(data.courier_price_village) || 0;
+            var courierHtml = '';
+            if (courierPrice > 0) {
+                var cLabel = parseFloat(data.courier_price_tbilisi) > 0 ? 'თბ'
+                           : parseFloat(data.courier_price_region)  > 0 ? 'რაი' : 'სოფ';
+                courierHtml = '<div style="margin-top:4px;"><span class="po-courier-tag"><i class="fa fa-truck" style="font-size:9px;"></i> ' + cLabel + ' ' + courierPrice + '₾</span></div>';
+            }
+
             if (isGroup) {
-                // ── GROUP HEADER row ─────────────────────────────────────
                 var groups = Array.isArray(data.children_by_status)
                     ? data.children_by_status
                     : (typeof data.children_by_status === 'string' ? JSON.parse(data.children_by_status || '[]') : []);
-
-                var badges = '';
+                var badges = '<div class="po-group-badges">';
                 groups.forEach(function(g) {
-                    badges += '<div style="margin-bottom:3px;">'
-                        + '<span class="label label-' + g.color + '" style="font-size:10px; padding:3px 7px;">'
-                        + '<i class="fa fa-cube" style="font-size:9px;"></i> ' + g.count + '× ' + g.name
-                        + '</span></div>';
+                    badges += '<span class="label label-' + g.color + '"><i class="fa fa-cube" style="font-size:9px;"></i> ' + g.count + '× ' + g.name + '</span>';
                 });
-
-                var groupDt = fmtDate(data.group_oldest_date || data.created_at);
-
-                var courierBadge = '';
-                var courierPrice = parseFloat(data.courier_price_tbilisi) || parseFloat(data.courier_price_region) || parseFloat(data.courier_price_village) || 0;
-                if (courierPrice > 0) {
-                    var courierLabel = parseFloat(data.courier_price_tbilisi) > 0 ? 'თბილისი'
-                                     : parseFloat(data.courier_price_region)  > 0 ? 'რაიონი'
-                                     : 'სოფელი';
-                    courierBadge = '<span style="display:inline-block; margin-top:3px; font-size:10px; background:#e8f4fd; color:#1a6fa3; border:1px solid #aed6f1; border-radius:4px; padding:1px 6px;">'
-                        + '<i class="fa fa-truck" style="font-size:9px;"></i> ' + courierLabel + ' ' + courierPrice + '₾'
-                        + '</span>';
-                }
-
-                return '<div style="border-left:4px solid #7f8c8d; padding-left:6px;">'
-                    + '<div style="margin-bottom:4px;">'
-                    + '<input type="checkbox" class="row-check" data-id="' + data.id + '" data-status="' + data.status_id + '" style="margin:0 4px 0 0; vertical-align:middle;">'
-                    + '<strong style="font-size:11px; color:#555;">group-' + (data.order_number || ('S' + data.id)) + '</strong>'
-                    + (courierBadge ? ' ' + courierBadge : '')
-                    + '</div>'
+                badges += '</div>';
+                return '<span class="po-order-num group">⬡ ' + (data.order_number || ('G'+data.id)) + '</span>'
                     + badges
-                    + (data.status_label ? '<div style="margin-top:4px;">' + data.status_label + '</div>' : '')
-                    + '<small class="text-muted" style="font-size:10px; display:block; margin-top:2px;">' + groupDt + '</small>'
-                    + '<div style="margin-top:4px;">'
-                    + '<span class="expand-btn" data-id="' + data.id + '" style="cursor:pointer; color:#7f8c8d; font-size:11px;">'
-                    + '<i class="fa fa-chevron-right"></i> <small style="font-size:10px;">ჩამოსაშლელი (' + data.children_count + ')</small>'
-                    + '</span></div>'
-                    + '</div>';
+                    + (data.status_label || '')
+                    + courierHtml
+                    + '<div><span class="po-expand-btn expand-btn" data-id="' + data.id + '">'
+                    + '<i class="fa fa-chevron-right"></i> ' + data.children_count + ' შვილი'
+                    + '</span></div>';
             }
 
-            // ── REGULAR row ─────────────────────────────────────────────
-            var orderNo   = data.order_number || ('S' + data.id);
-            var crossRef  = data.cross_ref_html || '';
-
-            var cb = '<input type="checkbox" class="row-check" data-id="' + data.id + '" data-status="' + data.status_id + '" style="margin:0; vertical-align:middle;">';
-
+            // Regular row
+            var orderNo  = data.order_number || ('S'+data.id);
+            var crossRef = data.cross_ref_html
+                ? '<div style="font-size:10px;color:var(--po-text-3,#9ca3af);margin-top:2px;">' + data.cross_ref_html + '</div>' : '';
             var mergeHint = '';
             if (data.has_mergeable && data.customer_id && data.status !== 'deleted') {
-                mergeHint = ' <span class="merge-search-btn" data-customer-id="' + data.customer_id + '" '
-                    + 'title="ამ კლიენტის სხვა ორდერები" '
-                    + 'style="cursor:pointer; color:#e67e22; font-size:10px;"><i class="fa fa-search"></i></span>';
+                mergeHint = '<span class="po-merge-hint merge-search-btn" data-customer-id="' + data.customer_id + '" title="ამ კლიენტის ორდერები"><i class="fa fa-link"></i></span>';
             }
-
-            var courierPrice = parseFloat(data.courier_price_tbilisi) || parseFloat(data.courier_price_region) || parseFloat(data.courier_price_village) || 0;
-            var courierBadge = '';
-            if (courierPrice > 0) {
-                var courierLabel = parseFloat(data.courier_price_tbilisi) > 0 ? 'თბილისი'
-                                 : parseFloat(data.courier_price_region)  > 0 ? 'რაიონი'
-                                 : 'სოფელი';
-                courierBadge = '<span style="display:inline-block; margin-top:3px; font-size:10px; background:#e8f4fd; color:#1a6fa3; border:1px solid #aed6f1; border-radius:4px; padding:1px 6px;">'
-                    + '<i class="fa fa-truck" style="font-size:9px;"></i> ' + courierLabel + ' ' + courierPrice + '₾'
-                    + '</span>';
-            }
-
-            return '<div style="border-left:3px solid ' + bc + '; padding-left:6px;">'
-                + '<div style="display:flex; align-items:center; gap:4px; flex-wrap:nowrap; margin-bottom:3px;">'
-                + cb
-                + '<strong style="font-size:11px; color:#333; white-space:nowrap;">' + orderNo + '</strong>'
+            return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;flex-wrap:nowrap;">'
+                + '<span class="po-order-num">' + orderNo + '</span>'
                 + mergeHint
                 + '</div>'
-                + (courierBadge ? '<div style="margin-bottom:3px;">' + courierBadge + '</div>' : '')
-                + data.status_label
-                + '<small class="text-muted" style="font-size:10px; display:block; margin-top:2px; white-space:nowrap;">' + dt + '</small>'
-                + (crossRef ? '<div style="font-size:10px; margin-top:2px;">' + crossRef + '</div>' : '')
-                + '</div>';
+                + (data.status_label || '')
+                + courierHtml
+                + crossRef;
         }
     },
-    // Col 1: created_at — hidden, for sort only
+    // Col 2: created_at — hidden, sort only
     { data: 'created_at', name: 'created_at', visible: false },
-    // Col 2: Product
+    // Col 3: Product
     {
-        data: null,
-        orderable: false,
-        searchable: false,
-        responsivePriority: 3,
+        data: null, orderable: false, searchable: false, responsivePriority: 3,
         render: function(data) {
-            return '<div style="display:flex; gap:8px; align-items:flex-start;">'
-                + (data.show_photo ? '<div style="flex-shrink:0;">' + data.show_photo + '</div>' : '')
-                + '<div style="font-size:12px; min-width:0;">' + (data.product_info || '') + '</div>'
+            var photo = data.show_photo
+                ? '<div class="po-product-thumb">' + data.show_photo + '</div>' : '';
+            return '<div class="po-product-cell">'
+                + photo
+                + '<div style="font-size:12.5px;min-width:0;">' + (data.product_info || '') + '</div>'
                 + '</div>';
         }
     },
-    // Col 3: Customer
+    // Col 4: Customer
     {
-        data: null,
-        orderable: false,
-        searchable: false,
-        responsivePriority: 4,
+        data: null, orderable: false, searchable: false, responsivePriority: 4,
         render: function(data) {
-            return '<div style="font-size:12px;">' + (data.customer_name || '') + '</div>';
+            return '<div style="font-size:13px;">' + (data.customer_name || '') + '</div>';
         }
     },
-    // Col 4: Payment
+    // Col 5: Finance
     {
-        data: null,
-        orderable: false,
-        searchable: false,
-        responsivePriority: 5,
+        data: null, orderable: false, searchable: false, responsivePriority: 5,
         render: function(data) {
-            return '<div style="font-size:12px;">' + (data.payment || '') + '</div>';
-        }
-    },
-    // Col 5: Actions + pay button
-    {
-        data: null,
-        orderable: false,
-        searchable: false,
-        responsivePriority: 2,
-        render: function(data) {
-            if (data.status === 'deleted') return data.action || '';
-            // Group header: action already has only unmerge (no pay needed here)
             if (data.is_primary && data.children_count > 1) {
-                return data.action || '';
+                return '<div style="font-size:12.5px;">' + (data.payment || '') + '</div>';
             }
-            var geo    = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
-            var paid   = parseFloat(data.paid_tbc  || 0) + parseFloat(data.paid_bog  || 0)
-                       + parseFloat(data.paid_lib  || 0) + parseFloat(data.paid_cash || 0);
-            var isPaid = (geo - paid) <= 0.01;
-            var payBtn = '';
+            var geo  = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
+            var paid = parseFloat(data.paid_tbc || 0) + parseFloat(data.paid_bog || 0)
+                     + parseFloat(data.paid_lib || 0) + parseFloat(data.paid_cash || 0);
+            var pct      = geo > 0 ? Math.min(paid / geo, 1) : 1;
+            var isPaid   = (geo - paid) <= 0.01;
+            var pColor   = pct >= 1 ? 'var(--po-green,#16a34a)' : (pct > 0 ? 'var(--po-amber,#d97706)' : 'var(--po-red,#dc2626)');
+            var tag = isPaid
+                ? '<span class="po-paid-tag"><i class="fa fa-check" style="font-size:9px;"></i> გადახდილი</span>'
+                : '<span class="po-debt-tag"><i class="fa fa-circle-exclamation" style="font-size:9px;"></i> ' + (geo-paid).toFixed(2) + ' ₾</span>';
+            return '<div class="po-finance-total">' + geo.toFixed(2) + ' ₾</div>'
+                + (parseFloat(data.discount || 0) > 0 ? '<div style="font-size:10px;color:var(--po-text-3);">🏷️ -' + data.discount + '₾</div>' : '')
+                + '<div class="po-paid-row">'
+                + '<div class="po-paid-bar"><div class="po-paid-fill" style="width:' + (pct*100).toFixed(0) + '%;background:' + pColor + ';"></div></div>'
+                + '</div>'
+                + '<div style="margin-top:3px;">' + tag + '</div>';
+        }
+    },
+    // Col 6: Date
+    {
+        data: null, orderable: false, searchable: false, responsivePriority: 6,
+        render: function(data) {
+            return '<div class="po-date-cell">' + fmtDate(data.created_at)
+                + '<small>' + fmtTime(data.created_at) + '</small></div>';
+        }
+    },
+    // Col 7: Actions
+    {
+        data: null, orderable: false, searchable: false, responsivePriority: 2,
+        render: function(data) {
+            if (data.status === 'deleted') return '<div class="po-actions">' + (data.action || '') + '</div>';
+            if (data.is_primary && data.children_count > 1) {
+                return '<div class="po-actions">' + (data.action || '') + '</div>';
+            }
+            var geo  = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
+            var paid = parseFloat(data.paid_tbc || 0) + parseFloat(data.paid_bog || 0)
+                     + parseFloat(data.paid_lib || 0) + parseFloat(data.paid_cash || 0);
+            var pct      = geo > 0 ? paid / geo : 1;
+            var isPaid   = (geo - paid) <= 0.01;
+            var payClass = isPaid ? 'po-pay-paid' : (pct > 0 ? 'po-pay-partial' : 'po-pay-debt');
+            var payBtn   = '';
             if (!isSaleOperator) {
                 payBtn = '<a onclick="openPayModal('
-                    + data.id + ','
-                    + (data.price_georgia || 0) + ','
-                    + (data.discount  || 0) + ','
-                    + (data.paid_tbc  || 0) + ','
-                    + (data.paid_bog  || 0) + ','
-                    + (data.paid_lib  || 0) + ','
-                    + (data.paid_cash || 0)
-                    + ')" class="btn btn-xs" title="გადახდა" '
-                    + 'style="background:' + (isPaid ? '#198754' : '#dc3545') + ';color:#fff;">'
-                    + '<i class="fa fa-credit-card"></i></a>';
+                    + data.id + ',' + (data.price_georgia||0) + ',' + (data.discount||0) + ','
+                    + (data.paid_tbc||0) + ',' + (data.paid_bog||0) + ',' + (data.paid_lib||0) + ',' + (data.paid_cash||0)
+                    + ')" class="btn btn-xs ' + payClass + '" title="გადახდა"><i class="fa fa-credit-card"></i></a>';
             }
-            return (data.action || '').replace('</div>', payBtn + '</div>');
+            var actionHtml = (data.action || '').replace(/^<div/, '<div class="po-actions"');
+            return actionHtml.replace('</div>', payBtn + '</div>');
         }
     },
     // Hidden cols
@@ -711,27 +1060,19 @@ var table = $('#products-out-table').DataTable({
     responsive: true,
     ajax: "{{ route('api.productsOut') }}",
     columns: columns,
-    order: [[1, 'desc']],
-    dom: 't<"d-flex justify-content-between align-items-center mt-2"ip>',
+    order: [[2, 'desc']],
+    dom: 't<"d-flex justify-content-between align-items-center mt-2 px-3 pb-3"ip>',
     pageLength: 25,
     language: { info: '_START_–_END_ / _TOTAL_', paginate: { previous: '‹', next: '›' } },
     createdRow: function(row, data) {
-        // Group header row
-        if (data.is_primary && data.children_count > 1) {
-            $(row).addClass('group-header-row').css({ 'font-weight': '600' });
-            return;
-        }
-        // გაცვლილი (status=6)
-        if (data.status_id == 6) { $(row).css('background-color', '#f5eef8'); return; }
-        // დაბრუნებული (status=5)
-        if (data.status_id == 5) { $(row).css('background-color', '#f2f3f4'); return; }
-        // change ორდერი
-        if (data.original_sale_id) { $(row).css('background-color', '#d9edf7'); return; }
-        // დავალიანება
+        if (data.is_primary && data.children_count > 1) { $(row).addClass('po-group-row'); return; }
+        if (data.status_id == 6) { $(row).addClass('po-row-exchanged'); return; }
+        if (data.status_id == 5) { $(row).addClass('po-row-returned');  return; }
+        if (data.original_sale_id) { $(row).addClass('po-row-change'); return; }
         var geo  = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
         var paid = parseFloat(data.paid_tbc || 0) + parseFloat(data.paid_bog || 0) +
                    parseFloat(data.paid_lib || 0) + parseFloat(data.paid_cash || 0);
-        $(row).css('background-color', (geo - paid) > 0.01 ? '#f2dede' : '');
+        if ((geo - paid) > 0.01) { $(row).addClass('po-row-debt'); }
     },
 });
 
@@ -1506,15 +1847,14 @@ $(document).on('change', '#toggle-deleted', function() {
 });
 
 
-// სტატუს ფილტრის dropdown გახსნა/დახურვა
+// სტატუს ფილტრის dropdown
 $(document).on('click', '#status-filter-btn', function(e) {
     e.stopPropagation();
-    $('#status-filter-dropdown').toggle();
+    $('#po-status-dropdown').toggle();
 });
-
 $(document).on('click', function(e) {
-    if (!$(e.target).closest('#status-filter-wrapper').length) {
-        $('#status-filter-dropdown').hide();
+    if (!$(e.target).closest('#po-status-wrap').length) {
+        $('#po-status-dropdown').hide();
     }
 });
 
@@ -1526,9 +1866,9 @@ $(document).on('change', '.status-filter-check', function() {
     });
 
     if (selected.length === 0) {
-        $('#status-filter-btn').html('ყველა სტატუსი <span style="float:right;">▾</span>');
+        $('#status-filter-label').text('სტატუსი');
     } else {
-        $('#status-filter-btn').html(selected.length + ' მონიშნული <span style="float:right;">▾</span>');
+        $('#status-filter-label').text(selected.length + ' მონიშნ.');
     }
 
     reloadTableWithFilters(); // ← ეს იყო პრობლემა, ძველი კოდი პირდაპირ URL-ს ადგენდა
@@ -1538,6 +1878,9 @@ $(document).on('change', '#toggle-show-deleted', function() {
     reloadTableWithFilters();
 });
 function reloadTableWithFilters() {
+    mergeMode = false;
+    $('#po-page-root').removeClass('po-merge-mode');
+
     var params = [];
     if ($('#toggle-deleted').is(':checked'))      params.push('debt_only=1');
     if ($('#toggle-show-deleted').is(':checked')) params.push('show_deleted=1');
@@ -1552,6 +1895,7 @@ function reloadTableWithFilters() {
     if (dateTo)   params.push('date_to='   + dateTo);
 
     table.ajax.url("{{ route('api.productsOut') }}?" + params.join('&')).load();
+    loadPoStats();
 }
 
 // ── Period buttons ──────────────────────────────────────────────
@@ -1577,8 +1921,8 @@ function applyPeriod(period) {
     reloadTableWithFilters();
 }
 
-$(document).on('click', '.btn-period', function() {
-    $('.btn-period').removeClass('active');
+$(document).on('click', '.po-pill[data-period]', function() {
+    $('.po-pill[data-period]').removeClass('active');
     $(this).addClass('active');
     var period = $(this).data('period');
     if (period === 'custom') {
@@ -1857,10 +2201,29 @@ function toggleMergeBtn() {
     var checked = $('.row-check:checked');
     var count   = checked.length;
 
+    if (count >= 1) {
+        $('#po-bulk-count').text(count + ' მონიშნული');
+        $('#po-bulk-bar').show();
+    } else {
+        $('#po-bulk-bar').hide();
+    }
+
     if (count >= 2) {
         $('#btn-merge').show();
     } else {
         $('#btn-merge').hide();
+    }
+}
+
+function clearPoSelection() {
+    $('.row-check').prop('checked', false);
+    $('#check-all').prop('checked', false);
+    $('#po-bulk-bar').hide();
+    $('#btn-merge').hide();
+    if (mergeMode) {
+        mergeMode = false;
+        $('#po-page-root').removeClass('po-merge-mode');
+        reloadTableWithFilters();
     }
 }
 
@@ -1914,15 +2277,14 @@ $(document).on('click', '.merge-search-btn', function(e) {
     e.stopPropagation();
     var customerId = $(this).data('customer-id');
 
-    // 1. DataTable-ს გავფილტვრავთ customer_id-ით (AJAX reload + custom param)
+    mergeMode = true;
+    $('#po-page-root').addClass('po-merge-mode');
+
     table.ajax.url(
         "{{ route('api.productsOut') }}?merge_customer_id=" + customerId
     ).load(function() {
-        // 2. reload-ის შემდეგ — ყველა checkbox მოვნიშნოთ
-        setTimeout(function() {
-            $('.row-check').prop('checked', true);
-            toggleMergeBtn();
-        }, 100);
+        $('.row-check').prop('checked', true);
+        toggleMergeBtn();
     });
 });
 
@@ -1987,139 +2349,94 @@ function splitFromGroup(id) {
 // Expand / Collapse — შვილების გაშლა
 // =====================
 $(document).on('click', '.expand-btn', function() {
-    var btn       = $(this);
-    var parentId  = btn.data('id');
+    var btn      = $(this);
+    var parentId = btn.data('id');
     var allOrders = (window._childrenStore || {})[parentId] || [];
-    var icon      = btn.find('i');
     var parentRow = btn.closest('tr');
 
-    if (btn.hasClass('expanded')) {
-        btn.removeClass('expanded');
-        icon.removeClass('fa-chevron-down').addClass('fa-chevron-right');
+    if (btn.hasClass('open')) {
+        btn.removeClass('open');
         $('tr.child-row-' + parentId).remove();
         return;
     }
-
-    btn.addClass('expanded');
-    icon.removeClass('fa-chevron-right').addClass('fa-chevron-down');
-
+    btn.addClass('open');
     if (!allOrders || allOrders.length === 0) return;
 
     var totalCols = columns.length;
+    var rowsHtml  = '';
 
-    var rowsHtml = '';
     allOrders.forEach(function(order) {
-        var bc      = statusColorMap[order.status_color] || '#f39c12';
-        var orderNo = order.order_number || ('#' + order.id);
+        var orderNo = order.order_number || ('S'+order.id);
 
-        // ── Col A: № + status + date ──────────────────────────────
-        var crossRefHtml = (order.cross_ref && order.cross_ref.length > 0)
-            ? '<div style="font-size:10px; color:#31708f; font-style:italic; margin-top:2px;">' + order.cross_ref + '</div>'
-            : '';
-        var colA = '<div style="border-left:3px solid ' + bc + '; padding-left:6px;">'
-            + '<div style="display:flex; align-items:center; gap:3px; margin-bottom:3px; flex-wrap:wrap;">'
-            + '<strong style="font-size:11px; color:#333; white-space:nowrap;">' + orderNo + '</strong>'
-            + '</div>'
-            + '<span class="label label-' + order.status_color + '" style="font-size:10px;">' + order.status_name + '</span>'
-            + '<small class="text-muted" style="font-size:10px; display:block; margin-top:2px; white-space:nowrap;">' + order.created_at + '</small>'
-            + crossRefHtml
-            + '</div>';
-
-        // ── Col B: Product ────────────────────────────────────────
-        var imgHtml = order.product_image
-            ? '<img src="' + order.product_image + '" class="img-zoom-trigger" style="width:48px;height:48px;object-fit:cover;border-radius:4px;cursor:pointer;">'
-            : '<div style="width:48px;height:48px;background:#f5f5f5;border:1px solid #ddd;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:16px;color:#bbb;"><i class=\'fa fa-image\'></i></div>';
+        // Col A: order num + status + comment
         var commentHtml = order.comment
-            ? '<div style="margin-top:4px;font-size:11px;color:#1a5276;background:#eaf4fb;border-radius:3px;padding:1px 5px;display:inline-block;">'
-              + '<i class="fa fa-file-text"></i> ' + order.comment + '</div>'
+            ? '<div style="margin-top:4px;"><small style="color:#1a5276;background:#eaf4fb;border-radius:3px;padding:1px 5px;display:inline-block;font-size:10px;"><i class="fa fa-comment" style="font-size:9px;"></i> ' + $('<div>').text(order.comment).html() + '</small></div>'
             : '';
-        var colB = '<div style="display:flex; gap:8px; align-items:flex-start;">'
-            + '<div style="flex-shrink:0;">' + imgHtml + '</div>'
-            + '<div style="font-size:12px;">'
-            + '<div style="font-weight:600;">' + order.product_name + '</div>'
-            + (order.product_code ? '<div style="color:#888; font-size:11px;">' + order.product_code + '</div>' : '')
-            + (order.product_size ? '<span class="label label-info" style="margin-top:2px; display:inline-block;">' + order.product_size + '</span>' : '')
-            + commentHtml
-            + '</div>'
-            + '</div>';
+        var colA = '<span class="po-order-num" style="font-size:11px;">' + orderNo + '</span>'
+            + '<div style="margin-top:4px;"><span class="label label-' + order.status_color + '" style="font-size:10px;">' + order.status_name + '</span></div>'
+            + commentHtml;
 
-        // ── Col C: Price + payment ────────────────────────────────
+        // Col B: product
+        var imgHtml = order.product_image
+            ? '<div class="po-product-thumb" style="width:36px;height:36px;"><img src="' + order.product_image + '"></div>'
+            : '';
+        var colB = '<div class="po-product-cell">' + imgHtml
+            + '<div style="font-size:12px;"><div style="font-weight:600;">' + (order.product_name || '') + '</div>'
+            + (order.product_size ? '<span class="label label-info" style="font-size:10px;">' + order.product_size + '</span>' : '')
+            + '</div></div>';
+
+        // Col C: finance
         var chGeo  = parseFloat(order.price_georgia || 0) - parseFloat(order.discount || 0);
         var chPaid = parseFloat(order.paid_tbc || 0) + parseFloat(order.paid_bog || 0)
                    + parseFloat(order.paid_lib || 0) + parseFloat(order.paid_cash || 0);
         var chIsPaid = (chGeo - chPaid) <= 0.01;
-        var discBadge = (order.discount > 0.01)
-            ? '<small style="color:#8e44ad; display:block;">🏷️ -' + parseFloat(order.discount).toFixed(2) + ' ₾</small>'
-            : '';
-        var colC = '<div style="font-size:12px;">'
-            + discBadge
-            + '<span style="color:' + order.payment_color + '; font-weight:700;">' + order.payment + '</span>'
-            + '<hr style="margin:3px 0;">'
-            + '<small><b>GE:</b> ' + parseFloat(order.price_georgia).toFixed(2) + ' ₾'
-            + (isAdmin ? ' <b>US:</b> ' + parseFloat(order.price_usa).toFixed(2) + ' $' : '')
-            + '</small>'
-            + '</div>';
+        var chPct    = chGeo > 0 ? Math.min(chPaid/chGeo, 1) : 1;
+        var chTag = chIsPaid
+            ? '<span class="po-paid-tag"><i class="fa fa-check" style="font-size:9px;"></i> გადახდილი</span>'
+            : '<span class="po-debt-tag">' + (chGeo-chPaid).toFixed(2) + ' ₾</span>';
+        var colC = '<div class="po-finance-total" style="font-size:13px;">' + chGeo.toFixed(2) + ' ₾</div>'
+            + '<div style="margin-top:3px;">' + chTag + '</div>';
 
-        // ── Col D: Actions ────────────────────────────────────────
+        // Col D: actions
+        var chPayClass = chIsPaid ? 'po-pay-paid' : (chPct > 0 ? 'po-pay-partial' : 'po-pay-debt');
         var chPayBtn = '';
         if (!isSaleOperator) {
-            chPayBtn = '<a onclick="openPayModal('
-                + order.id + ','
-                + (order.price_georgia || 0) + ','
-                + (order.discount  || 0) + ','
-                + (order.paid_tbc  || 0) + ','
-                + (order.paid_bog  || 0) + ','
-                + (order.paid_lib  || 0) + ','
-                + (order.paid_cash || 0)
-                + ')" class="btn btn-xs" title="გადახდა" '
-                + 'style="background:' + (chIsPaid ? '#198754' : '#dc3545') + ';color:#fff;">'
-                + '<i class="fa fa-credit-card"></i></a>';
+            chPayBtn = '<a onclick="openPayModal(' + order.id + ',' + (order.price_georgia||0) + ',' + (order.discount||0) + ',' + (order.paid_tbc||0) + ',' + (order.paid_bog||0) + ',' + (order.paid_lib||0) + ',' + (order.paid_cash||0) + ')" class="btn btn-xs ' + chPayClass + '" title="გადახდა"><i class="fa fa-credit-card"></i></a>';
         }
-
-        var splitBtn = '<a onclick="splitFromGroup(' + order.id + ')" class="btn btn-outline-warning btn-xs" title="ჯგუფიდან გამოყოფა"><i class="fa fa-scissors"></i></a>';
-        var colD = chPayBtn + splitBtn;
+        var splitBtn = '<a onclick="splitFromGroup(' + order.id + ')" class="btn btn-xs btn-warning" title="ჯგუფიდან გამოყოფა"><i class="fa fa-scissors"></i></a>';
+        var colD = '<div class="po-actions">' + chPayBtn + splitBtn;
         if (isAdmin) {
             var canDel  = order.status_id != 4;
-            var delBtn  = canDel
-                ? '<a onclick="deleteData(' + order.id + ')" class="btn btn-danger btn-xs" title="წაშლა"><i class="fa fa-trash"></i></a>'
-                : '<span class="btn btn-danger btn-xs" style="opacity:0.35; cursor:not-allowed;"><i class="fa fa-trash"></i></span>';
-            var editBtn = '<a onclick="editForm(' + order.id + ')" class="btn btn-primary btn-xs" title="რედაქტირება"><i class="fa fa-pen"></i></a>';
-            var histBtn = '<a onclick="showStatusLog(' + order.id + ')" class="btn btn-warning btn-xs" title="ისტორია"><i class="fa fa-clock-rotate-left"></i></a>';
-            var pdfBtn  = '<a href="' + (order.export_pdf_url || '#') + '" target="_blank" class="btn btn-info btn-xs" title="PDF"><i class="fa fa-file-pdf"></i></a>';
-            var mailBtn = '<a onclick="openMailModal(' + order.id + ',' + order.customer_id + ',\'' + (order.customer_email || '') + '\')" class="btn btn-secondary btn-xs" title="მეილი"><i class="fa fa-envelope"></i></a>';
-
-            var exchBtn = '';
-            if (order.status_id == 4 && order.order_type !== 'purchase') {
-                if (!order.has_change_orders) {
-                    exchBtn = '<a onclick="openChangeModal(' + order.id + ')" class="btn btn-warning btn-xs" title="გაცვლა/დაბრუნება"><i class="fa fa-arrow-right-arrow-left"></i></a>';
-                }
+            colD += '<a onclick="editForm(' + order.id + ')" class="btn btn-xs btn-primary" title="რედაქტირება"><i class="fa fa-pen"></i></a>';
+            colD += canDel
+                ? '<a onclick="deleteData(' + order.id + ')" class="btn btn-xs btn-danger" title="წაშლა"><i class="fa fa-trash"></i></a>'
+                : '<span class="btn btn-xs btn-danger" style="opacity:.35;cursor:not-allowed;"><i class="fa fa-trash"></i></span>';
+            colD += '<a onclick="showStatusLog(' + order.id + ')" class="btn btn-xs btn-warning" title="ისტორია"><i class="fa fa-clock-rotate-left"></i></a>';
+            if (order.export_pdf_url) {
+                colD += '<a href="' + order.export_pdf_url + '" target="_blank" class="btn btn-xs btn-info" title="PDF"><i class="fa fa-file-pdf"></i></a>';
             }
-
-            colD = '<div style="display:flex; flex-wrap:wrap; gap:3px;">'
-                + editBtn + delBtn + histBtn + exchBtn + pdfBtn + mailBtn + chPayBtn + splitBtn
-                + '</div>';
         }
+        colD += '</div>';
 
-        // ── Sub-row ───────────────────────────────────────────────
-        rowsHtml += '<tr class="child-row-' + parentId + '">'
-            + '<td colspan="' + totalCols + '" style="padding:5px 12px 6px 24px;">'
-            + '<div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-start;">'
-            + '<div style="min-width:100px; width:110px; flex-shrink:0;">' + colA + '</div>'
-            + '<div style="flex:2; min-width:140px;">'                      + colB + '</div>'
-            + '<div style="flex:1; min-width:90px;">'                       + colC + '</div>'
-            + '<div style="flex-shrink:0;">'                                + colD + '</div>'
-            + '</div>'
-            + '</td></tr>';
+        // Sub-row
+        rowsHtml += '<tr class="child-row-' + parentId + ' po-child-row">'
+            + '<td colspan="' + totalCols + '" style="padding:8px 14px 8px 48px;">'
+            + '<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;">'
+            + '<div style="min-width:120px;">' + colA + '</div>'
+            + '<div style="flex:1;min-width:150px;">' + colB + '</div>'
+            + '<div style="min-width:100px;">' + colC + '</div>'
+            + '<div>' + colD + '</div>'
+            + '</div></td></tr>';
     });
 
     parentRow.after(rowsHtml);
-    $('tr.child-row-' + parentId).last().addClass('group-last-child');
 });
 
 // table reload-ისას გაშლილი სტრიქონები გაქრება — ეს ნორმალურია
 table.on('draw', function() {
     $('#check-all').prop('checked', false);
     $('#btn-merge').hide();
+    $('#po-bulk-bar').hide();
 });
 
 // =====================
@@ -2454,6 +2771,69 @@ $('#modal-change').on('hidden.bs.modal', function() {
     $('#change-stock-info').hide();
     $('#change_size').prop('disabled', false);
 });
+
+// =====================
+// Dark mode toggle
+// =====================
+function togglePoTheme() {
+    var $root = $('#po-page-root');
+    var isDark = $root.toggleClass('po-dark').hasClass('po-dark');
+    $('#po-theme-icon').toggleClass('fa-moon', !isDark).toggleClass('fa-sun', isDark);
+    try { localStorage.setItem('po-theme', isDark ? 'dark' : 'light'); } catch(e) {}
+}
+(function() {
+    try {
+        if (localStorage.getItem('po-theme') === 'dark') {
+            $('#po-page-root').addClass('po-dark');
+            $('#po-theme-icon').removeClass('fa-moon').addClass('fa-sun');
+        }
+    } catch(e) {}
+})();
+
+// =====================
+// Export dropdown
+// =====================
+$('#po-export-btn').on('click', function(e) {
+    e.stopPropagation();
+    var $menu = $('#po-export-menu');
+    $menu.toggle();
+});
+$(document).on('click', function(e) {
+    if (!$(e.target).closest('#po-export-wrap').length) {
+        $('#po-export-menu').hide();
+    }
+});
+
+// =====================
+// Stats strip loader
+// =====================
+function loadPoStats() {
+    var selected = [];
+    $('.status-filter-check:checked').each(function() { selected.push($(this).val()); });
+
+    // build data the same way reloadTableWithFilters builds the URL
+    var data = {
+        date_from: $('#filter-date-from').val(),
+        date_to:   $('#filter-date-to').val()
+    };
+    if (selected.length)                           data['statuses[]']  = selected;
+    if ($('#toggle-deleted').is(':checked'))        data.debt_only      = 1;
+    if ($('#toggle-show-deleted').is(':checked'))   data.show_deleted   = 1;
+
+    $.ajax({
+        url: "{{ route('productsOut.stats') }}",
+        type: 'GET',
+        data: data,
+        success: function(d) {
+            $('#stat-total').text(d.total || 0);
+            $('#stat-debt').text(d.debt   ? parseFloat(d.debt).toFixed(2)   + ' ₾' : '0 ₾');
+            $('#stat-debt-sub').text(d.debt_count ? d.debt_count + ' ორდერი' : '—');
+            $('#stat-paid').text(d.paid   ? parseFloat(d.paid).toFixed(2)   + ' ₾' : '0 ₾');
+            $('#stat-courier').text(d.courier || 0);
+        }
+    });
+}
+loadPoStats();
 
     </script>
 @endsection

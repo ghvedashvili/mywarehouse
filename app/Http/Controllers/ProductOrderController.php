@@ -1339,6 +1339,62 @@ class ProductOrderController extends Controller
             ->make(true);
     }
 
+    public function stats(Request $request)
+    {
+        $statuses = $request->has('statuses') ? (array) $request->input('statuses') : [];
+
+        $query = Product_Order::withoutGlobalScope('active')
+            ->where(function ($q) {
+                $q->where('is_primary', 1)->orWhereNull('merged_id');
+            })
+            ->whereIn('order_type', ['sale', 'change']);
+
+        if (!empty($statuses)) {
+            $query->whereIn('status_id', $statuses);
+        }
+
+        if ($request->get('show_deleted') == 1) {
+            $query->where('status', 'deleted');
+        } else {
+            $query->where('status', 'active');
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
+
+        if ($request->debt_only == 1) {
+            $debtRaw = '(price_georgia - COALESCE(discount,0)) > (COALESCE(paid_tbc,0) + COALESCE(paid_bog,0) + COALESCE(paid_lib,0) + COALESCE(paid_cash,0))';
+            $query->whereRaw($debtRaw);
+        }
+
+        $orders = $query->get(['price_georgia', 'discount', 'paid_tbc', 'paid_bog', 'paid_lib', 'paid_cash', 'status_id']);
+
+        $totalDebt  = 0;
+        $totalPaid  = 0;
+        $debtCount  = 0;
+
+        foreach ($orders as $o) {
+            $geo     = (float)$o->price_georgia - (float)($o->discount ?? 0);
+            $paidAmt = (float)($o->paid_tbc ?? 0) + (float)($o->paid_bog ?? 0)
+                     + (float)($o->paid_lib ?? 0) + (float)($o->paid_cash ?? 0);
+            $diff = $geo - $paidAmt;
+            if ($diff > 0.01) { $totalDebt += $diff; $debtCount++; }
+            $totalPaid += $paidAmt;
+        }
+
+        return response()->json([
+            'total'      => $orders->count(),
+            'debt'       => round($totalDebt, 2),
+            'debt_count' => $debtCount,
+            'paid'       => round($totalPaid, 2),
+            'courier'    => $orders->where('status_id', 4)->count(),
+        ]);
+    }
+
     public function singleUpdateStatus(Request $request, $id)
     {
         return \DB::transaction(function () use ($id) {
