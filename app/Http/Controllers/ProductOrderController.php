@@ -134,13 +134,20 @@ class ProductOrderController extends Controller
             StatusChangeLog::create([
                 'order_id'       => $newOrder->id,
                 'user_id'        => auth()->id(),
-                'status_id_from' => 1,
+                'status_id_from' => null,
                 'status_id_to'   => $newOrder->status_id,
                 'changed_at'     => now(),
             ]);
         } else {
             $data['status_id'] = 1;
-            Product_Order::create($data);
+            $newOrder = Product_Order::create($data);
+            StatusChangeLog::create([
+                'order_id'       => $newOrder->id,
+                'user_id'        => auth()->id(),
+                'status_id_from' => null,
+                'status_id_to'   => 1,
+                'changed_at'     => now(),
+            ]);
         }
 
         $this->maybeUpdateCustomer($request);
@@ -230,13 +237,20 @@ class ProductOrderController extends Controller
                 StatusChangeLog::create([
                     'order_id'       => $newOrder->id,
                     'user_id'        => auth()->id(),
-                    'status_id_from' => 1,
+                    'status_id_from' => null,
                     'status_id_to'   => $newOrder->status_id,
                     'changed_at'     => now(),
                 ]);
             } else {
                 $data['status_id'] = 1;
                 $newOrder = Product_Order::create($data);
+                StatusChangeLog::create([
+                    'order_id'       => $newOrder->id,
+                    'user_id'        => auth()->id(),
+                    'status_id_from' => null,
+                    'status_id_to'   => 1,
+                    'changed_at'     => now(),
+                ]);
             }
 
             $createdOrders[] = $newOrder;
@@ -1035,7 +1049,9 @@ class ProductOrderController extends Controller
                         'product_name'     => $order->product->name ?? 'N/A',
                         'product_code'     => $order->product->product_code ?? '',
                         'product_size'     => $order->product_size ?? '',
-                        'product_image'    => $order->product?->image_url,
+                        'product_image'    => ($order->product && $order->product->image)
+                            ? '<img src="' . e($order->product->image_url) . '" style="width:100%;height:100%;object-fit:cover;display:block;">'
+                            : '',
                         'price_georgia'    => (float)$order->price_georgia,
                         'price_usa'        => (float)$order->price_usa,
                         'status_name'      => $order->orderStatus->name ?? '-',
@@ -1335,7 +1351,7 @@ class ProductOrderController extends Controller
             ->addColumn('status_color', function ($item) {
                 return $item->orderStatus->color ?? 'default';
             })
-            ->rawColumns(['order_id', 'has_mergeable', 'cross_ref_html', 'show_photo', 'product_info', 'payment', 'customer_name', 'status_label', 'action'])
+            ->rawColumns(['order_id', 'has_mergeable', 'cross_ref_html', 'show_photo', 'product_info', 'payment', 'customer_name', 'status_label', 'action', 'children_json'])
             ->make(true);
     }
 
@@ -1794,10 +1810,35 @@ class ProductOrderController extends Controller
     {
         $logs = StatusChangeLog::with(['fromStatus', 'toStatus', 'user'])
             ->where('order_id', $id)
-            ->orderBy('changed_at', 'desc')
+            ->orderBy('changed_at', 'asc')
             ->get();
 
-        return response()->json($logs);
+        // If no creation entry exists (status_id_from = null), synthesize one from the order itself.
+        // This handles: (a) old orders with from=1→X entries, (b) orders with no log at all.
+        $hasCreationEntry = $logs->contains(fn($l) => is_null($l->status_id_from));
+
+        if (!$hasCreationEntry) {
+            $order = Product_Order::find($id);
+            if ($order) {
+                // Remove the old from=1→1 no-op artifact if present (creation was logged as a no-op)
+                $logs = $logs->filter(fn($l) => !($l->status_id_from == 1 && $l->status_id_to == 1));
+
+                $initialStatus = \App\Models\OrderStatus::find(1);
+                $creator       = \App\Models\User::find($order->user_id);
+
+                $synthetic = new StatusChangeLog();
+                $synthetic->status_id_from = null;
+                $synthetic->status_id_to   = 1;
+                $synthetic->changed_at     = $order->created_at;
+                $synthetic->setRelation('fromStatus', null);
+                $synthetic->setRelation('toStatus', $initialStatus);
+                $synthetic->setRelation('user', $creator);
+
+                $logs = $logs->push($synthetic);
+            }
+        }
+
+        return response()->json($logs->sortByDesc('changed_at')->values());
     }
 
     public function mergeOrders(Request $request)
@@ -2227,15 +2268,13 @@ class ProductOrderController extends Controller
             ]);
 
             // ─── 6. StatusChangeLog (change ორდერი) ─────────────────────
-            if ($newStatus > 1) {
-                StatusChangeLog::create([
-                    'order_id'       => $changeOrder->id,
-                    'user_id'        => auth()->id(),
-                    'status_id_from' => 1,
-                    'status_id_to'   => $newStatus,
-                    'changed_at'     => now(),
-                ]);
-            }
+            StatusChangeLog::create([
+                'order_id'       => $changeOrder->id,
+                'user_id'        => auth()->id(),
+                'status_id_from' => null,
+                'status_id_to'   => $newStatus,
+                'changed_at'     => now(),
+            ]);
 
             return response()->json([
                 'success'   => true,

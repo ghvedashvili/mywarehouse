@@ -903,6 +903,10 @@ var columns = [
         searchable: false,
         width: '36px',
         render: function(data) {
+            // ჩეკბოქსი მხოლოდ იმ row-ებს ვუჩვენებთ რომელთა გაერთიანება შესაძლებელია
+            if (!data.has_mergeable || data.status === 'deleted') {
+                return '';
+            }
             return '<input type="checkbox" class="row-check" data-id="' + data.id + '" data-status="' + data.status_id + '">';
         }
     },
@@ -2167,13 +2171,18 @@ function showStatusLog(orderId) {
 
         let html = '';
         logs.forEach(function(log) {
-            const from = log.from_status
-                ? '<span class="label label-' + log.from_status.color + '">' + log.from_status.name + '</span>'
+            const isCreation = !log.from_status;
+            const from = isCreation
+                ? '<span style="color:#94a3b8;font-size:11px;">— (შექმნა)</span>'
+                : '<span class="label label-' + log.from_status.color + '">' + log.from_status.name + '</span>';
+
+            const to = log.to_status
+                ? '<span class="label label-' + log.to_status.color + '">' + log.to_status.name + '</span>'
                 : '<span class="text-muted">—</span>';
 
-            const to = '<span class="label label-' + log.to_status.color + '">' + log.to_status.name + '</span>';
+            const rowStyle = isCreation ? ' style="background:#f0fdf4;"' : '';
 
-            html += `<tr>
+            html += `<tr${rowStyle}>
                 <td>${log.changed_at}</td>
                 <td>${from}</td>
                 <td>${to}</td>
@@ -2258,9 +2267,12 @@ function mergeSelected() {
                 ids:    ids
             },
             success: function(data) {
+                mergeMode = false;                              // ← დაამატე
+                $('#po-page-root').removeClass('po-merge-mode'); // ← დაამატე
                 table.ajax.url("{{ route('api.productsOut') }}").load();
                 $('#btn-merge').hide();
                 $('#check-all').prop('checked', false);
+                $('#po-bulk-bar').hide();                        // ← დაამატე
                 swal("წარმატება!", data.message, "success");
             },
             error: function(xhr) {
@@ -2365,69 +2377,87 @@ $(document).on('click', '.expand-btn', function() {
     var totalCols = columns.length;
     var rowsHtml  = '';
 
-    allOrders.forEach(function(order) {
-        var orderNo = order.order_number || ('S'+order.id);
+   allOrders.forEach(function(order) {
+    var orderNo = order.order_number || ('S'+order.id);
 
-        // Col A: order num + status + comment
-        var commentHtml = order.comment
-            ? '<div style="margin-top:4px;"><small style="color:#1a5276;background:#eaf4fb;border-radius:3px;padding:1px 5px;display:inline-block;font-size:10px;"><i class="fa fa-comment" style="font-size:9px;"></i> ' + $('<div>').text(order.comment).html() + '</small></div>'
-            : '';
-        var colA = '<span class="po-order-num" style="font-size:11px;">' + orderNo + '</span>'
-            + '<div style="margin-top:4px;"><span class="label label-' + order.status_color + '" style="font-size:10px;">' + order.status_name + '</span></div>'
-            + commentHtml;
+    // Col A: order num + status
+    var commentHtml = order.comment
+        ? '<div style="margin-top:3px;"><small style="color:var(--po-accent);background:var(--po-accent-soft);border-radius:3px;padding:1px 5px;font-size:10px;"><i class="fa fa-comment" style="font-size:9px;"></i> ' + $('<div>').text(order.comment).html() + '</small></div>'
+        : '';
+        var crossRefHtml = '';
+    if (order.cross_ref) {
+        crossRefHtml = '<div style="margin-top:3px;">'
+            + '<span style="font-size:10px;color:var(--po-text-3);">' 
+            + order.cross_ref 
+            + '</span></div>';
+    }
+    var colA = '<span class="po-order-num" style="font-size:11px;">' + orderNo + '</span>'
+        + crossRefHtml
+        + '<div style="margin-top:3px;"><span class="label label-' + order.status_color + '" style="font-size:10px;">' + order.status_name + '</span></div>'
+         
+         + commentHtml;
 
-        // Col B: product
-        var imgHtml = order.product_image
-            ? '<div class="po-product-thumb" style="width:36px;height:36px;"><img src="' + order.product_image + '"></div>'
-            : '';
-        var colB = '<div class="po-product-cell">' + imgHtml
-            + '<div style="font-size:12px;"><div style="font-weight:600;">' + (order.product_name || '') + '</div>'
-            + (order.product_size ? '<span class="label label-info" style="font-size:10px;">' + order.product_size + '</span>' : '')
-            + '</div></div>';
+    // Col B: product — სურათი product_image HTML-ში ჩაშენებულია
+    var thumbHtml = '';
+    if (order.product_image) {
+        // decode HTML entities პირდაპირ DOM-ით
+        var decoded = $('<textarea/>').html(order.product_image).text();
+        thumbHtml = '<div class="po-product-thumb" style="width:36px;height:36px;flex-shrink:0;cursor:zoom-in;" '
+            + 'onclick="var s=$(this).find(\'img\').attr(\'src\');if(s){$(\'#preview-img-full\').attr(\'src\',s);$(\'#modal-image-preview\').modal(\'show\');}">'
+            + decoded
+            + '</div>';
+    }
+    var colB = '<div style="display:flex;align-items:center;gap:8px;">'
+        + thumbHtml
+        + '<div style="font-size:12px;line-height:1.4;">'
+        + '<div style="font-weight:600;color:var(--po-text-1);">' + (order.product_name || '') + '</div>'
+        + (order.product_size ? '<span class="label label-info" style="font-size:10px;">' + order.product_size + '</span>' : '')
+        + '</div></div>';
 
-        // Col C: finance
-        var chGeo  = parseFloat(order.price_georgia || 0) - parseFloat(order.discount || 0);
-        var chPaid = parseFloat(order.paid_tbc || 0) + parseFloat(order.paid_bog || 0)
-                   + parseFloat(order.paid_lib || 0) + parseFloat(order.paid_cash || 0);
-        var chIsPaid = (chGeo - chPaid) <= 0.01;
-        var chPct    = chGeo > 0 ? Math.min(chPaid/chGeo, 1) : 1;
-        var chTag = chIsPaid
-            ? '<span class="po-paid-tag"><i class="fa fa-check" style="font-size:9px;"></i> გადახდილი</span>'
-            : '<span class="po-debt-tag">' + (chGeo-chPaid).toFixed(2) + ' ₾</span>';
-        var colC = '<div class="po-finance-total" style="font-size:13px;">' + chGeo.toFixed(2) + ' ₾</div>'
-            + '<div style="margin-top:3px;">' + chTag + '</div>';
+    // Col C: finance
+    var chGeo  = parseFloat(order.price_georgia || 0) - parseFloat(order.discount || 0);
+    var chPaid = parseFloat(order.paid_tbc || 0) + parseFloat(order.paid_bog || 0)
+               + parseFloat(order.paid_lib || 0) + parseFloat(order.paid_cash || 0);
+    var chIsPaid = (chGeo - chPaid) <= 0.01;
+    var chPct    = chGeo > 0 ? Math.min(chPaid/chGeo, 1) : 1;
+    var chTag = chIsPaid
+        ? '<span class="po-paid-tag" style="font-size:10px;"><i class="fa fa-check" style="font-size:9px;"></i> გადახდ.</span>'
+        : '<span class="po-debt-tag" style="font-size:10px;">-' + (chGeo-chPaid).toFixed(2) + '₾</span>';
+    var colC = '<div style="font-size:13px;font-weight:700;color:var(--po-text-1);">' + chGeo.toFixed(2) + ' ₾</div>'
+        + '<div style="margin-top:2px;">' + chTag + '</div>';
 
-        // Col D: actions
-        var chPayClass = chIsPaid ? 'po-pay-paid' : (chPct > 0 ? 'po-pay-partial' : 'po-pay-debt');
-        var chPayBtn = '';
-        if (!isSaleOperator) {
-            chPayBtn = '<a onclick="openPayModal(' + order.id + ',' + (order.price_georgia||0) + ',' + (order.discount||0) + ',' + (order.paid_tbc||0) + ',' + (order.paid_bog||0) + ',' + (order.paid_lib||0) + ',' + (order.paid_cash||0) + ')" class="btn btn-xs ' + chPayClass + '" title="გადახდა"><i class="fa fa-credit-card"></i></a>';
+    // Col D: actions
+    var chPayClass = chIsPaid ? 'po-pay-paid' : (chPct > 0 ? 'po-pay-partial' : 'po-pay-debt');
+    var chPayBtn = '';
+    if (!isSaleOperator) {
+        chPayBtn = '<a onclick="openPayModal(' + order.id + ',' + (order.price_georgia||0) + ',' + (order.discount||0) + ',' + (order.paid_tbc||0) + ',' + (order.paid_bog||0) + ',' + (order.paid_lib||0) + ',' + (order.paid_cash||0) + ')" class="btn btn-xs ' + chPayClass + '" title="გადახდა"><i class="fa fa-credit-card"></i></a>';
+    }
+    var splitBtn = '<a onclick="splitFromGroup(' + order.id + ')" class="btn btn-xs btn-warning" title="ჯგუფიდან გამოყოფა"><i class="fa fa-scissors"></i></a>';
+    var colD = '<div class="po-actions" style="justify-content:flex-start;">' + chPayBtn + splitBtn;
+    if (isAdmin) {
+        var canDel = order.status_id != 4;
+        colD += '<a onclick="editForm(' + order.id + ')" class="btn btn-xs btn-primary" title="რედაქტირება"><i class="fa fa-pen"></i></a>';
+        colD += canDel
+            ? '<a onclick="deleteData(' + order.id + ')" class="btn btn-xs btn-danger" title="წაშლა"><i class="fa fa-trash"></i></a>'
+            : '<span class="btn btn-xs btn-danger" style="opacity:.35;cursor:not-allowed;"><i class="fa fa-trash"></i></span>';
+        colD += '<a onclick="showStatusLog(' + order.id + ')" class="btn btn-xs btn-warning" title="ისტორია"><i class="fa fa-clock-rotate-left"></i></a>';
+        if (order.export_pdf_url) {
+            colD += '<a href="' + order.export_pdf_url + '" target="_blank" class="btn btn-xs btn-info" title="PDF"><i class="fa fa-file-pdf"></i></a>';
         }
-        var splitBtn = '<a onclick="splitFromGroup(' + order.id + ')" class="btn btn-xs btn-warning" title="ჯგუფიდან გამოყოფა"><i class="fa fa-scissors"></i></a>';
-        var colD = '<div class="po-actions">' + chPayBtn + splitBtn;
-        if (isAdmin) {
-            var canDel  = order.status_id != 4;
-            colD += '<a onclick="editForm(' + order.id + ')" class="btn btn-xs btn-primary" title="რედაქტირება"><i class="fa fa-pen"></i></a>';
-            colD += canDel
-                ? '<a onclick="deleteData(' + order.id + ')" class="btn btn-xs btn-danger" title="წაშლა"><i class="fa fa-trash"></i></a>'
-                : '<span class="btn btn-xs btn-danger" style="opacity:.35;cursor:not-allowed;"><i class="fa fa-trash"></i></span>';
-            colD += '<a onclick="showStatusLog(' + order.id + ')" class="btn btn-xs btn-warning" title="ისტორია"><i class="fa fa-clock-rotate-left"></i></a>';
-            if (order.export_pdf_url) {
-                colD += '<a href="' + order.export_pdf_url + '" target="_blank" class="btn btn-xs btn-info" title="PDF"><i class="fa fa-file-pdf"></i></a>';
-            }
-        }
-        colD += '</div>';
+    }
+    colD += '</div>';
 
-        // Sub-row
-        rowsHtml += '<tr class="child-row-' + parentId + ' po-child-row">'
-            + '<td colspan="' + totalCols + '" style="padding:8px 14px 8px 48px;">'
-            + '<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;">'
-            + '<div style="min-width:120px;">' + colA + '</div>'
-            + '<div style="flex:1;min-width:150px;">' + colB + '</div>'
-            + '<div style="min-width:100px;">' + colC + '</div>'
-            + '<div>' + colD + '</div>'
-            + '</div></td></tr>';
-    });
+    // ── Compact grid row ──
+    rowsHtml += '<tr class="child-row-' + parentId + ' po-child-row">'
+        + '<td colspan="' + totalCols + '" style="padding:6px 12px 6px 52px !important;">'
+        + '<div style="display:grid;grid-template-columns:130px 1fr 90px auto;align-items:center;gap:12px;">'
+        + '<div>' + colA + '</div>'
+        + '<div>' + colB + '</div>'
+        + '<div>' + colC + '</div>'
+        + '<div>' + colD + '</div>'
+        + '</div>'
+        + '</td></tr>';
+});
 
     parentRow.after(rowsHtml);
 });
