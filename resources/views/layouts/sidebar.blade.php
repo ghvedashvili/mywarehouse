@@ -23,6 +23,9 @@
         <a href="{{ route('categories.index') }}" class="sidebar-link {{ request()->is('categories*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-tags"></i> Category
         </a>
+        <a href="{{ route('brands.index') }}" class="sidebar-link {{ request()->is('brands*') ? 'active' : '' }}" onclick="closeSidebar()">
+            <i class="fa fa-copyright"></i> Brand
+        </a>
         <a href="{{ route('products.index') }}" class="sidebar-link {{ request()->is('products*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-cubes"></i> Product
         </a>

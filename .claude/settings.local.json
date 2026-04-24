@@ -27,7 +27,8 @@
       "Bash(php -l \"d:/mywarehouse/app/Http/Controllers/ProductOrderController.php\")",
       "Bash(php -l \"d:/mywarehouse/app/Http/Controllers/WarehouseController.php\")",
       "Bash(php -r 'define\\('\\\\''LARAVEL_START'\\\\'', microtime\\(true\\)\\); require '\\\\''d:/mywarehouse/vendor/autoload.php'\\\\''; $app = require '\\\\''d:/mywarehouse/bootstrap/app.php'\\\\''; $app->make\\('\\\\''Illuminate\\\\Contracts\\\\Console\\\\Kernel'\\\\''\\)->bootstrap\\(\\); echo \\\\Illuminate\\\\Support\\\\Facades\\\\Storage::disk\\('\\\\''public'\\\\''\\)->url\\('\\\\''products/test.png'\\\\''\\);')",
-      "Bash(composer require *)"
+      "Bash(composer require *)",
+      "Bash(php -r \"require 'vendor/autoload.php'; echo 'OK';\")"
     ]
   }
 }

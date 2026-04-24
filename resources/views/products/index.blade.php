@@ -71,6 +71,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control { cursor: poi
                         <th>სახელი</th>
                         <th>კოდი</th>
                         <th>კატეგორია</th>
+                        <th>ბრენდი</th>
                         <th class="text-end">ფასი</th>
                         <th class="text-center" style="width:56px;">Img</th>
                         <th>ზომები</th>
@@ -139,14 +140,15 @@ $(function() {
         order: [],
         ajax: "{{ route('api.products') }}",
         columns: [
-            { data: 'name',                                                                                         responsivePriority: 1 },
-            { data: 'product_code',                                               width: '90px',                   responsivePriority: 5 },
-            { data: 'category_name',orderable: false, searchable: false,          width: '110px',                  responsivePriority: 6 },
-            { data: 'price_geo',    className: 'text-end',                        width: '70px',                   responsivePriority: 2 },
-            { data: 'show_photo',   orderable: false, searchable: false, className: 'text-center', width: '56px',  responsivePriority: 4 },
-            { data: 'format_sizes', orderable: false, searchable: false,          width: '90px',                   responsivePriority: 7 },
-            { data: 'status_stock', orderable: false, searchable: false, className: 'text-center', width: '62px',  responsivePriority: 3 },
-            { data: 'action',       orderable: false, searchable: false, className: 'text-center', width: '70px',  responsivePriority: 1 }
+            { data: 'name',                                                                                          responsivePriority: 1 },
+            { data: 'product_code',                                                width: '90px',                   responsivePriority: 5 },
+            { data: 'category_name', orderable: false, searchable: false,          width: '110px',                  responsivePriority: 6 },
+            { data: 'brand_name',    orderable: false, searchable: false,          width: '100px',                  responsivePriority: 7 },
+            { data: 'price_geo',     className: 'text-end',                        width: '70px',                   responsivePriority: 2 },
+            { data: 'show_photo',    orderable: false, searchable: false, className: 'text-center', width: '56px',  responsivePriority: 4 },
+            { data: 'format_sizes',  orderable: false, searchable: false,          width: '90px',                   responsivePriority: 8 },
+            { data: 'status_stock',  orderable: false, searchable: false, className: 'text-center', width: '62px',  responsivePriority: 3 },
+            { data: 'action',        orderable: false, searchable: false, className: 'text-center', width: '70px',  responsivePriority: 1 }
         ],
         language: {
             processing: '<div class="spinner-border spinner-border-sm text-primary" role="status"></div>',
@@ -173,12 +175,32 @@ $(function() {
     });
 });
 
+// ── SELECT2 for brand_id (with logo) ─────────────────────────
+function brandOptionTemplate(option) {
+    if (!option.id) return option.text;
+    var logo = $(option.element).data('logo');
+    if (!logo) return $('<span>' + option.text + '</span>');
+    return $('<span><img src="' + logo + '" style="height:20px;width:20px;object-fit:contain;margin-right:6px;border-radius:3px;vertical-align:middle;">' + option.text + '</span>');
+}
+
+$(function() {
+    $('#brand_id').select2({
+        dropdownParent: $('#modal-form'),
+        placeholder: '-- Brand --',
+        allowClear: true,
+        width: '100%',
+        templateResult: brandOptionTemplate,
+        templateSelection: brandOptionTemplate
+    });
+});
+
 // ── ADD ──────────────────────────────────────────────────────
 function addForm() {
     save_method = 'add';
     $('input[name=_method]').val('POST');
     $('#form-item')[0].reset();
     $('#id').val('');
+    $('#brand_id').val(null).trigger('change');
     $('#image-preview').html('<span class="text-muted">No Preview</span>');
     $('#size-checkboxes').html('<span class="text-muted" id="sizes-placeholder" style="font-size:12px;">Choose a category first</span>');
     $('.modal-title').text('Add Product');
@@ -203,6 +225,7 @@ function editForm(id) {
             $('#product_status').prop('checked', data.product_status == 1);
             $('#in_warehouse').prop('checked', data.in_warehouse == 1);
             $('#category_id').val(data.category_id);
+            $('#brand_id').val(data.brand_id || null).trigger('change');
 
             var currentSizes = data.sizes ? data.sizes.split(',').map(s => s.trim()) : [];
             filterSizes(currentSizes);

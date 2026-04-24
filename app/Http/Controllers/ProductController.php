@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Http\Request;
@@ -23,7 +24,8 @@ class ProductController extends Controller
     public function index()
     {
         $category = Category::orderBy('name', 'ASC')->pluck('name', 'id');
-        return view('products.index', compact('category'));
+        $brand    = Brand::orderBy('name', 'ASC')->get();
+        return view('products.index', compact('category', 'brand'));
     }
 
     /**
@@ -34,10 +36,11 @@ public function store(Request $request)
     $this->validate($request, [
         'product_code' => 'required|string|unique:products,product_code',
         'name'         => 'required|string',
-        'price_geo'    => 'required', // შეიცვალა პატარა ასოზე
+        'price_geo'    => 'required',
         'category_id'  => 'required|exists:categories,id',
+        'brand_id'     => 'nullable|exists:brands,id',
         'image'        => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-        'product_sizes'=> 'nullable|array', // Blade-ში სახელია product_sizes[]
+        'product_sizes'=> 'nullable|array',
     ]);
 
     $input = $request->all();
@@ -95,8 +98,9 @@ public function store(Request $request)
     $this->validate($request, [
         'product_code' => 'required|string|unique:products,product_code,' . $id,
         'name'         => 'required|string',
-        'price_geo'    => 'required', // შეიცვალა პატარა ასოზე
+        'price_geo'    => 'required',
         'category_id'  => 'required|exists:categories,id',
+        'brand_id'     => 'nullable|exists:brands,id',
         'image'        => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         'product_sizes'=> 'nullable|array',
     ]);
@@ -190,12 +194,15 @@ public function apiDeletedProducts(Request $request)
 {
    $products = Product::withoutGlobalScope('active')
     ->where('status', 'deleted')
-    ->with('category')
+    ->with(['category', 'brand'])
     ->select('products.*');
 
     return \DataTables::of($products->get())
         ->addColumn('category_name', function ($product) {
             return $product->category ? $product->category->name : '<span class="label label-default">N/A</span>';
+        })
+        ->addColumn('brand_name', function ($product) {
+            return $product->brand ? $product->brand->name : '<span class="text-muted">-</span>';
         })
        ->addColumn('show_photo', function ($product) {
         if (!$product->image_url) {
@@ -222,7 +229,7 @@ public function apiDeletedProducts(Request $request)
                     <i class="glyphicon glyphicon-refresh"></i> Restore
                 </a></center>';
         })
-        ->rawColumns(['category_name', 'show_photo', 'status_stock', 'format_sizes', 'action'])
+        ->rawColumns(['category_name', 'brand_name', 'show_photo', 'status_stock', 'format_sizes', 'action'])
         ->make(true);
 }
 
@@ -232,7 +239,7 @@ public function apiDeletedProducts(Request $request)
    public function apiProducts(Request $request)
 {
     // ვიყენებთ select('products.*') და eager loading-ს კატეგორიისთვის
-   $products = \App\Models\Product::with('category')->select('products.*')->orderBy('updated_at', 'DESC');
+   $products = \App\Models\Product::with(['category', 'brand'])->select('products.*')->orderBy('updated_at', 'DESC');
 
     // --- ფილტრაციის ლოგიკა ---
 
@@ -258,6 +265,9 @@ public function apiDeletedProducts(Request $request)
         // კატეგორიის სახელი
         ->addColumn('category_name', function ($product) {
             return $product->category ? $product->category->name : '<span class="label label-default">N/A</span>';
+        })
+        ->addColumn('brand_name', function ($product) {
+            return $product->brand ? $product->brand->name : '<span class="text-muted">-</span>';
         })
         // პროდუქტის სურათი
         ->addColumn('show_photo', function ($product) {
@@ -298,7 +308,7 @@ public function apiDeletedProducts(Request $request)
     return '';
 })
         // მივუთითებთ რომელ სვეტებშია HTML კოდი
-        ->rawColumns(['category_name', 'show_photo', 'status_stock', 'format_sizes', 'action'])
+        ->rawColumns(['category_name', 'brand_name', 'show_photo', 'status_stock', 'format_sizes', 'action'])
         ->make(true);
 }
 

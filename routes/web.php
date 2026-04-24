@@ -16,6 +16,7 @@ use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\SalaryController;
+use App\Http\Controllers\BrandController;
 
 /*
 |--------------------------------------------------------------------------
@@ -36,6 +37,12 @@ Route::get('dashboard', function () {
 })->middleware('auth');
 
 Route::middleware(['auth'])->group(function () {
+
+    // ── Brands ───────────────────────────────────────────────────────
+    Route::get('/apiBrands', [BrandController::class, 'apiBrands'])->name('api.brands');
+    Route::get('brands/deleted-api', [BrandController::class, 'apiDeletedBrands'])->name('api.brands.deleted');
+    Route::patch('brands/{id}/restore', [BrandController::class, 'restore'])->name('brands.restore');
+    Route::resource('brands', BrandController::class);
 
     // ── Categories ────────────────────────────────────────────────────
     Route::get('/apiCategories', [CategoryController::class, 'apiCategories'])->name('api.categories');

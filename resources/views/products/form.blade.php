@@ -40,6 +40,17 @@
                                 </select>
                             </div>
 
+                            {{-- BRAND --}}
+                            <div>
+                                <label class="form-label small mb-1">Brand</label>
+                                <select name="brand_id" id="brand_id" class="form-select form-select-sm" style="width:100%;">
+                                    <option value="">-- Brand --</option>
+                                    @foreach($brand as $b)
+                                        <option value="{{ $b->id }}" data-logo="{{ $b->logo_url ?? '' }}">{{ $b->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
                             {{-- SIZES --}}
                             <div>
                                 <label class="form-label small text-muted mb-1">Sizes</label>
