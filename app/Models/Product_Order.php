@@ -15,7 +15,7 @@ class Product_Order extends Model
         'price_usa', 'price_georgia', 'discount',
         'paid_tbc', 'paid_bog', 'paid_lib', 'paid_cash',
         'order_type', 'comment', 'status', 'cost_price', 'purchase_order_id',
-        'courier_price_village', 'original_sale_id',
+        'courier_price_village', 'courier_refund', 'original_sale_id',
         'order_number', 'sale_from',
         'merged_id', 'is_primary', 'purchase_group_id',
         'changed_to_order_id', 'returned_purchase_id',

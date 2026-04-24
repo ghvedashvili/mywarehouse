@@ -16,7 +16,8 @@ class FifoService
         ->where('status', 'active')
         ->where('product_id', $productId)
         ->whereIn('status_id', [2, 3])
-        ->orderBy('created_at', 'asc');
+        ->orderBy('status_id', 'desc')   // საწყობი (3) პრიორიტეტი გზაზე (2)
+        ->orderBy('created_at', 'asc');  // FIFO ერთი სტატუსის შიგნით
 
     if ($size !== '') $query->where('product_size', $size);
     if ($excludeId > 0) $query->where('id', '!=', $excludeId);
@@ -26,10 +27,9 @@ class FifoService
     if ($purchases->isEmpty()) return null;
 
     foreach ($purchases as $purchase) {
-        // გასწორებული ხაზი: ვითვლით sale-საც და change-საც
         $usedCount = Product_Order::whereIn('order_type', ['sale', 'change'])
             ->where('purchase_order_id', $purchase->id)
-            ->whereIn('status_id', [1, 2, 3])
+            ->whereIn('status_id', [1, 2, 3, 4])  // კურიერთანაც (4) ითვლება
             ->count();
 
         if ($usedCount < $purchase->quantity) {
@@ -90,7 +90,7 @@ class FifoService
         foreach ($purchases as $purchase) {
             Product_Order::where('order_type', 'sale')
                 ->where('purchase_order_id', $purchase->id)
-                ->whereIn('status_id', [1, 2, 3])
+                ->whereIn('status_id', [1, 2, 3, 4])
                 ->update([
                     'price_usa' => $purchase->cost_price,
                 ]);
@@ -100,7 +100,7 @@ class FifoService
         $nullSales = Product_Order::where('order_type', 'sale')
             ->where('product_id', $productId)
             ->where('product_size', $size)
-            ->whereIn('status_id', [1, 2, 3])
+            ->whereIn('status_id', [1, 2, 3, 4])
             ->whereNull('purchase_order_id')
             ->orderBy('created_at', 'asc')
             ->get();

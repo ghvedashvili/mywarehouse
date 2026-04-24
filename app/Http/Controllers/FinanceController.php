@@ -167,13 +167,15 @@ class FinanceController extends Controller
         // ─── 3. ამ პერიოდში დაბრუნებები — ცალკე ხაზი ────────────────
         $returnCount          = count($returnedSaleIds);
         $returnAmount         = 0;   // დაბრუნებული თანხა (revenue-ს კორექცია)
-        $returnCostRecovery   = 0;   // გამოთავისუფლებული ღირებულება (cost-ის კორექცია)
-        $returnCourierExpense = 0;   // დაბრუნების კურიერი (ჩვენი გასავალი)
+        $returnCostRecovery   = 0;   // გამოთავისუფლებული პროდ. ღირებულება
+        $returnedSaleCourier  = 0;   // დაბრუნებული გაყიდვების original courier
+        $returnCourierExpense = 0;   // დაბრუნების trip courier (ჩვენი გასავალი)
 
         foreach ($returnedSaleData as $s) {
             [$revenue, $cost, $courier] = $extract($s);
-            $returnAmount       += $revenue;
-            $returnCostRecovery += $cost + $courier;  // cost_price + original courier
+            $returnAmount        += $revenue;
+            $returnCostRecovery  += $cost;
+            $returnedSaleCourier += $courier;
         }
 
         // დაბრუნების კურიერი — return purchase order-ის courier ველებიდან
@@ -182,16 +184,21 @@ class FinanceController extends Controller
             ->where('comment', 'like', '↩ დაბრუნება%');
         if ($from) $retCourQ->whereDate('created_at', '>=', $from);
         if ($to)   $retCourQ->whereDate('created_at', '<=', $to);
-        $returnCourierExpense = (float) $retCourQ->selectRaw(
-            'SUM(courier_price_tbilisi + courier_price_region + courier_price_village) as total'
-        )->value('total');
+
+        $retCourRows = $retCourQ->selectRaw(
+            'SUM(courier_price_tbilisi + courier_price_region + courier_price_village) as trip_total,
+             SUM(COALESCE(courier_refund, 0)) as refund_total'
+        )->first();
+
+        $returnCourierExpense = (float) ($retCourRows->trip_total  ?? 0);
+        $courierRefundTotal   = (float) ($retCourRows->refund_total ?? 0);
 
         // ─── 4. 净 (net) ციფრები ─────────────────────────────────────
         // შემოსავლიდან გამოვაკლებ დაბრუნებას; ხარჯს ვამატებ courier-ს,
         // გამოვაკლებ cost recovery-ს (ვითომ "გვიბრუნდება" ეს ღირებულება)
         $saleRevenue   = $grossRevenue  - $returnAmount;
         $saleCostPrice = $grossCost     - $returnCostRecovery;
-        $saleCourier   = $grossCourier  + $returnCourierExpense;
+        $saleCourier   = $grossCourier  - $returnedSaleCourier + $returnCourierExpense;
 
         // ─── 5. დამატებითი შემოსავლები და ხარჯები ────────────────────
         $extraIncome  = (float) FinanceEntry::income()->forPeriod($from, $to)->sum('amount');
@@ -232,6 +239,7 @@ class FinanceController extends Controller
             'return_amount'           => round($returnAmount,         2),
             'return_cost_recovery'    => round($returnCostRecovery,   2),
             'return_courier_expense'  => round($returnCourierExpense, 2),
+            'courier_refund_total'    => round($courierRefundTotal,   2),
             'change_count'            => $changeCount,
             'gross_revenue'           => round($grossRevenue,          2),
             'gross_sale_cost'         => round($grossCost + $grossCourier, 2),
@@ -318,15 +326,16 @@ class FinanceController extends Controller
                 $cost -= $c;
             }
 
-            // დაბრუნების courier ხარჯი (return purchase-ის კურიერი)
-            $retCourier = (float) Product_Order::where('order_type', 'purchase')
+            // დაბრუნების courier ხარჯი + კლიენტზე დაბრუნებული საკურიერო
+            $retCourRow = Product_Order::where('order_type', 'purchase')
                 ->whereNotNull('original_sale_id')
                 ->where('comment', 'like', '↩ დაბრუნება%')
                 ->whereDate('created_at', '>=', $from)
                 ->whereDate('created_at', '<=', $to)
-                ->selectRaw('SUM(courier_price_tbilisi + courier_price_region + courier_price_village) as total')
-                ->value('total');
-            $cost += $retCourier;
+                ->selectRaw('SUM(courier_price_tbilisi + courier_price_region + courier_price_village) as trip_total,
+                             SUM(COALESCE(courier_refund,0)) as refund_total')
+                ->first();
+            $cost += (float)($retCourRow->trip_total ?? 0);
 
             $extraIncome  = (float) FinanceEntry::income()->forPeriod($from, $to)->sum('amount');
             $extraExpense = (float) FinanceEntry::expense()->forPeriod($from, $to)->sum('amount');

@@ -367,8 +367,14 @@
                     @endif
                     @if($stats['return_courier_expense'] > 0)
                     <div class="kpi-detail-row" style="color:var(--red);">
-                        <span>🚚 დაბრ. კურიერი</span>
+                        <span>🚚 დაბრ. კურიერი (trip)</span>
                         <span id="kpi-cost-d-cour">+{{ number_format($stats['return_courier_expense'],2) }} ₾</span>
+                    </div>
+                    @endif
+                    @if($stats['courier_refund_total'] > 0)
+                    <div class="kpi-detail-row" style="color:var(--red);">
+                        <span>↩ კლ. საკურ. დაბრ.</span>
+                        <span id="kpi-cost-d-cref">+{{ number_format($stats['courier_refund_total'],2) }} ₾</span>
                     </div>
                     @endif
                     @if($stats['extra_expense'] > 0)
@@ -436,9 +442,14 @@
                     <div class="breakdown-item">
                         <div class="bd-top">
                             <span class="bd-label">🚚 საკურიერო</span>
-                            <span class="bd-val">{{ number_format($stats['sale_courier'],2) }} ₾</span>
+                            <span class="bd-val" id="bd-courier-total">{{ number_format($stats['sale_courier'],2) }} ₾</span>
                         </div>
                         <div class="breakdown-bar"><div class="breakdown-bar-fill" style="width:{{ $pct }}%; background: var(--purple);"></div></div>
+                        @if($stats['courier_refund_total'] > 0)
+                        <div style="font-size:11px; color:#e17055; margin-top:3px; padding-left:2px;">
+                            └ ↩ კლ. დაბ.: <strong id="bd-courier-refund">{{ number_format($stats['courier_refund_total'],2) }} ₾</strong>
+                        </div>
+                        @endif
                     </div>
 
                     {{-- extra expenses by category --}}
@@ -460,9 +471,15 @@
                         <span class="val" id="cs-cost">{{ number_format($stats['sale_cost_price'],2) }} ₾</span>
                     </div>
                     <div class="cost-row">
-                        <span class="lbl">საკურიერო</span>
+                        <span class="lbl">🚚 საკურიერო</span>
                         <span class="val" id="cs-courier">{{ number_format($stats['sale_courier'],2) }} ₾</span>
                     </div>
+                    @if($stats['courier_refund_total'] > 0)
+                    <div class="cost-row" style="padding-left:12px; opacity:.8;">
+                        <span class="lbl" style="font-size:11px;">└ ↩ კლ. დაბრ.</span>
+                        <span class="val" id="cs-courier-refund" style="color:var(--orange); font-size:11px;">{{ number_format($stats['courier_refund_total'],2) }} ₾</span>
+                    </div>
+                    @endif
                     <div class="cost-row">
                         <span class="lbl">დამ. ხარჯები</span>
                         <span class="val" id="cs-extra">{{ number_format($stats['extra_expense'],2) }} ₾</span>
@@ -784,6 +801,7 @@ function updateUI(s) {
     setOrHide('kpi-cost-d-gross', s.gross_sale_cost);
     setOrHide('kpi-cost-d-rec',   s.return_cost_recovery,  '-', 'var(--green)');
     setOrHide('kpi-cost-d-cour',  s.return_courier_expense, '+', 'var(--red)');
+    setOrHide('kpi-cost-d-cref',  s.courier_refund_total,   '+', 'var(--red)');
     setOrHide('kpi-cost-d-extra', s.extra_expense);
     const costNet = document.getElementById('kpi-total-cost')?.closest('.kpi-expandable')
                             ?.querySelector('.net-row span:last-child');
@@ -805,6 +823,16 @@ function updateUI(s) {
 
     document.getElementById('cs-cost').textContent    = fmt(s.sale_cost_price);
     document.getElementById('cs-courier').textContent = fmt(s.sale_courier);
+    const csRef = document.getElementById('cs-courier-refund');
+    if (csRef) {
+        csRef.textContent = fmt(s.courier_refund_total);
+        csRef.closest('.cost-row').style.display = s.courier_refund_total > 0 ? '' : 'none';
+    }
+    const bdRef = document.getElementById('bd-courier-refund');
+    if (bdRef) {
+        bdRef.textContent = fmt(s.courier_refund_total);
+        bdRef.closest('div').style.display = s.courier_refund_total > 0 ? '' : 'none';
+    }
     document.getElementById('cs-extra').textContent   = fmt(s.extra_expense);
     document.getElementById('cs-total').textContent   = fmt(s.total_cost);
 

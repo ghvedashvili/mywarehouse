@@ -503,7 +503,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 
 .po-product-cell { display: flex; align-items: center; gap: 10px; }
 .po-product-thumb {
-  width: 38px; height: 38px; border-radius: var(--r-sm);
+  width: 100px; height: 100px; border-radius: var(--r-sm);
   flex-shrink: 0; overflow: hidden;
   background: var(--c-surface2); border: 1px solid var(--c-border-md);
   cursor: zoom-in; transition: transform var(--t-fast), box-shadow var(--t-fast);
@@ -1008,6 +1008,33 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                         </div>
                         <div id="change-courier-note" style="font-size:11px;color:#888;margin-top:4px;">↩ დაბრუნებისას — კურიერი შესყიდვაზე ჩაიწერება</div>
                     </div>
+
+                    {{-- საკურიერო თანხის დაბრუნება — მხოლოდ return-ზე ჩანს --}}
+                    <div id="courier-refund-block" style="display:none;background:#e8f4fd;border:1px solid #bee3f8;border-radius:6px;padding:10px 14px;margin-bottom:10px;">
+                        <label style="font-weight:600;color:#2563eb;margin-bottom:6px;display:block;">
+                            <i class="fa fa-truck"></i> საკურიერო თანხის დაბრუნება
+                        </label>
+                        <div style="font-size:12px;color:#555;margin-bottom:8px;">
+                            გადახდილი საკურიერო: <strong id="orig-courier-amount">0 ₾</strong>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                            <label style="margin:0;font-weight:normal;cursor:pointer;display:flex;align-items:center;gap:5px;">
+                                <input type="radio" name="courier_refund_type" value="none" checked> არ ვაბრუნებ
+                            </label>
+                            <label style="margin:0;font-weight:normal;cursor:pointer;display:flex;align-items:center;gap:5px;">
+                                <input type="radio" name="courier_refund_type" value="full"> სრულად ვაბრუნებ
+                            </label>
+                            <label style="margin:0;font-weight:normal;cursor:pointer;display:flex;align-items:center;gap:5px;">
+                                <input type="radio" name="courier_refund_type" value="custom"> სხვა თანხა
+                            </label>
+                        </div>
+                        <div id="courier-refund-custom" style="display:none;margin-top:8px;">
+                            <input type="number" id="courier_refund_input" class="form-control input-sm"
+                                   step="0.01" min="0" value="" style="max-width:130px;" placeholder="0.00">
+                        </div>
+                        <input type="hidden" name="courier_refund" id="courier_refund_hidden" value="0">
+                    </div>
+
                     <div class="well well-sm" style="background:#f4f4f4;border:1px solid #ddd;padding:10px;">
                         <label style="font-weight:600;display:block;margin-bottom:6px;"><i class="fa fa-credit-card"></i> გადახდა (სხვაობა)</label>
                         <div class="input-group input-group-sm">
@@ -1903,11 +1930,25 @@ window.openChangeModal = function(saleId) {
     $('#form-change')[0].reset(); $('#change_original_sale_id').val(saleId);
     $('input[name="change_type"][value="return"]').prop('checked',true);
     $('#change-stock-info').hide(); $('#change-price-diff-block').hide(); $('#change-product-group').hide();
+    $('#courier-refund-block').hide(); $('#courier-refund-custom').hide();
+    $('#courier_refund_hidden').val(0);
+    $('input[name="courier_refund_type"][value="none"]').prop('checked', true);
     $('#change_size').empty().append('<option value="">— ზომა —</option>');
     $.get("{{ url('productsOut') }}/"+saleId+"/edit", function(data) {
         $('#change-orig-id').text(data.id); $('#change-orig-product').text(data.current_product ? data.current_product.name : '');
         $('#change-orig-size').text(data.product_size||''); $('#change_product_id').val(data.product_id);
         $('#form-change').data('orig-price', parseFloat(data.price_georgia)||0).data('orig-product-id', data.product_id).data('orig-size', data.product_size);
+
+        // საკურიერო თანხა original sale-ზე
+        var origCourier = (parseFloat(data.courier_price_tbilisi)||0)
+                        + (parseFloat(data.courier_price_region)||0)
+                        + (parseFloat(data.courier_price_village)||0);
+        $('#form-change').data('orig-courier', origCourier);
+        if (origCourier > 0) {
+            $('#orig-courier-amount').text(origCourier.toFixed(2) + ' ₾');
+            $('#courier-refund-block').show();
+        }
+
         var sizes = $('#change_product_id option[value="'+data.product_id+'"]').data('sizes') || '';
         var $sel = $('#change_size'); $sel.empty().prop('disabled',true);
         if (sizes) { sizes.toString().split(',').forEach(function(s) { s = s.trim(); if (s) $sel.append('<option value="'+s+'">'+s+'</option>'); }); }
@@ -1967,20 +2008,46 @@ $(document).on('change', 'input[name="change_type"]', function() {
         var $sel = $('#change_size'); $sel.empty();
         if (sizes) { sizes.toString().split(',').forEach(function(s) { s=s.trim(); if(s) $sel.append('<option value="'+s+'">'+s+'</option>'); }); }
         $sel.val(origSize).prop('disabled',true);
+        // courier refund block — show if has courier
+        var origCourier = parseFloat($('#form-change').data('orig-courier') || 0);
+        if (origCourier > 0) { $('#courier-refund-block').show(); } else { $('#courier-refund-block').hide(); }
     } else if (type === 'size') {
         $('#change-product-group').hide(); $('#change_product_id').val(origProductId);
         var $sel2 = $('#change_size'); $sel2.empty().append('<option value="">— ზომა —</option>').prop('disabled',false);
         var sizes2 = $('#change_product_id option[value="'+origProductId+'"]').data('sizes')||'';
         if (sizes2) { sizes2.toString().split(',').forEach(function(s) { s=s.trim(); if(s && s!==origSize) $sel2.append('<option value="'+s+'">'+s+'</option>'); }); }
         $('#change-stock-info').hide(); updateChangePriceDiff();
+        $('#courier-refund-block').hide(); $('#courier_refund_hidden').val(0);
     } else {
         $('#change-product-group').show(); $('#change_product_id').val('');
         $('#change_size').empty().append('<option value="">— ზომა —</option>').prop('disabled',false);
         $('#change-stock-info').hide(); updateChangePriceDiff();
+        $('#courier-refund-block').hide(); $('#courier_refund_hidden').val(0);
     }
 });
 $(document).on('change', '#change_product_id', function() { populateChangeSizes($(this).find('option:selected').data('sizes')||'', null); $('#change-stock-info').hide(); updateChangePriceDiff(); });
 $(document).on('change', '#change_size', function() { loadChangeStockInfo(); updateChangePriceDiff(); });
+
+// ── საკურიერო დაბრუნების radio handler ──────────────────────
+$(document).on('change', 'input[name="courier_refund_type"]', function() {
+    var type      = $(this).val();
+    var origAmt   = parseFloat($('#form-change').data('orig-courier') || 0);
+    if (type === 'full') {
+        $('#courier_refund_hidden').val(origAmt.toFixed(2));
+        $('#courier-refund-custom').hide();
+    } else if (type === 'custom') {
+        $('#courier_refund_input').val('');
+        $('#courier-refund-custom').show();
+        $('#courier_refund_input').focus();
+        $('#courier_refund_hidden').val(0);
+    } else {
+        $('#courier_refund_hidden').val(0);
+        $('#courier-refund-custom').hide();
+    }
+});
+$(document).on('input', '#courier_refund_input', function() {
+    $('#courier_refund_hidden').val($(this).val() || 0);
+});
 
 $('#form-change').on('submit', function(e) {
     e.preventDefault();
@@ -1998,6 +2065,9 @@ $('#form-change').on('submit', function(e) {
 $('#modal-change').on('hidden.bs.modal', function() {
     $('#form-change')[0].reset(); $('#change-price-diff-block').hide();
     $('#change-product-group').hide(); $('#change-stock-info').hide(); $('#change_size').prop('disabled',false);
+    $('#courier-refund-block').hide(); $('#courier-refund-custom').hide();
+    $('#courier_refund_hidden').val(0);
+    $('input[name="courier_refund_type"][value="none"]').prop('checked', true);
 });
 
 function togglePoTheme() {

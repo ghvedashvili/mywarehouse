@@ -476,12 +476,16 @@ class ProductOrderController extends Controller
                 }
 
                 // 4. FIFO ფასები თუ პროდუქტი/ზომა შეიცვალა
+                // purchase_order_id-ს CASE A ადგენს (ქვემოთ), აქ მხოლოდ ფასები
                 if ($keyChanged && in_array($order->order_type, ['sale', 'change'])) {
                     $fifo = \App\Services\FifoService::getPrices($newProductId, $newSize);
                     $newProduct = \App\Models\Product::withoutGlobalScope('active')->find($newProductId);
-                    $data['price_georgia']     = (float) ($newProduct->price_geo ?? $order->price_georgia);
-                    $data['price_usa']         = $fifo['purchase_order_id'] ? (float) $fifo['cost_price'] : 0;
-                    $data['purchase_order_id'] = $fifo['purchase_order_id'];
+                    $data['price_georgia']      = (float) ($newProduct->price_geo ?? $order->price_georgia);
+                    $data['price_usa']          = $fifo['purchase_order_id'] ? (float) $fifo['cost_price'] : 0;
+                    $data['purchase_order_id']  = null;  // CASE A-ს ჩარევამდე null — ერთი გამყოფი წერტილი
+                    if (!isset($data['status_id'])) {
+                        $data['status_id'] = 1;
+                    }
                 }
 
                 // 5. მონაცემების განახლება
@@ -1086,7 +1090,7 @@ class ProductOrderController extends Controller
                 }
                 return '<img src="' . $item->product->image_url . '"
                             class="img-thumbnail img-zoom-trigger"
-                            style="width:60px; height:60px; object-fit:cover; cursor:pointer;">';
+                            style="width:100px; height:100px; object-fit:cover; cursor:pointer;">';
             })
             ->addColumn('group_oldest_date', function ($item) {
                 if (!$item->is_primary || $item->children->isEmpty()) return null;
@@ -2171,14 +2175,29 @@ class ProductOrderController extends Controller
 
             // ─── დაბრუნება: original sale → სტატუსი 5, purchase მიაბი ───
             if ($changeType === 'return') {
+
+                // საკურიერო რამდენი დავაბრუნეთ
+                $originalCourier = (float) $originalSale->courier_price_tbilisi
+                                 + (float) $originalSale->courier_price_region
+                                 + (float) $originalSale->courier_price_village;
+                $courierRefund = min(
+                    max(0, (float) ($request->courier_refund ?? 0)),
+                    $originalCourier
+                );
+
                 // 1. original sale-ის სტატუსი → 5 (დაბრუნებული)
                 $originalSale->status_id            = 5;
                 $originalSale->returned_purchase_id = $sourcePurchase->id;
                 $originalSale->cancelled_at         = now();
                 $originalSale->save();
 
-                // 2. purchase-ს ჩავუწეროთ რომელი ორდერი დაბრუნდა
+                // 2. purchase-ს ჩავუწეროთ: original_sale_id + courier_refund
+                //    თუ საკურიერო ვაბრუნებთ — paid_cash-ში ჩაიწერება (ხარჯის ანაზღაურება)
                 $sourcePurchase->original_sale_id = $originalSale->id;
+                $sourcePurchase->courier_refund   = $courierRefund;
+                if ($courierRefund > 0) {
+                    $sourcePurchase->paid_cash = $courierRefund;
+                }
                 $sourcePurchase->save();
 
                 // 3. StatusChangeLog
@@ -2190,9 +2209,15 @@ class ProductOrderController extends Controller
                     'changed_at'     => now(),
                 ]);
 
+                $msg = '↩ დაბრუნება წარმატებით დარეგისტრირდა! Purchase #' . $sourcePurchase->id;
+                if ($courierRefund > 0) {
+                    $msg .= ' | საკურიერო დაბრუნდა: ' . number_format($courierRefund, 2) . ' ₾';
+                }
+
                 return response()->json([
-                    'success' => true,
-                    'message' => '↩ დაბრუნება წარმატებით დარეგისტრირდა! Purchase #' . $sourcePurchase->id,
+                    'success'        => true,
+                    'message'        => $msg,
+                    'courier_refund' => $courierRefund,
                 ]);
             }
 
