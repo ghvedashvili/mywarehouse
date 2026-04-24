@@ -1863,7 +1863,15 @@ $(document).on('click', '.expand-btn', function() {
         var chPayBtn = '';
         if (!isSaleOperator) chPayBtn = '<a onclick="openPayModal('+order.id+','+(order.price_georgia||0)+','+(order.discount||0)+','+(order.paid_tbc||0)+','+(order.paid_bog||0)+','+(order.paid_lib||0)+','+(order.paid_cash||0)+')" class="btn btn-xs '+chPayClass+'" title="გადახდა"><i class="fa fa-credit-card"></i></a>';
         var splitBtn = '<a onclick="splitFromGroup('+order.id+')" class="btn btn-xs btn-warning" title="ჯგუფიდან გამოყოფა"><i class="fa fa-scissors"></i></a>';
-        var colD = '<div class="po-actions" style="justify-content:flex-start;">'+chPayBtn+splitBtn;
+        var chExchangeBtn = '';
+        if (order.status_id == 4 && (order.order_type === 'sale' || order.order_type === 'change')) {
+            if (!order.has_change_orders) {
+                chExchangeBtn = '<a onclick="openChangeModal('+order.id+')" class="btn btn-xs btn-warning" title="გაცვლა/დაბრუნება"><i class="fa fa-arrow-right-arrow-left"></i></a>';
+            } else {
+                chExchangeBtn = '<span class="btn btn-xs btn-warning" style="opacity:0.4;cursor:not-allowed;" title="გაცვლა უკვე არსებობს"><i class="fa fa-arrow-right-arrow-left"></i></span>';
+            }
+        }
+        var colD = '<div class="po-actions" style="justify-content:flex-start;">'+chPayBtn+splitBtn+chExchangeBtn;
         if (isAdmin) {
             var canDel = order.status_id != 4;
             colD += '<a onclick="editForm('+order.id+')" class="btn btn-xs btn-primary" title="რედაქტირება"><i class="fa fa-pen"></i></a>';

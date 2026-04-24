@@ -1231,34 +1231,25 @@ class ProductOrderController extends Controller
 
                 if ($isAdmin) {
                     if ($item->is_primary) {
-                        $anyPending = in_array($item->status_id, [1, 2])
-                            || $item->children->contains(fn($c) => in_array($c->status_id, [1, 2]));
-
-                        if ($anyPending) {
-                            return '';
-                        }
-
                         $allStatus3 = $item->status_id == 3 && $item->children->every(fn($c) => $c->status_id == 3);
                         $allPaid    = $isPaid($item) && $item->children->every(fn($c) => $isPaid($c));
 
-                        $html = '<span class="label label-' . $color . '" style="font-size:12px; padding:4px 8px;">' . $name . '</span>';
-
-                        if ($allStatus3) {
-                            if ($allPaid) {
-                                $html .= '<br><button class="btn btn-xs btn-success"
-                                              onclick="mergeUpdateStatus(' . $item->id . ', ' . $item->merged_id . ')"
-                                              style="margin-top:3px;">
-                                              <i class="fa fa-truck"></i> გაგზავნა
-                                          </button>';
-                            } else {
-                                $html .= '<br><span class="btn btn-xs btn-default disabled"
-                                              title="დავალიანება არ არის დახურული"
-                                              style="margin-top:3px; opacity:0.5; cursor:not-allowed;">
-                                              <i class="fa fa-truck"></i> გაგზავნა
-                                          </span>';
-                            }
+                        if (!$allStatus3) {
+                            return '';
                         }
-                        return $html;
+
+                        if ($allPaid) {
+                            return '<button class="btn btn-xs btn-success"
+                                        onclick="mergeUpdateStatus(' . $item->id . ', ' . $item->merged_id . ')">
+                                        <i class="fa fa-truck"></i> გაგზავნა
+                                    </button>';
+                        }
+
+                        return '<span class="btn btn-xs btn-default disabled"
+                                    title="დავალიანება არ არის დახურული"
+                                    style="opacity:0.5; cursor:not-allowed;">
+                                    <i class="fa fa-truck"></i> გაგზავნა
+                                </span>';
                     }
 
                     $html = '<span class="label label-' . $color . '" 
