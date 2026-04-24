@@ -143,17 +143,25 @@ class FinanceController extends Controller
             ];
         };
 
-        $grossRevenue  = 0;  // გაყიდვების შემოსავალი (return-ამდე)
-        $grossCost     = 0;  // გაყიდვების თვითღირებულება (return-ამდე)
-        $grossCourier  = 0;  // გაყიდვების კურიერი (return-ამდე)
+        $grossRevenue  = 0;
+        $grossCost     = 0;
+        $grossCourier  = 0;
+        $grossPaidTbc  = 0;
+        $grossPaidBog  = 0;
+        $grossPaidLib  = 0;
+        $grossPaidCash = 0;
         $saleCount     = 0;
         $changeCount   = 0;
 
         foreach ($orders as $s) {
             [$revenue, $cost, $courier] = $extract($s);
-            $grossRevenue += $revenue;
-            $grossCost    += $cost;
-            $grossCourier += $courier;
+            $grossRevenue  += $revenue;
+            $grossCost     += $cost;
+            $grossCourier  += $courier;
+            $grossPaidTbc  += (float)($s->paid_tbc  ?? 0);
+            $grossPaidBog  += (float)($s->paid_bog  ?? 0);
+            $grossPaidLib  += (float)($s->paid_lib  ?? 0);
+            $grossPaidCash += (float)($s->paid_cash ?? 0);
 
             if ($s->order_type === 'sale') {
                 if (!in_array($s->id, $returnedSaleIds)) {
@@ -166,16 +174,22 @@ class FinanceController extends Controller
 
         // ─── 3. ამ პერიოდში დაბრუნებები — ცალკე ხაზი ────────────────
         $returnCount          = count($returnedSaleIds);
-        $returnAmount         = 0;   // დაბრუნებული თანხა (revenue-ს კორექცია)
-        $returnCostRecovery   = 0;   // გამოთავისუფლებული პროდ. ღირებულება
-        $returnedSaleCourier  = 0;   // დაბრუნებული გაყიდვების original courier
-        $returnCourierExpense = 0;   // დაბრუნების trip courier (ჩვენი გასავალი)
+        $returnAmount         = 0;
+        $returnCostRecovery   = 0;
+        $returnCourierExpense = 0;
+        $returnPaidTbc  = 0;
+        $returnPaidBog  = 0;
+        $returnPaidLib  = 0;
+        $returnPaidCash = 0;
 
         foreach ($returnedSaleData as $s) {
             [$revenue, $cost, $courier] = $extract($s);
-            $returnAmount        += $revenue;
-            $returnCostRecovery  += $cost;
-            $returnedSaleCourier += $courier;
+            $returnAmount       += $revenue;
+            $returnCostRecovery += $cost;
+            $returnPaidTbc  += (float)($s->paid_tbc  ?? 0);
+            $returnPaidBog  += (float)($s->paid_bog  ?? 0);
+            $returnPaidLib  += (float)($s->paid_lib  ?? 0);
+            $returnPaidCash += (float)($s->paid_cash ?? 0);
         }
 
         // დაბრუნების კურიერი — return purchase order-ის courier ველებიდან
@@ -193,21 +207,20 @@ class FinanceController extends Controller
         $returnCourierExpense = (float) ($retCourRows->trip_total  ?? 0);
         $courierRefundTotal   = (float) ($retCourRows->refund_total ?? 0);
 
-        // ─── 4. 净 (net) ციფრები ─────────────────────────────────────
-        // შემოსავლიდან გამოვაკლებ დაბრუნებას; ხარჯს ვამატებ courier-ს,
-        // გამოვაკლებ cost recovery-ს (ვითომ "გვიბრუნდება" ეს ღირებულება)
-        $saleRevenue   = $grossRevenue  - $returnAmount;
-        $saleCostPrice = $grossCost     - $returnCostRecovery;
-        $saleCourier   = $grossCourier  - $returnedSaleCourier + $returnCourierExpense;
+        // ─── 4. net ციფრები ──────────────────────────────────────────
+        $saleRevenue   = $grossRevenue - $returnAmount;
+        $saleCostPrice = $grossCost    - $returnCostRecovery;
+        $netCourier    = $grossCourier + $returnCourierExpense - $courierRefundTotal;
 
         // ─── 5. დამატებითი შემოსავლები და ხარჯები ────────────────────
         $extraIncome  = (float) FinanceEntry::income()->forPeriod($from, $to)->sum('amount');
         $extraExpense = (float) FinanceEntry::expense()->forPeriod($from, $to)->sum('amount');
 
         // ─── 6. ჯამური ───────────────────────────────────────────────
-        $totalRevenue = $saleRevenue   + $extraIncome;
-        $totalCost    = $saleCostPrice + $saleCourier + $extraExpense;
-        $profit       = $totalRevenue  - $totalCost;
+        $totalExpenses = $netCourier    + $extraExpense;
+        $totalRevenue  = $saleRevenue   + $extraIncome;
+        $totalCost     = $saleCostPrice + $totalExpenses;
+        $profit        = $totalRevenue  - $totalCost;
 
         // ─── 4. ხარჯების დაშლა კატეგორიებით ─────────────────────────
         $expenseByCategory = FinanceEntry::expense()
@@ -241,11 +254,14 @@ class FinanceController extends Controller
             'return_courier_expense'  => round($returnCourierExpense, 2),
             'courier_refund_total'    => round($courierRefundTotal,   2),
             'change_count'            => $changeCount,
-            'gross_revenue'           => round($grossRevenue,          2),
+            'gross_revenue'           => round($grossRevenue,         2),
+            'gross_courier'           => round($grossCourier + $returnCourierExpense, 2),
             'gross_sale_cost'         => round($grossCost + $grossCourier, 2),
             'sale_revenue'            => round($saleRevenue,    2),
             'sale_cost_price'         => round($saleCostPrice,  2),
-            'sale_courier'            => round($saleCourier,    2),
+            'sale_courier'            => round($netCourier,     2),
+            'net_courier'             => round($netCourier,     2),
+            'total_expenses'          => round($totalExpenses,  2),
             'extra_income'            => round($extraIncome,    2),
             'extra_expense'           => round($extraExpense,   2),
             'total_revenue'           => round($totalRevenue,   2),
@@ -255,6 +271,10 @@ class FinanceController extends Controller
                                            ? round(($profit / $totalRevenue) * 100, 1)
                                            : 0,
             'customer_debt'           => round($customerDebt, 2),
+            'paid_tbc_total'          => round($grossPaidTbc  - $returnPaidTbc,  2),
+            'paid_bog_total'          => round($grossPaidBog  - $returnPaidBog,  2),
+            'paid_lib_total'          => round($grossPaidLib  - $returnPaidLib,  2),
+            'paid_cash_total'         => round($grossPaidCash - $returnPaidCash, 2),
             'expense_by_category'     => $expenseByCategory,
             'trend'                   => $trend,
         ];
@@ -312,21 +332,17 @@ class FinanceController extends Controller
                 $cost += $c;
             }
 
-            // ამ პერიოდში დაბრუნებული original sale-ების კორექცია
+            // ამ პერიოდში დაბრუნებული original sale-ების კორექცია — მხოლოდ COGS
             foreach ($retData as $s) {
-                // დაბრუნება: გამოვაკლებ გადახდილ თანხას (cash basis)
                 $r = (float)($s->paid_tbc  ?? 0) + (float)($s->paid_bog  ?? 0)
                    + (float)($s->paid_lib  ?? 0) + (float)($s->paid_cash ?? 0);
-                $c = (float)($s->price_usa ?? 0)
-                   + (float)($s->courier_price_international ?? 0)
-                   + (float)($s->courier_price_tbilisi ?? 0)
-                   + (float)($s->courier_price_region  ?? 0)
-                   + (float)($s->courier_price_village ?? 0);
+                $cogs = (float)($s->price_usa ?? 0)
+                      + (float)($s->courier_price_international ?? 0);
                 $rev  -= $r;
-                $cost -= $c;
+                $cost -= $cogs;
             }
 
-            // დაბრუნების courier ხარჯი + კლიენტზე დაბრუნებული საკურიერო
+            // დაბრუნების courier ხარჯი (trip) + კლიენტზე დაბრუნებული საკურიერო (refund)
             $retCourRow = Product_Order::where('order_type', 'purchase')
                 ->whereNotNull('original_sale_id')
                 ->where('comment', 'like', '↩ დაბრუნება%')
@@ -335,7 +351,8 @@ class FinanceController extends Controller
                 ->selectRaw('SUM(courier_price_tbilisi + courier_price_region + courier_price_village) as trip_total,
                              SUM(COALESCE(courier_refund,0)) as refund_total')
                 ->first();
-            $cost += (float)($retCourRow->trip_total ?? 0);
+            $cost += (float)($retCourRow->trip_total  ?? 0);
+            $cost -= (float)($retCourRow->refund_total ?? 0);
 
             $extraIncome  = (float) FinanceEntry::income()->forPeriod($from, $to)->sum('amount');
             $extraExpense = (float) FinanceEntry::expense()->forPeriod($from, $to)->sum('amount');

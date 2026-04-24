@@ -349,43 +349,25 @@
         <div class="kpi-card kpi-expandable" style="--accent: var(--red);" onclick="toggleKpiCard(this)">
             <div class="kpi-label">📤 გასავალი (სულ)</div>
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div class="kpi-value" id="kpi-total-cost">{{ number_format($stats['total_cost'],2) }} ₾</div>
+                <div class="kpi-value" id="kpi-total-cost">{{ number_format($stats['total_expenses'],2) }} ₾</div>
                 <div class="kpi-expand-arrow">▼</div>
             </div>
-            <div class="kpi-sub">სუფთა გასავალი</div>
+            <div class="kpi-sub">საკურიერო + სხვა ხარჯები</div>
             <div class="kpi-details">
                 <div class="kpi-details-inner">
                     <div class="kpi-detail-row">
-                        <span>🏷 თვითღირებულება</span>
-                        <span id="kpi-cost-d-gross">{{ number_format($stats['gross_sale_cost'],2) }} ₾</span>
+                        <span>🚚 საკურიერო (სუფთა)</span>
+                        <span id="kpi-cost-d-courier">{{ number_format($stats['net_courier'],2) }} ₾</span>
                     </div>
-                    @if($stats['return_cost_recovery'] > 0)
-                    <div class="kpi-detail-row" style="color:var(--green);">
-                        <span>↩ საქ. ღირ. დაბრ.</span>
-                        <span id="kpi-cost-d-rec">-{{ number_format($stats['return_cost_recovery'],2) }} ₾</span>
-                    </div>
-                    @endif
-                    @if($stats['return_courier_expense'] > 0)
-                    <div class="kpi-detail-row" style="color:var(--red);">
-                        <span>🚚 დაბრ. კურიერი (trip)</span>
-                        <span id="kpi-cost-d-cour">+{{ number_format($stats['return_courier_expense'],2) }} ₾</span>
-                    </div>
-                    @endif
-                    @if($stats['courier_refund_total'] > 0)
-                    <div class="kpi-detail-row" style="color:var(--red);">
-                        <span>↩ კლ. საკურ. დაბრ.</span>
-                        <span id="kpi-cost-d-cref">+{{ number_format($stats['courier_refund_total'],2) }} ₾</span>
-                    </div>
-                    @endif
                     @if($stats['extra_expense'] > 0)
                     <div class="kpi-detail-row">
-                        <span>📋 დამატებითი ხარჯი</span>
+                        <span>📋 სხვა ხარჯები</span>
                         <span id="kpi-cost-d-extra">{{ number_format($stats['extra_expense'],2) }} ₾</span>
                     </div>
                     @endif
                     <div class="kpi-detail-row net-row">
-                        <span>სუფთა</span>
-                        <span>{{ number_format($stats['total_cost'],2) }} ₾</span>
+                        <span>სულ</span>
+                        <span id="kpi-cost-net-total">{{ number_format($stats['total_expenses'],2) }} ₾</span>
                     </div>
                 </div>
             </div>
@@ -416,45 +398,38 @@
             </div>
         </div>
 
-        {{-- Cost Breakdown --}}
+        {{-- Expense Breakdown --}}
         <div class="col-breakdown">
             <div class="fin-card">
                 <div class="fin-card-title">🧮 გასავლის დაშლა</div>
 
                 <div id="breakdownList">
                     @php
-                        $catLabels = \App\Models\FinanceEntry::$categoryLabels;
-                        $totalCost = $stats['total_cost'];
+                        $catLabels     = \App\Models\FinanceEntry::$categoryLabels;
+                        $totalExpenses = max($stats['total_expenses'], 0.01);
                     @endphp
 
-                    {{-- product cost --}}
-                    @php $pct = $totalCost > 0 ? round($stats['sale_cost_price']/$totalCost*100) : 0; @endphp
+                    {{-- courier (net) --}}
+                    @php $pct = max(0, round($stats['net_courier'] / $totalExpenses * 100)); @endphp
                     <div class="breakdown-item">
                         <div class="bd-top">
-                            <span class="bd-label">🏷️ პროდ. თვითღირ.</span>
-                            <span class="bd-val">{{ number_format($stats['sale_cost_price'],2) }} ₾</span>
-                        </div>
-                        <div class="breakdown-bar"><div class="breakdown-bar-fill" style="width:{{ $pct }}%; background: var(--orange);"></div></div>
-                    </div>
-
-                    {{-- courier --}}
-                    @php $pct = $totalCost > 0 ? round($stats['sale_courier']/$totalCost*100) : 0; @endphp
-                    <div class="breakdown-item">
-                        <div class="bd-top">
-                            <span class="bd-label">🚚 საკურიერო</span>
-                            <span class="bd-val" id="bd-courier-total">{{ number_format($stats['sale_courier'],2) }} ₾</span>
+                            <span class="bd-label">🚚 საკურიერო (სუფთა)</span>
+                            <span class="bd-val" id="bd-courier-total">{{ number_format($stats['net_courier'],2) }} ₾</span>
                         </div>
                         <div class="breakdown-bar"><div class="breakdown-bar-fill" style="width:{{ $pct }}%; background: var(--purple);"></div></div>
+                        <div style="font-size:11px; color:#636e72; margin-top:3px; padding-left:2px;">
+                            └ 📤 გამოგზ.: <strong id="bd-gross-courier">{{ number_format($stats['gross_courier'],2) }} ₾</strong>
+                        </div>
                         @if($stats['courier_refund_total'] > 0)
-                        <div style="font-size:11px; color:#e17055; margin-top:3px; padding-left:2px;">
-                            └ ↩ კლ. დაბ.: <strong id="bd-courier-refund">{{ number_format($stats['courier_refund_total'],2) }} ₾</strong>
+                        <div style="font-size:11px; color:var(--green); margin-top:2px; padding-left:2px;">
+                            └ ↩ კლ. დაბ.: <strong id="bd-courier-refund">-{{ number_format($stats['courier_refund_total'],2) }} ₾</strong>
                         </div>
                         @endif
                     </div>
 
                     {{-- extra expenses by category --}}
                     @foreach($stats['expense_by_category'] as $cat => $amount)
-                        @php $pct = $totalCost > 0 ? round($amount/$totalCost*100) : 0; @endphp
+                        @php $pct = max(0, round($amount / $totalExpenses * 100)); @endphp
                         <div class="breakdown-item">
                             <div class="bd-top">
                                 <span class="bd-label">{{ $catLabels[$cat] ?? $cat }}</span>
@@ -467,26 +442,96 @@
 
                 <div class="cost-summary">
                     <div class="cost-row">
-                        <span class="lbl">პროდ. თვითღირ.</span>
-                        <span class="val" id="cs-cost">{{ number_format($stats['sale_cost_price'],2) }} ₾</span>
-                    </div>
-                    <div class="cost-row">
-                        <span class="lbl">🚚 საკურიერო</span>
-                        <span class="val" id="cs-courier">{{ number_format($stats['sale_courier'],2) }} ₾</span>
+                        <span class="lbl">🚚 საკურიერო (გამოგზ.)</span>
+                        <span class="val" id="cs-gross-courier">{{ number_format($stats['gross_courier'],2) }} ₾</span>
                     </div>
                     @if($stats['courier_refund_total'] > 0)
                     <div class="cost-row" style="padding-left:12px; opacity:.8;">
-                        <span class="lbl" style="font-size:11px;">└ ↩ კლ. დაბრ.</span>
-                        <span class="val" id="cs-courier-refund" style="color:var(--orange); font-size:11px;">{{ number_format($stats['courier_refund_total'],2) }} ₾</span>
+                        <span class="lbl" style="font-size:11px; color:var(--green);">└ ↩ კლ. დაბრ.</span>
+                        <span class="val" id="cs-courier-refund" style="color:var(--green); font-size:11px;">-{{ number_format($stats['courier_refund_total'],2) }} ₾</span>
                     </div>
                     @endif
                     <div class="cost-row">
-                        <span class="lbl">დამ. ხარჯები</span>
+                        <span class="lbl">🚚 საკურიერო (სუფთა)</span>
+                        <span class="val" id="cs-courier">{{ number_format($stats['net_courier'],2) }} ₾</span>
+                    </div>
+                    <div class="cost-row">
+                        <span class="lbl">📋 სხვა ხარჯები</span>
                         <span class="val" id="cs-extra">{{ number_format($stats['extra_expense'],2) }} ₾</span>
                     </div>
                     <div class="cost-row total-row">
                         <span class="lbl">სულ გასავალი</span>
-                        <span class="val" id="cs-total">{{ number_format($stats['total_cost'],2) }} ₾</span>
+                        <span class="val" id="cs-total">{{ number_format($stats['total_expenses'],2) }} ₾</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Revenue Breakdown --}}
+        <div class="col-breakdown">
+            <div class="fin-card">
+                <div class="fin-card-title">💰 შემოსავლის დაშლა</div>
+
+                @php
+                    $totalRev  = max($stats['total_revenue'], 0.01);
+                    $revItems  = [
+                        'tbc'  => ['TBC',   $stats['paid_tbc_total'],  '#0984e3'],
+                        'bog'  => ['BOG',   $stats['paid_bog_total'],  '#e17055'],
+                        'lib'  => ['LIB',   $stats['paid_lib_total'],  '#00b894'],
+                        'cash' => ['ნაღდი', $stats['paid_cash_total'], '#6c5ce7'],
+                    ];
+                @endphp
+
+                <div id="revenueBreakdownList">
+                    @foreach($revItems as $key => [$label, $amount, $color])
+                    @php $pct = max(0, round($amount / $totalRev * 100)); @endphp
+                    <div class="breakdown-item">
+                        <div class="bd-top">
+                            <span class="bd-label">💳 {{ $label }}</span>
+                            <span class="bd-val" style="color:{{ $color }};" id="bd-rev-{{ $key }}">{{ number_format($amount,2) }} ₾</span>
+                        </div>
+                        <div class="breakdown-bar"><div class="breakdown-bar-fill" style="width:{{ $pct }}%; background:{{ $color }};"></div></div>
+                    </div>
+                    @endforeach
+
+                    @if($stats['extra_income'] > 0)
+                    @php $pct = max(0, round($stats['extra_income'] / $totalRev * 100)); @endphp
+                    <div class="breakdown-item">
+                        <div class="bd-top">
+                            <span class="bd-label">➕ სხვა შემოსავ.</span>
+                            <span class="bd-val" style="color:var(--green);" id="bd-rev-extra">{{ number_format($stats['extra_income'],2) }} ₾</span>
+                        </div>
+                        <div class="breakdown-bar"><div class="breakdown-bar-fill" style="width:{{ $pct }}%; background:var(--green);"></div></div>
+                    </div>
+                    @endif
+                </div>
+
+                <div class="cost-summary" style="background:#f0fff8;">
+                    <div class="cost-row">
+                        <span class="lbl">💳 TBC</span>
+                        <span class="val" id="cs-rev-tbc" style="color:#0984e3;">{{ number_format($stats['paid_tbc_total'],2) }} ₾</span>
+                    </div>
+                    <div class="cost-row">
+                        <span class="lbl">💳 BOG</span>
+                        <span class="val" id="cs-rev-bog" style="color:var(--orange);">{{ number_format($stats['paid_bog_total'],2) }} ₾</span>
+                    </div>
+                    <div class="cost-row">
+                        <span class="lbl">💳 LIB</span>
+                        <span class="val" id="cs-rev-lib" style="color:var(--green);">{{ number_format($stats['paid_lib_total'],2) }} ₾</span>
+                    </div>
+                    <div class="cost-row">
+                        <span class="lbl">💵 ნაღდი</span>
+                        <span class="val" id="cs-rev-cash" style="color:var(--purple);">{{ number_format($stats['paid_cash_total'],2) }} ₾</span>
+                    </div>
+                    @if($stats['extra_income'] > 0)
+                    <div class="cost-row">
+                        <span class="lbl">➕ სხვა</span>
+                        <span class="val" id="cs-rev-extra" style="color:var(--green);">{{ number_format($stats['extra_income'],2) }} ₾</span>
+                    </div>
+                    @endif
+                    <div class="cost-row total-row" style="border-top-color:#c3f0d8;">
+                        <span class="lbl" style="color:var(--green);">სულ შემოსავალი</span>
+                        <span class="val" id="cs-rev-total" style="color:var(--green);">{{ number_format($stats['total_revenue'],2) }} ₾</span>
                     </div>
                 </div>
             </div>
@@ -787,25 +832,21 @@ function updateUI(s) {
     document.getElementById('kpi-return-amount').textContent = '-' + fmt(s.return_amount);
     document.getElementById('kpi-change-count').textContent  = s.change_count;
 
-    // ── შემოსავალი — primary = net (total_revenue) ──────────────────
+    // ── შემოსავალი ──────────────────────────────────────────────────
     document.getElementById('kpi-total-rev').textContent = fmt(s.total_revenue);
     setOrHide('kpi-rev-d-gross', s.gross_revenue);
-    setOrHide('kpi-rev-d-ret',   s.return_amount,  '-', 'var(--red)');
-    setOrHide('kpi-rev-d-extra', s.extra_income,   '',  'var(--green)');
+    setOrHide('kpi-rev-d-ret',   s.return_amount, '-', 'var(--red)');
+    setOrHide('kpi-rev-d-extra', s.extra_income,  '',  'var(--green)');
     const revNet = document.getElementById('kpi-total-rev')?.closest('.kpi-expandable')
                            ?.querySelector('.net-row span:last-child');
     if (revNet) revNet.textContent = fmt(s.total_revenue);
 
-    // ── გასავალი — primary = net (total_cost) ───────────────────────
-    document.getElementById('kpi-total-cost').textContent = fmt(s.total_cost);
-    setOrHide('kpi-cost-d-gross', s.gross_sale_cost);
-    setOrHide('kpi-cost-d-rec',   s.return_cost_recovery,  '-', 'var(--green)');
-    setOrHide('kpi-cost-d-cour',  s.return_courier_expense, '+', 'var(--red)');
-    setOrHide('kpi-cost-d-cref',  s.courier_refund_total,   '+', 'var(--red)');
-    setOrHide('kpi-cost-d-extra', s.extra_expense);
-    const costNet = document.getElementById('kpi-total-cost')?.closest('.kpi-expandable')
-                            ?.querySelector('.net-row span:last-child');
-    if (costNet) costNet.textContent = fmt(s.total_cost);
+    // ── გასავალი (total_expenses = courier + other) ─────────────────
+    document.getElementById('kpi-total-cost').textContent = fmt(s.total_expenses);
+    setOrHide('kpi-cost-d-courier', s.net_courier);
+    setOrHide('kpi-cost-d-extra',   s.extra_expense);
+    const kpiCostNetEl = document.getElementById('kpi-cost-net-total');
+    if (kpiCostNetEl) kpiCostNetEl.textContent = fmt(s.total_expenses);
 
     document.getElementById('kpi-profit').textContent = fmt(s.profit);
     document.getElementById('kpi-margin').textContent = 'მარჟა: ' + s.profit_margin + '%';
@@ -821,20 +862,45 @@ function updateUI(s) {
     profitCard.classList.toggle('profit-negative', s.profit < 0);
     profitCard.querySelector('.kpi-label').textContent = s.profit >= 0 ? '📈 მოგება' : '📉 წაგება';
 
-    document.getElementById('cs-cost').textContent    = fmt(s.sale_cost_price);
-    document.getElementById('cs-courier').textContent = fmt(s.sale_courier);
-    const csRef = document.getElementById('cs-courier-refund');
-    if (csRef) {
-        csRef.textContent = fmt(s.courier_refund_total);
-        csRef.closest('.cost-row').style.display = s.courier_refund_total > 0 ? '' : 'none';
-    }
+    // ── expense breakdown panel ──────────────────────────────────────
+    const bdGross = document.getElementById('bd-gross-courier');
+    if (bdGross) bdGross.textContent = fmt(s.gross_courier);
+
+    document.getElementById('bd-courier-total').textContent = fmt(s.net_courier);
+
     const bdRef = document.getElementById('bd-courier-refund');
     if (bdRef) {
-        bdRef.textContent = fmt(s.courier_refund_total);
+        bdRef.textContent = '-' + fmt(s.courier_refund_total);
         bdRef.closest('div').style.display = s.courier_refund_total > 0 ? '' : 'none';
     }
-    document.getElementById('cs-extra').textContent   = fmt(s.extra_expense);
-    document.getElementById('cs-total').textContent   = fmt(s.total_cost);
+
+    const csGross = document.getElementById('cs-gross-courier');
+    if (csGross) csGross.textContent = fmt(s.gross_courier);
+
+    document.getElementById('cs-courier').textContent = fmt(s.net_courier);
+
+    const csRef = document.getElementById('cs-courier-refund');
+    if (csRef) {
+        csRef.textContent = '-' + fmt(s.courier_refund_total);
+        csRef.closest('.cost-row').style.display = s.courier_refund_total > 0 ? '' : 'none';
+    }
+
+    document.getElementById('cs-extra').textContent = fmt(s.extra_expense);
+    document.getElementById('cs-total').textContent = fmt(s.total_expenses);
+
+    // ── revenue breakdown panel ──────────────────────────────────────
+    const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = fmt(val); };
+    setEl('cs-rev-tbc',   s.paid_tbc_total);
+    setEl('cs-rev-bog',   s.paid_bog_total);
+    setEl('cs-rev-lib',   s.paid_lib_total);
+    setEl('cs-rev-cash',  s.paid_cash_total);
+    setEl('cs-rev-extra', s.extra_income);
+    setEl('cs-rev-total', s.total_revenue);
+    setEl('bd-rev-tbc',   s.paid_tbc_total);
+    setEl('bd-rev-bog',   s.paid_bog_total);
+    setEl('bd-rev-lib',   s.paid_lib_total);
+    setEl('bd-rev-cash',  s.paid_cash_total);
+    setEl('bd-rev-extra', s.extra_income);
 
     // trend chart
     if (window.trendChart) {
