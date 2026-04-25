@@ -62,21 +62,32 @@ class PurchaseOrderController extends Controller
         }
 
         // Maps keyed by primary row id — used in addColumn closures
-        $groupCountMap = [];
-        $groupItemsMap = [];
+        $groupCountMap        = [];
+        $groupItemsMap        = [];
+        $groupReceivedQtyMap  = [];
+        $groupRemainingQtyMap = [];
 
-        // One row per group — primary = row where id == purchase_group_id
-        $rows = $grouped->map(function ($items) use (&$groupCountMap, &$groupItemsMap) {
-            $primary = $items->first(fn($r) => $r->purchase_group_id && $r->id == $r->purchase_group_id)
-                    ?? $items->first();
+        // One row per group — primary: for "გზაში" prefer status=2 item; otherwise the root (id==pg_id)
+        $rows = $grouped->map(function ($items) use (&$groupCountMap, &$groupItemsMap, &$groupReceivedQtyMap, &$groupRemainingQtyMap, $statusFilter) {
+            if ($statusFilter === '2') {
+                $primary = $items->first(fn($r) => $r->status_id === 2) ?? $items->first();
+            } else {
+                $primary = $items->first(fn($r) => $r->purchase_group_id && $r->id == $r->purchase_group_id)
+                        ?? $items->first();
+            }
 
-            $groupCountMap[$primary->id] = $items->count();
-            $groupItemsMap[$primary->id] = $items->map(fn($r) => [
+            $groupCountMap[$primary->id]        = $items->count();
+            $groupReceivedQtyMap[$primary->id]  = (int) $items->where('status_id', 3)->sum('quantity');
+            $groupRemainingQtyMap[$primary->id] = (int) $items->where('status_id', 2)->sum('quantity');
+            $groupItemsMap[$primary->id]        = $items->map(fn($r) => [
                 'id'           => $r->id,
+                'product_id'   => $r->product_id,
                 'product_name' => $r->product?->name        ?? 'N/A',
                 'product_code' => $r->product?->product_code ?? '-',
                 'product_size' => $r->product_size,
                 'quantity'     => $r->quantity,
+                'original_qty' => $r->original_qty,   // ← ეს დაამატე
+                'lost_qty'      => $r->lost_qty ?? 0,   // ← ეს დაამატე
                 'status_id'    => $r->status_id,
                 'status_name'  => $r->orderStatus?->name  ?? '-',
                 'status_color' => $r->orderStatus?->color ?? 'default',
@@ -97,29 +108,56 @@ class PurchaseOrderController extends Controller
                 }
                 return e($num) . $badge;
             })
-            ->addColumn('product_name', function ($row) use ($groupCountMap) {
-                $count = $groupCountMap[$row->id] ?? 1;
-                if ($count > 1) {
+            ->addColumn('product_name', function ($row) use ($groupCountMap, $groupItemsMap) {
+                $count          = $groupCountMap[$row->id] ?? 1;
+                $uniqueProducts = $count > 1 ? collect($groupItemsMap[$row->id] ?? [])->pluck('product_id')->unique()->count() : 1;
+                if ($count > 1 && $uniqueProducts > 1) {
                     return '<span class="badge bg-info text-dark">'.$count.' პროდუქტი</span>';
                 }
                 return e($row->product?->name ?? 'N/A');
             })
-            ->addColumn('product_code', function ($row) use ($groupCountMap) {
-                return ($groupCountMap[$row->id] ?? 1) > 1 ? '—' : ($row->product?->product_code ?? '-');
+            ->addColumn('product_code', function ($row) use ($groupCountMap, $groupItemsMap) {
+                $count          = $groupCountMap[$row->id] ?? 1;
+                $uniqueProducts = $count > 1 ? collect($groupItemsMap[$row->id] ?? [])->pluck('product_id')->unique()->count() : 1;
+                return ($count > 1 && $uniqueProducts > 1) ? '—' : ($row->product?->product_code ?? '-');
             })
-            ->editColumn('product_size', function ($row) use ($groupCountMap) {
-                return ($groupCountMap[$row->id] ?? 1) > 1 ? '—' : ($row->product_size ?? '—');
+            ->editColumn('product_size', function ($row) use ($groupCountMap, $groupItemsMap) {
+                $count          = $groupCountMap[$row->id] ?? 1;
+                $uniqueProducts = $count > 1 ? collect($groupItemsMap[$row->id] ?? [])->pluck('product_id')->unique()->count() : 1;
+                return ($count > 1 && $uniqueProducts > 1) ? '—' : ($row->product_size ?? '—');
             })
-            ->editColumn('quantity', function ($row) use ($groupCountMap) {
-                return ($groupCountMap[$row->id] ?? 1) > 1 ? '—' : $row->quantity;
-            })
-            ->addColumn('is_return_purchase', fn($row) => $row->original_sale_id !== null ? 1 : 0)
-            ->addColumn('status_name', function ($row) use ($groupCountMap, $groupItemsMap) {
+            ->editColumn('quantity', function ($row) use ($groupCountMap, $groupItemsMap, $statusFilter) {
                 $count = $groupCountMap[$row->id] ?? 1;
                 if ($count > 1) {
+                    $uniqueProducts = collect($groupItemsMap[$row->id] ?? [])->pluck('product_id')->unique()->count();
+                    if ($uniqueProducts > 1) return '—';
+                    if ($statusFilter === '3') {
+                        // original_qty set → use it; fallback: sum all portions (= original total)
+                        $sumQty = collect($groupItemsMap[$row->id] ?? [])->sum('quantity');
+                        return $row->original_qty ?? ($sumQty ?: $row->quantity);
+                    }
+                }
+                if ($statusFilter === '3' && $row->original_qty) {
+        return $row->original_qty;
+    }
+                // "გზაში": primary is the status=2 item, $row->quantity = remaining
+                return $row->quantity;
+            })
+            ->addColumn('is_return_purchase', fn($row) => $row->original_sale_id !== null ? 1 : 0)
+            ->addColumn('status_name', function ($row) use ($groupCountMap, $groupItemsMap, $statusFilter) {
+                $count          = $groupCountMap[$row->id] ?? 1;
+                $uniqueProducts = $count > 1 ? collect($groupItemsMap[$row->id] ?? [])->pluck('product_id')->unique()->count() : 1;
+                if ($count > 1 && $uniqueProducts > 1) {
                     $ids = collect($groupItemsMap[$row->id] ?? [])->pluck('status_id')->unique();
                     if ($ids->count() > 1) {
                         return '<span class="label label-warning">⚡ შერეული</span>';
+                    }
+                }
+                // single-product group in "გზაში": show the in-transit item's status
+                if ($count > 1 && $uniqueProducts === 1 && $statusFilter === '2') {
+                    $inTransit = collect($groupItemsMap[$row->id] ?? [])->first(fn($i) => $i['status_id'] == 2);
+                    if ($inTransit) {
+                        return '<span class="label label-'.$inTransit['status_color'].'">'.$inTransit['status_name'].'</span>';
                     }
                 }
                 $color = $row->orderStatus?->color ?? 'default';
@@ -127,14 +165,16 @@ class PurchaseOrderController extends Controller
                 return '<span class="label label-'.$color.'">'.$name.'</span>';
             })
             ->editColumn('created_at', fn($row) => $row->created_at ? $row->created_at->format('d.m.Y H:i') : '-')
-            ->addColumn('price_paid', function ($row) use ($groupCountMap) {
-                return ($groupCountMap[$row->id] ?? 1) > 1 ? '—' : number_format($row->price_georgia, 2) . ' ₾';
+            ->addColumn('price_paid', function ($row) use ($groupCountMap, $groupItemsMap) {
+                $count          = $groupCountMap[$row->id] ?? 1;
+                $uniqueProducts = $count > 1 ? collect($groupItemsMap[$row->id] ?? [])->pluck('product_id')->unique()->count() : 1;
+                return ($count > 1 && $uniqueProducts > 1) ? '—' : number_format($row->price_georgia, 2) . ' ₾';
             })
             ->addColumn('payment', function ($row) use ($groupCountMap) {
                 $count    = $groupCountMap[$row->id] ?? 1;
                 $usa      = $row->price_usa ?? 0;
                 $tr       = $row->courier_price_international ?? 0;
-                $qty      = $row->quantity ?? 1;
+               $qty      = $row->original_qty ?? $row->quantity ?? 1;  // ← original_qty
                 $discount = $row->discount ?? 0;
                 $cost     = $row->cost_price ?? ($usa + $tr);
                 $total    = (($usa + $tr) * $qty) - $discount;
@@ -157,14 +197,17 @@ class PurchaseOrderController extends Controller
             ->addColumn('group_items_json', function ($row) use ($groupItemsMap) {
                 return json_encode($groupItemsMap[$row->id] ?? []);
             })
-            ->addColumn('action', function ($row) use ($groupCountMap) {
-                $count   = $groupCountMap[$row->id] ?? 1;
+            ->addColumn('action', function ($row) use ($groupCountMap, $groupItemsMap) {
+                $count          = $groupCountMap[$row->id] ?? 1;
+                $uniqueProducts = $count > 1 ? collect($groupItemsMap[$row->id] ?? [])->pluck('product_id')->unique()->count() : 1;
                 $gid     = $row->purchase_group_id ?? $row->id;
                 $view = '<a onclick="openGroupView('.$gid.')" class="btn btn-info btn-xs" title="დათვალიერება"><i class="fa fa-eye"></i></a>';
-                $receive = $row->status_id == 2
+                // show receive button if any status=2 item exists in the group
+                $hasInTransit = collect($groupItemsMap[$row->id] ?? [])->contains(fn($i) => $i['status_id'] == 2);
+                $receive = $hasInTransit
                     ? '<a onclick="openGroupReceive('.$gid.')" class="btn btn-warning btn-xs" title="საწყობში მიღება"><i class="fa fa-inbox"></i></a>'
                     : '';
-                $edit = $count === 1
+                $edit = ($count === 1 || $uniqueProducts === 1)
                     ? '<a onclick="editPurchase('.$row->id.')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i></a>'
                     : '';
                 $del = '<a onclick="deletePurchase('.$row->id.')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i></a>';
@@ -176,33 +219,43 @@ class PurchaseOrderController extends Controller
 
     // ─── ჯგუფის მიღება: items data ───────────────────────────────────
     public function getGroupItems($groupId)
-    {
-        $items = Product_Order::with(['product', 'orderStatus'])
+{
+    $items = Product_Order::with(['product', 'orderStatus'])
+        ->where('order_type', 'purchase')
+        ->where('purchase_group_id', $groupId)
+        ->get();
+
+    if ($items->isEmpty()) {
+        $single = Product_Order::with(['product', 'orderStatus'])
             ->where('order_type', 'purchase')
-            ->where('purchase_group_id', $groupId)
-            ->get();
-
-        // Fallback: ძველი ორდერი purchase_group_id-გარეშე
-        if ($items->isEmpty()) {
-            $single = Product_Order::with(['product', 'orderStatus'])
-                ->where('order_type', 'purchase')
-                ->find($groupId);
-            if ($single) $items = collect([$single]);
-        }
-
-        return response()->json($items->map(fn($r) => [
-            'id'            => $r->id,
-            'product_name'  => $r->product?->name         ?? 'N/A',
-            'product_code'  => $r->product?->product_code ?? '—',
-            'product_image' => $r->product?->image_url,
-            'product_size'  => $r->product_size,
-            'quantity'      => $r->quantity,
-            'original_qty'  => $r->original_qty ?? $r->quantity,
-            'status_id'     => $r->status_id,
-            'status_name'   => $r->orderStatus?->name  ?? '-',
-            'status_color'  => $r->orderStatus?->color ?? 'default',
-        ])->values());
+            ->find($groupId);
+        if ($single) $items = collect([$single]);
     }
+
+    // warehouse_logs-დან per-order დაკარგული რაოდენობა
+    $orderIds = $items->pluck('id');
+    $lostMap  = \DB::table('warehouse_logs')
+        ->where('action', 'lost')
+        ->where('reference_type', 'purchase_order')
+        ->whereIn('reference_id', $orderIds)
+        ->groupBy('reference_id')
+        ->selectRaw('reference_id, ABS(SUM(qty_change)) as lost_qty')
+        ->pluck('lost_qty', 'reference_id');
+
+    return response()->json($items->map(fn($r) => [
+        'id'            => $r->id,
+        'product_name'  => $r->product?->name         ?? 'N/A',
+        'product_code'  => $r->product?->product_code ?? '—',
+        'product_image' => $r->product?->image_url,
+        'product_size'  => $r->product_size,
+        'quantity'      => $r->quantity,
+        'original_qty'  => $r->original_qty ?? $r->quantity,
+        'lost_qty'      => (int) ($lostMap[$r->id] ?? 0),  // ← warehouse_logs-დან
+        'status_id'     => $r->status_id,
+        'status_name'   => $r->orderStatus?->name  ?? '-',
+        'status_color'  => $r->orderStatus?->color ?? 'default',
+    ])->values());
+}
 
     // ─── შესყიდვის შექმნა ─────────────────────────────────────────────
     public function store(Request $request)
@@ -940,6 +993,11 @@ class PurchaseOrderController extends Controller
             // ─── ნაწილობრივი მიღება (split) ────────────────────────────────
             $ratio = $receivedQty / $totalOriginalQty;
 
+            // root group id — inherited from existing group or this purchase becomes the root
+            $rootGroupId = $purchase->purchase_group_id ?? $purchase->id;
+            // original ordered qty — set once on first split, then inherited unchanged
+            $originalQty = $purchase->original_qty ?? $totalOriginalQty;
+
             $newData = $purchase->toArray();
             unset($newData['id'], $newData['created_at'], $newData['updated_at'], $newData['order_number']);
 
@@ -954,6 +1012,8 @@ class PurchaseOrderController extends Controller
             $newData['paid_cash']                   = round($purchase->paid_cash * (1 - $ratio), 2);
             $newData['comment']                     = '📦 ნაშთი #' . $id . '-დან';
             $newData['status_id']                   = 2;
+            $newData['purchase_group_id']           = $rootGroupId;
+            $newData['original_qty']                = $originalQty;
 
             $purchase->update([
                 'quantity'                    => $receivedQty,
@@ -966,6 +1026,8 @@ class PurchaseOrderController extends Controller
                 'paid_lib'                    => round($purchase->paid_lib  * $ratio, 2),
                 'paid_cash'                   => round($purchase->paid_cash * $ratio, 2),
                 'status_id'                   => 3,
+                'purchase_group_id'           => $rootGroupId,
+                'original_qty'               => $originalQty,
             ]);
 
             $newPurchase = Product_Order::create($newData);

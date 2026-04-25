@@ -298,51 +298,56 @@ $(function() {
         $.get("{{ url('purchases/group') }}/" + groupId + "/items", function(items) {
             items = items || [];
 
-            // გამოვთვალოთ თავდაპირველი და დარჩენილი
-            var totalOrdered  = 0;
+            // ორიგინალი შეკვეთილი, შემოსული, გზაში
+            var originalQty    = 0;
+            var totalReceived  = 0;
             var totalRemaining = 0;
             items.forEach(function(it) {
-                totalOrdered += (it.quantity || 0);
+                if (it.status_id === 3) totalReceived  += (it.quantity || 0);
                 if (it.status_id === 2) totalRemaining += (it.quantity || 0);
             });
+            // ორიგინალი: original_qty of any item if set, else sum of all portions
+            originalQty = (items[0] && items[0].original_qty) ? items[0].original_qty
+                        : (totalReceived + totalRemaining);
 
             var html = '<table class="table table-sm table-bordered mb-0">'
-                     + '<thead class="table-light"><tr>'
-                     + '<th style="width:52px"></th>'
-                     + '<th>პროდუქტი</th><th>კოდი</th><th>ზომა</th>'
-                     + '<th class="text-center">შეკვეთა</th><th class="text-center">გზაშია</th>'
-                     + '</tr></thead><tbody>';
+         + '<thead class="table-light"><tr>'
+         + '<th style="width:52px"></th>'
+         + '<th>პროდუქტი</th><th>კოდი</th><th>ზომა</th>'
+         + '<th class="text-center">შეკვეთა</th>'
+         + '<th class="text-center">გზაშია</th>'
+         + '<th class="text-center">დაკარგული</th>'   // ← ახალი სვეტი
+         + '</tr></thead><tbody>';
 
-            items.forEach(function(it) {
-                var orig      = it.original_qty || it.quantity || 0;
-                var remaining = it.status_id === 2 ? (it.quantity || 0) : 0;
+// tbody-ში items.forEach შიგნით დაამატე lostCell და <td>:
+items.forEach(function(it) {
+    var orig      = it.original_qty || it.quantity || 0;
+    var remaining = it.status_id === 2 ? (it.quantity || 0) : 0;
+    var lost      = it.lost_qty || 0;   // ← ახალი
 
-                var remainCell = remaining > 0
-                    ? '<span class="text-warning fw-bold">' + remaining + '</span>'
-                    : '<span class="text-muted">—</span>';
+    var remainCell = remaining > 0
+        ? '<span class="text-warning fw-bold">' + remaining + '</span>'
+        : '<span class="text-muted">—</span>';
 
-                var imgCell = it.product_image
-                    ? '<img src="' + it.product_image + '" style="width:44px;height:44px;object-fit:cover;border-radius:4px;">'
-                    : '<span class="text-muted" style="font-size:18px;">📦</span>';
+    var lostCell = lost > 0                                          // ← ახალი
+        ? '<span class="text-danger fw-bold">' + lost + '</span>'
+        : '<span class="text-muted">—</span>';
 
-                html += '<tr>'
-                     +  '<td class="text-center align-middle">' + imgCell + '</td>'
-                     +  '<td class="fw-semibold align-middle">' + (it.product_name||'N/A') + '</td>'
-                     +  '<td class="text-muted align-middle" style="font-size:12px;">' + (it.product_code||'—') + '</td>'
-                     +  '<td class="align-middle">' + (it.product_size||'—') + '</td>'
-                     +  '<td class="text-center fw-bold align-middle">' + orig + '</td>'
-                     +  '<td class="text-center align-middle">' + remainCell + '</td>'
-                     +  '</tr>';
-            });
+    var imgCell = it.product_image
+        ? '<img src="' + it.product_image + '" style="width:44px;height:44px;object-fit:cover;border-radius:4px;">'
+        : '<span class="text-muted" style="font-size:18px;">📦</span>';
+
+    html += '<tr>'
+         +  '<td class="text-center align-middle">' + imgCell + '</td>'
+         +  '<td class="fw-semibold align-middle">' + (it.product_name||'N/A') + '</td>'
+         +  '<td class="text-muted align-middle" style="font-size:12px;">' + (it.product_code||'—') + '</td>'
+         +  '<td class="align-middle">' + (it.product_size||'—') + '</td>'
+         +  '<td class="text-center fw-bold align-middle">' + orig + '</td>'
+         +  '<td class="text-center align-middle">' + remainCell + '</td>'
+         +  '<td class="text-center align-middle">' + lostCell + '</td>'   // ← ახალი
+         +  '</tr>';
+});
             html += '</tbody></table>';
-
-            // summary footer
-            if (totalRemaining > 0 && totalRemaining < totalOrdered) {
-                html += '<div class="mt-2 p-2 rounded bg-light" style="font-size:12px;">'
-                     +  '📦 სულ შეკვეთილი: <strong>' + totalOrdered + '</strong> ერთ. &nbsp;|&nbsp; '
-                     +  '⏳ გზაში დარჩენილი: <strong class="text-warning">' + totalRemaining + '</strong> ერთ.'
-                     +  '</div>';
-            }
 
             $('#gv-body').html(html);
             new bootstrap.Modal(document.getElementById('modal-group-view')).show();
@@ -683,8 +688,9 @@ $(function() {
         $('#gr-group-id').val(groupId);
         $('#btn-gr-save').prop('disabled', false);
 
-        $.get("{{ url('purchases/group') }}/" + groupId + "/items", function(items) {
-            if (!items || !items.length) {
+        $.get("{{ url('purchases/group') }}/" + groupId + "/items", function(allItems) {
+            var items = (allItems || []).filter(function(it) { return it.status_id === 2; });
+            if (!items.length) {
                 swal('ინფო', 'ამ ჯგუფში სტატუს=2 ორდერი არ მოიძებნა', 'info');
                 return;
             }
