@@ -277,8 +277,8 @@ public function apiDeletedProducts(Request $request)
         })
         ->addColumn('bundle_name', function ($product) {
             if (!$product->bundle_id || !$product->bundle) return '<span class="text-muted">—</span>';
-            $color = ($product->bundle->products_count === 1) ? '#dc3545' : '#0ea5e9';
-            return '<span class="badge" style="background:' . $color . ';font-size:11px;">' . e($product->bundle->name) . '</span>';
+            $bg = ($product->bundle->products_count >= 2) ? 'bg-success' : 'bg-secondary';
+            return '<span class="badge ' . $bg . '" style="font-size:11px;">' . e($product->bundle->name) . '</span>';
         })
         // პროდუქტის სურათი
         ->addColumn('show_photo', function ($product) {
