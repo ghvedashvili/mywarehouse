@@ -245,7 +245,7 @@ public function apiDeletedProducts(Request $request)
    public function apiProducts(Request $request)
 {
     // ვიყენებთ select('products.*') და eager loading-ს კატეგორიისთვის
-   $products = \App\Models\Product::with(['category', 'brand'])->select('products.*')->orderBy('updated_at', 'DESC');
+   $products = \App\Models\Product::with(['category', 'brand', 'bundle'])->select('products.*')->orderBy('updated_at', 'DESC');
 
     // --- ფილტრაციის ლოგიკა ---
 
@@ -274,6 +274,10 @@ public function apiDeletedProducts(Request $request)
         })
         ->addColumn('brand_name', function ($product) {
             return $product->brand ? $product->brand->name : '<span class="text-muted">-</span>';
+        })
+        ->addColumn('bundle_name', function ($product) {
+            if (!$product->bundle_id || !$product->bundle) return '<span class="text-muted">—</span>';
+            return '<span class="badge" style="background:#0ea5e9;font-size:11px;">' . e($product->bundle->name) . '</span>';
         })
         // პროდუქტის სურათი
         ->addColumn('show_photo', function ($product) {
@@ -314,7 +318,7 @@ public function apiDeletedProducts(Request $request)
     return '';
 })
         // მივუთითებთ რომელ სვეტებშია HTML კოდი
-        ->rawColumns(['category_name', 'brand_name', 'show_photo', 'status_stock', 'format_sizes', 'action'])
+        ->rawColumns(['category_name', 'brand_name', 'bundle_name', 'show_photo', 'status_stock', 'format_sizes', 'action'])
         ->make(true);
 }
 
