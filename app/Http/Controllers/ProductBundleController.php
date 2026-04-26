@@ -30,7 +30,8 @@ class ProductBundleController extends Controller
         return DataTables::of($bundles)
             ->addColumn('products_list', function ($row) {
                 if ($row->products->isEmpty()) return '<span class="text-muted">—</span>';
-                return $row->products->map(fn($p) => '<span class="badge bg-secondary me-1">' . e($p->name) . '</span>')->implode('');
+                $bg = $row->products->count() === 1 ? 'bg-danger' : 'bg-secondary';
+                return $row->products->map(fn($p) => '<span class="badge ' . $bg . ' me-1">' . e($p->name) . '</span>')->implode('');
             })
             ->addColumn('action', function ($row) {
                 return '

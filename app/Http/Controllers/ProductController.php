@@ -245,7 +245,7 @@ public function apiDeletedProducts(Request $request)
    public function apiProducts(Request $request)
 {
     // ვიყენებთ select('products.*') და eager loading-ს კატეგორიისთვის
-   $products = \App\Models\Product::with(['category', 'brand', 'bundle'])->select('products.*')->orderBy('updated_at', 'DESC');
+   $products = \App\Models\Product::with(['category', 'brand', 'bundle' => fn($q) => $q->withCount('products')])->select('products.*')->orderBy('updated_at', 'DESC');
 
     // --- ფილტრაციის ლოგიკა ---
 
@@ -277,7 +277,8 @@ public function apiDeletedProducts(Request $request)
         })
         ->addColumn('bundle_name', function ($product) {
             if (!$product->bundle_id || !$product->bundle) return '<span class="text-muted">—</span>';
-            return '<span class="badge" style="background:#0ea5e9;font-size:11px;">' . e($product->bundle->name) . '</span>';
+            $color = ($product->bundle->products_count === 1) ? '#dc3545' : '#0ea5e9';
+            return '<span class="badge" style="background:' . $color . ';font-size:11px;">' . e($product->bundle->name) . '</span>';
         })
         // პროდუქტის სურათი
         ->addColumn('show_photo', function ($product) {
