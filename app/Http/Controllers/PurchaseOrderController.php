@@ -217,6 +217,37 @@ class PurchaseOrderController extends Controller
             ->make(true);
     }
 
+    // ─── გზაში გაყიდვები ─────────────────────────────────────────────
+    public function inTransitSales()
+    {
+        $rows = Product_Order::where('order_type', 'sale')
+            ->where('status', 'active')
+            ->where('status_id', 1)
+            ->select('product_id', 'product_size', \DB::raw('SUM(quantity) as total_qty'))
+            ->groupBy('product_id', 'product_size')
+            ->get();
+
+        $products = Product::withoutGlobalScope('active')
+            ->whereIn('id', $rows->pluck('product_id')->unique())
+            ->get()
+            ->keyBy('id');
+
+        return response()->json(
+            $rows->map(function ($row) use ($products) {
+                $p = $products->get($row->product_id);
+                return [
+                    'product_id'   => $row->product_id,
+                    'product_name' => $p?->name         ?? 'N/A',
+                    'product_code' => $p?->product_code ?? '—',
+                    'product_size' => $row->product_size,
+                    'quantity'     => (int) $row->total_qty,
+                    'price_geo'    => $p?->price_geo    ?? 0,
+                    'image_url'    => $p?->image_url    ?? null,
+                ];
+            })
+        );
+    }
+
     // ─── ჯგუფის მიღება: items data ───────────────────────────────────
     public function getGroupItems($groupId)
 {

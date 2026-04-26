@@ -55,6 +55,9 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before {
             <p class="mod-subtitle">შესყიდვების ორდერების მართვა</p>
         </div>
         <div class="mod-actions">
+            <button onclick="openInTransitSalesModal()" class="btn btn-info btn-sm">
+                <i class="fa fa-list me-1"></i><span class="d-none d-sm-inline">ახალი გაყიდვები</span>
+            </button>
             <button id="btn-new-purchase" onclick="openPurchaseModal()" class="btn btn-success btn-sm">
                 <i class="fa fa-plus me-1"></i><span class="d-none d-sm-inline">ახალი შესყიდვა</span>
             </button>
@@ -203,6 +206,49 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before {
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">გაუქმება</button>
                 <button type="button" class="btn btn-success" id="btn-gr-save" onclick="submitGroupReceive()">
                     <i class="fa fa-check me-1"></i> დადასტურება
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- ══ In-Transit Sales Modal ══ --}}
+<div class="modal fade" id="modal-in-transit" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header py-2" style="background:#0ea5e9;color:#fff;">
+                <h5 class="modal-title fw-bold">
+                    <i class="fa fa-list me-2"></i>ახალი გაყიდვები
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3">
+                <div id="in-transit-loading" class="text-center py-4">
+                    <div class="spinner-border text-info" role="status"></div>
+                </div>
+                <div class="table-responsive" id="in-transit-body" style="display:none;">
+                    <table class="table table-sm table-bordered align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:52px"></th>
+                                <th>პროდუქტი</th>
+                                <th>კოდი</th>
+                                <th style="width:70px">ზომა</th>
+                                <th style="width:70px" class="text-center">რაოდ.</th>
+                                <th style="width:90px" class="text-end">ფასი (₾)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="in-transit-rows"></tbody>
+                    </table>
+                </div>
+                <div id="in-transit-empty" class="text-center text-muted py-4" style="display:none;">
+                    <i class="fa fa-check-circle fa-2x mb-2 text-success"></i><br>გზაში გაყიდვები არ არის
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">დახურვა</button>
+                <button type="button" class="btn btn-success btn-sm" id="btn-auto-purchase" onclick="autoPurchaseFromInTransit()" style="display:none;">
+                    <i class="fa fa-cart-plus me-1"></i> ავტომატური შესყიდვა
                 </button>
             </div>
         </div>
@@ -771,6 +817,79 @@ items.forEach(function(it) {
                 $('#btn-gr-save').prop('disabled', false).html('<i class="fa fa-check me-1"></i> დადასტურება');
             }
         });
+    };
+
+    // ══ IN-TRANSIT SALES ══
+    var inTransitItems = [];
+
+    window.openInTransitSalesModal = function() {
+        inTransitItems = [];
+        $('#in-transit-loading').show();
+        $('#in-transit-body, #in-transit-empty').hide();
+        $('#btn-auto-purchase').hide();
+        $('#in-transit-rows').empty();
+        new bootstrap.Modal(document.getElementById('modal-in-transit')).show();
+
+        $.get("{{ route('purchases.inTransitSales') }}", function(items) {
+            $('#in-transit-loading').hide();
+
+            if (!items || !items.length) {
+                $('#in-transit-empty').show();
+                return;
+            }
+
+            inTransitItems = items;
+
+            items.forEach(function(it) {
+                var img = it.image_url
+                    ? '<img src="' + it.image_url + '" style="width:44px;height:44px;object-fit:cover;border-radius:4px;cursor:zoom-in;" onclick="zoomPurchaseImg(this)">'
+                    : '<span class="text-muted">—</span>';
+                var price = it.price_geo ? parseFloat(it.price_geo).toFixed(2) + ' ₾' : '—';
+                $('#in-transit-rows').append(
+                    '<tr>'
+                    + '<td class="text-center">' + img + '</td>'
+                    + '<td class="fw-semibold">' + $('<span>').text(it.product_name).html() + '</td>'
+                    + '<td class="text-muted">' + $('<span>').text(it.product_code).html() + '</td>'
+                    + '<td class="text-center">' + (it.product_size || '—') + '</td>'
+                    + '<td class="text-center fw-bold">' + it.quantity + '</td>'
+                    + '<td class="text-end">' + price + '</td>'
+                    + '</tr>'
+                );
+            });
+
+            $('#in-transit-body').show();
+            $('#btn-auto-purchase').show();
+        }).fail(function() {
+            $('#in-transit-loading').hide();
+            $('#in-transit-empty').show();
+        });
+    };
+
+    window.autoPurchaseFromInTransit = function() {
+        if (!inTransitItems.length) return;
+
+        bootstrap.Modal.getInstance(document.getElementById('modal-in-transit')).hide();
+
+        purchaseLineIndex = 0;
+        $('#purchase_id').val('');
+        $('input[name="_method"]', '#form-purchase').val('POST');
+        $('#purchase-modal-title').text('📦 ავტომატური შესყიდვა');
+        $('#purchase-lines-body').empty();
+        $('#purchase_comment').val('');
+        $('#purchase_courier_section').hide();
+        $('input[name="purchase_courier_type"][value="none"]').prop('checked', true);
+        $('#btn-add-line').show();
+
+        inTransitItems.forEach(function(it) {
+            addPurchaseLine({
+                product_id:    it.product_id,
+                product_size:  it.product_size,
+                quantity:      it.quantity,
+                price_georgia: it.price_geo || '',
+            });
+        });
+
+        $('#modal-purchase').modal('show');
     };
 
 });

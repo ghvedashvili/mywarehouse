@@ -131,6 +131,7 @@ Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff']
     // ── Purchase Orders (შესყიდვები) ──────────────────────────────────
     Route::get('purchases',                       [PurchaseOrderController::class, 'index'])->name('purchases.index');
     Route::get('purchases/api',                   [PurchaseOrderController::class, 'apiPurchases'])->name('purchases.api');
+    Route::get('purchases/in-transit-sales',      [PurchaseOrderController::class, 'inTransitSales'])->name('purchases.inTransitSales');
     Route::post('purchases',                      [PurchaseOrderController::class, 'store'])->name('purchases.store');
     Route::get('purchases/{id}/edit',             [PurchaseOrderController::class, 'edit'])->name('purchases.edit');
     Route::patch('purchases/{id}',                [PurchaseOrderController::class, 'update'])->name('purchases.update');
