@@ -79,8 +79,7 @@ $(function() {
         columns: [
             { data: 'id',             name: 'id',             width: '50px' },
             { data: 'name',           name: 'name' },
-            { data: 'products_count', name: 'products_count', searchable: false, orderable: false,
-              render: function(d) { return '<span class="badge bg-secondary">' + d + '</span>'; } },
+            { data: 'products_list', name: 'products_list', searchable: false, orderable: false },
             { data: 'action',         name: 'action', orderable: false, searchable: false, className: 'text-end' },
         ],
         language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/ka.json' },

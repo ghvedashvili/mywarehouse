@@ -23,11 +23,15 @@ class ProductBundleController extends Controller
     {
         $bundles = ProductBundle::withoutGlobalScope('active')
             ->where('status', 'active')
-            ->withCount('products')
+            ->with('products:id,bundle_id,name')
             ->orderBy('name')
             ->get();
 
         return DataTables::of($bundles)
+            ->addColumn('products_list', function ($row) {
+                if ($row->products->isEmpty()) return '<span class="text-muted">—</span>';
+                return $row->products->map(fn($p) => '<span class="badge bg-secondary me-1">' . e($p->name) . '</span>')->implode('');
+            })
             ->addColumn('action', function ($row) {
                 return '
                     <button class="btn btn-xs btn-warning btn-edit"
@@ -40,7 +44,7 @@ class ProductBundleController extends Controller
                         <i class="fa fa-trash"></i>
                     </button>';
             })
-            ->rawColumns(['action'])
+            ->rawColumns(['products_list', 'action'])
             ->make(true);
     }
 

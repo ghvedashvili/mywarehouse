@@ -72,6 +72,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control { cursor: poi
                         <th>კოდი</th>
                         <th>კატეგორია</th>
                         <th>ბრენდი</th>
+                        <th>კომპლექტი</th>
                         <th class="text-end">ფასი</th>
                         <th class="text-center" style="width:56px;">Img</th>
                         <th>ზომები</th>
@@ -144,6 +145,7 @@ $(function() {
             { data: 'product_code',                                                width: '90px',                   responsivePriority: 5 },
             { data: 'category_name', orderable: false, searchable: false,          width: '110px',                  responsivePriority: 6 },
             { data: 'brand_name',    orderable: false, searchable: false,          width: '100px',                  responsivePriority: 7 },
+            { data: 'bundle_name',   orderable: false, searchable: false,          width: '130px',                  responsivePriority: 8 },
             { data: 'price_geo',     className: 'text-end',                        width: '70px',                   responsivePriority: 2 },
             { data: 'show_photo',    orderable: false, searchable: false, className: 'text-center', width: '56px',  responsivePriority: 4 },
             { data: 'format_sizes',  orderable: false, searchable: false,          width: '90px',                   responsivePriority: 8 },
