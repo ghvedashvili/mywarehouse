@@ -1448,6 +1448,7 @@ function updateBundleIcons() {
             if (!byProduct[line.productId]) byProduct[line.productId] = [];
             byProduct[line.productId].push(line);
         });
+        if (componentCount < 2) return;
         if (componentCount > 0 && Object.keys(byProduct).length < componentCount) return;
         var completePairs = Infinity;
         Object.keys(byProduct).forEach(function(pid) { completePairs = Math.min(completePairs, byProduct[pid].length); });

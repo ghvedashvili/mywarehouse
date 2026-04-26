@@ -101,7 +101,11 @@ class SalaryService
                 $byDate = $bundleOrders->groupBy(fn($o) => $o->created_at->toDateString());
 
                 foreach ($byDate as $dateOrders) {
-                    $productCounts   = $dateOrders->groupBy('product_id')->map->count();
+                    $productCounts = $dateOrders->groupBy('product_id')->map->count();
+                    if ($productCounts->count() < 2) {
+                        $count += $productCounts->sum();
+                        continue;
+                    }
                     $completeBundles = $productCounts->min();
                     $remaining       = $productCounts->sum() - ($completeBundles * $productCounts->count());
                     $count          += $completeBundles + $remaining;

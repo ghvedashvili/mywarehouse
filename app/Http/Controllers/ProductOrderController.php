@@ -889,6 +889,7 @@ class ProductOrderController extends Controller
                 foreach ($dayOrders->filter(fn($o) => $o->product && $o->product->bundle_id)
                                    ->groupBy(fn($o) => $o->product->bundle_id) as $bid => $bundleOrders) {
                     $componentCount = count($bundleProductMap[$bid] ?? []);
+                    if ($componentCount < 2) continue;
                     $byProduct = $bundleOrders->groupBy('product_id');
                     if ($byProduct->count() < $componentCount) continue;
                     $completePairs = $byProduct->map->count()->min();
