@@ -1266,7 +1266,7 @@ function addSaleLine(defaults) {
     var canRemove = (!defaults.editMode) ? '' : 'disabled';
     var row = '<div class="sale-item-row" data-idx="'+idx+'">'
         + '<div class="row g-2 align-items-end">'
-        + '<div class="col-12 col-sm-5"><div class="sale-col-label">პროდუქტი</div>'
+        + '<div class="col-12 col-sm-5"><div class="sale-col-label">პროდუქტი <span class="sale-bundle-icon"></span></div>'
         + '<select name="items['+idx+'][product_id]" class="form-select form-select-sm sale-product-select" required '+lockProd+' style="border-radius:8px;border:1.5px solid #e0e4f0;">'+optHtml+'</select></div>'
         + '<div class="col-6 col-sm-2"><div class="sale-col-label">ზომა</div>'
         + '<select name="items['+idx+'][product_size]" class="form-select form-select-sm sale-size-select" '+lockSize+' style="border-radius:8px;border:1.5px solid #e0e4f0;"><option value="">— ზომა —</option></select></div>'
@@ -1325,7 +1325,7 @@ function addSaleLine(defaults) {
     if (defaults.discount !== undefined) $row.find('.sale-discount').val(defaults.discount);
 }
 
-$(document).on('click', '.remove-sale-line', function() { $(this).closest('.sale-item-row').remove(); });
+$(document).on('click', '.remove-sale-line', function() { $(this).closest('.sale-item-row').remove(); updateBundleIcons(); });
 $('#add-sale-line').on('click', function() { addSaleLine({}); });
 
 function editForm(id) {
@@ -1405,7 +1405,70 @@ $(document).on('change', '.sale-product-select', function() {
     var productId = selected.val();
     if (productId) $.get("{{ route('warehouse.stockInfo') }}", { product_id: productId }, function(data) { _updateRowStock($row, data, productId, null); });
     else $row.find('.sale-row-stock').hide();
+    updateBundleIcons();
 });
+
+function updateBundleIcons() {
+    // Build exact bundle sizes from the options template (product_id sets per bundle)
+    var bundleProductSets = {};
+    $('#product-options-template option').each(function() {
+        var bid = $(this).data('bundle-id');
+        var pid = parseInt($(this).val()) || 0;
+        if (bid && pid) {
+            if (!bundleProductSets[bid]) bundleProductSets[bid] = {};
+            bundleProductSets[bid][pid] = true;
+        }
+    });
+    var bundleSizes = {};
+    Object.keys(bundleProductSets).forEach(function(bid) { bundleSizes[bid] = Object.keys(bundleProductSets[bid]).length; });
+
+    // Collect selected products per form line
+    var lines = [];
+    $('#sale-items-container .sale-item-row').each(function() {
+        var $row = $(this);
+        var productId = parseInt($row.find('.sale-product-select').val()) || 0;
+        var bundleId  = productId ? (parseInt($row.find('.sale-product-select option:selected').data('bundle-id')) || 0) : 0;
+        lines.push({ el: this, productId: productId, bundleId: bundleId });
+    });
+
+    // Group by bundle
+    var byBundle = {};
+    lines.forEach(function(line) {
+        if (!line.bundleId) return;
+        if (!byBundle[line.bundleId]) byBundle[line.bundleId] = [];
+        byBundle[line.bundleId].push(line);
+    });
+
+    // Determine paired lines using min-count algorithm
+    var pairedEls = new Set();
+    Object.keys(byBundle).forEach(function(bid) {
+        var bLines = byBundle[bid];
+        var componentCount = bundleSizes[bid] || 0;
+        var byProduct = {};
+        bLines.forEach(function(line) {
+            if (!byProduct[line.productId]) byProduct[line.productId] = [];
+            byProduct[line.productId].push(line);
+        });
+        var distinctTypes = Object.keys(byProduct).length;
+        if (componentCount > 0 && distinctTypes < componentCount) return;
+        var completePairs = Infinity;
+        Object.keys(byProduct).forEach(function(pid) { completePairs = Math.min(completePairs, byProduct[pid].length); });
+        if (!isFinite(completePairs) || completePairs <= 0) return;
+        Object.keys(byProduct).forEach(function(pid) {
+            byProduct[pid].slice(0, completePairs).forEach(function(line) { pairedEls.add(line.el); });
+        });
+    });
+
+    // Update icon spans
+    $('#sale-items-container .sale-item-row').each(function() {
+        var $icon = $(this).find('.sale-bundle-icon');
+        if (pairedEls.has(this)) {
+            $icon.html('<i class="fa fa-link" style="color:#198754;font-size:10px;" title="კომპლექტი შედგა"></i>');
+        } else {
+            $icon.empty();
+        }
+    });
+}
 
 $(document).on('change', '.sale-size-select', function() {
     var $row = $(this).closest('.sale-item-row');
