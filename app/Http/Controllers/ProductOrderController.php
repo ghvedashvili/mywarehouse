@@ -774,7 +774,7 @@ class ProductOrderController extends Controller
         $statuses = $request->has('statuses') ? $request->input('statuses') : [];
 
         $query = Product_Order::withoutGlobalScope('active')
-            ->with(['product', 'customer.city', 'orderCity', 'orderStatus', 'changeOrders'])
+            ->with(['product.bundle', 'customer.city', 'orderCity', 'orderStatus', 'changeOrders'])
             ->where(function($q) {
                 $q->where('is_primary', 1)
                   ->orWhereNull('merged_id');
@@ -856,7 +856,7 @@ class ProductOrderController extends Controller
         foreach ($productOrder as $order) {
             if ($order->is_primary) {
                 $order->children = Product_Order::withoutGlobalScope('active')
-                    ->with(['product', 'customer.city', 'orderCity', 'orderStatus', 'changeOrders'])
+                    ->with(['product.bundle', 'customer.city', 'orderCity', 'orderStatus', 'changeOrders'])
                     ->where('merged_id', $order->merged_id)
                     ->where('is_primary', 0)
                     ->get();
@@ -864,6 +864,58 @@ class ProductOrderController extends Controller
                 $order->children = collect();
             }
         }
+
+        // ─── Bundle pair icons: mark individual orders that are paired ──
+        $bundleProductMap = [];
+        $pairedOrderIds   = [];
+
+        $allGroupedOrders = $productOrder->flatMap(function ($o) {
+            $group = collect([$o]);
+            if ($o->is_primary && $o->children->isNotEmpty()) {
+                $group = $group->merge($o->children);
+            }
+            return $group;
+        });
+
+        $bundleIds = $allGroupedOrders
+            ->filter(fn($o) => $o->product && $o->product->bundle_id)
+            ->pluck('product.bundle_id')
+            ->unique()->filter()->values();
+
+        if ($bundleIds->isNotEmpty()) {
+            \App\Models\ProductBundle::withoutGlobalScope('active')
+                ->whereIn('id', $bundleIds)
+                ->with('products:id,bundle_id')
+                ->get()
+                ->each(function ($bundle) use (&$bundleProductMap) {
+                    $bundleProductMap[$bundle->id] = $bundle->products->pluck('id')->toArray();
+                });
+        }
+
+        foreach ($productOrder as $order) {
+            if (!$order->is_primary || $order->children->isEmpty()) continue;
+            $groupOrders = collect([$order])->merge($order->children);
+            // sub-group by date (same-day constraint)
+            $byDate = $groupOrders->groupBy(fn($o) => $o->created_at->toDateString());
+            foreach ($byDate as $dateOrders) {
+                $byBundle = $dateOrders
+                    ->filter(fn($o) => $o->product && $o->product->bundle_id)
+                    ->groupBy(fn($o) => $o->product->bundle_id);
+                foreach ($byBundle as $bundleId => $bundleOrders) {
+                    $componentCount = count($bundleProductMap[$bundleId] ?? []);
+                    $byProduct      = $bundleOrders->groupBy('product_id');
+                    if ($byProduct->count() < $componentCount) continue;
+                    $completePairs = $byProduct->map->count()->min();
+                    if ($completePairs <= 0) continue;
+                    foreach ($byProduct as $productOrders) {
+                        foreach ($productOrders->sortBy('id')->take($completePairs) as $o) {
+                            $pairedOrderIds[$o->id] = true;
+                        }
+                    }
+                }
+            }
+        }
+        // ──────────────────────────────────────────────────────────────
 
         // ─── გასაერთიანებელი customer-ების ID-ები ─────────────────────
         // ungrouped ორდერების customer_id-ები (merged_id IS NULL)
@@ -1001,10 +1053,10 @@ class ProductOrderController extends Controller
                     ];
                 })->values()->toArray();
             })
-            ->addColumn('children_json', function ($item) use ($isAdmin) {
+            ->addColumn('children_json', function ($item) use ($isAdmin, $pairedOrderIds) {
                 if (!$item->is_primary) return [];
 
-                $buildRow = function ($order) use ($isAdmin) {
+                $buildRow = function ($order) use ($isAdmin, $pairedOrderIds) {
                     $geo  = (float)$order->price_georgia - (float)($order->discount ?? 0);
                     $paid = (float)($order->paid_tbc ?? 0) + (float)($order->paid_bog ?? 0) +
                             (float)($order->paid_lib ?? 0) + (float)($order->paid_cash ?? 0);
@@ -1076,6 +1128,7 @@ class ProductOrderController extends Controller
                         'merged_id'        => $order->merged_id,
                         'is_admin'         => $isAdmin,
                         'comment'          => $order->comment,
+                        'is_paired'        => isset($pairedOrderIds[$order->id]),
                     ];
                 };
 
@@ -1098,15 +1151,18 @@ class ProductOrderController extends Controller
                 $oldest = $all->sortBy('created_at')->first();
                 return $oldest->created_at ? $oldest->created_at->format('Y-m-d H:i:s') : null;
             })
-            ->addColumn('product_info', function ($item) {
+            ->addColumn('product_info', function ($item) use ($pairedOrderIds) {
                 // Group header: show product count + each product/size
                 if ($item->is_primary && $item->children->isNotEmpty()) {
                     $count = $item->children->count() + 1;
                     $all   = collect([$item])->merge($item->children);
-                    $lines = $all->map(function ($o) {
+                    $lines = $all->map(function ($o) use ($pairedOrderIds) {
                         $name = e($o->product->name ?? 'N/A');
                         $size = $o->product_size ? ' <span class="label label-info" style="font-size:9px;">' . e($o->product_size) . '</span>' : '';
-                        return '<div style="font-size:10px; color:#555; margin-top:2px;">• ' . $name . $size . '</div>';
+                        $icon = isset($pairedOrderIds[$o->id])
+                            ? ' <i class="fa fa-link" style="color:#198754;font-size:9px;" title="კომპლექტი შედგა"></i>'
+                            : '';
+                        return '<div style="font-size:10px; color:#555; margin-top:2px;">• ' . $name . $size . $icon . '</div>';
                     })->implode('');
                     return '<div style="font-size:13px; font-weight:700; color:#2c3e50;">📦 ' . $count . ' პროდუქტი</div>' . $lines;
                 }
