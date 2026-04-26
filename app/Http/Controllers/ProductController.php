@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ProductBundle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
@@ -25,7 +26,8 @@ class ProductController extends Controller
     {
         $category = Category::orderBy('name', 'ASC')->pluck('name', 'id');
         $brand    = Brand::orderBy('name', 'ASC')->get();
-        return view('products.index', compact('category', 'brand'));
+        $bundles  = ProductBundle::orderBy('name')->get();
+        return view('products.index', compact('category', 'brand', 'bundles'));
     }
 
     /**
@@ -39,6 +41,7 @@ public function store(Request $request)
         'price_geo'    => 'required',
         'category_id'  => 'required|exists:categories,id',
         'brand_id'     => 'nullable|exists:brands,id',
+        'bundle_id'    => 'nullable|exists:product_bundles,id',
         'image'        => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         'product_sizes'=> 'nullable|array',
     ]);
@@ -46,7 +49,8 @@ public function store(Request $request)
     $input = $request->all();
 
     // ველების სინქრონიზაცია ბაზის სვეტებთან
-    $input['price_geo'] = $request->price_geo; 
+    $input['price_geo'] = $request->price_geo;
+    $input['bundle_id'] = $request->bundle_id ?: null;
     $input['product_status'] = $request->has('product_status') ? 1 : 0;
     $input['in_warehouse']   = $request->has('in_warehouse') ? 1 : 0;
 
@@ -101,12 +105,14 @@ public function store(Request $request)
         'price_geo'    => 'required',
         'category_id'  => 'required|exists:categories,id',
         'brand_id'     => 'nullable|exists:brands,id',
+        'bundle_id'    => 'nullable|exists:product_bundles,id',
         'image'        => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         'product_sizes'=> 'nullable|array',
     ]);
 
     $input = $request->all();
     $input['price_geo'] = $request->price_geo;
+    $input['bundle_id'] = $request->bundle_id ?: null;
     $input['product_status'] = $request->has('product_status') ? 1 : 0;
     $input['in_warehouse']   = $request->has('in_warehouse') ? 1 : 0;
     $input['sizes'] = $request->has('product_sizes') ? implode(',', $request->product_sizes) : null;

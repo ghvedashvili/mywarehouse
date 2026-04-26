@@ -78,6 +78,17 @@
                                 </div>
                             </div>
 
+                            {{-- BUNDLE --}}
+                            <div>
+                                <label class="form-label small mb-1">კომპლექტი</label>
+                                <select name="bundle_id" id="bundle_id" class="form-select form-select-sm">
+                                    <option value="">— კომპლექტი არ არის —</option>
+                                    @foreach($bundles as $b)
+                                        <option value="{{ $b->id }}">{{ $b->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
                             {{-- SWITCHES --}}
                             <div class="mt-2">
                                 <div class="form-check form-switch">

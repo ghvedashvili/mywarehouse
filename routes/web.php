@@ -17,6 +17,7 @@ use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\SalaryController;
 use App\Http\Controllers\BrandController;
+use App\Http\Controllers\ProductBundleController;
 
 /*
 |--------------------------------------------------------------------------
@@ -77,6 +78,10 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/salary-policy/{id}',  [\App\Http\Controllers\SalaryPolicyController::class, 'update'])->name('salary-policy.update');
     Route::delete('/salary-policy/{id}', [\App\Http\Controllers\SalaryPolicyController::class, 'destroy'])->name('salary-policy.destroy');
 
+
+    // ── Product Bundles (კომპლექტები) ────────────────────────────────
+    Route::get('/apiProductBundles', [ProductBundleController::class, 'apiIndex'])->name('api.productBundles');
+    Route::resource('product-bundles', ProductBundleController::class)->only(['index', 'store', 'update', 'destroy']);
 
     // ── Products ──────────────────────────────────────────────────────
     Route::resource('products', ProductController::class);

@@ -201,6 +201,7 @@ function addForm() {
     $('#form-item')[0].reset();
     $('#id').val('');
     $('#brand_id').val(null).trigger('change');
+    $('#bundle_id').val('');
     $('#image-preview').html('<span class="text-muted">No Preview</span>');
     $('#size-checkboxes').html('<span class="text-muted" id="sizes-placeholder" style="font-size:12px;">Choose a category first</span>');
     $('.modal-title').text('Add Product');
@@ -226,6 +227,7 @@ function editForm(id) {
             $('#in_warehouse').prop('checked', data.in_warehouse == 1);
             $('#category_id').val(data.category_id);
             $('#brand_id').val(data.brand_id || null).trigger('change');
+            $('#bundle_id').val(data.bundle_id || '');
 
             var currentSizes = data.sizes ? data.sizes.split(',').map(s => s.trim()) : [];
             filterSizes(currentSizes);

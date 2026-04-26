@@ -29,6 +29,9 @@
         <a href="{{ route('products.index') }}" class="sidebar-link {{ request()->is('products*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-cubes"></i> Product
         </a>
+        <a href="{{ route('product-bundles.index') }}" class="sidebar-link {{ request()->is('product-bundles*') ? 'active' : '' }}" onclick="closeSidebar()">
+            <i class="fa fa-object-group"></i> კომპლექტები
+        </a>
         <a href="{{ route('customers.index') }}" class="sidebar-link {{ request()->is('customers*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-users"></i> Customer
         </a>

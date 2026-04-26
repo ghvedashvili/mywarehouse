@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Storage;
 class Product extends Model
 {
     protected $fillable = [
-        'category_id', 'brand_id', 'product_code', 'name',
+        'category_id', 'brand_id', 'bundle_id', 'product_code', 'name',
         'price_geo', 'price_usa', 'image',
         'product_status', 'in_warehouse', 'sizes', 'status'
     ];
@@ -59,6 +59,11 @@ class Product extends Model
     public function brand()
     {
         return $this->belongsTo(Brand::class)->withoutGlobalScope('active');
+    }
+
+    public function bundle()
+    {
+        return $this->belongsTo(ProductBundle::class, 'bundle_id')->withoutGlobalScope('active');
     }
 
     public function warehouseStock()
