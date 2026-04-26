@@ -103,30 +103,31 @@ class UserController extends Controller
                 return $btn;
             })
             ->addColumn('role', function ($user) use ($isAdmin) {
-                $badgeMap = [
-                    'admin'               => 'danger',
-                    'staff'               => 'primary',
-                    'sale_operator'       => 'success',
-                    'warehouse_operator'  => 'warning',
-                ];
-                $labelMap = [
-                    'admin'               => 'ADMIN',
-                    'staff'               => 'STAFF',
-                    'sale_operator'       => 'SALE OPS',
-                    'warehouse_operator'  => 'WH OPS',
-                ];
-                $badge  = $badgeMap[$user->role]  ?? 'secondary';
-                $label  = $labelMap[$user->role]   ?? strtoupper($user->role);
-                $click  = $isAdmin ? 'onclick="changeRole(' . $user->id . ')"' : '';
-                $cursor = $isAdmin ? 'cursor:pointer;' : 'cursor:default;';
-                $title  = $isAdmin ? 'title="კლიკი როლის შესაცვლელად"' : '';
+    $badgeMap = [
+        'admin'              => 'danger',
+        'staff'              => 'primary',
+        'sale_operator'      => 'success',
+        'warehouse_operator' => 'warning',
+    ];
+    $labelMap = [
+        'admin'              => '🛡 Admin',
+        'staff'              => '👤 Staff',
+        'sale_operator'      => '🛒 Sale Ops',
+        'warehouse_operator' => '📦 WH Ops',
+    ];
+    $badge  = $badgeMap[$user->role] ?? 'secondary';
+    $label  = $labelMap[$user->role] ?? strtoupper($user->role);
+    $click  = $isAdmin ? 'onclick="changeRole(' . $user->id . ')"' : '';
+    $cursor = $isAdmin ? 'cursor:pointer;' : 'cursor:default;';
+    $title  = $isAdmin ? 'title="კლიკი როლის შესაცვლელად"' : '';
 
-                return '<span ' . $click . ' ' . $title . '
-                            class="badge badge-' . $badge . '"
-                            style="font-size:12px; padding:5px 10px; ' . $cursor . '">
-                            ' . $label . '
-                        </span>';
-            })
+    return '<span ' . $click . ' ' . $title . '
+                class="badge bg-' . $badge . '"
+                style="font-size:12px; padding:5px 10px; ' . $cursor . '">
+                ' . $label . '
+            </span>';
+})
+             
             ->rawColumns(['action', 'role'])
             ->make(true);
     }

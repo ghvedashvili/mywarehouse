@@ -547,7 +547,7 @@
 <div id="sidebar-overlay" onclick="closeSidebar()"></div>
 <nav id="sidebar">
     <div class="sidebar-brand">
-        <span>🏭 ORIGINAL 100%</span>
+        <span>ORIGINAL 100%</span>
         <small>Warehouse Management</small>
     </div>
 

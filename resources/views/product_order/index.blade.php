@@ -1839,7 +1839,7 @@ $(document).on('click', '.expand-btn', function() {
     allOrders.forEach(function(order) {
         var orderNo = order.order_number || ('S'+order.id);
         var commentHtml = order.comment
-            ? '<div style="margin-top:3px;"><small style="color:var(--c-blue);background:var(--c-blue-dim);border-radius:3px;padding:1px 5px;font-size:10px;"><i class="fa fa-comment" style="font-size:9px;"></i> '+$('<div>').text(order.comment).html()+'</small></div>' : '';
+            ? '<div style="margin-top:3px;"><small style="color:var(--c-blue);background:var(--c-blue-dim);border-radius:3px;padding:1px 5px;font-size:10px;"><i class="fa fa-user" style="font-size:9px;"></i> '+$('<div>').text(order.comment).html()+'</small></div>' : '';
         var crossRefHtml = '';
         if (order.cross_ref) {
             crossRefHtml = '<div style="margin-top:3px;"><span style="font-size:10px;color:var(--c-text-3);">'+order.cross_ref+'</span></div>';

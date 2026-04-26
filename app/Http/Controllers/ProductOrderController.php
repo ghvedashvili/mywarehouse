@@ -1153,13 +1153,13 @@ class ProductOrderController extends Controller
 
                 if ($customer->comment) {
                     $html .= '<br><small style="color:#7d6608;background:#fffbea;border-radius:3px;padding:1px 4px;display:inline-block;margin-top:2px;">'
-                           . '<i class="fa fa-comment"></i> ' . e($customer->comment) . '</small>';
+                           . '<i class="fa fa-user"></i> ' . e($customer->comment) . '</small>';
                 }
 
                 $isGroupHeader = $item->is_primary && $item->children->isNotEmpty();
                 if ($item->comment && !$isGroupHeader) {
                     $html .= '<br><small style="color:#1a5276;background:#eaf4fb;border-radius:3px;padding:1px 4px;display:inline-block;margin-top:2px;">'
-                           . '<i class="fa fa-file-text"></i> ' . e($item->comment) . '</small>';
+                           . '<i class="fa fa-cube"></i> ' . e($item->comment) . '</small>';
                 }
 
                 return $html;
