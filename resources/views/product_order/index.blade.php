@@ -1266,7 +1266,7 @@ function addSaleLine(defaults) {
     var canRemove = (!defaults.editMode) ? '' : 'disabled';
     var row = '<div class="sale-item-row" data-idx="'+idx+'">'
         + '<div class="row g-2 align-items-end">'
-        + '<div class="col-12 col-sm-5"><div class="sale-col-label">პროდუქტი</div>'
+        + '<div class="col-12 col-sm-5"><div class="sale-col-label">პროდუქტი <span class="sale-bundle-icon"></span></div>'
         + '<select name="items['+idx+'][product_id]" class="form-select form-select-sm sale-product-select" required '+lockProd+' style="border-radius:8px;border:1.5px solid #e0e4f0;">'+optHtml+'</select></div>'
         + '<div class="col-6 col-sm-2"><div class="sale-col-label">ზომა</div>'
         + '<select name="items['+idx+'][product_size]" class="form-select form-select-sm sale-size-select" '+lockSize+' style="border-radius:8px;border:1.5px solid #e0e4f0;"><option value="">— ზომა —</option></select></div>'
@@ -1325,7 +1325,7 @@ function addSaleLine(defaults) {
     if (defaults.discount !== undefined) $row.find('.sale-discount').val(defaults.discount);
 }
 
-$(document).on('click', '.remove-sale-line', function() { $(this).closest('.sale-item-row').remove(); });
+$(document).on('click', '.remove-sale-line', function() { $(this).closest('.sale-item-row').remove(); updateBundleIcons(); });
 $('#add-sale-line').on('click', function() { addSaleLine({}); });
 
 function editForm(id) {
@@ -1405,7 +1405,63 @@ $(document).on('change', '.sale-product-select', function() {
     var productId = selected.val();
     if (productId) $.get("{{ route('warehouse.stockInfo') }}", { product_id: productId }, function(data) { _updateRowStock($row, data, productId, null); });
     else $row.find('.sale-row-stock').hide();
+    updateBundleIcons();
 });
+
+function updateBundleIcons() {
+    // Build bundle sizes from the option template (how many distinct products per bundle)
+    var bundleProductSets = {};
+    $('#product-options-template option').each(function() {
+        var bid = $(this).data('bundle-id');
+        var pid = parseInt($(this).val()) || 0;
+        if (bid && pid) {
+            if (!bundleProductSets[bid]) bundleProductSets[bid] = {};
+            bundleProductSets[bid][pid] = true;
+        }
+    });
+    var bundleSizes = {};
+    Object.keys(bundleProductSets).forEach(function(bid) { bundleSizes[bid] = Object.keys(bundleProductSets[bid]).length; });
+
+    // Collect selected products from all form lines
+    var lines = [];
+    $('#sale-items-container .sale-item-row').each(function() {
+        var $row = $(this);
+        var productId = parseInt($row.find('.sale-product-select').val()) || 0;
+        var bundleId  = productId ? (parseInt($row.find('.sale-product-select option:selected').data('bundle-id')) || 0) : 0;
+        lines.push({ el: this, productId: productId, bundleId: bundleId });
+    });
+
+    // Group by bundle, then by product, apply min-count pairing
+    var byBundle = {};
+    lines.forEach(function(line) {
+        if (!line.bundleId) return;
+        if (!byBundle[line.bundleId]) byBundle[line.bundleId] = [];
+        byBundle[line.bundleId].push(line);
+    });
+
+    var pairedEls = new Set();
+    Object.keys(byBundle).forEach(function(bid) {
+        var bLines = byBundle[bid];
+        var componentCount = bundleSizes[bid] || 0;
+        var byProduct = {};
+        bLines.forEach(function(line) {
+            if (!byProduct[line.productId]) byProduct[line.productId] = [];
+            byProduct[line.productId].push(line);
+        });
+        if (componentCount > 0 && Object.keys(byProduct).length < componentCount) return;
+        var completePairs = Infinity;
+        Object.keys(byProduct).forEach(function(pid) { completePairs = Math.min(completePairs, byProduct[pid].length); });
+        if (!isFinite(completePairs) || completePairs <= 0) return;
+        Object.keys(byProduct).forEach(function(pid) {
+            byProduct[pid].slice(0, completePairs).forEach(function(line) { pairedEls.add(line.el); });
+        });
+    });
+
+    $('#sale-items-container .sale-item-row').each(function() {
+        var $icon = $(this).find('.sale-bundle-icon');
+        $icon.html(pairedEls.has(this) ? '<i class="fa fa-link" style="color:#198754;font-size:10px;" title="კომპლექტი შედგა"></i>' : '');
+    });
+}
 
 $(document).on('change', '.sale-size-select', function() {
     var $row = $(this).closest('.sale-item-row');
@@ -1853,7 +1909,8 @@ $(document).on('click', '.expand-btn', function() {
             var decoded = $('<textarea/>').html(order.product_image).text();
             thumbHtml = '<div class="po-product-thumb" style="width:36px;height:36px;flex-shrink:0;cursor:zoom-in;" onclick="var s=$(this).find(\'img\').attr(\'src\');if(s){$(\'#preview-img-full\').attr(\'src\',s);$(\'#modal-image-preview\').modal(\'show\');}">'+decoded+'</div>';
         }
-        var colB = '<div style="display:flex;align-items:center;gap:8px;">'+thumbHtml+'<div style="font-size:12px;line-height:1.4;"><div style="font-weight:600;color:var(--c-text-1);">'+(order.product_name||'')+'</div>'+(order.product_size ? '<span class="label label-info" style="font-size:10px;">'+order.product_size+'</span>' : '')+'</div></div>';
+        var pairIcon = order.is_paired ? ' <i class="fa fa-link" style="color:#198754;font-size:9px;" title="კომპლექტი შედგა"></i>' : '';
+        var colB = '<div style="display:flex;align-items:center;gap:8px;">'+thumbHtml+'<div style="font-size:12px;line-height:1.4;"><div style="font-weight:600;color:var(--c-text-1);">'+(order.product_name||'')+'</div>'+(order.product_size ? '<span class="label label-info" style="font-size:10px;">'+order.product_size+'</span>' : '')+pairIcon+'</div></div>';
         var chGeo  = parseFloat(order.price_georgia||0) - parseFloat(order.discount||0);
         var chPaid = parseFloat(order.paid_tbc||0) + parseFloat(order.paid_bog||0) + parseFloat(order.paid_lib||0) + parseFloat(order.paid_cash||0);
         var chIsPaid = (chGeo - chPaid) <= 0.01; var chPct = chGeo > 0 ? Math.min(chPaid/chGeo,1) : 1;
