@@ -13,28 +13,28 @@ class DatabaseSeeder extends Seeder
         // 1. მომხმარებლები (Users)
         DB::table('users')->insert([
             [
-                'name'     => 'Admin',
+                'name'     => 'gegi',
                 'email'    => 'admin@mail.com',
                 'password' => Hash::make('admin'), // ან შენი სასურველი პაროლი
                 'role'     => 'admin',
                 'created_at' => now()
             ],
             [
-                'name'     => 'Admin',
+                'name'     => 'ware1',
                 'email'    => 'ware1@mail.com',
                 'password' => Hash::make('admin'), // ან შენი სასურველი პაროლი
                 'role'     => 'warehouse_operator',
                 'created_at' => now()
             ],
             [
-                'name'     => 'Admin',
+                'name'     => 'ware2',
                 'email'    => 'ware2@mail.com',
                 'password' => Hash::make('admin'), // ან შენი სასურველი პაროლი
                 'role'     => 'warehouse_operator',
                 'created_at' => now()
             ],
             [
-                'name'     => 'Admin',
+                'name'     => 'lizi',
                 'email'    => 'sale@mail.com',
                 'password' => Hash::make('admin'), // ან შენი სასურველი პაროლი
                 'role'     => 'sale_operator',
