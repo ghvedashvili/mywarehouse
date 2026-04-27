@@ -11,7 +11,7 @@ class ProductBundleController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
-        $this->middleware('role:admin,staff');
+        $this->middleware('role:admin,staff,sale_operator');
     }
 
     public function index()
@@ -34,6 +34,7 @@ class ProductBundleController extends Controller
                 return $row->products->map(fn($p) => '<span class="badge ' . $bg . ' me-1">' . e($p->name) . '</span>')->implode('');
             })
             ->addColumn('action', function ($row) {
+                if (auth()->user()->role === 'sale_operator') return '';
                 return '
                     <button class="btn btn-xs btn-warning btn-edit"
                             data-id="' . $row->id . '"

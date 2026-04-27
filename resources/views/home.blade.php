@@ -10,13 +10,19 @@
     use App\Models\Warehouse;
     use Illuminate\Support\Facades\DB;
 
-    $totalSales      = Product_Order::whereIn('order_type',['sale','change'])->count();
-    $todaySales      = Product_Order::whereIn('order_type',['sale','change'])->whereDate('created_at', today())->count();
-    $pendingOrders   = Product_Order::whereIn('order_type',['sale','change'])->where('status_id', 1)->count();
-    $inTransitOrders = Product_Order::whereIn('order_type',['sale','change'])->where('status_id', 2)->count();
-    $warehouseOrders = Product_Order::whereIn('order_type',['sale','change'])->where('status_id', 3)->count();
-    $courierOrders   = Product_Order::whereIn('order_type',['sale','change'])->where('status_id', 4)->count();
-    $deliveredOrders = Product_Order::whereIn('order_type',['sale','change'])->where('status_id', 6)->count();
+    $isSaleOp = auth()->user()->role === 'sale_operator';
+    $uid      = auth()->id();
+
+    $baseOrders = fn() => Product_Order::whereIn('order_type',['sale','change'])
+        ->when($isSaleOp, fn($q) => $q->where('user_id', $uid));
+
+    $totalSales      = $baseOrders()->count();
+    $todaySales      = $baseOrders()->whereDate('created_at', today())->count();
+    $pendingOrders   = $baseOrders()->where('status_id', 1)->count();
+    $inTransitOrders = $baseOrders()->where('status_id', 2)->count();
+    $warehouseOrders = $baseOrders()->where('status_id', 3)->count();
+    $courierOrders   = $baseOrders()->where('status_id', 4)->count();
+    $deliveredOrders = $baseOrders()->where('status_id', 6)->count();
     $pendingPurchases= Product_Order::where('order_type','purchase')->where('status_id', 2)->count();
     $activeProducts  = Product::where('product_status', 1)->count();
     $totalProducts   = Product::count();
@@ -25,18 +31,19 @@
     $totalUsers      = User::count();
     $totalStock      = (int) Warehouse::sum('physical_qty');
 
-    $totalRevenue = (float) Product_Order::whereIn('order_type',['sale','change'])
+    $totalRevenue = (float) $baseOrders()
         ->selectRaw('SUM(COALESCE(paid_tbc,0) + COALESCE(paid_bog,0) + COALESCE(paid_lib,0) + COALESCE(paid_cash,0)) as total')
         ->value('total');
 
     $recentOrders = Product_Order::with(['customer','product','orderStatus'])
         ->whereIn('order_type',['sale','change'])
         ->whereNull('merged_id')
+        ->when($isSaleOp, fn($q) => $q->where('user_id', $uid))
         ->latest()
         ->take(6)
         ->get();
 
-    $statusBreakdown = Product_Order::whereIn('order_type',['sale','change'])
+    $statusBreakdown = $baseOrders()
         ->select('status_id', DB::raw('count(*) as cnt'))
         ->groupBy('status_id')
         ->with('orderStatus')
@@ -363,6 +370,8 @@
 
 /* ── Scrollable on small ── */
 .scroll-x { overflow-x: auto; }
+
+@media(min-width:1100px) { .kpi-grid.kpi-saleop { grid-template-columns: repeat(3,1fr); } }
 </style>
 @endsection
 
@@ -378,7 +387,7 @@
     {{-- ── Revenue Banner ── --}}
     <div class="revenue-card mb-4">
         <div>
-            <div class="rev-label">სულ შემოსავალი</div>
+            <div class="rev-label">{{ $isSaleOp ? 'ჩემი შემოსავალი' : 'სულ შემოსავალი' }}</div>
             <div class="rev-value">{{ number_format($totalRevenue, 2) }} ₾</div>
             <div class="rev-sub">{{ $totalSales }} გაყიდვა სულ &middot; <span style="color:#4ade80;">{{ $todaySales }} დღეს</span></div>
         </div>
@@ -400,7 +409,7 @@
 
     {{-- ── KPI Cards ── --}}
     <p class="db-section-title">მიმოხილვა</p>
-    <div class="kpi-grid">
+    <div class="kpi-grid{{ $isSaleOp ? ' kpi-saleop' : '' }}">
 
         <a href="{{ route('productsOut.index') }}" class="kpi-card" style="--kpi-color:#2d7dd2;--kpi-bg:#eff6ff;">
             <div class="kpi-top">
@@ -419,6 +428,7 @@
             </div>
         </a>
 
+        @if(!$isSaleOp)
         <a href="{{ route('purchases.index') }}" class="kpi-card" style="--kpi-color:#7c3aed;--kpi-bg:#f5f3ff;">
             <div class="kpi-top">
                 <div class="kpi-icon"><i class="fa fa-cart-shopping"></i></div>
@@ -430,6 +440,7 @@
             <div class="kpi-label">შესყიდვები</div>
             <div class="kpi-sub"><i class="fa fa-truck" style="font-size:9px;color:#7c3aed;"></i> {{ $pendingPurchases }} მიმდინარე</div>
         </a>
+        @endif
 
         <a href="{{ route('customers.index') }}" class="kpi-card" style="--kpi-color:#059669;--kpi-bg:#f0fdf4;">
             <div class="kpi-top">
@@ -440,6 +451,7 @@
             <div class="kpi-sub"><i class="fa fa-user" style="font-size:9px;color:#059669;"></i> {{ $totalUsers }} სისტ. მომხ.</div>
         </a>
 
+        @if(!$isSaleOp)
         <a href="{{ route('categories.index') }}" class="kpi-card" style="--kpi-color:#0891b2;--kpi-bg:#ecfeff;">
             <div class="kpi-top">
                 <div class="kpi-icon"><i class="fa fa-tags"></i></div>
@@ -448,6 +460,7 @@
             <div class="kpi-label">კატეგორიები</div>
             <div class="kpi-sub"><i class="fa fa-cubes" style="font-size:9px;color:#0891b2;"></i> {{ $activeProducts }}/{{ $totalProducts }} პროდ.</div>
         </a>
+        @endif
 
         <a href="{{ route('warehouse.index') }}" class="kpi-card" style="--kpi-color:#dc2626;--kpi-bg:#fef2f2;">
             <div class="kpi-top">
@@ -467,26 +480,32 @@
             <div class="qa-icon" style="background:#eff6ff;color:#2d7dd2;"><i class="fa fa-plus"></i></div>
             <span class="qa-label">ახალი<br>ორდერი</span>
         </a>
+        @if(!$isSaleOp)
         <a href="{{ route('purchases.index') }}" class="qa-btn">
             <div class="qa-icon" style="background:#f5f3ff;color:#7c3aed;"><i class="fa fa-cart-shopping"></i></div>
             <span class="qa-label">შესყიდვა</span>
         </a>
+        @endif
         <a href="{{ route('customers.index') }}" class="qa-btn">
             <div class="qa-icon" style="background:#f0fdf4;color:#059669;"><i class="fa fa-user-plus"></i></div>
             <span class="qa-label">კლიენტი</span>
         </a>
+        @if(!$isSaleOp)
         <a href="{{ route('products.index') }}" class="qa-btn">
             <div class="qa-icon" style="background:#fff7ed;color:#ea580c;"><i class="fa fa-cubes"></i></div>
             <span class="qa-label">პროდუქტი</span>
         </a>
+        @endif
         <a href="{{ route('warehouse.index') }}" class="qa-btn">
             <div class="qa-icon" style="background:#fef2f2;color:#dc2626;"><i class="fa fa-warehouse"></i></div>
             <span class="qa-label">საწყობი</span>
         </a>
+        @if(!$isSaleOp)
         <a href="{{ route('warehouse.logs') }}" class="qa-btn">
             <div class="qa-icon" style="background:#f0f9ff;color:#0284c7;"><i class="fa fa-history"></i></div>
             <span class="qa-label">ლოგები</span>
         </a>
+        @endif
         @if(Auth::user()->role === 'admin')
         <a href="{{ route('finance.index') }}" class="qa-btn">
             <div class="qa-icon" style="background:#fefce8;color:#ca8a04;"><i class="fa fa-chart-line"></i></div>

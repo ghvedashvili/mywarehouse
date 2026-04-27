@@ -313,9 +313,6 @@ public function apiDeletedProducts(Request $request)
                '<a onclick="deleteData(' . $product->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a>' .
                '</div>';
     }
-    if ($role === 'sale_operator') {
-        return '<a onclick="editForm(' . $product->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a>';
-    }
     return '';
 })
         // მივუთითებთ რომელ სვეტებშია HTML კოდი

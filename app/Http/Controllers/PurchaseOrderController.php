@@ -86,8 +86,9 @@ class PurchaseOrderController extends Controller
                 'product_code' => $r->product?->product_code ?? '-',
                 'product_size' => $r->product_size,
                 'quantity'     => $r->quantity,
-                'original_qty' => $r->original_qty,   // ← ეს დაამატე
-                'lost_qty'      => $r->lost_qty ?? 0,   // ← ეს დაამატე
+                'original_qty' => $r->original_qty,
+                'lost_qty'     => $r->lost_qty ?? 0,
+                'cost_price'   => $r->cost_price ?? 0,
                 'status_id'    => $r->status_id,
                 'status_name'  => $r->orderStatus?->name  ?? '-',
                 'status_color' => $r->orderStatus?->color ?? 'default',
@@ -122,25 +123,34 @@ class PurchaseOrderController extends Controller
                 return ($count > 1 && $uniqueProducts > 1) ? '—' : ($row->product?->product_code ?? '-');
             })
             ->editColumn('product_size', function ($row) use ($groupCountMap, $groupItemsMap) {
-                $count          = $groupCountMap[$row->id] ?? 1;
-                $uniqueProducts = $count > 1 ? collect($groupItemsMap[$row->id] ?? [])->pluck('product_id')->unique()->count() : 1;
-                return ($count > 1 && $uniqueProducts > 1) ? '—' : ($row->product_size ?? '—');
+                $count = $groupCountMap[$row->id] ?? 1;
+                if ($count > 1) {
+                    $items          = collect($groupItemsMap[$row->id] ?? []);
+                    $uniqueProducts = $items->pluck('product_id')->unique()->count();
+                    if ($uniqueProducts > 1) return '—';
+                    // same product — check if multiple size variants
+                    $uniqueSizes = $items->pluck('product_size')->unique()->count();
+                    if ($uniqueSizes > 1) return '<span class="badge bg-secondary" style="font-size:10px;">სხ. ზომა</span>';
+                }
+                return $row->product_size ?? '—';
             })
             ->editColumn('quantity', function ($row) use ($groupCountMap, $groupItemsMap, $statusFilter) {
                 $count = $groupCountMap[$row->id] ?? 1;
                 if ($count > 1) {
-                    $uniqueProducts = collect($groupItemsMap[$row->id] ?? [])->pluck('product_id')->unique()->count();
+                    $items          = collect($groupItemsMap[$row->id] ?? []);
+                    $uniqueProducts = $items->pluck('product_id')->unique()->count();
                     if ($uniqueProducts > 1) return '—';
-                    if ($statusFilter === '3') {
-                        // original_qty set → use it; fallback: sum all portions (= original total)
-                        $sumQty = collect($groupItemsMap[$row->id] ?? [])->sum('quantity');
-                        return $row->original_qty ?? ($sumQty ?: $row->quantity);
+                    // same product — sum in-transit or all quantities
+                    if ($statusFilter === '2') {
+                        return $items->filter(fn($i) => $i['status_id'] === 2)->sum('quantity');
                     }
+                    // status=3 tab: show original total ordered qty
+                    $sumQty = $items->sum('quantity');
+                    return $row->original_qty ?? ($sumQty ?: $row->quantity);
                 }
                 if ($statusFilter === '3' && $row->original_qty) {
-        return $row->original_qty;
-    }
-                // "გზაში": primary is the status=2 item, $row->quantity = remaining
+                    return $row->original_qty;
+                }
                 return $row->quantity;
             })
             ->addColumn('is_return_purchase', fn($row) => $row->original_sale_id !== null ? 1 : 0)
@@ -170,23 +180,16 @@ class PurchaseOrderController extends Controller
                 $uniqueProducts = $count > 1 ? collect($groupItemsMap[$row->id] ?? [])->pluck('product_id')->unique()->count() : 1;
                 return ($count > 1 && $uniqueProducts > 1) ? '—' : number_format($row->price_georgia, 2) . ' ₾';
             })
-            ->addColumn('payment', function ($row) use ($groupCountMap) {
-                $count    = $groupCountMap[$row->id] ?? 1;
-                $usa      = $row->price_usa ?? 0;
-                $tr       = $row->courier_price_international ?? 0;
-               $qty      = $row->original_qty ?? $row->quantity ?? 1;  // ← original_qty
-                $discount = $row->discount ?? 0;
-                $cost     = $row->cost_price ?? ($usa + $tr);
-                $total    = (($usa + $tr) * $qty) - $discount;
-                $paid     = ($row->paid_tbc ?? 0) + ($row->paid_bog ?? 0) + ($row->paid_lib ?? 0) + ($row->paid_cash ?? 0);
-                $diff     = $total - $paid;
-
-                if ($diff > 0.01)       $pay = '<span style="color:red;font-weight:bold;">💳 -$'.number_format($diff,2).'</span>';
-                elseif ($diff < -0.01)  $pay = '<span style="color:green;font-weight:bold;">+$'.number_format(abs($diff),2).'</span>';
-                else                    $pay = '<span style="color:green;">✅ გადახდილია</span>';
-
-                $fifo = $count === 1 ? '<br><small style="color:#8e44ad;">🧮 $'.number_format($cost,2).'/ერთ.</small>' : '';
-                return $pay . $fifo;
+            ->addColumn('payment', function ($row) use ($groupCountMap, $groupItemsMap) {
+                $count = $groupCountMap[$row->id] ?? 1;
+                if ($count > 1) {
+                    $uniqueProducts = collect($groupItemsMap[$row->id] ?? [])->pluck('product_id')->unique()->count();
+                    if ($uniqueProducts > 1) return '—';
+                }
+                $cost = (float) ($row->cost_price ?? 0);
+                if ($cost <= 0) return '<span class="text-muted">—</span>';
+                return '<span style="color:#7c3aed;font-weight:700;">$' . number_format($cost, 2) . '</span>'
+                     . '<br><small style="color:#94a3b8;font-size:10px;">ერთ. ღირ.</small>';
             })
             ->addColumn('show_photo', function ($row) use ($groupCountMap) {
                 if (($groupCountMap[$row->id] ?? 1) > 1) return '';
@@ -213,7 +216,7 @@ class PurchaseOrderController extends Controller
                 $del = '<a onclick="deletePurchase('.$row->id.')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i></a>';
                 return '<div class="d-flex gap-1 justify-content-center">'.$view.$receive.$edit.$del.'</div>';
             })
-            ->rawColumns(['order_number', 'product_name', 'show_photo', 'status_name', 'payment', 'action'])
+            ->rawColumns(['order_number', 'product_name', 'product_size', 'show_photo', 'status_name', 'payment', 'action'])
             ->make(true);
     }
 
@@ -281,7 +284,8 @@ class PurchaseOrderController extends Controller
         'product_size'  => $r->product_size,
         'quantity'      => $r->quantity,
         'original_qty'  => $r->original_qty ?? $r->quantity,
-        'lost_qty'      => (int) ($lostMap[$r->id] ?? 0),  // ← warehouse_logs-დან
+        'cost_price'    => (float) ($r->cost_price ?? 0),
+        'lost_qty'      => (int) ($lostMap[$r->id] ?? 0),
         'status_id'     => $r->status_id,
         'status_name'   => $r->orderStatus?->name  ?? '-',
         'status_color'  => $r->orderStatus?->color ?? 'default',

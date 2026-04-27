@@ -20,12 +20,14 @@
         <a href="{{ url('/home') }}" class="sidebar-link {{ request()->is('home') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-gauge"></i> Dashboard
         </a>
+        @if(Auth::user()->role !== 'sale_operator')
         <a href="{{ route('categories.index') }}" class="sidebar-link {{ request()->is('categories*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-tags"></i> Category
         </a>
         <a href="{{ route('brands.index') }}" class="sidebar-link {{ request()->is('brands*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-copyright"></i> Brand
         </a>
+        @endif
         <a href="{{ route('products.index') }}" class="sidebar-link {{ request()->is('products*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-cubes"></i> Product
         </a>
@@ -40,15 +42,17 @@
         <a href="{{ route('productsOut.index') }}" class="sidebar-link {{ request()->is('productsOut*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-right-from-bracket"></i> გაყიდვები
         </a>
-        <a href="{{ route('warehouse.index') }}" class="sidebar-link {{ request()->is('warehouse*') ? 'active' : '' }}" onclick="closeSidebar()">
+        <a href="{{ route('warehouse.index') }}" class="sidebar-link {{ request()->is('warehouse*') && !request()->is('warehouse/logs*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-warehouse"></i> საწყობი
         </a>
+        @if(Auth::user()->role !== 'sale_operator')
         <a href="{{ route('warehouse.logs') }}" class="sidebar-link {{ request()->is('warehouse/logs*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-history"></i> საწყობის ლოგი
         </a>
         <a href="{{ route('purchases.index') }}" class="sidebar-link {{ request()->is('purchases*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-cart-shopping"></i> შესყიდვები
         </a>
+        @endif
 
         @if(Auth::user()->role === 'admin')
             <div class="nav-label">Admin Panel</div>
