@@ -1,5 +1,5 @@
 <div class="modal fade" id="modal-form" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
 
             <form id="form-item" method="post" enctype="multipart/form-data">
