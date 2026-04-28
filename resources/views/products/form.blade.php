@@ -1,8 +1,8 @@
 <div class="modal fade" id="modal-form" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content d-flex flex-column" style="max-height:95vh;">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
 
-            <form id="form-item" method="post" enctype="multipart/form-data" class="d-flex flex-column h-100">
+            <form id="form-item" method="post" enctype="multipart/form-data">
                 @csrf @method('POST')
 
                 {{-- HEADER --}}
@@ -12,7 +12,7 @@
                 </div>
 
                 {{-- BODY --}}
-                <div class="modal-body p-2 p-md-3 overflow-auto">
+                <div class="modal-body p-2 p-md-3">
 
                     <input type="hidden" id="id" name="id">
 
