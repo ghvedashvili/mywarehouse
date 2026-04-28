@@ -199,7 +199,14 @@ class ProductOrderController extends Controller
 
             $nextPurchase = FifoService::getNextPurchase($productId, $productSize);
 
-            $data = array_merge($courierData, [
+            // მხოლოდ პირველ ორდერს (primary) ეწერება კურიერის ფასი;
+            // დანარჩენ ჯგუფის წევრებს — 0, რათა ფინანსებში ერთხელ დაითვალოს
+            $itemCourierData = count($createdOrders) === 0
+                ? $courierData
+                : ['courier_price_tbilisi' => 0, 'courier_price_region' => 0,
+                   'courier_price_village' => 0, 'courier_servise_local' => 'none'];
+
+            $data = array_merge($itemCourierData, [
                 'product_id'       => $productId,
                 'product_size'     => $productSize,
                 'customer_id'      => $request->customer_id,
