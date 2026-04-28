@@ -409,90 +409,73 @@ class ProductOrderController extends Controller
                 $keyChanged   = ($newProductId !== $oldProductId || $newSize !== $oldSize);
 
                 // sale/change — პროდუქტი/ზომა შეიცვალა და იყო დარეზერვებული
+                // oldStock-ს ვინახავთ promotion-ისთვის; promotion კი update()-ის შემდეგ ხდება
+                $oldStockForPromotion = null;
                 if ($keyChanged && in_array($order->order_type, ['sale', 'change']) && in_array($oldStatusId, [2, 3])) {
-                    $oldStock = \App\Models\Warehouse::where('product_id', $oldProductId)
+                    $oldStockForPromotion = \App\Models\Warehouse::where('product_id', $oldProductId)
                         ->where('size', $oldSize)->first();
-                    if ($oldStock) {
-                        // status=2 ან 3: ორივე reserved_qty-ში ითვლება
-                        $oldStock->decrement('reserved_qty', 1);
+                    if ($oldStockForPromotion) {
+                        $oldStockForPromotion->decrement('reserved_qty', 1);
                     }
-                    // purchase_order_id გაიწმინდება
                     $data['purchase_order_id'] = null;
                     $data['status_id']         = 1;
-
-                    // ძველ purchase-ზე გათავისუფლებული ადგილი —
-                    // მოვძებნოთ მომლოდინე sale-ები და დავაწინაუროთ
-                    $oldPurchaseOrderId = $order->purchase_order_id;
-                    if ($oldPurchaseOrderId) {
-                        $oldPurchase = Product_Order::find($oldPurchaseOrderId);
-                        if ($oldPurchase && in_array($oldPurchase->status_id, [2, 3])) {
-                            $waitingSales = Product_Order::where('order_type', 'sale')
-                                ->where('product_id', $oldProductId)
-                                ->where('product_size', $oldSize)
-                                ->where('status_id', 1)
-                                ->where('id', '!=', $order->id)
-                                ->orderBy('created_at', 'asc')
-                                ->get();
-
-                            foreach ($waitingSales as $waitingSale) {
-                                if ($oldStock) $oldStock->refresh();
-
-                                $available = $oldStock
-                                    ? ($oldStock->incoming_qty + $oldStock->physical_qty - $oldStock->defect_qty - $oldStock->reserved_qty)
-                                    : 0;
-
-                                if ($available <= 0) break;
-
-                                $wTotal   = $waitingSale->price_georgia - ($waitingSale->discount ?? 0);
-                                $wPaid    = ($waitingSale->paid_tbc ?? 0) + ($waitingSale->paid_bog ?? 0)
-                                          + ($waitingSale->paid_lib ?? 0) + ($waitingSale->paid_cash ?? 0);
-                                $wHasDebt = ($wTotal - $wPaid) > 0.01;
-
-                                if ($wHasDebt) continue;
-
-                                $waitingNext = \App\Services\FifoService::getNextPurchase($oldProductId, $oldSize);
-                                if (!$waitingNext) continue;
-                                $waitingSale->purchase_order_id = $waitingNext->id;
-                                $waitingSale->price_usa         = (float) $waitingNext->cost_price;
-                                // price_georgia არ იცვლება
-                                $waitingSale->status_id         = $waitingNext->status_id;
-                                $waitingSale->save();
-
-                                // status=2 ან 3: ორივე reserved_qty-ში ითვლება
-                                if ($oldStock) $oldStock->increment('reserved_qty', 1);
-
-                                StatusChangeLog::create([
-                                    'order_id'       => $waitingSale->id,
-                                    'user_id'        => auth()->id(),
-                                    'status_id_from' => 1,
-                                    'status_id_to'   => $waitingSale->status_id,
-                                    'changed_at'     => now(),
-                                ]);
-
-                                break; // ერთი ადგილი გათავისუფლდა — ერთი sale დავაწინაუროთ
-                            }
-                        }
-                    }
                 }
 
                 // 4. FIFO ფასები თუ პროდუქტი/ზომა შეიცვალა
-                // purchase_order_id-ს CASE A ადგენს (ქვემოთ), აქ მხოლოდ ფასები
                 if ($keyChanged && in_array($order->order_type, ['sale', 'change'])) {
                     $fifo = \App\Services\FifoService::getPrices($newProductId, $newSize);
                     $newProduct = \App\Models\Product::withoutGlobalScope('active')->find($newProductId);
-                    $data['price_georgia']      = (float) ($newProduct->price_geo ?? $order->price_georgia);
-                    $data['price_usa']          = $fifo['purchase_order_id'] ? (float) $fifo['cost_price'] : 0;
-                    $data['purchase_order_id']  = null;  // CASE A-ს ჩარევამდე null — ერთი გამყოფი წერტილი
+                    $data['price_georgia']     = (float) ($newProduct->price_geo ?? $order->price_georgia);
+                    $data['price_usa']         = $fifo['purchase_order_id'] ? (float) $fifo['cost_price'] : 0;
+                    $data['purchase_order_id'] = null;
                     if (!isset($data['status_id'])) {
                         $data['status_id'] = 1;
                     }
                 }
 
-                // 5. მონაცემების განახლება
+                // 5. მონაცემების განახლება — ამის შემდეგ Order A DB-ში purchase_order_id=null
                 $order->update($data);
                 $order->refresh();
 
-                // 6. sale/change — stock კორექტირება
+                // 6. ძველი product/size-ისთვის მომლოდინე sale-ების დაწინაურება.
+                // ეს ხდება update()-ის შემდეგ, რათა getNextPurchase()-მა Order A
+                // აღარ ჩათვალოს "occupied"-ად (purchase_order_id უკვე null-ია DB-ში).
+                if ($keyChanged && in_array($order->order_type, ['sale', 'change']) && in_array($oldStatusId, [2, 3])) {
+                    $waitingSales = Product_Order::whereIn('order_type', ['sale', 'change'])
+                        ->where('product_id', $oldProductId)
+                        ->where('product_size', $oldSize)
+                        ->where('status_id', 1)
+                        ->where('id', '!=', $order->id)
+                        ->orderBy('created_at', 'asc')
+                        ->get();
+
+                    foreach ($waitingSales as $waitingSale) {
+                        $waitingNext = \App\Services\FifoService::getNextPurchase($oldProductId, $oldSize);
+                        if (!$waitingNext) break;
+
+                        $waitingSale->purchase_order_id = $waitingNext->id;
+                        $waitingSale->price_usa         = (float) $waitingNext->cost_price;
+                        $waitingSale->status_id         = $waitingNext->status_id; // 2 ან 3
+                        $waitingSale->save();
+
+                        if ($oldStockForPromotion) {
+                            $oldStockForPromotion->refresh();
+                            $oldStockForPromotion->increment('reserved_qty', 1);
+                        }
+
+                        StatusChangeLog::create([
+                            'order_id'       => $waitingSale->id,
+                            'user_id'        => auth()->id(),
+                            'status_id_from' => 1,
+                            'status_id_to'   => $waitingSale->status_id,
+                            'changed_at'     => now(),
+                        ]);
+
+                        break; // ერთი slot გათავისუფლდა — ერთი sale გადავაწინაუროთ
+                    }
+                }
+
+                // 7. sale/change — stock კორექტირება (ახალი product/size-ისთვის)
                 if (in_array($order->order_type, ['sale', 'change'])) {
 
                     $stock = \App\Models\Warehouse::where('product_id', $order->product_id)
@@ -509,12 +492,11 @@ class ProductOrderController extends Controller
                         );
 
                         if ($caseANextPurchase) {
-                            $order->status_id         = $caseANextPurchase->status_id; // 2 ან 3
+                            $order->status_id         = $caseANextPurchase->status_id;
                             $order->purchase_order_id = $caseANextPurchase->id;
                             $order->price_usa         = (float) $caseANextPurchase->cost_price;
 
                             if ($stock) {
-                                // status=2 ან 3: ორივე reserved_qty-ში ითვლება
                                 $stock->increment('reserved_qty', 1);
                             }
 
@@ -530,18 +512,14 @@ class ProductOrderController extends Controller
                         }
                     }
 
-                    // CASE B: 1→3 ან 2→3 (საწყობში ჩამოსვლა)
-                    // 1→3: CASE A-მ უკვე ამატა reserved +1; 2→3: reserved უცვლელია (უკვე ითვლება)
-                    // physical_qty არ იცვლება — ნივთი საწყობშია, კურიერთან გაგზავნისას (→4) გამოვა
-
-                    // CASE C: 2→1 (რეზერვის გაუქმება)
-                    if ($oldStatusId == 2 && $order->status_id == 1 && $stock) {
+                    // CASE C: 2→1 (რეზერვის გაუქმება — product/size უცვლელია)
+                    if ($oldStatusId == 2 && $order->status_id == 1 && !$keyChanged && $stock) {
                         $stock->decrement('reserved_qty', 1);
                         $stock->save();
                     }
 
-                    // CASE D: 3→1 (საწყობიდან გაუქმება)
-                    if ($oldStatusId == 3 && $order->status_id == 1 && $stock) {
+                    // CASE D: 3→1 (საწყობიდან გაუქმება — product/size უცვლელია)
+                    if ($oldStatusId == 3 && $order->status_id == 1 && !$keyChanged && $stock) {
                         $stock->decrement('reserved_qty', $saleQty);
                         $stock->save();
                     }
