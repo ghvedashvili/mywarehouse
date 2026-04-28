@@ -757,7 +757,7 @@ $(function() {
 
         var $transport = $('<input type="number">')
             .addClass('form-control form-control-sm line-transport')
-            .attr({ name: 'items[' + idx + '][transport]', step: '0.01', min: 0, placeholder: '0.00', value: 0 });
+            .attr({ name: 'items[' + idx + '][transport]', step: '0.01', min: 0, placeholder: '0.00' });
 
         var $priceGeo = $('<input type="text" readonly>')
             .addClass('form-control form-control-sm line-price-geo bg-light')
@@ -819,6 +819,10 @@ $(function() {
             $priceUsa.val(defaults.price_usa || '');
             $transport.val(defaults.transport != null ? defaults.transport : 0);
             $priceGeo.val(defaults.price_georgia ? parseFloat(defaults.price_georgia).toFixed(2) : '');
+        } else {
+            // ახალი row — transport-ი წინა row-ებიდან გადმოვა
+            var existingTransport = parseFloat($('#purchase-lines-body .line-transport').first().val()) || 0;
+            if (existingTransport > 0) $transport.val(existingTransport);
         }
 
         updateRemoveButtons();
@@ -862,6 +866,12 @@ $(function() {
         $tr.find('.line-product').select2('destroy');
         $tr.remove();
         updateRemoveButtons();
+    });
+
+    // ── ტრანსპ. სინქრონიზაცია ყველა row-ზე ─────────────────────────
+    $(document).on('input', '#purchase-lines-body .line-transport', function() {
+        var val = $(this).val();
+        $('#purchase-lines-body .line-transport').not(this).val(val);
     });
 
     // ══ MODAL OPEN ══
@@ -972,6 +982,18 @@ $(function() {
         e.preventDefault();
         var id  = $('#purchase_id').val();
         var url = id ? "{{ url('purchases') }}/" + id : "{{ url('purchases') }}";
+
+        // ── ვალიდაცია: ფასი ($) და ტრანსპ. ($) > 0 ──────────────────
+        var hasError = false;
+        $('#purchase-lines-body .purchase-line').each(function() {
+            var price     = parseFloat($(this).find('.line-price-usa').val()) || 0;
+            var transport = parseFloat($(this).find('.line-transport').val()) || 0;
+            if (price <= 0 || transport <= 0) { hasError = true; return false; }
+        });
+        if (hasError) {
+            swal('შეცდომა', 'ყველა პროდუქტს უნდა ჰქონდეს ფასი ($) და ტრანსპ. ($) — ორივე 0-ზე მეტი', 'error');
+            return;
+        }
 
         var $locked = $(this).find(':disabled').prop('disabled', false);
         var formData;

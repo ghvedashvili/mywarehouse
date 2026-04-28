@@ -28,7 +28,7 @@
             <i class="fa fa-copyright"></i> Brand
         </a>
         @endif
-        <a href="{{ route('products.index') }}" class="sidebar-link {{ request()->is('products*') ? 'active' : '' }}" onclick="closeSidebar()">
+        <a href="{{ route('products.index') }}" class="sidebar-link {{ request()->is('products') || request()->is('products/*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-cubes"></i> Product
         </a>
         <a href="{{ route('product-bundles.index') }}" class="sidebar-link {{ request()->is('product-bundles*') ? 'active' : '' }}" onclick="closeSidebar()">
