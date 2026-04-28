@@ -77,14 +77,16 @@ class PurchaseService
         };
 
         // CASE 1: purchase 1→2 — პირდაპირ ამ purchase-ს ვაბამთ
+        // return/exchange purchase-ი (original_sale_id NOT NULL) — status=2-ზე sale-ები არ მიებმება
         if ($oldStatusId === 1 && $newStatusId === 2) {
+            if ($order->original_sale_id !== null) return;
             $stock = Warehouse::where('product_id', $productId)->where('size', $size)->first();
             if (!$stock) return;
 
             $capacity    = $order->quantity;
             $alreadyUsed = Product_Order::whereIn('order_type', ['sale', 'change'])
                 ->where('purchase_order_id', $order->id)
-                ->whereIn('status_id', [1, 2, 3])
+                ->whereIn('status_id', [1, 2, 3, 5, 6])
                 ->count();
             $canTake = $capacity - $alreadyUsed;
 
@@ -182,6 +184,10 @@ class PurchaseService
     // ════════════════════════════════════════════════════════════════
     public static function attachPendingSalesToPurchase(Product_Order $purchase, Warehouse $stock): void
     {
+        // return/exchange purchase-ი (original_sale_id IS NOT NULL) გზაშია (status=2) →
+        // sale-ები მხოლოდ status=3-ზე (საწყობში მოხვედრისას) მიებმება
+        if ($purchase->original_sale_id !== null && $purchase->status_id === 2) return;
+
         $purchaseStatus = $purchase->status_id;
 
         $pendingSales = Product_Order::whereIn('order_type', ['sale', 'change'])

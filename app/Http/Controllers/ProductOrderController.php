@@ -2186,11 +2186,12 @@ class ProductOrderController extends Controller
             $sourcePurchase->purchase_group_id = $sourcePurchase->id;
             $sourcePurchase->saveQuietly();
 
-            // საწყობში incoming_qty გაზრდა (status 1→2) და sale-ების სინქრონიზაცია
+            // incoming_qty გაზრდა (status 1→2)
+            // syncSaleOrdersAfterPurchase აქ არ ვეძახებთ — return/exchange purchase-ზე
+            // გაყიდვები მხოლოდ status=3 (საწყობში მოხვედრისას) მიებმება
             PurchaseService::handleStockForPurchase($sourcePurchase->id, 2);
             Product_Order::where('id', $sourcePurchase->id)->update(['status_id' => 2]);
             $sourcePurchase->status_id = 2;
-            PurchaseService::syncSaleOrdersAfterPurchase($sourcePurchase, 1, 2);
 
             // ─── დაბრუნება: original sale → სტატუსი 5, purchase მიაბი ───
             if ($changeType === 'return') {

@@ -15,7 +15,15 @@ class FifoService
     $query = Product_Order::where('order_type', 'purchase')
         ->where('status', 'active')
         ->where('product_id', $productId)
-        ->whereIn('status_id', [2, 3])
+        ->where(function ($q) {
+            // ჩვეულებრივი შესყიდვა — status 2 ან 3
+            // დაბრუნება/გაცვლის შესყიდვა (original_sale_id IS NOT NULL) — მხოლოდ status 3
+            $q->where(function ($inner) {
+                $inner->whereNull('original_sale_id')->whereIn('status_id', [2, 3]);
+            })->orWhere(function ($inner) {
+                $inner->whereNotNull('original_sale_id')->where('status_id', 3);
+            });
+        })
         ->orderBy('status_id', 'desc')   // საწყობი (3) პრიორიტეტი გზაზე (2)
         ->orderBy('created_at', 'asc');  // FIFO ერთი სტატუსის შიგნით
 
@@ -29,7 +37,7 @@ class FifoService
     foreach ($purchases as $purchase) {
         $usedCount = Product_Order::whereIn('order_type', ['sale', 'change'])
             ->where('purchase_order_id', $purchase->id)
-            ->whereIn('status_id', [1, 2, 3, 4])  // კურიერთანაც (4) ითვლება
+            ->whereIn('status_id', [1, 2, 3, 4, 5, 6])  // returned(5) + exchanged(6) ასევე ითვლება
             ->count();
 
         if ($usedCount < $purchase->quantity) {
@@ -74,7 +82,13 @@ class FifoService
             ->where('status', 'active')
             ->where('product_id', $productId)
             ->where('product_size', $size)
-            ->whereIn('status_id', [2, 3])
+            ->where(function ($q) {
+                $q->where(function ($inner) {
+                    $inner->whereNull('original_sale_id')->whereIn('status_id', [2, 3]);
+                })->orWhere(function ($inner) {
+                    $inner->whereNotNull('original_sale_id')->where('status_id', 3);
+                });
+            })
             ->orderBy('created_at', 'asc');
 
         if ($excludePurchaseId > 0) {

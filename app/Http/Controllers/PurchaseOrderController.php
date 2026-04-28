@@ -1020,7 +1020,10 @@ class PurchaseOrderController extends Controller
                         $rerouteOrDrop($sale, $purchase->id);
                     }
                 }
-                if ($stock) $stock->save();
+               if ($stock) {
+                    PurchaseService::attachPendingSalesToPurchase($purchase, $stock);
+                    $stock->save();
+                }
 
                 return response()->json(['success' => true, 'message' => 'სრულად მიღებულია']);
             }
@@ -1105,7 +1108,11 @@ class PurchaseOrderController extends Controller
                     $sale->save();
                 }
             }
-
+$purchase->refresh();
+            if ($stock) {
+                PurchaseService::attachPendingSalesToPurchase($purchase, $stock);
+                $stock->save();
+            }
             return response()->json(['success' => true, 'message' => 'წარმატებით დასრულდა — ' . $remainingQty . ' ერთ. კვლავ გზაშია']);
         });
     }
@@ -1233,6 +1240,11 @@ class PurchaseOrderController extends Controller
                             ]);
                         }
                     }
+                }
+                // pending sale-ების მიბმა მხოლოდ სრული მიღებისას (status=3)
+                if ($remaining === 0 && $receivedQty > 0) {
+                    $purchase->refresh();
+                    PurchaseService::attachPendingSalesToPurchase($purchase, $stock);
                 }
                 $stock->save();
 
