@@ -710,6 +710,7 @@ $(function() {
             url: "{{ route('purchases.api') }}",
             data: { type: 'returns' }
         },
+        order: [[9, 'desc']],
         columns: [
             { data: 'order_number',    name: 'order_number',    responsivePriority: 2 },
             { data: 'show_photo',      name: 'show_photo',      orderable: false, responsivePriority: 3 },
