@@ -22,6 +22,18 @@ class PurchaseOrderController extends Controller
         $this->middleware('auth');
     }
 
+    // ─── სტატისტიკა (AJAX, badge განახლებისთვის) ─────────────────────
+    public function stats(): \Illuminate\Http\JsonResponse
+    {
+        return response()->json([
+            'in_transit'        => Product_Order::where('order_type', 'purchase')->whereNull('original_sale_id')->where('status_id', 2)->count(),
+            'in_warehouse'      => Product_Order::where('order_type', 'purchase')->whereNull('original_sale_id')->where('status_id', 3)->count(),
+            'purchase_total'    => Product_Order::where('order_type', 'purchase')->whereNull('original_sale_id')->count(),
+            'returns_in_transit'=> Product_Order::where('order_type', 'purchase')->whereNotNull('original_sale_id')->where('status_id', 2)->count(),
+            'returns_total'     => Product_Order::where('order_type', 'purchase')->whereNotNull('original_sale_id')->count(),
+        ]);
+    }
+
     // ─── მთავარი გვერდი ───────────────────────────────────────────────
     public function index()
     {

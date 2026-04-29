@@ -138,7 +138,7 @@ Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff']
     Route::delete('purchases/{id}',               [PurchaseOrderController::class, 'destroy'])->name('purchases.destroy');
     Route::get('purchases/group/{groupId}/items',           [PurchaseOrderController::class, 'getGroupItems'])->name('purchases.groupItems');
     Route::post('purchases/group/{groupId}/partial-receive',[PurchaseOrderController::class, 'groupPartialReceive'])->name('purchases.groupPartialReceive');
-
+Route::get('purchases/stats', [PurchaseOrderController::class, 'stats'])->name('purchases.stats');
     // ── Users ─────────────────────────────────────────────────────────
     Route::get('/user/change-password', [UserController::class, 'changePasswordForm'])->name('user.change-password');
     Route::post('/user/change-password', [UserController::class, 'changePassword'])->name('user.change-password');

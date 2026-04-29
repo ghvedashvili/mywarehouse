@@ -967,6 +967,7 @@ $(function() {
                 success: function(res) {
                     purchasesTable.ajax.reload();
                     returnsTable.ajax.reload();
+                    refreshPurchaseStats();
                     swal({ title: 'წაიშალა!', text: res.message, type: 'success', timer: 1500 });
                 },
                 error: function(xhr) {
@@ -1026,6 +1027,7 @@ $(function() {
                 $('#modal-purchase').modal('hide');
                 purchasesTable.ajax.reload();
                 returnsTable.ajax.reload();
+                refreshPurchaseStats();
                 swal({ title: '✅', text: res.message, type: 'success', timer: 1800 });
             },
             error: function(xhr) {
@@ -1113,6 +1115,8 @@ $(function() {
             success: function(res) {
                 bootstrap.Modal.getInstance(document.getElementById('modal-group-receive')).hide();
                 purchasesTable.ajax.reload();
+                returnsTable.ajax.reload();
+                refreshPurchaseStats();
                 swal({ title: '✅', text: res.message, type: 'success' });
             },
             error: function(xhr) {
@@ -1197,6 +1201,46 @@ $(function() {
 
         $('#modal-purchase').modal('show');
     };
+
+    // ══ STATS REFRESH ══
+    function refreshPurchaseStats() {
+        $.get("{{ route('purchases.stats') }}", function(d) {
+            // stat cards
+            $('.pu-stat-value').eq(0).text(d.in_transit);
+            $('.pu-stat-value').eq(1).text(d.in_warehouse);
+            $('.pu-stat-value').eq(2).text(d.returns_total);
+            $('.pu-stat-value').eq(3).text(d.purchase_total);
+
+            // returns stat card sub-text
+            var $returnsSub = $('.pu-stat').eq(2).find('.pu-stat-sub');
+            if (d.returns_in_transit > 0) {
+                $returnsSub.html('<span style="color:var(--c-red);font-weight:700;">' + d.returns_in_transit + ' გზაშია</span>');
+            } else {
+                $returnsSub.text('ყველა დამუშავებულია');
+            }
+
+            // tab badge
+            var $tabBtn = $('#tab-btn-returns');
+            $tabBtn.find('.tab-badge').remove();
+            if (d.returns_in_transit > 0) {
+                $tabBtn.append('<span class="tab-badge">' + d.returns_in_transit + '</span>');
+            }
+
+            // returns header intransit badge
+            var $rh = $('.pu-returns-intransit');
+            if (d.returns_in_transit > 0) {
+                if ($rh.length) {
+                    $rh.html('<i class="fa fa-truck" style="font-size:10px;"></i> ' + d.returns_in_transit + ' გზაშია');
+                } else {
+                    $('.pu-returns-header').append(
+                        '<div class="pu-returns-intransit"><i class="fa fa-truck" style="font-size:10px;"></i> ' + d.returns_in_transit + ' გზაშია</div>'
+                    );
+                }
+            } else {
+                $rh.remove();
+            }
+        });
+    }
 
 });
 </script>
