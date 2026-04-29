@@ -2186,10 +2186,10 @@ class ProductOrderController extends Controller
             $sourcePurchase->purchase_group_id = $sourcePurchase->id;
             $sourcePurchase->saveQuietly();
 
-            // incoming_qty გაზრდა (status 1→2)
+            // return_incoming_qty გაზრდა (status 1→2) — ჩვეულებრივ incoming_qty-ში არ ჩაიწერება
             // syncSaleOrdersAfterPurchase აქ არ ვეძახებთ — return/exchange purchase-ზე
             // გაყიდვები მხოლოდ status=3 (საწყობში მოხვედრისას) მიებმება
-            PurchaseService::handleStockForPurchase($sourcePurchase->id, 2);
+            PurchaseService::handleStockForPurchase($sourcePurchase->id, 2, true);
             Product_Order::where('id', $sourcePurchase->id)->update(['status_id' => 2]);
             $sourcePurchase->status_id = 2;
 

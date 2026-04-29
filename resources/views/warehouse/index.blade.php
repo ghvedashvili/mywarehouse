@@ -5,20 +5,22 @@
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
 <link href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css" rel="stylesheet">
 <style>
-:root { --wh-green:#00a65a; --wh-orange:#f39c12; --wh-red:#dd4b39; --wh-blue:#357ca5; --wh-dark:#222d32; --wh-border:#dee2e6; }
+:root { --wh-green:#00a65a; --wh-orange:#f39c12; --wh-red:#dd4b39; --wh-blue:#357ca5; --wh-purple:#8e44ad; --wh-dark:#222d32; --wh-border:#dee2e6; }
 .stat-card { background:#fff; border:1px solid var(--wh-border); border-radius:8px; padding:14px 18px; border-left:4px solid var(--wh-green); box-shadow:0 1px 4px rgba(0,0,0,0.06); }
 .stat-card.orange { border-left-color:var(--wh-orange); }
 .stat-card.blue   { border-left-color:var(--wh-blue); }
+.stat-card.purple { border-left-color:var(--wh-purple); }
 .stat-card.red    { border-left-color:var(--wh-red); }
 .stat-card .val { font-size:26px; font-weight:800; color:var(--wh-dark); line-height:1; }
 .stat-card .lbl { font-size:11px; color:#888; text-transform:uppercase; letter-spacing:0.6px; margin-top:4px; }
 .wh-table thead th { background:#f4f4f4; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:#555; border-bottom:2px solid var(--wh-border)!important; white-space:nowrap; }
 .qty-badge { display:inline-block; min-width:32px; text-align:center; font-weight:700; padding:2px 8px; border-radius:4px; font-size:13px; }
-.qty-physical  { background:#dff0d8; color:#3c763d; }
-.qty-incoming  { background:#d9edf7; color:#31708f; }
-.qty-reserved  { background:#fcf8e3; color:#8a6d3b; }
-.qty-available { background:#222d32; color:#fff; }
-.qty-zero      { background:#f2dede; color:#a94442; }
+.qty-physical         { background:#dff0d8; color:#3c763d; }
+.qty-incoming         { background:#d9edf7; color:#31708f; }
+.qty-return-incoming  { background:#f5e6ff; color:#8e44ad; }
+.qty-reserved         { background:#fcf8e3; color:#8a6d3b; }
+.qty-available        { background:#222d32; color:#fff; }
+.qty-zero             { background:#f2dede; color:#a94442; }
 
 /* Responsive expand control dot */
 table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before,
@@ -52,16 +54,19 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
 
     {{-- Stat cards --}}
     <div class="row g-2 mb-3">
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md">
             <div class="stat-card"><div class="val" id="stat-physical">—</div><div class="lbl">📦 ფიზიკური ნაშთი</div></div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md">
             <div class="stat-card orange"><div class="val" id="stat-incoming">—</div><div class="lbl">🚚 გზაში</div></div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md">
+            <div class="stat-card purple"><div class="val" id="stat-return-incoming">—</div><div class="lbl">↩ დაბრუნება გზაში</div></div>
+        </div>
+        <div class="col-6 col-md">
             <div class="stat-card blue"><div class="val" id="stat-reserved">—</div><div class="lbl">🔒 დაჯავშნული</div></div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md">
             <div class="stat-card red"><div class="val" id="stat-low">—</div><div class="lbl">⚠️ მცირე ნაშთი</div></div>
         </div>
     </div>
@@ -91,7 +96,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
                 <thead>
                     <tr>
                         <th></th><th>პროდუქტი</th><th>კოდი</th><th>ზომა</th>
-                        <th>📦 ფიზ.</th><th>🚚 გზაში</th><th>🔒 დაჯავშნ.</th>
+                        <th>📦 ფიზ.</th><th>🚚 გზაში</th><th>↩ დაბრ. გზაში</th><th>🔒 დაჯავშნ.</th>
                         <th>✅ ხელმისაწვდ.</th><th>🧮 FIFO</th><th>სტატუსი</th><th></th>
                     </tr>
                 </thead>
@@ -237,7 +242,9 @@ $(function() {
              render: v => `<span class="qty-badge ${v>0?'qty-physical':'qty-zero'}">${v}</span>`},
             {data:'incoming_qty', responsivePriority: 8,
              render: v => `<span class="qty-badge ${v>0?'qty-incoming':'qty-zero'}">${v}</span>`},
-            {data:'reserved_qty', responsivePriority: 9,
+            {data:'return_incoming_qty', responsivePriority: 9,
+             render: v => `<span class="qty-badge ${v>0?'qty-return-incoming':'qty-zero'}">${v}</span>`},
+            {data:'reserved_qty', responsivePriority: 10,
              render: v => `<span class="qty-badge ${v>0?'qty-reserved':'qty-zero'}">${v}</span>`},
             {data:'available',    responsivePriority: 3,
              render: v => `<span class="qty-badge ${v>0?'qty-available':'qty-zero'}">${v}</span>`},
@@ -247,9 +254,9 @@ $(function() {
             {data:'action',       orderable:false, responsivePriority: 4},
         ],
         drawCallback: function() {
-            var d=this.api().rows().data(), ph=0,inc=0,res=0,low=0;
-            d.each(function(r){ ph+=parseInt(r.physical_qty)||0; inc+=parseInt(r.incoming_qty)||0; res+=parseInt(r.reserved_qty)||0; if(parseInt(r.available)<=3)low++; });
-            $('#stat-physical').text(ph); $('#stat-incoming').text(inc); $('#stat-reserved').text(res); $('#stat-low').text(low);
+            var d=this.api().rows().data(), ph=0,inc=0,ret=0,res=0,low=0;
+            d.each(function(r){ ph+=parseInt(r.physical_qty)||0; inc+=parseInt(r.incoming_qty)||0; ret+=parseInt(r.return_incoming_qty)||0; res+=parseInt(r.reserved_qty)||0; if(parseInt(r.available)<=3)low++; });
+            $('#stat-physical').text(ph); $('#stat-incoming').text(inc); $('#stat-return-incoming').text(ret); $('#stat-reserved').text(res); $('#stat-low').text(low);
         }
     });
 

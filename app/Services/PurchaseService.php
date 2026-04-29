@@ -11,10 +11,12 @@ class PurchaseService
     // ════════════════════════════════════════════════════════════════
     // Purchase stock ლოგიკა
     // ════════════════════════════════════════════════════════════════
-    public static function handleStockForPurchase(int $orderId, int $newStatusId): void
+    // $isReturnPurchase=true — შექმნისას გამოიყენება, სანამ original_sale_id DB-ში ჩაიწერება
+    public static function handleStockForPurchase(int $orderId, int $newStatusId, bool $isReturnPurchase = false): void
     {
         $order       = Product_Order::findOrFail($orderId);
         $oldStatusId = $order->status_id;
+        $isReturn    = $isReturnPurchase || ($order->original_sale_id !== null);
 
         if ($oldStatusId == $newStatusId) return;
 
@@ -25,29 +27,51 @@ class PurchaseService
 
         $stock = Warehouse::firstOrCreate(
             ['product_id' => $order->product_id, 'size' => $order->product_size],
-            ['physical_qty' => 0, 'incoming_qty' => 0, 'reserved_qty' => 0]
+            ['physical_qty' => 0, 'incoming_qty' => 0, 'return_incoming_qty' => 0, 'reserved_qty' => 0]
         );
 
         $qty = $order->quantity;
 
-        if ($oldStatusId == 1 && $newStatusId == 2)
-            $stock->increment('incoming_qty', $qty);
-        elseif ($oldStatusId == 2 && $newStatusId == 3) {
-            $stock->decrement('incoming_qty', $qty);
-            $stock->increment('physical_qty', $qty);
-        } elseif ($oldStatusId == 2 && $newStatusId == 1)
-            $stock->decrement('incoming_qty', $qty);
-        elseif ($oldStatusId == 3 && $newStatusId == 2) {
-            // physical_qty-ს ვაკლებთ მხოლოდ იმდენს, რამდენიც რეალურად გვაქვს
-            // (status=3 sale-ებმა შეიძლება უკვე ჩამოჭრეს ნაწილი)
-            $actualPhysical = max(0, $stock->physical_qty);
-            $stock->decrement('physical_qty', min($qty, $actualPhysical));
-            $stock->increment('incoming_qty', $qty);
-        } elseif ($newStatusId == 4) {
-            if ($oldStatusId == 2) $stock->decrement('incoming_qty', $qty);
-            if ($oldStatusId == 3) {
+        if ($isReturn) {
+            // დაბრუნება/გაცვლის purchase — return_incoming_qty სვეტი (ხელმისაწვდომ ნაშთში არ ითვლება)
+            if ($oldStatusId == 1 && $newStatusId == 2)
+                $stock->increment('return_incoming_qty', $qty);
+            elseif ($oldStatusId == 2 && $newStatusId == 3) {
+                $stock->decrement('return_incoming_qty', $qty);
+                $stock->increment('physical_qty', $qty);
+            } elseif ($oldStatusId == 2 && $newStatusId == 1)
+                $stock->decrement('return_incoming_qty', $qty);
+            elseif ($oldStatusId == 3 && $newStatusId == 2) {
                 $actualPhysical = max(0, $stock->physical_qty);
                 $stock->decrement('physical_qty', min($qty, $actualPhysical));
+                $stock->increment('return_incoming_qty', $qty);
+            } elseif ($newStatusId == 4) {
+                if ($oldStatusId == 2) $stock->decrement('return_incoming_qty', $qty);
+                if ($oldStatusId == 3) {
+                    $actualPhysical = max(0, $stock->physical_qty);
+                    $stock->decrement('physical_qty', min($qty, $actualPhysical));
+                }
+            }
+        } else {
+            // ჩვეულებრივი purchase — incoming_qty სვეტი
+            if ($oldStatusId == 1 && $newStatusId == 2)
+                $stock->increment('incoming_qty', $qty);
+            elseif ($oldStatusId == 2 && $newStatusId == 3) {
+                $stock->decrement('incoming_qty', $qty);
+                $stock->increment('physical_qty', $qty);
+            } elseif ($oldStatusId == 2 && $newStatusId == 1)
+                $stock->decrement('incoming_qty', $qty);
+            elseif ($oldStatusId == 3 && $newStatusId == 2) {
+                // physical_qty-ს ვაკლებთ მხოლოდ იმდენს, რამდენიც რეალურად გვაქვს
+                $actualPhysical = max(0, $stock->physical_qty);
+                $stock->decrement('physical_qty', min($qty, $actualPhysical));
+                $stock->increment('incoming_qty', $qty);
+            } elseif ($newStatusId == 4) {
+                if ($oldStatusId == 2) $stock->decrement('incoming_qty', $qty);
+                if ($oldStatusId == 3) {
+                    $actualPhysical = max(0, $stock->physical_qty);
+                    $stock->decrement('physical_qty', min($qty, $actualPhysical));
+                }
             }
         }
 
@@ -156,9 +180,17 @@ class PurchaseService
                 ->where('status_id', 3)
                 ->get();
             foreach ($salesToRollback as $sale) {
-                $logAndSave($sale, 2, $sale->price_usa, $sale->purchase_order_id);
-                // sale 3→2: reserved_qty უცვლელია (კვლავ ჯავშნილია — status=3-შიც ჯავშნილი იყო)
+                if ($order->original_sale_id !== null) {
+                    // დაბრუნება/გაცვლის purchase — status=2-ზე sale-ები არ უნდა იყოს მიბმული
+                    if ($stock) $stock->decrement('reserved_qty', 1);
+                    $logAndSave($sale, 1, 0, null);
+                } else {
+                    // ჩვეულებრივი purchase — sale-ები ნარჩუნდება მიბმული (status=2)
+                    $logAndSave($sale, 2, $sale->price_usa, $sale->purchase_order_id);
+                    // reserved_qty უცვლელია (კვლავ ჯავშნილია)
+                }
             }
+            if ($stock) $stock->save();
         }
 
         // CASE 5: purchase →4 (გაუქმება)

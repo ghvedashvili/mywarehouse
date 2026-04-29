@@ -14,6 +14,7 @@ class Warehouse extends Model
         'size',
         'physical_qty',
         'incoming_qty',
+        'return_incoming_qty',
         'reserved_qty',
         'defect_qty',
         'lost_qty',
