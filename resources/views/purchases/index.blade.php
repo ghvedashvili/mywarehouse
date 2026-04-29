@@ -818,7 +818,9 @@ $(function() {
             $sizeSel.val(defaults.product_size || '');
             $qty.val(defaults.quantity || 1);
             $priceUsa.val(defaults.price_usa || '');
-            $transport.val(defaults.transport != null ? defaults.transport : 0);
+           if (defaults.transport != null && defaults.transport !== '' && defaults.transport !== undefined) {
+    $transport.val(defaults.transport);
+}
             $priceGeo.val(defaults.price_georgia ? parseFloat(defaults.price_georgia).toFixed(2) : '');
         } else {
             // ახალი row — transport-ი წინა row-ებიდან გადმოვა
