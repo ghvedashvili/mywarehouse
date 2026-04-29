@@ -215,54 +215,69 @@ class PurchaseService
     // ახალი purchase-ზე pending sale-ების მიბმა
     // ════════════════════════════════════════════════════════════════
     public static function attachPendingSalesToPurchase(Product_Order $purchase, Warehouse $stock): void
-    {
-        // return/exchange purchase-ი (original_sale_id IS NOT NULL) გზაშია (status=2) →
-        // sale-ები მხოლოდ status=3-ზე (საწყობში მოხვედრისას) მიებმება
-        if ($purchase->original_sale_id !== null && $purchase->status_id === 2) return;
-
-        $purchaseStatus = $purchase->status_id;
-
-        $pendingSales = Product_Order::whereIn('order_type', ['sale', 'change'])
-            ->where('product_id', $purchase->product_id)
-            ->where('product_size', $purchase->product_size)
-            ->where('status_id', 1)
-            ->where(function ($q) use ($purchase) {
-                $q->whereNull('purchase_order_id')
-                  ->orWhere('purchase_order_id', $purchase->id)
-                  // წაშლილ purchase-ზე მიბმული (ძველი მონაცემი) — ასევე ვაწინაუროთ
-                  ->orWhereHas('purchaseOrder', function ($pq) {
-                      $pq->withoutGlobalScope('active')->where('status', '!=', 'active');
-                  });
-            })
-            ->orderBy('created_at', 'asc')
-            ->get();
-
-        foreach ($pendingSales as $sale) {
-            $stock->refresh();
-            // status=2: incoming - reserved; status=3: physical - defect - reserved
-            $available = $purchaseStatus == 2
-                ? $stock->incoming_qty - $stock->reserved_qty
-                : $stock->physical_qty - $stock->defect_qty - $stock->reserved_qty;
-
-            if ($available <= 0) break;
-
-            // status=2 ან 3: ორივე reserved_qty-ში ითვლება (physical მხოლოდ კურიერთან გაგზავნისას იკლებს)
-            $stock->increment('reserved_qty', 1);
-
-            $sale->purchase_order_id = $purchase->id;
-            $sale->price_usa         = (float) $purchase->cost_price;
-            $sale->status_id         = $purchaseStatus;
-            $sale->save();
-
-            StatusChangeLog::create([
-                'order_id'       => $sale->id,
-                'user_id'        => auth()->id(),
-                'status_id_from' => 1,
-                'status_id_to'   => $purchaseStatus,
-                'changed_at'     => now(),
-            ]);
-        }
+{
+    // 1. თუ ეს არის დაბრუნება (original_sale_id-ით) და არის "გზაში" (status=2)
+    // მაშინვე ვწყვეტთ მუშაობას. ეს დაბრუნებული საქონელი არ უნდა გამოჩნდეს "ხელმისაწვდომში".
+    if ($purchase->original_sale_id !== null && $purchase->status_id === 2) {
+        return;
     }
+
+    $purchaseStatus = $purchase->status_id;
+    $isReturn = $purchase->original_sale_id !== null;
+
+    $pendingSales = Product_Order::whereIn('order_type', ['sale', 'change'])
+        ->where('product_id', $purchase->product_id)
+        ->where('product_size', $purchase->product_size)
+        ->where('status_id', 1)
+        ->where(function ($q) use ($purchase) {
+            $q->whereNull('purchase_order_id')
+              ->orWhere('purchase_order_id', $purchase->id)
+              ->orWhereHas('purchaseOrder', function ($pq) {
+                  $pq->withoutGlobalScope('active')->where('status', '!=', 'active');
+              });
+        })
+        ->orderBy('created_at', 'asc')
+        ->get();
+
+    foreach ($pendingSales as $sale) {
+        $stock->refresh();
+
+        // 2. ნაშთის დათვლის ლოგიკა, რომელიც იცავს incoming_qty-ს
+        if ($purchaseStatus == 2) {
+            // დაბრუნებული purchase status=2-ზე — return_incoming_qty-ში ზის
+            // ჩვეულებრივი purchase status=2-ზე — incoming_qty-ში ზის
+            $available = $isReturn
+                ? $stock->return_incoming_qty - $stock->reserved_qty
+                : $stock->incoming_qty - $stock->reserved_qty;
+        } else {
+            // status=3 (საწყობშია): აქ უკვე ჩვეულებრივიც და დაბრუნებულიც ფიზიკურად საწყობშია.
+            $available = $stock->physical_qty - $stock->defect_qty - $stock->reserved_qty;
+        }
+
+        // თუ ნაშთი არ გვაქვს, ვწყვეტთ ციკლს
+        if ($available <= 0) break;
+
+        // 3. მკაცრი შემოწმება: არ დაარეზერვოს იმაზე მეტი, რაც კონკრეტულ პარტიაშია
+        $alreadyLinked = Product_Order::where('purchase_order_id', $purchase->id)->count();
+        if ($alreadyLinked >= $purchase->quantity) break;
+
+        // რეზერვაცია
+        $stock->increment('reserved_qty', 1);
+
+        $sale->purchase_order_id = $purchase->id;
+        $sale->price_usa         = (float) $purchase->cost_price;
+        $sale->status_id         = $purchaseStatus;
+        $sale->save();
+
+        StatusChangeLog::create([
+            'order_id'       => $sale->id,
+            'user_id'        => auth()->id(),
+            'status_id_from' => 1,
+            'status_id_to'   => $purchaseStatus,
+            'changed_at'     => now(),
+        ]);
+    }
+}
 
     // ════════════════════════════════════════════════════════════════
     // Pending sale-ების დაწინაურება FIFO
@@ -278,10 +293,15 @@ class PurchaseService
             $nextPurchase = FifoService::getNextPurchase($productId, $size);
             if (!$nextPurchase) break;
 
-            // status=2: incoming - reserved; status=3: physical - defect - reserved
-            $available = $nextPurchase->status_id == 2
-                ? $stock->incoming_qty - $stock->reserved_qty
-                : $stock->physical_qty - $stock->defect_qty - $stock->reserved_qty;
+            // status=2: incoming - reserved (ან return_incoming - reserved დაბრუნებისთვის)
+            // status=3: physical - defect - reserved
+            if ($nextPurchase->status_id == 2) {
+                $available = $nextPurchase->original_sale_id !== null
+                    ? $stock->return_incoming_qty - $stock->reserved_qty
+                    : $stock->incoming_qty - $stock->reserved_qty;
+            } else {
+                $available = $stock->physical_qty - $stock->defect_qty - $stock->reserved_qty;
+            }
 
             if ($available <= 0) break;
 
@@ -317,10 +337,15 @@ class PurchaseService
             $nextPurchase = FifoService::getNextPurchase($productId, $size);
             if (!$nextPurchase) break;
 
-            // status=2: incoming - reserved; status=3: physical - defect - reserved
-            $available = $nextPurchase->status_id == 2
-                ? $stock->incoming_qty - $stock->reserved_qty
-                : $stock->physical_qty - $stock->defect_qty - $stock->reserved_qty;
+            // status=2: incoming - reserved (ან return_incoming - reserved დაბრუნებისთვის)
+            // status=3: physical - defect - reserved
+            if ($nextPurchase->status_id == 2) {
+                $available = $nextPurchase->original_sale_id !== null
+                    ? $stock->return_incoming_qty - $stock->reserved_qty
+                    : $stock->incoming_qty - $stock->reserved_qty;
+            } else {
+                $available = $stock->physical_qty - $stock->defect_qty - $stock->reserved_qty;
+            }
 
             if ($available <= 0) break;
 

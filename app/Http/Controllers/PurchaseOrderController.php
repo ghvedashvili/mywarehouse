@@ -730,8 +730,8 @@ class PurchaseOrderController extends Controller
             $stock = Warehouse::where('product_id', $order->product_id)
                               ->where('size', $order->product_size)->first();
 
-            if ($order->status_id == 2) PurchaseService::handleStockForPurchase($order->id, 1);
-            elseif ($order->status_id == 3) PurchaseService::handleStockForPurchase($order->id, 4);
+            if ($order->status_id == 2) PurchaseService::handleStockForPurchase($order->id, 1, $order->original_sale_id !== null);
+            elseif ($order->status_id == 3) PurchaseService::handleStockForPurchase($order->id, 4, $order->original_sale_id !== null);
 
             $boundSales = Product_Order::whereIn('order_type', ['sale', 'change'])
                 ->where('product_id', $order->product_id)
@@ -792,7 +792,7 @@ class PurchaseOrderController extends Controller
                 if ($oldStatusId === $newStatusId)
                     return response()->json(['success' => false, 'message' => 'სტატუსი უკვე ამ მდგომარეობაშია'], 422);
 
-                PurchaseService::handleStockForPurchase($id, $newStatusId);
+                PurchaseService::handleStockForPurchase($id, $newStatusId, $order->original_sale_id !== null);
                 $order->status_id = $newStatusId;
                 $order->save();
                 PurchaseService::syncSaleOrdersAfterPurchase($order, $oldStatusId, $newStatusId);
@@ -868,9 +868,13 @@ class PurchaseOrderController extends Controller
             $stock = Warehouse::where('product_id', $purchase->product_id)
                               ->where('size', $purchase->product_size)->first();
 
+            // return/exchange purchase-ისთვის return_incoming_qty იკლება, ჩვეულებრივისთვის incoming_qty
+            $isReturnPurchase = $purchase->original_sale_id !== null;
+            $incomingCol      = $isReturnPurchase ? 'return_incoming_qty' : 'incoming_qty';
+
             // ─── წუნი / დაკარგული ჩაწერა ──────────────────────────────────
             // წუნი  → physical_qty-ში შედის (ფიზიკურად საწყობშია), defect_qty-ში ითვლება
-            // დაკარგული → physical_qty-ში არ შედის, incoming_qty-დან გამოვა, lost_qty-ში ითვლება
+            // დაკარგული → physical_qty-ში არ შედის, incoming/return_incoming-დან გამოვა, lost_qty-ში ითვლება
             if ($stock && $defectQty > 0) {
                 Defect::create([
                     'purchase_order_id' => $purchase->id,
@@ -884,7 +888,7 @@ class PurchaseOrderController extends Controller
                 // წუნი საწყობში შემოდის ფიზიკურად, მაგრამ ხელმისაწვდომი არ არის
                 $stock->increment('physical_qty', $defectQty);
                 $stock->increment('defect_qty',   $defectQty);
-                $stock->decrement('incoming_qty', $defectQty);
+                $stock->decrement($incomingCol,   $defectQty);
                 WarehouseLogService::log(
                     'defect', $purchase->product_id, $purchase->product_size ?? '',
                     +$defectQty, 'purchase_order', $purchase->id,
@@ -902,9 +906,9 @@ class PurchaseOrderController extends Controller
                     'note'              => $request->lost_note ?? null,
                     'user_id'           => auth()->id(),
                 ]);
-                // დაკარგული საწყობში არ შემოდის — მხოლოდ incoming-დან გამოვა
-                $stock->decrement('incoming_qty', $lostQty);
-                $stock->increment('lost_qty',     $lostQty);
+                // დაკარგული საწყობში არ შემოდის — მხოლოდ incoming/return_incoming-დან გამოვა
+                $stock->decrement($incomingCol, $lostQty);
+                $stock->increment('lost_qty',   $lostQty);
                 WarehouseLogService::log(
                     'lost', $purchase->product_id, $purchase->product_size ?? '',
                     -$lostQty, 'purchase_order', $purchase->id,
@@ -984,7 +988,7 @@ class PurchaseOrderController extends Controller
                 $purchase->update(['status_id' => 3, 'quantity' => $receivedQty]);
 
                 if ($stock) {
-                    $stock->decrement('incoming_qty', $receivedQty);
+                    $stock->decrement($incomingCol, $receivedQty);
                     $stock->increment('physical_qty', $receivedQty);
                     $stock->save();
                 }
@@ -1071,7 +1075,7 @@ class PurchaseOrderController extends Controller
             $newPurchase = Product_Order::create($newData);
 
             if ($stock) {
-                $stock->decrement('incoming_qty', $receivedQty);
+                $stock->decrement($incomingCol, $receivedQty);
                 $stock->increment('physical_qty', $receivedQty);
                 $stock->save();
             }
@@ -1157,9 +1161,13 @@ $purchase->refresh();
                     ['physical_qty' => 0, 'incoming_qty' => 0, 'reserved_qty' => 0]
                 );
 
+                // return/exchange purchase-ისთვის return_incoming_qty იკლება
+                $isReturnPurchase = $purchase->original_sale_id !== null;
+                $incomingCol      = $isReturnPurchase ? 'return_incoming_qty' : 'incoming_qty';
+
                 // დაკარგული
                 if ($lostQty > 0) {
-                    $stock->decrement('incoming_qty', $lostQty);
+                    $stock->decrement($incomingCol, $lostQty);
                     $stock->increment('lost_qty', $lostQty);
                     WarehouseLogService::log('lost', $purchase->product_id, $purchase->product_size ?? '',
                         -$lostQty, 'purchase_order', $purchase->id, $lostNote ?? 'დაკარგული — group receive');
@@ -1168,7 +1176,7 @@ $purchase->refresh();
                 // მიღებული
                 if ($receivedQty > 0) {
                     $qtyBefore = $stock->physical_qty;
-                    $stock->decrement('incoming_qty', $receivedQty);
+                    $stock->decrement($incomingCol, $receivedQty);
                     $stock->increment('physical_qty', $receivedQty);
                     $stock->save();
                     WarehouseLogService::log('purchase_in', $purchase->product_id, $purchase->product_size ?? '',

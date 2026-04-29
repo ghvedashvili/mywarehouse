@@ -2156,6 +2156,9 @@ class ProductOrderController extends Controller
             $isReturn = ($changeType === 'return');
 
             // დაბრუნებისას კურიერი purchase-ს მიეკუთვნება, გაცვლისას — change ორდერს
+            // original_sale_id შექმნისთანავე ჩაიწერება (return და exchange ორივე შემთხვევაში),
+            // რათა handleStockForPurchase-მა 2→3 გადასვლისას სწორად ამოიცნოს return/exchange purchase
+            // და return_incoming_qty-ს ამცირებდეს incoming_qty-ს ნაცვლად.
             $sourcePurchase = Product_Order::create([
                 'order_type'                  => 'purchase',
                 'product_id'                  => $oldProductId,
@@ -2168,6 +2171,7 @@ class ProductOrderController extends Controller
                 'status_id'                   => 1,
                 'customer_id'                 => null,
                 'user_id'                     => auth()->id(),
+                'original_sale_id'            => $originalSale->id,  // ← ადრეულად ჩაიწერება
                 'comment'                     => '↩ ' . ($isReturn ? 'დაბრუნება' : 'გაცვლა') .
                                                  ' — ' . ($originalSale->order_number ?? ('#' . $originalSale->id)),
                 'courier_price_international' => 0,
@@ -2211,9 +2215,9 @@ class ProductOrderController extends Controller
                 $originalSale->cancelled_at         = now();
                 $originalSale->save();
 
-                // 2. purchase-ს ჩავუწეროთ: original_sale_id + courier_refund
+                // 2. purchase-ს ჩავუწეროთ: courier_refund
+                //    (original_sale_id შექმნისთანავეა ჩაწერილი)
                 //    თუ საკურიერო ვაბრუნებთ — paid_cash-ში ჩაიწერება (ხარჯის ანაზღაურება)
-                $sourcePurchase->original_sale_id = $originalSale->id;
                 $sourcePurchase->courier_refund   = $courierRefund;
                 if ($courierRefund > 0) {
                     $sourcePurchase->paid_cash = $courierRefund;
@@ -2299,10 +2303,7 @@ class ProductOrderController extends Controller
             $originalSale->changed_to_order_id = $changeOrder->id;
             $originalSale->save();
 
-            // sourcePurchase-საც მივანიჭოთ original_sale_id —
-            // რათა returns tab-ზე გამოჩნდეს შესყიდვების გვერდზე
-            $sourcePurchase->original_sale_id = $originalSale->id;
-            $sourcePurchase->save();
+            // original_sale_id შექმნისთანავეა ჩაწერილი sourcePurchase-ში
 
             StatusChangeLog::create([
                 'order_id'       => $originalSale->id,
