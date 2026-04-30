@@ -220,10 +220,19 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 /* ── STATS STRIP ──────────────────────────────────────────── */
 .po-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   margin-bottom: 12px;
 }
+.po-stat-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--c-border);
+  font-size: 11px;
+}
+.po-stat-row:last-child { border-bottom: none; }
+.po-stat-row-lbl { color: var(--c-text-3); }
+.po-stat-row-val { font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; }
 .po-stat {
   background: var(--c-surface);
   border: 1px solid var(--c-border);
@@ -691,30 +700,48 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 
     {{-- ── STATS ── --}}
     <div class="po-stats">
+
+        {{-- Card 1: ორდერები --}}
         <div class="po-stat" style="--stat-line:var(--c-blue);">
             <div class="po-stat-icon" style="background:var(--c-blue-dim);color:var(--c-blue);"><i class="fa fa-cart-shopping"></i></div>
             <div class="po-stat-label">სულ ორდერი</div>
             <div class="po-stat-value" id="stat-total">—</div>
-            <div class="po-stat-sub">ბოლო 30 დღე</div>
+            <div style="margin-top:4px;display:flex;align-items:baseline;gap:4px;">
+                <span id="stat-products" style="font-family:'Outfit',sans-serif;font-size:15px;font-weight:700;color:var(--c-text-1);">—</span>
+                <span style="font-size:11px;color:var(--c-text-3);">პროდუქტი</span>
+            </div>
         </div>
-        <div class="po-stat" style="--stat-line:var(--c-red);">
-            <div class="po-stat-icon" style="background:var(--c-red-dim);color:var(--c-red);"><i class="fa fa-circle-exclamation"></i></div>
-            <div class="po-stat-label">დავალიანება</div>
-            <div class="po-stat-value" id="stat-debt" style="color:var(--c-red);">—</div>
-            <div class="po-stat-sub" id="stat-debt-sub">—</div>
-        </div>
+
+        {{-- Card 2: ფინანსები --}}
         <div class="po-stat" style="--stat-line:var(--c-green);">
-            <div class="po-stat-icon" style="background:var(--c-green-dim);color:var(--c-green);"><i class="fa fa-check-circle"></i></div>
-            <div class="po-stat-label">გადახდილი</div>
-            <div class="po-stat-value" id="stat-paid" style="color:var(--c-green);">—</div>
-            <div class="po-stat-sub">ამ თვეში</div>
+            <div class="po-stat-icon" style="background:var(--c-green-dim);color:var(--c-green);"><i class="fa fa-coins"></i></div>
+            <div class="po-stat-label">ფინანსები</div>
+            <div style="margin-top:8px;">
+                <div class="po-stat-row">
+                    <span class="po-stat-row-lbl">გადახდილი</span>
+                    <span class="po-stat-row-val" id="stat-paid" style="color:var(--c-green);">—</span>
+                </div>
+                <div class="po-stat-row">
+                    <span class="po-stat-row-lbl">დავალიანება <span id="stat-debt-sub" style="font-size:9px;opacity:.7;"></span></span>
+                    <span class="po-stat-row-val" id="stat-debt" style="color:var(--c-red);">—</span>
+                </div>
+            </div>
         </div>
-        <div class="po-stat" style="--stat-line:var(--c-purple);">
-            <div class="po-stat-icon" style="background:var(--c-purple-dim);color:var(--c-purple);"><i class="fa fa-truck"></i></div>
-            <div class="po-stat-label">კურიერთან</div>
-            <div class="po-stat-value" id="stat-courier" style="color:var(--c-purple);">—</div>
-            <div class="po-stat-sub">გასაგზავნი</div>
+
+        {{-- Card 3: სტატუსები --}}
+        <div class="po-stat" style="--stat-line:var(--c-teal);">
+            <div class="po-stat-icon" style="background:var(--c-teal-dim);color:var(--c-teal);"><i class="fa fa-layer-group"></i></div>
+            <div class="po-stat-label">სტატუსები</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px;margin-top:6px;">
+                <div class="po-stat-row"><span class="po-stat-row-lbl">ახალი</span><span class="po-stat-row-val" id="stat-s1" style="color:var(--c-blue);">—</span></div>
+                <div class="po-stat-row"><span class="po-stat-row-lbl">გზაში</span><span class="po-stat-row-val" id="stat-s2" style="color:var(--c-amber);">—</span></div>
+                <div class="po-stat-row"><span class="po-stat-row-lbl">საწყობში</span><span class="po-stat-row-val" id="stat-s3" style="color:var(--c-teal);">—</span></div>
+                <div class="po-stat-row"><span class="po-stat-row-lbl">კურიერთ.</span><span class="po-stat-row-val" id="stat-s4" style="color:var(--c-purple);">—</span></div>
+                <div class="po-stat-row" style="border-bottom:none;"><span class="po-stat-row-lbl">დაბრუნ.</span><span class="po-stat-row-val" id="stat-s5" style="color:var(--c-red);">—</span></div>
+                <div class="po-stat-row" style="border-bottom:none;"><span class="po-stat-row-lbl">გაცვლ.</span><span class="po-stat-row-val" id="stat-s6" style="color:var(--c-green);">—</span></div>
+            </div>
         </div>
+
     </div>
 
     {{-- ── FILTER BAR ── --}}
@@ -2224,10 +2251,17 @@ function loadPoStats() {
         url:"{{ route('productsOut.stats') }}", type:'GET', data:data,
         success: function(d) {
             $('#stat-total').text(d.total||0);
-            $('#stat-debt').text(d.debt ? parseFloat(d.debt).toFixed(2)+'  ₾' : '0 ₾');
-            $('#stat-debt-sub').text(d.debt_count ? d.debt_count+' ორდერი' : '—');
+            $('#stat-products').text(d.products||0);
             $('#stat-paid').text(d.paid ? parseFloat(d.paid).toFixed(2)+' ₾' : '0 ₾');
-            $('#stat-courier').text(d.courier||0);
+            $('#stat-debt').text(d.debt ? parseFloat(d.debt).toFixed(2)+' ₾' : '0 ₾');
+            $('#stat-debt-sub').text(d.debt_count ? d.debt_count+' ორდ.' : '');
+            var bs = d.by_status || {};
+            $('#stat-s1').text(bs[1]||0);
+            $('#stat-s2').text(bs[2]||0);
+            $('#stat-s3').text(bs[3]||0);
+            $('#stat-s4').text(bs[4]||0);
+            $('#stat-s5').text(bs[5]||0);
+            $('#stat-s6').text(bs[6]||0);
         }
     });
 }

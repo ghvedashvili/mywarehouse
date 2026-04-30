@@ -1442,19 +1442,105 @@ class ProductOrderController extends Controller
             $query->whereRaw($debtRaw);
         }
 
-        $orders = $query->get(['price_georgia', 'discount', 'paid_tbc', 'paid_bog', 'paid_lib', 'paid_cash', 'status_id']);
+        $orders = $query->select([
+            'id', 'price_georgia', 'discount', 'paid_tbc', 'paid_bog', 'paid_lib', 'paid_cash',
+            'status_id', 'is_primary', 'quantity', 'product_id', 'created_at',
+        ])->get();
 
-        $totalDebt  = 0;
-        $totalPaid  = 0;
-        $debtCount  = 0;
+        // ─── Manual batch-load children + products (mirrors apiProductsOut) ──
+        $primaryIds = $orders->where('is_primary', 1)->pluck('id')->toArray();
+
+        $childrenByParent = [];
+        if (!empty($primaryIds)) {
+            Product_Order::withoutGlobalScope('active')
+                ->whereIn('merged_id', $primaryIds)
+                ->where('is_primary', 0)
+                ->where('status', 'active')
+                ->get(['id', 'merged_id', 'product_id', 'is_primary', 'created_at',
+                       'price_georgia', 'discount', 'paid_tbc', 'paid_bog', 'paid_lib', 'paid_cash', 'status_id'])
+                ->each(function ($c) use (&$childrenByParent) {
+                    $childrenByParent[$c->merged_id][] = $c;
+                });
+        }
+
+        $allProductIds = collect($orders->pluck('product_id')->toArray())
+            ->merge(collect($childrenByParent)->flatten(1)->pluck('product_id'))
+            ->filter()->unique()->values()->toArray();
+
+        $productMap = \App\Models\Product::withoutGlobalScope('active')
+            ->whereIn('id', $allProductIds)
+            ->get(['id', 'bundle_id'])
+            ->keyBy('id');
+
+        // ─── Bundle pairing: same bundle_id + 2+ distinct products = 1 bundle ──
+        $completedBundlesByGroup = [];
+        $pairedCountByGroup      = [];
+
+        foreach ($orders as $order) {
+            if (!$order->is_primary) continue;
+            $children = collect($childrenByParent[$order->id] ?? []);
+            if ($children->isEmpty()) continue;
+
+            $groupOrders = collect([$order])->merge($children);
+            $paired = 0; $completedBundles = 0;
+
+            $withBundle = $groupOrders->filter(fn($o) => optional($productMap->get($o->product_id))->bundle_id);
+            foreach ($withBundle->groupBy(fn($o) => (string) $productMap->get($o->product_id)->bundle_id) as $bundleOrders) {
+                $byProduct       = $bundleOrders->groupBy('product_id');
+                $distinctProducts = $byProduct->count();
+                if ($distinctProducts < 2) continue; // must have 2+ different products
+                $completePairs   = $byProduct->map->count()->min();
+                if ($completePairs <= 0) continue;
+                $completedBundles += $completePairs;
+                $paired           += $completePairs * $distinctProducts;
+            }
+            $pairedCountByGroup[$order->id]      = $paired;
+            $completedBundlesByGroup[$order->id] = $completedBundles;
+        }
+        // ─────────────────────────────────────────────────────────────────
+
+        $totalDebt     = 0;
+        $totalPaid     = 0;
+        $debtCount     = 0;
+        $totalProducts = 0;
+
+        $calcFinance = function ($row) {
+            $geo  = (float)$row->price_georgia - (float)($row->discount ?? 0);
+            $paid = (float)($row->paid_tbc ?? 0) + (float)($row->paid_bog ?? 0)
+                  + (float)($row->paid_lib ?? 0) + (float)($row->paid_cash ?? 0);
+            return ['geo' => $geo, 'paid' => $paid, 'diff' => $geo - $paid];
+        };
 
         foreach ($orders as $o) {
-            $geo     = (float)$o->price_georgia - (float)($o->discount ?? 0);
-            $paidAmt = (float)($o->paid_tbc ?? 0) + (float)($o->paid_bog ?? 0)
-                     + (float)($o->paid_lib ?? 0) + (float)($o->paid_cash ?? 0);
-            $diff = $geo - $paidAmt;
-            if ($diff > 0.01) { $totalDebt += $diff; $debtCount++; }
-            $totalPaid += $paidAmt;
+            $children = collect($childrenByParent[$o->id] ?? []);
+
+            // ფინანსები — primary + ყველა child
+            $allRows  = collect([$o])->merge($children);
+            $groupGeo  = 0; $groupPaid = 0;
+            foreach ($allRows as $row) {
+                $f = $calcFinance($row);
+                $groupGeo  += $f['geo'];
+                $groupPaid += $f['paid'];
+            }
+            $groupDiff = $groupGeo - $groupPaid;
+            if ($groupDiff > 0.01) { $totalDebt += $groupDiff; $debtCount++; }
+            $totalPaid += $groupPaid;
+
+            // პროდუქტები
+            if ($o->is_primary) {
+                $childrenCount    = $children->count();
+                $pairedCount      = $pairedCountByGroup[$o->id] ?? 0;
+                $completedBundles = $completedBundlesByGroup[$o->id] ?? 0;
+                $totalProducts   += (1 + $childrenCount) - $pairedCount + $completedBundles;
+            } else {
+                $totalProducts += (int)($o->quantity ?? 1);
+            }
+        }
+
+        // სტატუსების breakdown
+        $byStatus = [];
+        foreach ([1, 2, 3, 4, 5, 6] as $sid) {
+            $byStatus[$sid] = $orders->where('status_id', $sid)->count();
         }
 
         return response()->json([
@@ -1462,7 +1548,9 @@ class ProductOrderController extends Controller
             'debt'       => round($totalDebt, 2),
             'debt_count' => $debtCount,
             'paid'       => round($totalPaid, 2),
-            'courier'    => $orders->where('status_id', 4)->count(),
+            'courier'    => $byStatus[4] ?? 0,
+            'products'   => $totalProducts,
+            'by_status'  => $byStatus,
         ]);
     }
 

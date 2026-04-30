@@ -92,6 +92,13 @@ class Product_Order extends Model
                     ->withoutGlobalScope('active');
     }
 
+    public function children()
+    {
+        return $this->hasMany(Product_Order::class, 'merged_id', 'id')
+                    ->where('is_primary', 0)
+                    ->withoutGlobalScope('active');
+    }
+
     // change ორდერი → original sale
     public function originalSale()
     {
