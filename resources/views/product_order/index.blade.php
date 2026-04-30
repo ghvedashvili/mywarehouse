@@ -1094,6 +1094,7 @@ var save_method;
 var isAdmin        = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
 var isSaleOperator = {{ auth()->user()->role == 'sale_operator' ? 'true' : 'false' }};
 var mergeMode      = false;
+window._openParentIds = new Set();
 
 function fmtDate(dt) {
     if (!dt) return '';
@@ -1837,7 +1838,7 @@ function savePayment() {
         body: JSON.stringify({ _method:'PATCH', paid_tbc:parseFloat(document.getElementById('pay_tbc').value||0), paid_bog:parseFloat(document.getElementById('pay_bog').value||0), paid_lib:parseFloat(document.getElementById('pay_lib').value||0), paid_cash:parseFloat(document.getElementById('pay_cash').value||0), discount:parseFloat(document.getElementById('pay_discount').value||0) })
     })
     .then(function(r) { return r.json(); })
-    .then(function(res) { if (res.success) { bootstrap.Modal.getInstance(document.getElementById('modal-quick-pay')).hide(); table.ajax.reload(null,false); } else { alert(res.message||'შეცდომა'); } })
+    .then(function(res) { if (res.success) { bootstrap.Modal.getInstance(document.getElementById('modal-quick-pay')).hide(); table.ajax.reload(function() { restoreOpenRows(); }, false); } else { alert(res.message||'შეცდომა'); } })
     .catch(function() { alert('სერვერის შეცდომა'); })
     .finally(function() { btn.disabled = false; });
 }
@@ -1926,8 +1927,8 @@ $(document).on('click', '.expand-btn', function() {
     var btn = $(this); var parentId = btn.data('id');
     var allOrders = (window._childrenStore || {})[parentId] || [];
     var parentRow = btn.closest('tr');
-    if (btn.hasClass('open')) { btn.removeClass('open'); $('tr.child-row-'+parentId).remove(); return; }
-    btn.addClass('open');
+    if (btn.hasClass('open')) { btn.removeClass('open'); $('tr.child-row-'+parentId).remove(); window._openParentIds.delete(parentId); return; }
+    btn.addClass('open'); window._openParentIds.add(parentId);
     if (!allOrders || allOrders.length === 0) return;
     var totalCols = columns.length; var rowsHtml = '';
     allOrders.forEach(function(order) {
@@ -1985,6 +1986,13 @@ $(document).on('click', '.expand-btn', function() {
 });
 
 table.on('draw', function() { $('#check-all').prop('checked',false); $('#btn-merge').hide(); $('#po-bulk-bar').hide(); });
+
+function restoreOpenRows() {
+    window._openParentIds.forEach(function(parentId) {
+        var btn = $('.expand-btn[data-id="'+parentId+'"]');
+        if (btn.length && !btn.hasClass('open')) btn.trigger('click');
+    });
+}
 
 function mergeUpdateStatus(primaryId, mergedId) {
     swal({ title:'კურიერთან გაგზავნა?', text:'ყველა დაჯგუფებული ორდერი გადავა "კურიერთან" სტატუსში.', type:'question', showCancelButton:true, confirmButtonText:'დიახ', cancelButtonText:'გაუქმება' })
