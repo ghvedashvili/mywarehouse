@@ -1355,6 +1355,11 @@ function editForm(id) {
             }
             $('#customer_id_sale').val(data.customer_id).trigger('change');
             $('#form-sale-content textarea[name="comment"]').val(data.comment || '');
+            $('#form-sale-content input[name="paid_tbc"]').val(data.paid_tbc  || 0);
+            $('#form-sale-content input[name="paid_bog"]').val(data.paid_bog  || 0);
+            $('#form-sale-content input[name="paid_lib"]').val(data.paid_lib  || 0);
+            $('#form-sale-content input[name="paid_cash"]').val(data.paid_cash || 0);
+            $('#form-sale-content input[name="discount"]').val(data.discount  || 0);
             setTimeout(function() {
                 if (data.order_address != null) $('#customer_address_input').val(data.order_address).data('original', data.order_address);
                 if (data.order_alt_tel != null)  $('#customer_alt_tel_input').val(data.order_alt_tel).data('original', data.order_alt_tel);

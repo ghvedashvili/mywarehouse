@@ -253,6 +253,12 @@
                                     <label for="courier_village">სოფელი +{{ $courier->village_price ?? 13 }}₾</label>
                                 </div>
 
+                                {{-- ── გადახდილი თანხები (edit-ისთვის) ── --}}
+                                <input type="hidden" name="paid_tbc"  value="0">
+                                <input type="hidden" name="paid_bog"  value="0">
+                                <input type="hidden" name="paid_lib"  value="0">
+                                <input type="hidden" name="paid_cash" value="0">
+                                
                                 {{-- Comment --}}
                                 <div class="sc-title"><i class="bi bi-chat-left-dots-fill"></i> კომენტარი</div>
                                 <textarea name="comment" class="form-control form-control-sm" rows="3"
