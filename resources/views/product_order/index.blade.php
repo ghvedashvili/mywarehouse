@@ -605,6 +605,21 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   color: var(--c-text-2) !important; font-size: 12px !important; padding: 10px 20px !important;
 }
 
+/* ── PRODUCT FILTER SELECT2 ─────────────────────────────── */
+.po-product-filter-s2.select2-container .select2-selection--single {
+  height: 30px !important;
+  line-height: 28px !important;
+}
+.po-product-filter-s2.select2-container .select2-selection__rendered {
+  line-height: 30px !important;
+  font-size: 12px !important;
+  padding-right: 26px !important;
+}
+.po-product-filter-s2.select2-container .select2-selection__arrow { height: 30px !important; }
+.po-product-filter-s2.select2-container .select2-selection__clear {
+  margin-top: 3px;
+}
+
 /* ── MOBILE ───────────────────────────────────────────────── */
 @media (max-width: 640px) {
   .po-page .mod-title { font-size: 17px; }
@@ -736,6 +751,12 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                 @endforeach
             </div>
         </div>
+        <select id="filter-product" style="width:200px;">
+            <option value="">— ყველა პროდუქტი —</option>
+            @foreach($all_products as $product)
+            <option value="{{ $product->id }}">{{ $product->name }}</option>
+            @endforeach
+        </select>
         <select id="dt-page-length" class="po-select" style="width:76px;">
             <option value="10">10</option>
             <option value="25" selected>25</option>
@@ -1210,6 +1231,15 @@ var table = $('#products-out-table').DataTable({
 
 $('#dt-page-length').on('change', function() { table.page.len(parseInt($(this).val())).draw(); });
 $('#dt-search').on('input', function() { table.search($(this).val()).draw(); });
+
+$('#filter-product').select2({
+    placeholder: '— ყველა პროდუქტი —',
+    allowClear: true,
+    containerCssClass: 'po-product-filter-s2',
+    width: '200px',
+    language: { noResults: function() { return 'ვერ მოიძებნა'; }, searching: function() { return 'ძებნა...'; } }
+});
+$('#filter-product').on('change', function() { reloadTableWithFilters(); });
 
 function updateCourierByCity(cityId) {
     if (cityId === 1) $('input[name="courier_type"][value="tbilisi"]').prop('checked', true);
@@ -1689,6 +1719,8 @@ function reloadTableWithFilters() {
     var dateFrom = $('#filter-date-from').val(); var dateTo = $('#filter-date-to').val();
     if (dateFrom) params.push('date_from='+dateFrom);
     if (dateTo)   params.push('date_to='+dateTo);
+    var productId = $('#filter-product').val();
+    if (productId) params.push('product_id='+productId);
     table.ajax.url("{{ route('api.productsOut') }}?"+params.join('&')).load();
     loadPoStats();
 }
@@ -2159,6 +2191,8 @@ function loadPoStats() {
     if (selected.length)                          data['statuses[]'] = selected;
     if ($('#toggle-deleted').is(':checked'))       data.debt_only     = 1;
     if ($('#toggle-show-deleted').is(':checked'))  data.show_deleted  = 1;
+    var productId = $('#filter-product').val();
+    if (productId) data.product_id = productId;
     $.ajax({
         url:"{{ route('productsOut.stats') }}", type:'GET', data:data,
         success: function(d) {

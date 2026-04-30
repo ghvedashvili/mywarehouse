@@ -801,6 +801,18 @@ class ProductOrderController extends Controller
             $query->whereDate('created_at', '<=', $request->date_to);
         }
 
+        if ($request->filled('product_id')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('product_id', $request->product_id)
+                  ->orWhere(function ($q2) use ($request) {
+                      $q2->where('is_primary', 1)
+                         ->whereHas('siblings', function ($sq) use ($request) {
+                             $sq->where('product_id', $request->product_id);
+                         });
+                  });
+            });
+        }
+
         // ─── Merge filter: კონკრეტული customer-ის გასაერთიანებელი ───────
         if ($request->filled('merge_customer_id')) {
             $query->where('customer_id', $request->merge_customer_id)
@@ -1403,6 +1415,10 @@ class ProductOrderController extends Controller
         }
         if ($request->filled('date_to')) {
             $query->whereDate('created_at', '<=', $request->date_to);
+        }
+
+        if ($request->filled('product_id')) {
+            $query->where('product_id', $request->product_id);
         }
 
         if ($request->debt_only == 1) {
