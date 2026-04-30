@@ -757,6 +757,12 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
             <option value="{{ $product->id }}">{{ $product->name }}</option>
             @endforeach
         </select>
+        <select id="filter-customer" style="width:200px;">
+            <option value="">— ყველა კლიენტი —</option>
+            @foreach($customers as $customer)
+            <option value="{{ $customer->id }}">{{ $customer->name }}{{ $customer->tel ? ' ('.$customer->tel.')' : '' }}</option>
+            @endforeach
+        </select>
         <select id="dt-page-length" class="po-select" style="width:76px;">
             <option value="10">10</option>
             <option value="25" selected>25</option>
@@ -1242,6 +1248,15 @@ $('#filter-product').select2({
 });
 $('#filter-product').on('change', function() { reloadTableWithFilters(); });
 
+$('#filter-customer').select2({
+    placeholder: '— ყველა კლიენტი —',
+    allowClear: true,
+    containerCssClass: 'po-product-filter-s2',
+    width: '200px',
+    language: { noResults: function() { return 'ვერ მოიძებნა'; }, searching: function() { return 'ძებნა...'; } }
+});
+$('#filter-customer').on('change', function() { reloadTableWithFilters(); });
+
 function updateCourierByCity(cityId) {
     if (cityId === 1) $('input[name="courier_type"][value="tbilisi"]').prop('checked', true);
     else $('input[name="courier_type"][value="none"]').prop('checked', true);
@@ -1722,6 +1737,8 @@ function reloadTableWithFilters() {
     if (dateTo)   params.push('date_to='+dateTo);
     var productId = $('#filter-product').val();
     if (productId) params.push('product_id='+productId);
+    var customerId = $('#filter-customer').val();
+    if (customerId) params.push('customer_id='+customerId);
     table.ajax.url("{{ route('api.productsOut') }}?"+params.join('&')).load();
     loadPoStats();
 }
@@ -2201,6 +2218,8 @@ function loadPoStats() {
     if ($('#toggle-show-deleted').is(':checked'))  data.show_deleted  = 1;
     var productId = $('#filter-product').val();
     if (productId) data.product_id = productId;
+    var customerId = $('#filter-customer').val();
+    if (customerId) data.customer_id = customerId;
     $.ajax({
         url:"{{ route('productsOut.stats') }}", type:'GET', data:data,
         success: function(d) {
