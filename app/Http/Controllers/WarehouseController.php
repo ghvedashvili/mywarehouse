@@ -9,6 +9,7 @@ use App\Models\WarehouseLog;
 use App\Models\Product_Order;
 use App\Models\OrderStatus;
 use App\Models\Defect;
+use App\Models\FinanceEntry;
 use App\Services\FifoService;
 use App\Services\WarehouseLogService;
 use Illuminate\Http\Request;
@@ -195,14 +196,15 @@ class WarehouseController extends Controller
     {
         $rows = Warehouse::with('product')
             ->get()
-            ->filter(fn($r) => $r->available_qty > 0)
+            ->filter(fn($r) => $r->physical_qty > 0 && $r->available_qty > 0)
             ->map(fn($r) => [
                 'id'           => $r->id,
                 'product_id'   => $r->product_id,
                 'product_name' => ($r->product->name ?? '—')
                                 . ($r->product->product_code ? ' (' . $r->product->product_code . ')' : ''),
                 'size'         => $r->size,
-                'available'    => $r->available_qty,
+                // ჩამოწერა მხოლოდ ფიზიკურ ნაშთზე — incoming გამოვრიცხოთ
+                'available'    => min($r->available_qty, $r->physical_qty),
                 'physical'     => $r->physical_qty,
                 'defect'       => $r->defect_qty,
             ])
@@ -227,18 +229,34 @@ class WarehouseController extends Controller
                               ->where('size', $request->size)
                               ->firstOrFail();
 
-            $qty       = (int) $request->qty;
-            $type      = $request->type;
-            $available = $stock->available_qty;
+            $qty         = (int) $request->qty;
+            $type        = $request->type;
+            // ჩამოწერა მხოლოდ ფიზიკური + ხელმისაწვდომი ნაშთზე (incoming გამოვრიცხოთ)
+            $maxWriteOff = min($stock->available_qty, $stock->physical_qty);
 
-            if ($qty > $available) {
+            if ($stock->physical_qty <= 0) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'ხელმისაწვდომი ნაშთი (' . $available . ') ნაკლებია მითითებულზე (' . $qty . ')',
+                    'message' => 'პროდუქტი ფიზიკურად საწყობში არ არის.',
+                ], 422);
+            }
+
+            if ($qty > $maxWriteOff) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ხელმისაწვდომი ფიზიკური ნაშთი (' . $maxWriteOff . ') ნაკლებია მითითებულზე (' . $qty . ')',
                 ], 422);
             }
 
             $qtyBefore = $stock->physical_qty;
+
+            // cost before defect creation so buildCostMap doesn't subtract this record yet
+            $costMap  = $this->buildCostMap([$request->product_id]);
+            $costKey  = $request->product_id . '|' . ($request->size ?? '');
+            $avgCost  = 0;
+            if (isset($costMap[$costKey]) && $costMap[$costKey]['total_qty'] > 0) {
+                $avgCost = $costMap[$costKey]['total_cost'] / $costMap[$costKey]['total_qty'];
+            }
 
             if ($type === 'writeoff') {
                 // ─── ჩამოწერა: physical_qty-დან გამოვაკლოთ ──────────────
@@ -264,6 +282,22 @@ class WarehouseController extends Controller
                     $request->note ?? 'ჩამოწერა საწყობიდან',
                     $qtyBefore
                 );
+
+                $totalCost = round($avgCost * $qty, 2);
+                if ($totalCost > 0) {
+                    $product = Product::find($request->product_id);
+                    $label   = ($product->name ?? 'პროდუქტი')
+                             . ($request->size ? ' / ' . $request->size : '');
+                    $note    = $request->note ? ' — ' . $request->note : '';
+                    FinanceEntry::create([
+                        'type'        => 'expense',
+                        'category'    => 'other',
+                        'description' => 'ჩამოწერა: ' . $label . ' × ' . $qty . ' ერთ.' . $note,
+                        'amount'      => $totalCost,
+                        'entry_date'  => now()->toDateString(),
+                        'user_id'     => auth()->id(),
+                    ]);
+                }
 
                 $message = $qty . ' ერთ. ჩამოიწერა საწყობიდან';
 
@@ -300,14 +334,17 @@ class WarehouseController extends Controller
         });
     }
 
-    // ─── helper: ბოლო purchase_order_id ამ პროდუქტ+ზომაზე ───────────
+    // ─── helper: FIFO purchase_order_id ამ პროდუქტ+ზომაზე ─────────────
+    // status_id=3 (საწყობი) → status_id=2 (გზაში) → null (purchase არ არის)
     private function getLastPurchaseId(int $productId, string $size): ?int
     {
         return Product_Order::where('order_type', 'purchase')
+            ->where('status', 'active')
             ->where('product_id', $productId)
             ->where('product_size', $size)
-            ->where('status_id', 3)
-            ->latest()
+            ->whereIn('status_id', [2, 3])
+            ->orderByDesc('status_id')  // 3 (საწყობი) პრიორიტეტი
+            ->orderBy('created_at')     // FIFO
             ->value('id');
     }
 
@@ -384,9 +421,22 @@ class WarehouseController extends Controller
                 ->toArray();
         }
 
+        // ჩამოწერილი (type='lost') ნაშთები purchase-ის remaining-დან გამოვაკლოთ
+        $lostCounts = [];
+        if (!empty($purchaseIds)) {
+            $lostCounts = \App\Models\Defect::whereIn('purchase_order_id', $purchaseIds)
+                ->where('type', 'lost')
+                ->groupBy('purchase_order_id')
+                ->selectRaw('purchase_order_id, SUM(qty) as total')
+                ->pluck('total', 'purchase_order_id')
+                ->toArray();
+        }
+
         $costMap = [];
         foreach ($purchases as $purchase) {
-            $remaining = (int)$purchase->quantity - (int)($usedCounts[$purchase->id] ?? 0);
+            $remaining = (int)$purchase->quantity
+                       - (int)($usedCounts[$purchase->id] ?? 0)
+                       - (int)($lostCounts[$purchase->id] ?? 0);
             if ($remaining <= 0) continue;
             $key = $purchase->product_id . '|' . ($purchase->product_size ?? '');
             if (!isset($costMap[$key])) {
