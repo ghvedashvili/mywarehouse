@@ -1348,7 +1348,7 @@ function addSaleLine(defaults) {
         + '<div class="input-group input-group-sm"><span class="input-group-text" style="background:#fdf0f8;border:1.5px solid #e0e4f0;border-right:0;border-radius:8px 0 0 8px;color:#9b59b6;font-weight:700;">🏷</span>'
         + '<input type="number" name="items['+idx+'][discount]" class="form-control sale-discount" value="0" min="0" step="0.01" style="border:1.5px solid #e0e4f0;border-left:0;border-radius:0 8px 8px 0;"></div></div>'
         + '<div class="col-6 col-sm-2"><div class="sale-col-label">ფასი</div>'
-        + '<div class="d-flex gap-1 align-items-center"><span class="price-pill-gel sale-price-gel">0 ₾</span><span class="price-pill-usd sale-price-usd">$0</span></div>'
+        + '<div class="d-flex gap-1 align-items-center"><span class="price-pill-gel sale-price-gel">0 ₾</span>'+(isAdmin ? '<span class="price-pill-usd sale-price-usd">$0</span>' : '')+'</div>'
         + '<input type="hidden" name="items['+idx+'][price_georgia]" value="0" class="sale-hidden-gel">'
         + '<input type="hidden" name="items['+idx+'][price_usa]" value="0" class="sale-hidden-usd"></div>'
         + '<div class="col-6 col-sm-1 d-flex align-items-end justify-content-end">'
