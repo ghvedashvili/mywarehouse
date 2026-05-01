@@ -86,7 +86,8 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
         </div>
     </div>
 
-    {{-- Financial summary bar --}}
+    {{-- Financial summary bar (admin only) --}}
+    @if(auth()->user()->role == 'admin')
     <div id="fin-bar" class="fin-bar mb-3">
         <div class="fin-item">
             <span class="fin-icon">✅</span>
@@ -120,6 +121,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
             </div>
         </div>
     </div>
+    @endif
 
     <div class="mod-card">
         <div class="mod-toolbar">
@@ -272,16 +274,19 @@ window.whZoom = function(url) {
 
 $(function() {
     var logTable = null;
+    var isAdmin  = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
 
-    // ─── Financial summary bar ────────────────────────────────────────
-    $.getJSON("{{ route('warehouse.financials') }}", function(d) {
-        $('#fin-available').text(d.available + ' ც');
-        $('#fin-cost').text('$' + parseFloat(d.cost).toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2}));
-        $('#fin-revenue').text(parseFloat(d.revenue).toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ₾');
-        var profit = parseFloat(d.profit);
-        $('#fin-profit').text(profit.toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ₾')
-                        .css('color', profit >= 0 ? 'var(--wh-green)' : 'var(--wh-red)');
-    });
+    // ─── Financial summary bar (admin only) ──────────────────────────
+    if (isAdmin) {
+        $.getJSON("{{ route('warehouse.financials') }}", function(d) {
+            $('#fin-available').text(d.available + ' ც');
+            $('#fin-cost').text('$' + parseFloat(d.cost).toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2}));
+            $('#fin-revenue').text(parseFloat(d.revenue).toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ₾');
+            var profit = parseFloat(d.profit);
+            $('#fin-profit').text(profit.toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ₾')
+                            .css('color', profit >= 0 ? 'var(--wh-green)' : 'var(--wh-red)');
+        });
+    }
     // ─────────────────────────────────────────────────────────────────
 
     var stockTable = $('#stock-table').DataTable({
@@ -309,7 +314,7 @@ $(function() {
              render: v => `<span class="qty-badge ${v>0?'qty-reserved':'qty-zero'}">${v}</span>`},
             {data:'available',    responsivePriority: 3,
              render: v => `<span class="qty-badge ${v>0?'qty-available':'qty-zero'}">${v}</span>`},
-            {data:'fifo_cost', orderable:false, responsivePriority: 10},
+            {data:'fifo_cost', orderable:false, responsivePriority: 10, visible: isAdmin},
             {data:'status_badge', orderable:false, responsivePriority: 6},
             {data:'action',       orderable:false, responsivePriority: 4},
         ],

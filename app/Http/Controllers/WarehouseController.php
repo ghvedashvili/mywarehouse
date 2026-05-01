@@ -328,6 +328,7 @@ class WarehouseController extends Controller
     // ─── ფინანსური შეჯამება (summary bar) ────────────────────────────
     public function financials(): \Illuminate\Http\JsonResponse
     {
+        abort_if(auth()->user()->role !== 'admin', 403);
         $stock   = Warehouse::with('product')->get();
         $costMap = $this->buildCostMap(
             $stock->pluck('product_id')->unique()->values()->toArray()
