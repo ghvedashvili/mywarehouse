@@ -126,6 +126,7 @@ Route::get('warehouse/api-logs',   [WarehouseController::class, 'apiLogs'])   ->
 Route::get('warehouse/stock-info', [WarehouseController::class, 'stockInfo']) ->name('warehouse.stockInfo');
 Route::get('warehouse/fifo-prices',[WarehouseController::class, 'fifoPrices'])->name('warehouse.fifoPrices');
 Route::get('warehouse/available-stock', [WarehouseController::class, 'availableStock'])->name('warehouse.availableStock');
+Route::get('warehouse/financials',      [WarehouseController::class, 'financials'])     ->name('warehouse.financials');
 Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff'])      ->name('warehouse.writeOff');
 
     // ── Purchase Orders (შესყიდვები) ──────────────────────────────────

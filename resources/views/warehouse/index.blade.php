@@ -22,6 +22,21 @@
 .qty-available        { background:#222d32; color:#fff; }
 .qty-zero             { background:#f2dede; color:#a94442; }
 
+/* Financial summary bar */
+.fin-bar {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 0;
+    background: #fff; border: 1px solid var(--wh-border); border-radius: 8px;
+    padding: 10px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.fin-item {
+    display: flex; align-items: center; gap: 10px;
+    flex: 1 1 0; min-width: 160px; padding: 4px 8px;
+}
+.fin-icon { font-size: 22px; line-height: 1; }
+.fin-val  { font-size: 18px; font-weight: 800; color: var(--wh-dark); line-height: 1.1; }
+.fin-lbl  { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+.fin-sep  { width: 1px; height: 40px; background: var(--wh-border); margin: 0 4px; flex-shrink: 0; }
+
 /* Responsive expand control dot */
 table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before,
 table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
@@ -53,7 +68,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
     </div>
 
     {{-- Stat cards --}}
-    <div class="row g-2 mb-3">
+    <div class="row g-2 mb-2">
         <div class="col-6 col-md">
             <div class="stat-card"><div class="val" id="stat-physical">—</div><div class="lbl">📦 ფიზიკური ნაშთი</div></div>
         </div>
@@ -68,6 +83,41 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
         </div>
         <div class="col-6 col-md">
             <div class="stat-card red"><div class="val" id="stat-low">—</div><div class="lbl">⚠️ მცირე ნაშთი</div></div>
+        </div>
+    </div>
+
+    {{-- Financial summary bar --}}
+    <div id="fin-bar" class="fin-bar mb-3">
+        <div class="fin-item">
+            <span class="fin-icon">✅</span>
+            <div>
+                <div class="fin-val" id="fin-available">—</div>
+                <div class="fin-lbl">ხელმისაწვდომი ნაშთი</div>
+            </div>
+        </div>
+        <div class="fin-sep"></div>
+        <div class="fin-item">
+            <span class="fin-icon">💵</span>
+            <div>
+                <div class="fin-val" id="fin-cost">—</div>
+                <div class="fin-lbl">ჯამური თვითღირებულება</div>
+            </div>
+        </div>
+        <div class="fin-sep"></div>
+        <div class="fin-item">
+            <span class="fin-icon">📈</span>
+            <div>
+                <div class="fin-val" id="fin-revenue">—</div>
+                <div class="fin-lbl">მოსალოდნელი შემოსავალი</div>
+            </div>
+        </div>
+        <div class="fin-sep"></div>
+        <div class="fin-item">
+            <span class="fin-icon">💰</span>
+            <div>
+                <div class="fin-val" id="fin-profit">—</div>
+                <div class="fin-lbl">მოსალოდნელი მოგება</div>
+            </div>
         </div>
     </div>
 
@@ -223,6 +273,17 @@ window.whZoom = function(url) {
 $(function() {
     var logTable = null;
 
+    // ─── Financial summary bar ────────────────────────────────────────
+    $.getJSON("{{ route('warehouse.financials') }}", function(d) {
+        $('#fin-available').text(d.available + ' ც');
+        $('#fin-cost').text('$' + parseFloat(d.cost).toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2}));
+        $('#fin-revenue').text(parseFloat(d.revenue).toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ₾');
+        var profit = parseFloat(d.profit);
+        $('#fin-profit').text(profit.toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ₾')
+                        .css('color', profit >= 0 ? 'var(--wh-green)' : 'var(--wh-red)');
+    });
+    // ─────────────────────────────────────────────────────────────────
+
     var stockTable = $('#stock-table').DataTable({
         processing: true, serverSide: true,
         responsive: true,
@@ -248,8 +309,7 @@ $(function() {
              render: v => `<span class="qty-badge ${v>0?'qty-reserved':'qty-zero'}">${v}</span>`},
             {data:'available',    responsivePriority: 3,
              render: v => `<span class="qty-badge ${v>0?'qty-available':'qty-zero'}">${v}</span>`},
-            {data:'fifo_cost',    responsivePriority: 10,
-             render: v => `<span style="color:#8e44ad;font-weight:700;">$${v}</span>`},
+            {data:'fifo_cost', orderable:false, responsivePriority: 10},
             {data:'status_badge', orderable:false, responsivePriority: 6},
             {data:'action',       orderable:false, responsivePriority: 4},
         ],

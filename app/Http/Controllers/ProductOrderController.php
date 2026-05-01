@@ -1125,7 +1125,7 @@ class ProductOrderController extends Controller
                         'is_admin'         => $isAdmin,
                         'comment'          => $order->comment,
                         'is_paired'        => isset($pairedOrderIds[$order->id]),
-                        'cost_price'       => (float)($order->cost_price ?? 0),
+                        'cost_price'       => (float)($order->price_usa ?? 0),
                     ];
                 };
 
@@ -1233,7 +1233,7 @@ class ProductOrderController extends Controller
                         $statusHtml = '<span style="color:red; font-weight:700;"><i class="fa fa-exclamation-circle"></i> -' . number_format($diff, 2) . ' ₾</span>';
                     }
                     $costTotal = $isAdmin
-                        ? '<br><small style="color:#888;">თვითღ: ' . number_format($all->sum(fn($o) => (float)($o->cost_price ?? 0)), 2) . ' ₾</small>'
+                        ? '<br><small style="color:#888;">თვითღ: $' . number_format($all->sum(fn($o) => (float)($o->price_usa ?? 0)), 2) . '</small>'
                         : '';
                     return $statusHtml
                         . '<hr style="margin:4px 0;">'
@@ -1272,7 +1272,7 @@ class ProductOrderController extends Controller
                 }
                 $pricesHtml .= '</small>';
                 if ($isAdmin) {
-                    $pricesHtml .= '<br><small style="color:#888;">თვითღ: ' . number_format((float)($item->cost_price ?? 0), 2) . ' ₾</small>';
+                    $pricesHtml .= '<br><small style="color:#888;">თვითღ: $' . number_format((float)($item->price_usa ?? 0), 2) . '</small>';
                 }
 
                 return $statusHtml . $pricesHtml;

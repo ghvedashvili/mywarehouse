@@ -44,6 +44,11 @@ class WarehouseController extends Controller
         }
         $stock = $query->get();
 
+        // ─── Batch-load purchase orders for cost calculation ──────────
+        $allProductIds = $stock->pluck('product_id')->unique()->values()->toArray();
+        $costMap = $this->buildCostMap($allProductIds);
+        // ─────────────────────────────────────────────────────────────
+
         return DataTables::of($stock)
             ->addColumn('product_image', function ($row) {
                 if (!$row->product?->image_url) return '<span class="text-muted" style="font-size:10px;">ფოტო<br>არ არის</span>';
@@ -55,9 +60,26 @@ class WarehouseController extends Controller
             ->addColumn('product_code', fn($row) => $row->product->product_code ?? '-')
             ->addColumn('available',    fn($row) => $row->available_qty)
             ->addColumn('defect_qty',   fn($row) => $row->defect_qty ?? 0)
-            ->addColumn('fifo_cost', function ($row) {
-                $cost = FifoService::getPrices($row->product_id, $row->size ?? '')['cost_price'];
-                return number_format($cost, 2);
+            ->addColumn('fifo_cost', function ($row) use ($costMap) {
+                $key = $row->product_id . '|' . ($row->size ?? '');
+
+                if (!isset($costMap[$key]) || $costMap[$key]['total_qty'] <= 0) {
+                    return '<span style="color:#aaa;">—</span>';
+                }
+
+                $data   = $costMap[$key];
+                $avg    = $data['total_cost'] / $data['total_qty'];
+                $unique = array_unique($data['prices']);
+                sort($unique);
+
+                $avgHtml = '<span style="color:#8e44ad;font-weight:700;">$' . number_format($avg, 2) . '</span>';
+
+                if (count($unique) > 1) {
+                    $list = implode(', ', array_map(fn($p) => '$' . number_format($p, 2), $unique));
+                    $avgHtml .= '<br><small style="color:#888;font-size:10px;">საშ. (' . $list . ')</small>';
+                }
+
+                return $avgHtml;
             })
             ->addColumn('status_badge', function ($row) {
                 $avail = $row->available_qty;
@@ -74,7 +96,7 @@ class WarehouseController extends Controller
                     <i class="fa fa-history"></i>
                 </button>';
             })
-            ->rawColumns(['product_image', 'status_badge', 'action'])
+            ->rawColumns(['product_image', 'fifo_cost', 'status_badge', 'action'])
             ->make(true);
     }
 
@@ -301,5 +323,79 @@ class WarehouseController extends Controller
             'cost_price'    => $prices['cost_price'],
             'price_georgia' => $prices['price_georgia'],
         ]);
+    }
+
+    // ─── ფინანსური შეჯამება (summary bar) ────────────────────────────
+    public function financials(): \Illuminate\Http\JsonResponse
+    {
+        $stock   = Warehouse::with('product')->get();
+        $costMap = $this->buildCostMap(
+            $stock->pluck('product_id')->unique()->values()->toArray()
+        );
+
+        $totalAvailable = 0;
+        $totalCost      = 0.0;
+        $totalRevenue   = 0.0;
+
+        foreach ($stock as $row) {
+            $available = $row->available_qty;
+            if ($available <= 0) continue;
+
+            $key = $row->product_id . '|' . ($row->size ?? '');
+            if (isset($costMap[$key]) && $costMap[$key]['total_qty'] > 0) {
+                $avgCost    = $costMap[$key]['total_cost'] / $costMap[$key]['total_qty'];
+                $totalCost += $available * $avgCost;
+            }
+
+            $priceGeo      = (float)($row->product->price_geo ?? 0);
+            $totalRevenue += $available * $priceGeo;
+            $totalAvailable += $available;
+        }
+
+        return response()->json([
+            'available' => $totalAvailable,
+            'cost'      => round($totalCost, 2),
+            'revenue'   => round($totalRevenue, 2),
+            'profit'    => round($totalRevenue - $totalCost, 2),
+        ]);
+    }
+
+    // ─── private: costMap builder ─────────────────────────────────────
+    private function buildCostMap(array $productIds): array
+    {
+        if (empty($productIds)) return [];
+
+        $purchases = Product_Order::where('order_type', 'purchase')
+            ->where('status', 'active')
+            ->whereIn('product_id', $productIds)
+            ->whereIn('status_id', [2, 3])
+            ->get(['id', 'product_id', 'product_size', 'quantity', 'cost_price']);
+
+        $purchaseIds = $purchases->pluck('id')->toArray();
+        $usedCounts  = [];
+        if (!empty($purchaseIds)) {
+            $usedCounts = Product_Order::whereIn('order_type', ['sale', 'change'])
+                ->whereIn('purchase_order_id', $purchaseIds)
+                ->whereIn('status_id', [1, 2, 3, 4, 6])
+                ->groupBy('purchase_order_id')
+                ->selectRaw('purchase_order_id, COUNT(*) as cnt')
+                ->pluck('cnt', 'purchase_order_id')
+                ->toArray();
+        }
+
+        $costMap = [];
+        foreach ($purchases as $purchase) {
+            $remaining = (int)$purchase->quantity - (int)($usedCounts[$purchase->id] ?? 0);
+            if ($remaining <= 0) continue;
+            $key = $purchase->product_id . '|' . ($purchase->product_size ?? '');
+            if (!isset($costMap[$key])) {
+                $costMap[$key] = ['total_qty' => 0, 'total_cost' => 0.0, 'prices' => []];
+            }
+            $costMap[$key]['total_qty']  += $remaining;
+            $costMap[$key]['total_cost'] += $remaining * (float)$purchase->cost_price;
+            $costMap[$key]['prices'][]    = round((float)$purchase->cost_price, 2);
+        }
+
+        return $costMap;
     }
 }
