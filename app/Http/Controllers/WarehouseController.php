@@ -291,7 +291,7 @@ class WarehouseController extends Controller
                     $note    = $request->note ? ' — ' . $request->note : '';
                     FinanceEntry::create([
                         'type'        => 'expense',
-                        'category'    => 'other',
+                        'category'    => 'writeoff',
                         'description' => 'ჩამოწერა: ' . $label . ' × ' . $qty . ' ერთ.' . $note,
                         'amount'      => $totalCost,
                         'entry_date'  => now()->toDateString(),

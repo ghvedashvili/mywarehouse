@@ -8,6 +8,7 @@ use App\Models\Product_Order;
 use App\Models\OrderStatus;
 use App\Models\StatusChangeLog;
 use App\Models\Defect;
+use App\Models\FinanceEntry;
 use App\Models\WarehouseLog;
 use App\Services\FifoService;
 use App\Services\PurchaseService;
@@ -926,6 +927,22 @@ class PurchaseOrderController extends Controller
                     -$lostQty, 'purchase_order', $purchase->id,
                     $request->lost_note ?? 'დაკარგული — partial receive'
                 );
+
+                $totalCost = round((float)($purchase->cost_price ?? 0) * $lostQty, 2);
+                if ($totalCost > 0) {
+                    $productName = ($purchase->product->name ?? 'პროდუქტი')
+                                 . ($purchase->product_size ? ' / ' . $purchase->product_size : '');
+                    $srcLabel    = $isReturnPurchase ? 'გაცვლა/დაბრუნება' : 'შესყიდვა';
+                    $note        = $request->lost_note ? ' — ' . $request->lost_note : '';
+                    FinanceEntry::create([
+                        'type'        => 'expense',
+                        'category'    => 'writeoff',
+                        'description' => 'ჩამოწერა (' . $srcLabel . '): ' . $productName . ' × ' . $lostQty . ' ერთ.' . $note,
+                        'amount'      => $totalCost,
+                        'entry_date'  => now()->toDateString(),
+                        'user_id'     => auth()->id(),
+                    ]);
+                }
             }
 
             // ─── helper: sale re-route ან status=1-ზე ჩავარდნა ─────────────
@@ -1183,6 +1200,22 @@ $purchase->refresh();
                     $stock->increment('lost_qty', $lostQty);
                     WarehouseLogService::log('lost', $purchase->product_id, $purchase->product_size ?? '',
                         -$lostQty, 'purchase_order', $purchase->id, $lostNote ?? 'დაკარგული — group receive');
+
+                    $totalCost = round((float)($purchase->cost_price ?? 0) * $lostQty, 2);
+                    if ($totalCost > 0) {
+                        $productName = ($purchase->product->name ?? 'პროდუქტი')
+                                     . ($purchase->product_size ? ' / ' . $purchase->product_size : '');
+                        $srcLabel    = $isReturnPurchase ? 'გაცვლა/დაბრუნება' : 'შესყიდვა';
+                        $noteStr     = $lostNote ? ' — ' . $lostNote : '';
+                        FinanceEntry::create([
+                            'type'        => 'expense',
+                            'category'    => 'writeoff',
+                            'description' => 'ჩამოწერა (' . $srcLabel . '): ' . $productName . ' × ' . $lostQty . ' ერთ.' . $noteStr,
+                            'amount'      => $totalCost,
+                            'entry_date'  => now()->toDateString(),
+                            'user_id'     => auth()->id(),
+                        ]);
+                    }
                 }
 
                 // მიღებული

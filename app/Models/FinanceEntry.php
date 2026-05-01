@@ -26,6 +26,7 @@ class FinanceEntry extends Model
         'utility'   => 'კომუნალური',
         'office'    => 'ოფისი / ქირა',
         'marketing' => 'მარკეტინგი',
+        'writeoff'  => 'პროდუქტის ჩამოწერა',
         'other'     => 'სხვა',
     ];
 
