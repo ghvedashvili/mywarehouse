@@ -582,12 +582,12 @@
             <span class="uname">{{ Auth::user()->name }}</span>
         </div>
         <ul class="dropdown-menu dropdown-menu-end" style="min-width:180px; border-radius:10px; border:none; box-shadow:0 8px 24px rgba(0,0,0,0.12);">
-            <li>
+            <!-- <li>
                 <a class="dropdown-item" href="{{ route('user.change-password') }}">
                     <i class="fa fa-key me-2 text-muted"></i> პაროლის შეცვლა
                 </a>
-            </li>
-            <li><hr class="dropdown-divider"></li>
+            </li> -->
+            <!-- <li><hr class="dropdown-divider"></li> -->
             <li>
                 <a class="dropdown-item text-danger" href="{{ route('logout') }}"
                    onclick="event.preventDefault(); document.getElementById('logout-form').submit();">

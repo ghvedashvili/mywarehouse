@@ -40,13 +40,20 @@ class UserController extends Controller
     public function store(Request $request)
     {
         $this->validate($request, [
-            'name'  => 'required',
-            'email' => 'required|unique:users',
+            'name'     => 'required|string|min:2',
+            'email'    => 'required|email|unique:users',
+            'password' => 'required|string|min:6|confirmed',
+            'role'     => 'required|in:admin,staff,sale_operator,warehouse_operator',
         ]);
 
-        User::create($request->all());
+        User::create([
+            'name'     => $request->name,
+            'email'    => $request->email,
+            'password' => Hash::make($request->password),
+            'role'     => $request->role,
+        ]);
 
-        return response()->json(['success' => true, 'message' => 'User Created']);
+        return response()->json(['success' => true, 'message' => 'მომხმარებელი წარმატებით შეიქმნა']);
     }
 
     public function show($id) {}
@@ -169,13 +176,17 @@ class UserController extends Controller
         $user = Auth::user();
 
         if (!Hash::check($request->current_password, $user->password)) {
-            return back()
-                ->withErrors(['current_password' => 'მიმდინარე პაროლი არასწორია.'])
-                ->withInput();
+            if ($request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'მიმდინარე პაროლი არასწორია.'], 422);
+            }
+            return back()->withErrors(['current_password' => 'მიმდინარე პაროლი არასწორია.'])->withInput();
         }
 
         $user->update(['password' => Hash::make($request->password)]);
 
+        if ($request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'პაროლი წარმატებით შეიცვალა!']);
+        }
         return back()->with('success', 'პაროლი წარმატებით შეიცვალა!');
     }
 }
