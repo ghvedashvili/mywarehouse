@@ -1211,7 +1211,8 @@ var columns = [
             return '<div class="po-finance-total">'+geo.toFixed(2)+' ₾</div>'
                 + (parseFloat(data.discount||0) > 0 ? '<div style="font-size:10px;color:var(--c-text-3);">🏷️ -'+data.discount+'₾</div>' : '')
                 + '<div class="po-paid-row"><div class="po-paid-bar"><div class="po-paid-fill" style="width:'+(pct*100).toFixed(0)+'%;background:'+pColor+';"></div></div></div>'
-                + '<div style="margin-top:3px;">'+tag+'</div>';
+                + '<div style="margin-top:3px;">'+tag+'</div>'
+                + (isAdmin && parseFloat(data.cost_price||0) > 0 ? '<div style="font-size:10px;color:#888;margin-top:2px;">თვითღ: '+parseFloat(data.cost_price||0).toFixed(2)+' ₾</div>' : '');
         }
     },
     {
@@ -1998,7 +1999,8 @@ $(document).on('click', '.expand-btn', function() {
         var chPaid = parseFloat(order.paid_tbc||0) + parseFloat(order.paid_bog||0) + parseFloat(order.paid_lib||0) + parseFloat(order.paid_cash||0);
         var chIsPaid = (chGeo - chPaid) <= 0.01; var chPct = chGeo > 0 ? Math.min(chPaid/chGeo,1) : 1;
         var chTag = chIsPaid ? '<span class="po-paid-tag" style="font-size:10px;"><i class="fa fa-check" style="font-size:9px;"></i> გადახდ.</span>' : '<span class="po-debt-tag" style="font-size:10px;">-'+(chGeo-chPaid).toFixed(2)+'₾</span>';
-        var colC = '<div style="font-size:13px;font-weight:700;color:var(--c-text-1);">'+chGeo.toFixed(2)+' ₾</div><div style="margin-top:2px;">'+chTag+'</div>';
+        var colC = '<div style="font-size:13px;font-weight:700;color:var(--c-text-1);">'+chGeo.toFixed(2)+' ₾</div><div style="margin-top:2px;">'+chTag+'</div>'
+                 + (isAdmin && parseFloat(order.cost_price||0) > 0 ? '<div style="font-size:10px;color:#888;margin-top:2px;">თვითღ: '+parseFloat(order.cost_price||0).toFixed(2)+' ₾</div>' : '');
         var chPayClass = chIsPaid ? 'po-pay-paid' : (chPct > 0 ? 'po-pay-partial' : 'po-pay-debt');
         var chPayBtn = '';
         if (!isSaleOperator) chPayBtn = '<a onclick="openPayModal('+order.id+','+(order.price_georgia||0)+','+(order.discount||0)+','+(order.paid_tbc||0)+','+(order.paid_bog||0)+','+(order.paid_lib||0)+','+(order.paid_cash||0)+')" class="btn btn-xs '+chPayClass+'" title="გადახდა"><i class="fa fa-credit-card"></i></a>';
