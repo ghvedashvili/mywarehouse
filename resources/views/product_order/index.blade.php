@@ -1218,7 +1218,8 @@ var columns = [
     {
         data: null, orderable: false, searchable: false, responsivePriority: 6,
         render: function(data) {
-            return '<div class="po-date-cell">'+fmtDate(data.created_at)+'<small>'+fmtTime(data.created_at)+'</small></div>';
+            var dt = (data.is_primary && data.group_oldest_date) ? data.group_oldest_date : data.created_at;
+            return '<div class="po-date-cell">'+fmtDate(dt)+'<small>'+fmtTime(dt)+'</small></div>';
         }
     },
     {
@@ -2022,10 +2023,11 @@ $(document).on('click', '.expand-btn', function() {
             if (order.export_pdf_url) colD += '<a href="'+order.export_pdf_url+'" target="_blank" class="btn btn-xs btn-info" title="PDF"><i class="fa fa-file-pdf"></i></a>';
         }
         colD += '</div>';
+        var colDate = order.created_at ? '<div class="po-date-cell" style="font-size:11px;">'+order.created_at+'<small>'+order.created_at_time+'</small></div>' : '';
         rowsHtml += '<tr class="child-row-'+parentId+' po-child-row">'
             + '<td colspan="'+totalCols+'" style="padding:6px 12px 6px 48px !important;">'
-            + '<div style="display:grid;grid-template-columns:130px 1fr 90px auto;align-items:center;gap:12px;">'
-            + '<div>'+colA+'</div><div>'+colB+'</div><div>'+colC+'</div><div>'+colD+'</div>'
+            + '<div style="display:grid;grid-template-columns:130px 1fr 90px 70px auto;align-items:center;gap:12px;">'
+            + '<div>'+colA+'</div><div>'+colB+'</div><div>'+colC+'</div><div>'+colDate+'</div><div>'+colD+'</div>'
             + '</div></td></tr>';
     });
     parentRow.after(rowsHtml);

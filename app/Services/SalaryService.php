@@ -123,66 +123,63 @@ class SalaryService
         $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $end   = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
 
-        $cancelledThisMonth = function ($order) use ($start, $end): bool {
-            $isCancelled = $order->status === 'deleted' || in_array($order->status_id, [5, 6]);
-            if (!$isCancelled) return false;
+        // ყველა წევრი გაუქმდა/დაბრუნდა/გაიცვალა ამ თვეში
+        $cancelledInMonth = function ($order) use ($start, $end): bool {
+            if (!($order->status === 'deleted' || in_array($order->status_id, [5, 6]))) return false;
             $at = $order->cancelled_at ? Carbon::parse($order->cancelled_at) : null;
             return $at && $at->between($start, $end);
         };
 
-        $orderCount = 0;
+        $newCount       = 0;
+        $cancelledCount = 0;
 
         // ─── Standalone ორდერები (merged_id=NULL) ────────────────────────────
         $soloOrders = Product_Order::withoutGlobalScope('active')
             ->where('order_type', 'sale')
             ->whereNull('merged_id')
-            ->whereBetween('created_at', [$start, $end])
+            ->where(function ($q) use ($start, $end) {
+                $q->whereBetween('created_at', [$start, $end])
+                  ->orWhereBetween('cancelled_at', [$start, $end]);
+            })
             ->get(['id', 'created_at', 'status', 'status_id', 'cancelled_at']);
 
-        $orderCount += $soloOrders->reject($cancelledThisMonth)->count();
+        foreach ($soloOrders as $order) {
+            if (Carbon::parse($order->created_at)->between($start, $end)) $newCount++;
+            if ($cancelledInMonth($order)) $cancelledCount++;
+        }
 
         // ─── გაერთიანებული ჯგუფები ───────────────────────────────────────────
-        // Primary: is_primary=1, merged_id=self.id (NOT NULL)
-        // Children: is_primary=0, merged_id=primary.id
         $mergedPrimaries = Product_Order::withoutGlobalScope('active')
             ->where('order_type', 'sale')
             ->where('is_primary', 1)
             ->get(['id', 'created_at', 'status', 'status_id', 'cancelled_at']);
 
-        if ($mergedPrimaries->isEmpty()) {
-            return [
-                'order_count'      => $orderCount,
-                'suggested_amount' => round($orderCount * $policy->warehouse_per_order, 2),
-            ];
-        }
+        if ($mergedPrimaries->isNotEmpty()) {
+            $primaryIds = $mergedPrimaries->pluck('id')->toArray();
 
-        $primaryIds = $mergedPrimaries->pluck('id')->toArray();
+            $allMembers     = Product_Order::withoutGlobalScope('active')
+                ->whereIn('merged_id', $primaryIds)
+                ->get(['id', 'merged_id', 'created_at', 'status', 'status_id', 'cancelled_at']);
+            $membersByGroup = $allMembers->groupBy(fn($m) => (int)$m->merged_id);
 
-        // whereIn('merged_id', $primaryIds) დაგვიბრუნებს primary-ს (merged_id=self.id)
-        // და ყველა child-ს (merged_id=primary.id) — ანუ მთელ ჯგუფს
-        $allMembers     = Product_Order::withoutGlobalScope('active')
-            ->whereIn('merged_id', $primaryIds)
-            ->get(['id', 'merged_id', 'created_at', 'status', 'status_id', 'cancelled_at']);
-        $membersByGroup = $allMembers->groupBy(fn($m) => (int)$m->merged_id);
+            foreach ($mergedPrimaries as $primary) {
+                $members = $membersByGroup->get($primary->id, collect());
 
-        foreach ($mergedPrimaries as $primary) {
-            $members = $membersByGroup->get($primary->id, collect());
+                $effectiveDate = $members->isNotEmpty()
+                    ? $members->map(fn($m) => Carbon::parse($m->created_at))->min()
+                    : Carbon::parse($primary->created_at);
 
-            // ეფექტური თარიღი = ჯგუფის ყველა წევრის MIN(created_at)
-            $effectiveDate = $members->isNotEmpty()
-                ? $members->map(fn($m) => Carbon::parse($m->created_at))->min()
-                : Carbon::parse($primary->created_at);
-
-            if (!$effectiveDate->between($start, $end)) continue;
-
-            // გაუქმებულია მხოლოდ მაშინ, თუ ყველა წევრი ამ თვეში გაუქმდა
-            if (!$members->every($cancelledThisMonth)) {
-                $orderCount++;
+                if ($effectiveDate->between($start, $end)) $newCount++;
+                if ($members->every($cancelledInMonth)) $cancelledCount++;
             }
         }
 
+        $orderCount = $newCount - $cancelledCount;
+
         return [
             'order_count'      => $orderCount,
+            'new_count'        => $newCount,
+            'cancelled_count'  => $cancelledCount,
             'suggested_amount' => round($orderCount * $policy->warehouse_per_order, 2),
         ];
     }
@@ -207,6 +204,8 @@ class SalaryService
                 $warehouseOperators[] = [
                     'user'             => $user,
                     'order_count'      => $warehouseData['order_count'],
+                    'new_count'        => $warehouseData['new_count'],
+                    'cancelled_count'  => $warehouseData['cancelled_count'],
                     'suggested_amount' => $warehouseData['suggested_amount'],
                     'total_amount'     => $warehouseData['suggested_amount'],
                 ];

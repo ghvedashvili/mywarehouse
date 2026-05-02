@@ -1063,7 +1063,12 @@ function loadSalary() {
                 <tr data-uid="${op.user_id}" data-role="warehouse_operator"
                     data-orders="${op.order_count}">
                     <td style="font-weight:600;">${op.name}</td>
-                    <td>${op.order_count}</td>
+                    <td>
+                        ${op.order_count}
+                        ${(op.new_count !== undefined && (op.new_count > 0 || op.cancelled_count > 0))
+                            ? `<small class="text-muted" style="font-size:10px; white-space:nowrap;">(${op.new_count} ახალი${op.cancelled_count > 0 ? ` −${op.cancelled_count} გაუქმ.` : ''})</small>`
+                            : ''}
+                    </td>
                     <td>${parseFloat(op.suggested_amount).toFixed(2)} ₾</td>
                     <td>
                         <input type="number" class="salary-amount-input" step="0.01" min="0"

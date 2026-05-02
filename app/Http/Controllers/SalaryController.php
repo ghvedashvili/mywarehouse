@@ -59,6 +59,8 @@ class SalaryController extends Controller
                 'user_id'          => $d['user']->id,
                 'name'             => $d['user']->name,
                 'order_count'      => $d['order_count'],
+                'new_count'        => $d['new_count'],
+                'cancelled_count'  => $d['cancelled_count'],
                 'suggested_amount' => $d['suggested_amount'],
                 'recorded'         => isset($recorded[$d['user']->id])
                     ? $recorded[$d['user']->id]->total_amount : null,
