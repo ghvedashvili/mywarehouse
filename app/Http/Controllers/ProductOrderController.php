@@ -694,6 +694,7 @@ class ProductOrderController extends Controller
                 'purchase_order_id' => null,
                 'price_usa'         => 0,
                 'price_georgia'     => 0,
+                'cancelled_at'      => now(),
             ]);
 
             // ─── stock rollback + ყველაზე ძველი pending-ის დაწინაურება ────
