@@ -1,17 +1,30 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
-        DB::statement("ALTER TABLE finance_entries ALTER COLUMN category ENUM('salary','utility','office','marketing','other','writeoff') NOT NULL");
+        Schema::table('finance_entries', function (Blueprint $table) {
+            // ვიყენებთ string-ს, რადგან ის უნივერსალურია PostgreSQL-ისთვის და MySQL-ისთვის
+            // change() მეთოდი განაახლებს არსებულ სვეტს
+            $table->string('category')->change();
+        });
     }
 
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
-        DB::statement("ALTER TABLE finance_entries ALTER COLUMN category ENUM('salary','utility','office','marketing','other') NOT NULL");
+        Schema::table('finance_entries', function (Blueprint $table) {
+            $table->string('category')->change();
+        });
     }
 };
