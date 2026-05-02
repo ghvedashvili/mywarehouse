@@ -28,7 +28,8 @@ class WarehouseLogService
         string  $referenceType,
         int     $referenceId,
         ?string $note      = null,
-        ?int    $qtyBefore = null
+        ?int    $qtyBefore = null,
+        ?int    $qtyAfter  = null
     ): void {
         if ($qtyBefore === null) {
             $stock = Warehouse::where('product_id', $productId)
@@ -51,7 +52,7 @@ class WarehouseLogService
             'action'         => $action,
             'qty_change'     => $qtyChange,
             'qty_before'     => $qtyBefore,
-            'qty_after'      => $qtyBefore + $qtyChange,
+            'qty_after'      => $qtyAfter ?? ($qtyBefore + $qtyChange),
             'reference_type' => $referenceType,
             'reference_id'   => $referenceId,
             'note'           => $note,

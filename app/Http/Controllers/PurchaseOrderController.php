@@ -925,7 +925,9 @@ class PurchaseOrderController extends Controller
                 WarehouseLogService::log(
                     'lost', $purchase->product_id, $purchase->product_size ?? '',
                     -$lostQty, 'purchase_order', $purchase->id,
-                    $request->lost_note ?? 'დაკარგული — partial receive'
+                    $request->lost_note ?? 'დაკარგული — partial receive',
+                    $stock->physical_qty,
+                    $stock->physical_qty
                 );
 
                 $totalCost = round((float)($purchase->cost_price ?? 0) * $lostQty, 2);
@@ -1199,7 +1201,8 @@ $purchase->refresh();
                     $stock->decrement($incomingCol, $lostQty);
                     $stock->increment('lost_qty', $lostQty);
                     WarehouseLogService::log('lost', $purchase->product_id, $purchase->product_size ?? '',
-                        -$lostQty, 'purchase_order', $purchase->id, $lostNote ?? 'დაკარგული — group receive');
+                        -$lostQty, 'purchase_order', $purchase->id, $lostNote ?? 'დაკარგული — შესყიდვის ორდერიდან დაიკარგა',
+                        $stock->physical_qty, $stock->physical_qty);
 
                     $totalCost = round((float)($purchase->cost_price ?? 0) * $lostQty, 2);
                     if ($totalCost > 0) {
@@ -1232,9 +1235,43 @@ $purchase->refresh();
 
                 $remaining = $totalQty - $sum;
 
+                $newPurchase = null;
+
                 if ($remaining === 0) {
+                    // სრული მიღება
                     $purchase->update(['status_id' => 3, 'quantity' => max($receivedQty, 1)]);
+                } elseif ($receivedQty > 0) {
+                    // ნაწილობრივი მიღება — split: original→status=3, new purchase→status=2 (remainder)
+                    $rootGroupId = $purchase->purchase_group_id ?? $purchase->id;
+                    $originalQty = $purchase->original_qty ?? $totalQty;
+                    $ratio       = $receivedQty / $totalQty;
+
+                    $newData = $purchase->toArray();
+                    unset($newData['id'], $newData['created_at'], $newData['updated_at'], $newData['order_number']);
+                    $newData['quantity']          = $remaining;
+                    $newData['status_id']         = 2;
+                    $newData['purchase_group_id'] = $rootGroupId;
+                    $newData['original_qty']      = $originalQty;
+                    $newData['paid_tbc']          = round(($purchase->paid_tbc  ?? 0) * (1 - $ratio), 2);
+                    $newData['paid_bog']          = round(($purchase->paid_bog  ?? 0) * (1 - $ratio), 2);
+                    $newData['paid_lib']          = round(($purchase->paid_lib  ?? 0) * (1 - $ratio), 2);
+                    $newData['paid_cash']         = round(($purchase->paid_cash ?? 0) * (1 - $ratio), 2);
+                    $newData['comment']           = '📦 ნაშთი #' . $purchase->id . '-დან';
+
+                    $purchase->update([
+                        'status_id'         => 3,
+                        'quantity'          => $receivedQty,
+                        'purchase_group_id' => $rootGroupId,
+                        'original_qty'      => $originalQty,
+                        'paid_tbc'          => round(($purchase->paid_tbc  ?? 0) * $ratio, 2),
+                        'paid_bog'          => round(($purchase->paid_bog  ?? 0) * $ratio, 2),
+                        'paid_lib'          => round(($purchase->paid_lib  ?? 0) * $ratio, 2),
+                        'paid_cash'         => round(($purchase->paid_cash ?? 0) * $ratio, 2),
+                    ]);
+
+                    $newPurchase = Product_Order::create($newData);
                 } else {
+                    // receivedQty=0 — მხოლოდ ჩამოწერა, purchase-ის qty მცირდება
                     $purchase->update(['quantity' => $remaining]);
                 }
 
@@ -1245,7 +1282,7 @@ $purchase->refresh();
                 $promoted = 0;
                 foreach ($allLinked as $sale) {
                     if ($receivedQty > 0 && $promoted < $receivedQty) {
-                        // ✅ მიღებული → status=3
+                        // ✅ მიღებული → status=3 (purchase-ზე რჩება)
                         $sale->status_id = 3;
                         $sale->save();
                         StatusChangeLog::create([
@@ -1257,45 +1294,51 @@ $purchase->refresh();
                         ]);
                         $promoted++;
                     } else {
-                        if ($remaining > 0) {
-                            // purchase-ს კვლავ აქვს ნაშთი — sale რჩება მიბმული
+                        if ($newPurchase) {
+                            // split case — დარჩენილი sales → new (გზაში) purchase
+                            $sale->purchase_order_id = $newPurchase->id;
+                            $sale->save();
+                        } elseif ($remaining > 0) {
+                            // receivedQty=0 case — purchase-ს კვლავ აქვს ნაშთი, sale რჩება
                             continue;
-                        }
-                        // purchase სრულად ამოიწურა → სხვა purchase ან status=1
-                        $next = FifoService::getNextPurchase(
-                            $purchase->product_id, $purchase->product_size, $purchase->id
-                        );
-                        if ($next) {
-                            $oldStatus               = $sale->status_id;
-                            $sale->purchase_order_id = $next->id;
-                            $sale->price_usa         = (float) $next->cost_price;
-                            $sale->status_id         = $next->status_id;
-                            $sale->save();
-                            StatusChangeLog::create([
-                                'order_id'       => $sale->id,
-                                'user_id'        => auth()->id(),
-                                'status_id_from' => $oldStatus,
-                                'status_id_to'   => $next->status_id,
-                                'changed_at'     => now(),
-                            ]);
                         } else {
-                            $stock->decrement('reserved_qty', 1);
-                            $sale->purchase_order_id = null;
-                            $sale->price_usa         = 0;
-                            $sale->status_id         = 1;
-                            $sale->save();
-                            StatusChangeLog::create([
-                                'order_id'       => $sale->id,
-                                'user_id'        => auth()->id(),
-                                'status_id_from' => 2,
-                                'status_id_to'   => 1,
-                                'changed_at'     => now(),
-                            ]);
+                            // purchase სრულად ამოიწურა → სხვა purchase ან status=1
+                            $next = FifoService::getNextPurchase(
+                                $purchase->product_id, $purchase->product_size, $purchase->id
+                            );
+                            if ($next) {
+                                $oldStatus               = $sale->status_id;
+                                $sale->purchase_order_id = $next->id;
+                                $sale->price_usa         = (float) $next->cost_price;
+                                $sale->status_id         = $next->status_id;
+                                $sale->save();
+                                StatusChangeLog::create([
+                                    'order_id'       => $sale->id,
+                                    'user_id'        => auth()->id(),
+                                    'status_id_from' => $oldStatus,
+                                    'status_id_to'   => $next->status_id,
+                                    'changed_at'     => now(),
+                                ]);
+                            } else {
+                                $stock->decrement('reserved_qty', 1);
+                                $sale->purchase_order_id = null;
+                                $sale->price_usa         = 0;
+                                $sale->status_id         = 1;
+                                $sale->save();
+                                StatusChangeLog::create([
+                                    'order_id'       => $sale->id,
+                                    'user_id'        => auth()->id(),
+                                    'status_id_from' => 2,
+                                    'status_id_to'   => 1,
+                                    'changed_at'     => now(),
+                                ]);
+                            }
                         }
                     }
                 }
-                // pending sale-ების მიბმა მხოლოდ სრული მიღებისას (status=3)
-                if ($remaining === 0 && $receivedQty > 0) {
+
+                // pending sale-ების მიბმა status=3 purchase-ზე
+                if ($receivedQty > 0) {
                     $purchase->refresh();
                     PurchaseService::attachPendingSalesToPurchase($purchase, $stock);
                 }
