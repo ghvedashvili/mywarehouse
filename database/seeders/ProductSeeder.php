@@ -14,6 +14,7 @@ class ProductSeeder extends Seeder
                 'category_id' => 3,
                 'product_code' => 'SKU-00' . $i,
                 'name' => 'პროდუქტი ' . $i,
+                'sizes'=>'S,M,L,XL',
                 'price_usa' =>0,
                 'price_geo' => rand(30, 150),
                 'product_status' => 1,
