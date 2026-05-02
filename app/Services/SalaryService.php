@@ -123,16 +123,63 @@ class SalaryService
         $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $end   = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
 
-        $base = Product_Order::withoutGlobalScope('active')
+        $cancelledThisMonth = function ($order) use ($start, $end): bool {
+            $isCancelled = $order->status === 'deleted' || in_array($order->status_id, [5, 6]);
+            if (!$isCancelled) return false;
+            $at = $order->cancelled_at ? Carbon::parse($order->cancelled_at) : null;
+            return $at && $at->between($start, $end);
+        };
+
+        $orderCount = 0;
+
+        // ─── Standalone ორდერები (merged_id=NULL) ────────────────────────────
+        $soloOrders = Product_Order::withoutGlobalScope('active')
             ->where('order_type', 'sale')
+            ->whereNull('merged_id')
             ->whereBetween('created_at', [$start, $end])
-            ->where('status', 'active')
-            ->whereNotIn('status_id', [5, 6]);
+            ->get(['id', 'created_at', 'status', 'status_id', 'cancelled_at']);
 
-        $soloCount   = (clone $base)->whereNull('merged_id')->count();
-        $mergedCount = (clone $base)->whereNotNull('merged_id')->distinct('merged_id')->count('merged_id');
+        $orderCount += $soloOrders->reject($cancelledThisMonth)->count();
 
-        $orderCount = $soloCount + $mergedCount;
+        // ─── გაერთიანებული ჯგუფები ───────────────────────────────────────────
+        // Primary: is_primary=1, merged_id=self.id (NOT NULL)
+        // Children: is_primary=0, merged_id=primary.id
+        $mergedPrimaries = Product_Order::withoutGlobalScope('active')
+            ->where('order_type', 'sale')
+            ->where('is_primary', 1)
+            ->get(['id', 'created_at', 'status', 'status_id', 'cancelled_at']);
+
+        if ($mergedPrimaries->isEmpty()) {
+            return [
+                'order_count'      => $orderCount,
+                'suggested_amount' => round($orderCount * $policy->warehouse_per_order, 2),
+            ];
+        }
+
+        $primaryIds = $mergedPrimaries->pluck('id')->toArray();
+
+        // whereIn('merged_id', $primaryIds) დაგვიბრუნებს primary-ს (merged_id=self.id)
+        // და ყველა child-ს (merged_id=primary.id) — ანუ მთელ ჯგუფს
+        $allMembers     = Product_Order::withoutGlobalScope('active')
+            ->whereIn('merged_id', $primaryIds)
+            ->get(['id', 'merged_id', 'created_at', 'status', 'status_id', 'cancelled_at']);
+        $membersByGroup = $allMembers->groupBy(fn($m) => (int)$m->merged_id);
+
+        foreach ($mergedPrimaries as $primary) {
+            $members = $membersByGroup->get($primary->id, collect());
+
+            // ეფექტური თარიღი = ჯგუფის ყველა წევრის MIN(created_at)
+            $effectiveDate = $members->isNotEmpty()
+                ? $members->map(fn($m) => Carbon::parse($m->created_at))->min()
+                : Carbon::parse($primary->created_at);
+
+            if (!$effectiveDate->between($start, $end)) continue;
+
+            // გაუქმებულია მხოლოდ მაშინ, თუ ყველა წევრი ამ თვეში გაუქმდა
+            if (!$members->every($cancelledThisMonth)) {
+                $orderCount++;
+            }
+        }
 
         return [
             'order_count'      => $orderCount,
