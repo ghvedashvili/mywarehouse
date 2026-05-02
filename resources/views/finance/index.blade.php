@@ -1033,7 +1033,25 @@ function loadSalary() {
                     data-base="${op.base_amount}" data-bonus="${op.bonus_amount}"
                     data-deduction="${op.deduction_amount}">
                     <td style="font-weight:600;">${op.name}</td>
-                    <td>${op.order_count} <small class="text-muted">(−${op.deduction_count})</small></td>
+                    <td>
+                        ${op.order_count - op.deduction_count}
+                        <small class="text-muted" style="font-size:10px; display:block; line-height:1.4;">
+                            ${(() => {
+                                const geo = ['იან','თებ','მარ','აპრ','მაი','ივნ','ივლ','აგვ','სექ','ოქტ','ნოე','დეკ'];
+                                const parts = [];
+                                if (op.order_count > 0) parts.push(`${op.order_count} ახ.`);
+                                if (op.deduction_count > 0) {
+                                    const byM = op.deductions_by_month || {};
+                                    const labels = Object.entries(byM).map(([ym, cnt]) => {
+                                        const m = parseInt(ym.split('-')[1]) - 1;
+                                        return `${geo[m]}×${cnt}`;
+                                    }).join(', ');
+                                    parts.push(`−${op.deduction_count} გაუქმ.${labels ? ' ('+labels+')' : ''}`);
+                                }
+                                return parts.join(' ');
+                            })()}
+                        </small>
+                    </td>
                     <td>${parseFloat(op.base_amount).toFixed(2)} ₾</td>
                     <td>${parseFloat(op.bonus_amount).toFixed(2)} ₾</td>
                     <td style="color:var(--red);">−${parseFloat(op.deduction_amount).toFixed(2)} ₾</td>
@@ -1065,9 +1083,22 @@ function loadSalary() {
                     <td style="font-weight:600;">${op.name}</td>
                     <td>
                         ${op.order_count}
-                        ${(op.new_count !== undefined && (op.new_count > 0 || op.cancelled_count > 0))
-                            ? `<small class="text-muted" style="font-size:10px; white-space:nowrap;">(${op.new_count} ახალი${op.cancelled_count > 0 ? ` −${op.cancelled_count} გაუქმ.` : ''})</small>`
-                            : ''}
+                        <small class="text-muted" style="font-size:10px; display:block; line-height:1.4;">
+                            ${(() => {
+                                const geo = ['იან','თებ','მარ','აპრ','მაი','ივნ','ივლ','აგვ','სექ','ოქტ','ნოე','დეკ'];
+                                const parts = [];
+                                if (op.new_count > 0) parts.push(`${op.new_count} ახ.`);
+                                if (op.cancelled_count > 0) {
+                                    const byM = op.cancelled_by_month || {};
+                                    const labels = Object.entries(byM).map(([ym, cnt]) => {
+                                        const m = parseInt(ym.split('-')[1]) - 1;
+                                        return `${geo[m]}×${cnt}`;
+                                    }).join(', ');
+                                    parts.push(`−${op.cancelled_count} გაუქმ.${labels ? ' ('+labels+')' : ''}`);
+                                }
+                                return parts.join(' ');
+                            })()}
+                        </small>
                     </td>
                     <td>${parseFloat(op.suggested_amount).toFixed(2)} ₾</td>
                     <td>

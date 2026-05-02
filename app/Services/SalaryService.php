@@ -16,24 +16,23 @@ class SalaryService
         $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $end   = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
 
+        // +: ამ თვეში შექმნილი ყველა ორდერი (status-ის მიუხედავად)
         $positiveOrders = Product_Order::withoutGlobalScope('active')
             ->with('product:id,bundle_id')
             ->where('user_id', $userId)
             ->where('order_type', 'sale')
             ->whereBetween('created_at', [$start, $end])
-            ->where('status', 'active')
-            ->whereNotIn('status_id', [5, 6])
             ->get();
 
+        // -: ამ თვეში გაუქმებული/დაბრუნებული/გაცვლილი (created_at-ის მიუხედავად)
         $deductionOrders = Product_Order::withoutGlobalScope('active')
             ->with('product:id,bundle_id')
             ->where('user_id', $userId)
             ->where('order_type', 'sale')
-            ->where('created_at', '<', $start)
             ->whereBetween('cancelled_at', [$start, $end])
             ->where(function ($q) {
                 $q->where('status', 'deleted')
-                  ->orWhere('status_id', 5);
+                  ->orWhereIn('status_id', [5, 6]);
             })
             ->get();
 
@@ -52,15 +51,23 @@ class SalaryService
 
         $total = ($base + $bonus) - ($deductBase + $deductBonus);
 
+        // გაუქმებულები დაჯგუფებული original (created_at) თვის მიხედვით
+        $deductionsByMonth = $deductionOrders
+            ->groupBy(fn($o) => Carbon::parse($o->created_at)->format('Y-m'))
+            ->map->count()
+            ->sortKeys()
+            ->toArray();
+
         return [
-            'order_count'      => $orderCount,
-            'deduction_count'  => $deductionCount,
-            'base_amount'      => round($base, 2),
-            'bonus_amount'     => round($bonus, 2),
-            'deduction_amount' => round($deductBase + $deductBonus, 2),
-            'total_amount'     => round(max(0, $total), 2),
-            'orders'           => $positiveOrders,
-            'deductions'       => $deductionOrders,
+            'order_count'         => $orderCount,
+            'deduction_count'     => $deductionCount,
+            'deductions_by_month' => $deductionsByMonth,
+            'base_amount'         => round($base, 2),
+            'bonus_amount'        => round($bonus, 2),
+            'deduction_amount'    => round($deductBase + $deductBonus, 2),
+            'total_amount'        => round(max(0, $total), 2),
+            'orders'              => $positiveOrders,
+            'deductions'          => $deductionOrders,
         ];
     }
 
@@ -130,8 +137,14 @@ class SalaryService
             return $at && $at->between($start, $end);
         };
 
-        $newCount       = 0;
-        $cancelledCount = 0;
+        $newCount          = 0;
+        $cancelledCount    = 0;
+        $cancelledByMonth  = [];   // 'YYYY-MM' => count (effective date month of cancelled group/order)
+
+        $addCancelledMonth = function (Carbon $effectiveDate) use (&$cancelledByMonth): void {
+            $key = $effectiveDate->format('Y-m');
+            $cancelledByMonth[$key] = ($cancelledByMonth[$key] ?? 0) + 1;
+        };
 
         // ─── Standalone ორდერები (merged_id=NULL) ────────────────────────────
         $soloOrders = Product_Order::withoutGlobalScope('active')
@@ -145,7 +158,10 @@ class SalaryService
 
         foreach ($soloOrders as $order) {
             if (Carbon::parse($order->created_at)->between($start, $end)) $newCount++;
-            if ($cancelledInMonth($order)) $cancelledCount++;
+            if ($cancelledInMonth($order)) {
+                $cancelledCount++;
+                $addCancelledMonth(Carbon::parse($order->created_at));
+            }
         }
 
         // ─── გაერთიანებული ჯგუფები ───────────────────────────────────────────
@@ -170,17 +186,22 @@ class SalaryService
                     : Carbon::parse($primary->created_at);
 
                 if ($effectiveDate->between($start, $end)) $newCount++;
-                if ($members->every($cancelledInMonth)) $cancelledCount++;
+                if ($members->every($cancelledInMonth)) {
+                    $cancelledCount++;
+                    $addCancelledMonth($effectiveDate);
+                }
             }
         }
 
+        ksort($cancelledByMonth);
         $orderCount = $newCount - $cancelledCount;
 
         return [
-            'order_count'      => $orderCount,
-            'new_count'        => $newCount,
-            'cancelled_count'  => $cancelledCount,
-            'suggested_amount' => round($orderCount * $policy->warehouse_per_order, 2),
+            'order_count'         => $orderCount,
+            'new_count'           => $newCount,
+            'cancelled_count'     => $cancelledCount,
+            'cancelled_by_month'  => $cancelledByMonth,
+            'suggested_amount'    => round($orderCount * $policy->warehouse_per_order, 2),
         ];
     }
 
@@ -202,12 +223,13 @@ class SalaryService
 
             } elseif ($user->role === 'warehouse_operator') {
                 $warehouseOperators[] = [
-                    'user'             => $user,
-                    'order_count'      => $warehouseData['order_count'],
-                    'new_count'        => $warehouseData['new_count'],
-                    'cancelled_count'  => $warehouseData['cancelled_count'],
-                    'suggested_amount' => $warehouseData['suggested_amount'],
-                    'total_amount'     => $warehouseData['suggested_amount'],
+                    'user'                => $user,
+                    'order_count'         => $warehouseData['order_count'],
+                    'new_count'           => $warehouseData['new_count'],
+                    'cancelled_count'     => $warehouseData['cancelled_count'],
+                    'cancelled_by_month'  => $warehouseData['cancelled_by_month'],
+                    'suggested_amount'    => $warehouseData['suggested_amount'],
+                    'total_amount'        => $warehouseData['suggested_amount'],
                 ];
 
             } elseif ($user->role === 'admin') {
