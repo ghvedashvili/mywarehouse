@@ -1485,49 +1485,46 @@ class ProductOrderController extends Controller
             Product_Order::withoutGlobalScope('active')
                 ->whereIn('merged_id', $primaryIds)
                 ->where('is_primary', 0)
-                ->where('status', 'active')
                 ->get(['id', 'merged_id', 'product_id', 'is_primary', 'created_at',
-                       'price_georgia', 'discount', 'paid_tbc', 'paid_bog', 'paid_lib', 'paid_cash', 'status_id'])
+                       'price_georgia', 'discount', 'paid_tbc', 'paid_bog', 'paid_lib', 'paid_cash', 'status_id', 'status'])
                 ->each(function ($c) use (&$childrenByParent) {
                     $childrenByParent[$c->merged_id][] = $c;
                 });
         }
 
-        $allProductIds = collect($orders->pluck('product_id')->toArray())
+        // bundle map — product_id → bundle_id
+        $allProductIds = collect($orders->pluck('product_id'))
             ->merge(collect($childrenByParent)->flatten(1)->pluck('product_id'))
             ->filter()->unique()->values()->toArray();
-
-        $productMap = \App\Models\Product::withoutGlobalScope('active')
+        $bundleMap = \App\Models\Product::withoutGlobalScope('active')
             ->whereIn('id', $allProductIds)
-            ->get(['id', 'bundle_id'])
-            ->keyBy('id');
+            ->whereNotNull('bundle_id')
+            ->pluck('bundle_id', 'id');
 
-        // ─── Bundle pairing: same bundle_id + 2+ distinct products = 1 bundle ──
-        $completedBundlesByGroup = [];
-        $pairedCountByGroup      = [];
+        // bundle-aware product count for each primary group
+        $productCountByGroup = [];
+        foreach ($primaryIds as $pid) {
+            $primary  = $orders->firstWhere('id', $pid);
+            $children = collect($childrenByParent[$pid] ?? []);
+            $group    = collect([$primary])->merge($children);
 
-        foreach ($orders as $order) {
-            if (!$order->is_primary) continue;
-            $children = collect($childrenByParent[$order->id] ?? []);
-            if ($children->isEmpty()) continue;
+            $nonBundle = $group->filter(fn($o) => !$bundleMap->has($o->product_id))->count();
+            $bundleCnt = 0;
 
-            $groupOrders = collect([$order])->merge($children);
-            $paired = 0; $completedBundles = 0;
-
-            $withBundle = $groupOrders->filter(fn($o) => optional($productMap->get($o->product_id))->bundle_id);
-            foreach ($withBundle->groupBy(fn($o) => (string) $productMap->get($o->product_id)->bundle_id) as $bundleOrders) {
-                $byProduct       = $bundleOrders->groupBy('product_id');
-                $distinctProducts = $byProduct->count();
-                if ($distinctProducts < 2) continue; // must have 2+ different products
-                $completePairs   = $byProduct->map->count()->min();
-                if ($completePairs <= 0) continue;
-                $completedBundles += $completePairs;
-                $paired           += $completePairs * $distinctProducts;
+            foreach ($group->filter(fn($o) => $bundleMap->has($o->product_id))
+                          ->groupBy(fn($o) => $bundleMap[$o->product_id]) as $bOrders) {
+                $byProduct = $bOrders->groupBy('product_id');
+                if ($byProduct->count() < 2) {
+                    $bundleCnt += $bOrders->count(); // unpaired — count individually
+                    continue;
+                }
+                $complete   = $byProduct->map->count()->min();
+                $remaining  = $byProduct->map->count()->sum() - ($complete * $byProduct->count());
+                $bundleCnt += $complete + $remaining; // each complete bundle = 1
             }
-            $pairedCountByGroup[$order->id]      = $paired;
-            $completedBundlesByGroup[$order->id] = $completedBundles;
+
+            $productCountByGroup[$pid] = $nonBundle + $bundleCnt;
         }
-        // ─────────────────────────────────────────────────────────────────
 
         $totalDebt     = 0;
         $totalPaid     = 0;
@@ -1556,12 +1553,9 @@ class ProductOrderController extends Controller
             if ($groupDiff > 0.01) { $totalDebt += $groupDiff; $debtCount++; }
             $totalPaid += $groupPaid;
 
-            // პროდუქტები
+            // პროდუქტები — bundle pair = 1, unpaired = 1 each
             if ($o->is_primary) {
-                $childrenCount    = $children->count();
-                $pairedCount      = $pairedCountByGroup[$o->id] ?? 0;
-                $completedBundles = $completedBundlesByGroup[$o->id] ?? 0;
-                $totalProducts   += (1 + $childrenCount) - $pairedCount + $completedBundles;
+                $totalProducts += $productCountByGroup[$o->id] ?? (1 + $children->count());
             } else {
                 $totalProducts += (int)($o->quantity ?? 1);
             }
