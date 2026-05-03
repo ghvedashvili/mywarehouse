@@ -22,7 +22,40 @@
     $inTransitOrders = $baseOrders()->where('status_id', 2)->count();
     $warehouseOrders = $baseOrders()->where('status_id', 3)->count();
     $courierOrders   = $baseOrders()->where('status_id', 4)->count();
-    $deliveredOrders = $baseOrders()->where('status_id', 6)->count();
+    $returnedOrders  = $baseOrders()->where('status_id', 5)->count();
+    $exchangedOrders = $baseOrders()->where('status_id', 6)->count();
+    $deletedOrders   = Product_Order::withoutGlobalScope('active')
+        ->whereIn('order_type', ['sale','change'])
+        ->when($isSaleOp, fn($q) => $q->where('user_id', $uid))
+        ->where('status', 'deleted')
+        ->count();
+
+    // მიმდინარე თვის breakdown sub-line-ისთვის
+    $geoMonths   = ['იან','თებ','მარ','აპრ','მაი','ივნ','ივლ','აგვ','სექ','ოქტ','ნოე','დეკ'];
+    $mStart      = now()->startOfMonth();
+    $mEnd        = now()->endOfMonth();
+    $mNew        = $baseOrders()->whereBetween('created_at', [$mStart, $mEnd])->count();
+    $mCancelled  = Product_Order::withoutGlobalScope('active')
+        ->whereIn('order_type', ['sale','change'])
+        ->when($isSaleOp, fn($q) => $q->where('user_id', $uid))
+        ->whereBetween('cancelled_at', [$mStart, $mEnd])
+        ->where(fn($q) => $q->where('status','deleted')->orWhereIn('status_id',[5,6]))
+        ->count();
+    $mCancelByMonth = Product_Order::withoutGlobalScope('active')
+        ->whereIn('order_type', ['sale','change'])
+        ->when($isSaleOp, fn($q) => $q->where('user_id', $uid))
+        ->whereBetween('cancelled_at', [$mStart, $mEnd])
+        ->where(fn($q) => $q->where('status','deleted')->orWhereIn('status_id',[5,6]))
+        ->selectRaw("DATE_FORMAT(created_at,'%Y-%m') as ym, COUNT(*) as cnt")
+        ->groupBy('ym')->orderBy('ym')
+        ->pluck('cnt','ym');
+    $mCancelLabels = $mCancelByMonth->map(function($cnt,$ym) use ($geoMonths) {
+        $m = (int) explode('-',$ym)[1] - 1;
+        return $geoMonths[$m].'×'.$cnt;
+    })->implode(', ');
+    $mSubLine = ($mNew > 0 ? $mNew.' ახ.' : '')
+              . ($mCancelled > 0 ? ($mNew > 0 ? ' ' : '') . '−'.$mCancelled.' გაუქმ.'.($mCancelLabels ? ' ('.$mCancelLabels.')' : '') : '')
+              ?: '0 ახ.';
     $pendingPurchases= Product_Order::where('order_type','purchase')->where('status_id', 2)->count();
     $activeProducts  = Product::where('product_status', 1)->count();
     $totalProducts   = Product::count();
@@ -363,7 +396,7 @@
 .rev-value { font-size: 32px; font-weight: 900; color: #fff; letter-spacing: -1px; line-height: 1; }
 @media(min-width:768px){ .rev-value { font-size: 40px; } }
 .rev-sub { font-size: 12px; color: rgba(255,255,255,.5); margin-top: 6px; }
-.rev-stats { display: flex; gap: 20px; flex-wrap: wrap; }
+.rev-stats { display: flex; gap: 12px; flex-wrap: wrap; }
 .rev-stat { text-align: center; }
 .rev-stat-val { font-size: 20px; font-weight: 800; color: #fff; }
 .rev-stat-lbl { font-size: 10px; color: rgba(255,255,255,.4); text-transform: uppercase; letter-spacing: .5px; }
@@ -397,12 +430,28 @@
                 <div class="rev-stat-lbl">ახალი</div>
             </div>
             <div class="rev-stat">
-                <div class="rev-stat-val">{{ $courierOrders }}</div>
-                <div class="rev-stat-lbl">კურიერი</div>
+                <div class="rev-stat-val">{{ $inTransitOrders }}</div>
+                <div class="rev-stat-lbl">გზაში</div>
             </div>
             <div class="rev-stat">
-                <div class="rev-stat-val">{{ $deliveredOrders }}</div>
-                <div class="rev-stat-lbl">ჩაბარდა</div>
+                <div class="rev-stat-val">{{ $warehouseOrders }}</div>
+                <div class="rev-stat-lbl">საწყობში</div>
+            </div>
+            <div class="rev-stat">
+                <div class="rev-stat-val">{{ $courierOrders }}</div>
+                <div class="rev-stat-lbl">კურიერთ.</div>
+            </div>
+            <div class="rev-stat">
+                <div class="rev-stat-val">{{ $returnedOrders }}</div>
+                <div class="rev-stat-lbl">დაბრუნ.</div>
+            </div>
+            <div class="rev-stat">
+                <div class="rev-stat-val">{{ $exchangedOrders }}</div>
+                <div class="rev-stat-lbl">გაცვლ.</div>
+            </div>
+            <div class="rev-stat">
+                <div class="rev-stat-val">{{ $deletedOrders }}</div>
+                <div class="rev-stat-lbl">წაშლ.</div>
             </div>
         </div>
     </div>
@@ -612,8 +661,8 @@
                         <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;">კურიერი</div>
                     </div>
                     <div style="text-align:center;">
-                        <div style="font-size:18px;font-weight:800;color:#22c55e;">{{ $deliveredOrders }}</div>
-                        <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;">ჩაბარდა</div>
+                        <div style="font-size:18px;font-weight:800;color:#22c55e;">{{ $exchangedOrders }}</div>
+                        <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;">გაცვლ.</div>
                     </div>
                 </div>
             </div>
