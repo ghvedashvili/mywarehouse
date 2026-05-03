@@ -42,7 +42,7 @@ public function store(Request $request)
         'category_id'  => 'required|exists:categories,id',
         'brand_id'     => 'nullable|exists:brands,id',
         'bundle_id'    => 'nullable|exists:product_bundles,id',
-        'image'        => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+        'image'        => 'nullable|image|mimes:jpeg,png,jpg,gif,webp,avif|max:2048',
         'product_sizes'=> 'nullable|array',
     ]);
 
@@ -106,7 +106,7 @@ public function store(Request $request)
         'category_id'  => 'required|exists:categories,id',
         'brand_id'     => 'nullable|exists:brands,id',
         'bundle_id'    => 'nullable|exists:product_bundles,id',
-        'image'        => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+        'image'        => 'nullable|image|mimes:jpeg,png,jpg,gif,webp,avif|max:2048',
         'product_sizes'=> 'nullable|array',
     ]);
 
