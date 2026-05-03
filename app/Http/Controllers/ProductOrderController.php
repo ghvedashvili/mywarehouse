@@ -1567,14 +1567,62 @@ class ProductOrderController extends Controller
             $byStatus[$sid] = $orders->where('status_id', $sid)->count();
         }
 
+        // წაშლილი ორდერების რაოდენობა
+        $deletedQuery = Product_Order::withoutGlobalScope('active')
+            ->where(function ($q) {
+                $q->where('is_primary', 1)->orWhereNull('merged_id');
+            })
+            ->whereIn('order_type', ['sale', 'change'])
+            ->where('status', 'deleted');
+
+        if ($request->filled('date_from')) {
+            $deletedQuery->whereDate('created_at', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $deletedQuery->whereDate('created_at', '<=', $request->date_to);
+        }
+        if ($request->filled('product_id')) {
+            $deletedQuery->where('product_id', $request->product_id);
+        }
+        if ($request->filled('customer_id')) {
+            $deletedQuery->where('customer_id', $request->customer_id);
+        }
+        $deletedCount = $deletedQuery->count();
+
+        // გასაგზავნად მზადი — status_id=3 + გადახდილი
+        $paidRaw = '(price_georgia - COALESCE(discount,0)) <= (COALESCE(paid_tbc,0) + COALESCE(paid_bog,0) + COALESCE(paid_lib,0) + COALESCE(paid_cash,0)) + 0.01';
+        $readyToShipCount = Product_Order::withoutGlobalScope('active')
+            ->where(function ($q) {
+                $q->where('is_primary', 1)->orWhereNull('merged_id');
+            })
+            ->whereIn('order_type', ['sale', 'change'])
+            ->where('status', 'active')
+            ->where(function ($q) use ($paidRaw) {
+                $q->where(function ($q2) use ($paidRaw) {
+                    $q2->whereNull('merged_id')
+                       ->where('status_id', 3)
+                       ->whereRaw($paidRaw);
+                })
+                ->orWhere(function ($q2) use ($paidRaw) {
+                    $q2->where('is_primary', 1)
+                       ->where('status_id', 3)
+                       ->whereRaw($paidRaw)
+                       ->whereDoesntHave('siblings', fn($sq) => $sq->where('status_id', '!=', 3))
+                       ->whereDoesntHave('siblings', fn($sq) => $sq->whereRaw("NOT ($paidRaw)"));
+                });
+            })
+            ->count();
+
         return response()->json([
-            'total'      => $orders->count(),
-            'debt'       => round($totalDebt, 2),
-            'debt_count' => $debtCount,
-            'paid'       => round($totalPaid, 2),
-            'courier'    => $byStatus[4] ?? 0,
-            'products'   => $totalProducts,
-            'by_status'  => $byStatus,
+            'total'          => $orders->count(),
+            'debt'           => round($totalDebt, 2),
+            'debt_count'     => $debtCount,
+            'paid'           => round($totalPaid, 2),
+            'courier'        => $byStatus[4] ?? 0,
+            'products'       => $totalProducts,
+            'by_status'      => $byStatus,
+            'deleted'        => $deletedCount,
+            'ready_to_ship'  => $readyToShipCount,
         ]);
     }
 
