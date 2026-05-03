@@ -2053,14 +2053,36 @@ class ProductOrderController extends Controller
             $childrenByParent = $childRows->groupBy('merged_id');
         }
 
-        // build groups: each entry = ['primary' => order, 'children' => collection, 'is_group' => bool]
-        $groups = $orders->map(function ($order) use ($childrenByParent) {
+        // original sale orders for exchange (change) orders
+        $originalSaleIds = $orders
+            ->where('order_type', 'change')
+            ->pluck('original_sale_id')
+            ->filter()->toArray();
+        $originalSales = collect();
+        if (!empty($originalSaleIds)) {
+            $origRows = Product_Order::withoutGlobalScope('active')
+                ->with(['product' => fn($q) => $q->withoutGlobalScope('active')])
+                ->whereIn('id', $originalSaleIds)
+                ->get()
+                ->keyBy('id');
+            foreach ($origRows as $orig) {
+                $orig->imageBase64 = $this->productImageBase64($orig->product);
+            }
+            $originalSales = $origRows;
+        }
+
+        // build groups
+        $groups = $orders->map(function ($order) use ($childrenByParent, $originalSales) {
             $order->imageBase64 = $this->productImageBase64($order->product);
             $children = $childrenByParent->get($order->id, collect());
+            $isExchange = $order->order_type === 'change' && $order->original_sale_id;
             return [
-                'primary'  => $order,
-                'children' => $children,
-                'is_group' => $order->is_primary == 1 && $children->isNotEmpty(),
+                'primary'        => $order,
+                'children'       => $children,
+                'is_group'       => $order->is_primary == 1 && $children->isNotEmpty(),
+                'is_exchange'    => $isExchange,
+                'original_order' => $isExchange ? ($originalSales->get($order->original_sale_id)) : null,
+                'is_return'      => $order->status_id == 5,
             ];
         });
 
