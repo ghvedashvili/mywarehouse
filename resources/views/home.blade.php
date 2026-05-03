@@ -41,12 +41,14 @@
         ->whereBetween('cancelled_at', [$mStart, $mEnd])
         ->where(fn($q) => $q->where('status','deleted')->orWhereIn('status_id',[5,6]))
         ->count();
+    $isPgsql = DB::getDriverName() === 'pgsql';
+    $ymExpr  = $isPgsql ? "TO_CHAR(created_at,'YYYY-MM')" : "DATE_FORMAT(created_at,'%Y-%m')";
     $mCancelByMonth = Product_Order::withoutGlobalScope('active')
         ->whereIn('order_type', ['sale','change'])
         ->when($isSaleOp, fn($q) => $q->where('user_id', $uid))
         ->whereBetween('cancelled_at', [$mStart, $mEnd])
         ->where(fn($q) => $q->where('status','deleted')->orWhereIn('status_id',[5,6]))
-        ->selectRaw("DATE_FORMAT(created_at,'%Y-%m') as ym, COUNT(*) as cnt")
+        ->selectRaw("$ymExpr as ym, COUNT(*) as cnt")
         ->groupBy('ym')->orderBy('ym')
         ->pluck('cnt','ym');
     $mCancelLabels = $mCancelByMonth->map(function($cnt,$ym) use ($geoMonths) {
