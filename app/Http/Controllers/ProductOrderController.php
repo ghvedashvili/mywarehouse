@@ -2029,29 +2029,48 @@ class ProductOrderController extends Controller
             abort(400, 'No orders selected');
         }
 
-        $product_Order = Product_Order::withoutGlobalScope('active')
+        $orders = Product_Order::withoutGlobalScope('active')
             ->with([
                 'product'      => fn($q) => $q->withoutGlobalScope('active'),
                 'customer.city',
-                'orderStatus'
+                'orderStatus',
             ])
             ->whereIn('id', $ids)
             ->get();
 
+        // children of any primary in the selection
+        $primaryIds = $orders->where('is_primary', 1)->pluck('id')->toArray();
+        $childrenByParent = collect();
+        if (!empty($primaryIds)) {
+            $childRows = Product_Order::withoutGlobalScope('active')
+                ->with(['product' => fn($q) => $q->withoutGlobalScope('active')])
+                ->whereIn('merged_id', $primaryIds)
+                ->where('is_primary', 0)
+                ->get();
+            foreach ($childRows as $child) {
+                $child->imageBase64 = $this->productImageBase64($child->product);
+            }
+            $childrenByParent = $childRows->groupBy('merged_id');
+        }
+
+        // build groups: each entry = ['primary' => order, 'children' => collection, 'is_group' => bool]
+        $groups = $orders->map(function ($order) use ($childrenByParent) {
+            $order->imageBase64 = $this->productImageBase64($order->product);
+            $children = $childrenByParent->get($order->id, collect());
+            return [
+                'primary'  => $order,
+                'children' => $children,
+                'is_group' => $order->is_primary == 1 && $children->isNotEmpty(),
+            ];
+        });
+
         $logoPath   = public_path('assets/img/logo.png');
         $logoBase64 = null;
-
         if (file_exists($logoPath)) {
             $logoBase64 = 'data:' . mime_content_type($logoPath) . ';base64,' . base64_encode(file_get_contents($logoPath));
-        } else {
-            \Log::error('Logo not found at: ' . $logoPath);
         }
 
-        foreach ($product_Order as $order) {
-            $order->imageBase64 = $this->productImageBase64($order->product);
-        }
-
-        $pdf = Pdf::loadView('product_order.productOrderFilteredPDF', compact('product_Order', 'logoBase64'))
+        $pdf = Pdf::loadView('product_order.productOrderFilteredPDF', compact('groups', 'logoBase64'))
             ->setPaper('a4')
             ->setOptions([
                 'defaultFont'          => 'dejavu sans',
