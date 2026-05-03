@@ -32,38 +32,56 @@
         }
         .doc-header-right img { max-height: 40px; width: auto; }
 
+        /* ── cut separator ── */
+        .cut-line {
+            display: table;
+            width: 100%;
+            margin: 10px 0;
+        }
+        .cut-icon {
+            display: table-cell;
+            vertical-align: middle;
+            width: 18px;
+            font-size: 12px;
+            color: #bbb;
+        }
+        .cut-dash {
+            display: table-cell;
+            vertical-align: middle;
+            border-top: 1.5px dashed #ccc;
+        }
+
         /* ── single order row ── */
         .order-row {
             display: table;
             width: 100%;
-            border-bottom: 1px solid #ececec;
-            padding: 6px 0;
+            padding: 4px 0;
         }
         .col-num {
             display: table-cell; vertical-align: middle;
             width: 18px; color: #bbb; font-size: 10px;
         }
         .col-img {
-            display: table-cell; vertical-align: middle; width: 50px;
+            display: table-cell; vertical-align: middle; width: 96px;
         }
         .col-img img {
-            width: 44px; height: 44px; object-fit: cover;
-            border-radius: 4px; border: 1px solid #e0e0e0;
+            width: 88px; height: 88px; object-fit: cover;
+            border-radius: 5px; border: 1px solid #e0e0e0;
         }
         .col-img .no-img {
-            width: 44px; height: 44px; border-radius: 4px;
+            width: 88px; height: 88px; border-radius: 5px;
             border: 1px solid #e0e0e0; background: #f4f6f8;
             display: block;
         }
         .col-product {
             display: table-cell; vertical-align: middle;
-            width: 36%; padding-left: 8px;
+            width: 34%; padding-left: 10px;
         }
-        .col-product .p-name { font-size: 11px; font-weight: 700; }
-        .col-product .p-meta { font-size: 10px; color: #666; margin-top: 2px; }
-        .col-customer { display: table-cell; vertical-align: middle; padding-left: 8px; }
-        .col-customer .c-name { font-size: 11px; font-weight: 700; }
-        .col-customer .c-meta { font-size: 10px; color: #666; margin-top: 2px; }
+        .col-product .p-name { font-size: 12px; font-weight: 700; }
+        .col-product .p-meta { font-size: 10px; color: #666; margin-top: 3px; }
+        .col-customer { display: table-cell; vertical-align: middle; padding-left: 10px; }
+        .col-customer .c-name { font-size: 12px; font-weight: 700; }
+        .col-customer .c-meta { font-size: 10px; color: #666; margin-top: 3px; line-height: 1.5; }
         .col-order-num {
             display: table-cell; vertical-align: middle;
             text-align: right; width: 60px;
@@ -74,14 +92,13 @@
         .group-block {
             border: 1.5px solid #e85d26;
             border-radius: 6px;
-            margin-bottom: 10px;
             overflow: hidden;
         }
         .group-header {
             display: table;
             width: 100%;
             background: #fff5f0;
-            padding: 7px 10px;
+            padding: 8px 12px;
             border-bottom: 1px solid #f0c0a8;
         }
         .group-header-left  { display: table-cell; vertical-align: middle; }
@@ -90,33 +107,33 @@
             text-align: right; width: 120px;
         }
         .group-customer-name  { font-size: 12px; font-weight: 700; }
-        .group-customer-meta  { font-size: 10px; color: #666; margin-top: 2px; }
-        .group-total   { font-size: 13px; font-weight: 700; color: #e85d26; }
+        .group-customer-meta  { font-size: 10px; color: #666; margin-top: 3px; line-height: 1.5; }
+        .group-total   { font-size: 14px; font-weight: 700; color: #e85d26; }
         .group-order-num { font-size: 10px; color: #888; margin-top: 2px; }
 
-        .group-items { padding: 6px 10px; }
+        .group-items { padding: 8px 12px; }
 
         .group-item {
             display: table;
             width: 100%;
-            padding: 5px 0;
-            border-bottom: 1px solid #f4f4f4;
+            padding: 6px 0;
+            border-bottom: 1px solid #f0f0f0;
         }
         .group-item:last-child { border-bottom: none; }
         .gi-img {
-            display: table-cell; vertical-align: middle; width: 40px;
+            display: table-cell; vertical-align: middle; width: 96px;
         }
         .gi-img img {
-            width: 36px; height: 36px; object-fit: cover;
-            border-radius: 3px; border: 1px solid #e0e0e0;
+            width: 88px; height: 88px; object-fit: cover;
+            border-radius: 5px; border: 1px solid #e0e0e0;
         }
         .gi-img .no-img {
-            width: 36px; height: 36px; border-radius: 3px;
+            width: 88px; height: 88px; border-radius: 5px;
             border: 1px solid #e0e0e0; background: #f4f6f8; display: block;
         }
-        .gi-info { display: table-cell; vertical-align: middle; padding-left: 8px; }
-        .gi-name { font-size: 11px; font-weight: 700; }
-        .gi-meta { font-size: 10px; color: #666; margin-top: 1px; }
+        .gi-info { display: table-cell; vertical-align: middle; padding-left: 10px; }
+        .gi-name { font-size: 12px; font-weight: 700; }
+        .gi-meta { font-size: 10px; color: #666; margin-top: 3px; }
         .gi-price {
             display: table-cell; vertical-align: middle;
             text-align: right; width: 70px;
@@ -146,13 +163,18 @@
             $orderNum = $primary->order_number ?? ('#' . $primary->id);
         @endphp
 
+        @if($index > 0)
+            <div class="cut-line">
+                <div class="cut-icon">&#9986;</div>
+                <div class="cut-dash"></div>
+            </div>
+        @endif
+
         @if($isGroup)
-            {{-- ── GROUPED ORDER ─────────────────────────────── --}}
+            {{-- ── GROUPED ORDER ── --}}
             @php
                 $allMembers = collect([$primary])->merge($children);
-                $total = $allMembers->sum(function($o) {
-                    return (float)$o->price_georgia - (float)($o->discount ?? 0);
-                });
+                $total = $allMembers->sum(fn($o) => (float)$o->price_georgia - (float)($o->discount ?? 0));
                 $customer = $primary->customer;
             @endphp
             <div class="group-block">
@@ -201,7 +223,7 @@
             </div>
 
         @else
-            {{-- ── SINGLE ORDER ROW ──────────────────────────── --}}
+            {{-- ── SINGLE ORDER ── --}}
             <div class="order-row">
                 <div class="col-num">{{ $index + 1 }}</div>
 
@@ -216,7 +238,7 @@
                 <div class="col-product">
                     <div class="p-name">{{ $primary->product->name ?? '—' }}</div>
                     <div class="p-meta">
-                        @if($primary->product_size)ზომა: {{ $primary->product_size }} &nbsp;·&nbsp; @endif
+                        @if($primary->product_size)ზომა: {{ $primary->product_size }}<br>@endif
                         ღირებულება: {{ number_format((float)$primary->price_georgia - (float)($primary->discount ?? 0), 2) }} ₾
                         @if($primary->comment)<br>{{ $primary->comment }}@endif
                     </div>
