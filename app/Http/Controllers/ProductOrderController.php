@@ -776,6 +776,26 @@ class ProductOrderController extends Controller
             });
         }
 
+        if ($request->ready_to_ship == 1) {
+            $paidRaw = '(price_georgia - COALESCE(discount,0)) <= (COALESCE(paid_tbc,0) + COALESCE(paid_bog,0) + COALESCE(paid_lib,0) + COALESCE(paid_cash,0)) + 0.01';
+            $query->where(function ($q) use ($paidRaw) {
+                // standalone: merged_id IS NULL, status_id=3, გადახდილი
+                $q->where(function ($q2) use ($paidRaw) {
+                    $q2->whereNull('merged_id')
+                       ->where('status_id', 3)
+                       ->whereRaw($paidRaw);
+                })
+                // primary: ყველა წევრი status_id=3, ყველა გადახდილი
+                ->orWhere(function ($q2) use ($paidRaw) {
+                    $q2->where('is_primary', 1)
+                       ->where('status_id', 3)
+                       ->whereRaw($paidRaw)
+                       ->whereDoesntHave('siblings', fn($sq) => $sq->where('status_id', '!=', 3))
+                       ->whereDoesntHave('siblings', fn($sq) => $sq->whereRaw("NOT ($paidRaw)"));
+                });
+            });
+        }
+
         if ($request->debt_only == 1) {
             $debtRaw = '(price_georgia - COALESCE(discount,0)) > (COALESCE(paid_tbc,0) + COALESCE(paid_bog,0) + COALESCE(paid_lib,0) + COALESCE(paid_cash,0))';
             $query->where(function ($q) use ($debtRaw) {

@@ -799,6 +799,12 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
         </select>
         <div class="po-filter-sep"></div>
         <div class="po-toggle-wrap">
+            <label for="toggle-ready-ship" style="color:#16a34a;font-weight:700;"><i class="fa fa-truck" style="font-size:10px;"></i> მზად</label>
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="toggle-ready-ship" role="switch" style="cursor:pointer;">
+            </div>
+        </div>
+        <div class="po-toggle-wrap">
             <label for="toggle-deleted">დავ.</label>
             <div class="form-check form-switch mb-0">
                 <input class="form-check-input" type="checkbox" id="toggle-deleted" role="switch" style="cursor:pointer;">
@@ -1740,7 +1746,8 @@ function exportFilteredPDF() {
     $('body').append(form); form.submit(); form.remove();
 }
 
-$(document).on('change', '#toggle-deleted', function() { reloadTableWithFilters(); });
+$(document).on('change', '#toggle-ready-ship',   function() { reloadTableWithFilters(); });
+$(document).on('change', '#toggle-deleted',      function() { reloadTableWithFilters(); });
 $(document).on('change', '#toggle-show-deleted', function() { reloadTableWithFilters(); });
 
 $(document).on('click', '#status-filter-btn', function(e) { e.stopPropagation(); $('#po-status-dropdown').toggle(); });
@@ -1756,6 +1763,7 @@ $(document).on('change', '.status-filter-check', function() {
 function reloadTableWithFilters() {
     mergeMode = false; $('#po-page-root').removeClass('po-merge-mode');
     var params = [];
+    if ($('#toggle-ready-ship').is(':checked'))   params.push('ready_to_ship=1');
     if ($('#toggle-deleted').is(':checked'))      params.push('debt_only=1');
     if ($('#toggle-show-deleted').is(':checked')) params.push('show_deleted=1');
     var selected = [];
