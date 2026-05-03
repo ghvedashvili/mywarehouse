@@ -1657,6 +1657,75 @@ class ProductOrderController extends Controller
         });
     }
 
+    public function sendAllReadyToCourier(Request $request)
+    {
+        $ids = array_filter(array_map('intval', $request->input('ids', [])));
+        if (empty($ids)) {
+            return response()->json(['success' => false, 'message' => 'ორდერი ვერ მოიძებნა'], 422);
+        }
+
+        return \DB::transaction(function () use ($ids) {
+            $sent   = 0;
+            $errors = [];
+
+            foreach ($ids as $rootId) {
+                $root = Product_Order::find($rootId);
+                if (!$root) continue;
+
+                $orders = $root->is_primary
+                    ? Product_Order::where('merged_id', $root->id)->get()
+                    : collect([$root]);
+
+                // status_id=3 შემოწმება
+                if (!$orders->every(fn($o) => $o->status_id == 3)) {
+                    $errors[] = "#{$rootId} — არა ყველა საწყობშია";
+                    continue;
+                }
+
+                // გადახდა შემოწმება
+                $hasDebt = false;
+                foreach ($orders as $order) {
+                    $total = $order->price_georgia - ($order->discount ?? 0);
+                    $paid  = ($order->paid_tbc ?? 0) + ($order->paid_bog ?? 0)
+                           + ($order->paid_lib ?? 0) + ($order->paid_cash ?? 0);
+                    if (($total - $paid) > 0.01) { $hasDebt = true; break; }
+                }
+                if ($hasDebt) { $errors[] = "#{$rootId} — დავალიანება"; continue; }
+
+                // ნაშთი შემოწმება
+                $noStock = false;
+                foreach ($orders as $order) {
+                    $stock = \App\Models\Warehouse::where('product_id', $order->product_id)
+                        ->where('size', $order->product_size)->first();
+                    if (!$stock || $stock->physical_qty < ($order->quantity ?? 1)) {
+                        $noStock = true; break;
+                    }
+                }
+                if ($noStock) { $errors[] = "#{$rootId} — ნაშთი არ არის"; continue; }
+
+                // გაგზავნა
+                foreach ($orders as $order) {
+                    $this->handleStockChange($order->id, 4);
+                    $old = $order->status_id;
+                    $order->update(['status_id' => 4]);
+                    StatusChangeLog::create([
+                        'order_id'       => $order->id,
+                        'user_id'        => auth()->id(),
+                        'status_id_from' => $old,
+                        'status_id_to'   => 4,
+                        'changed_at'     => now(),
+                    ]);
+                }
+                $sent++;
+            }
+
+            $msg = $sent . ' ორდერი კურიერს გადაეცა.';
+            if (!empty($errors)) $msg .= ' გამოტოვებული: ' . implode(', ', $errors);
+
+            return response()->json(['success' => true, 'sent' => $sent, 'errors' => $errors, 'message' => $msg]);
+        });
+    }
+
     public function revertFromCourier(Request $request, $id)
     {
         return \DB::transaction(function () use ($id) {

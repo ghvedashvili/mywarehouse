@@ -804,6 +804,9 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                 <input class="form-check-input" type="checkbox" id="toggle-ready-ship" role="switch" style="cursor:pointer;">
             </div>
         </div>
+        <button id="btn-send-all-courier" onclick="sendAllReadyToCourier()" class="po-btn po-btn-success" style="display:none;">
+            <i class="fa fa-truck"></i> ყველას გაგზავნა
+        </button>
         <div class="po-toggle-wrap">
             <label for="toggle-deleted">დავ.</label>
             <div class="form-check form-switch mb-0">
@@ -1746,9 +1749,56 @@ function exportFilteredPDF() {
     $('body').append(form); form.submit(); form.remove();
 }
 
-$(document).on('change', '#toggle-ready-ship',   function() { reloadTableWithFilters(); });
+$(document).on('change', '#toggle-ready-ship', function() {
+    $('#btn-send-all-courier').toggle($(this).is(':checked'));
+    reloadTableWithFilters();
+});
 $(document).on('change', '#toggle-deleted',      function() { reloadTableWithFilters(); });
 $(document).on('change', '#toggle-show-deleted', function() { reloadTableWithFilters(); });
+
+window.sendAllReadyToCourier = function() {
+    var ids = [];
+    table.rows({ search: 'applied' }).data().each(function(row) { ids.push(row.id); });
+    if (ids.length === 0) { swal('ინფო', 'გასაგზავნი ორდერი არ მოიძებნა', 'info'); return; }
+
+    swal({
+        title: 'ყველას გაგზავნა?',
+        text: ids.length + ' ორდერი კურიერს გადაეცემა.',
+        type: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#16a34a',
+        confirmButtonText: 'დიახ, გავგზავნოთ!',
+        cancelButtonText: 'გაუქმება'
+    }).then(function(result) {
+        if (!result.isConfirmed) return;
+
+        $.ajax({
+            url: '{{ route('productsOut.sendAllToCourier') }}',
+            type: 'POST',
+            data: { _token: '{{ csrf_token() }}', ids: ids },
+            success: function(res) {
+                swal({
+                    title: 'გაიგზავნა! ✅',
+                    text: res.message,
+                    type: 'success',
+                    showCancelButton: true,
+                    confirmButtonText: 'დაბეჭდვა',
+                    cancelButtonText: 'დახურვა'
+                }).then(function(printResult) {
+                    reloadTableWithFilters();
+                    if (!printResult.isConfirmed) return;
+                    var form = $('<form method="POST" action="{{ route('exportPDF.productOrderFiltered') }}" target="_blank">');
+                    form.append('<input type="hidden" name="_token" value="{{ csrf_token() }}">');
+                    ids.forEach(function(id) { form.append('<input type="hidden" name="ids[]" value="'+id+'">'); });
+                    $('body').append(form); form.submit(); form.remove();
+                });
+            },
+            error: function(xhr) {
+                swal('შეცდომა', xhr.responseJSON ? xhr.responseJSON.message : 'დაფიქსირდა შეცდომა', 'error');
+            }
+        });
+    });
+};
 
 $(document).on('click', '#status-filter-btn', function(e) { e.stopPropagation(); $('#po-status-dropdown').toggle(); });
 $(document).on('click', function(e) { if (!$(e.target).closest('#po-status-wrap').length) $('#po-status-dropdown').hide(); });
