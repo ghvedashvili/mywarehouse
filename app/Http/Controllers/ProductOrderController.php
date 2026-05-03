@@ -1657,6 +1657,25 @@ class ProductOrderController extends Controller
         });
     }
 
+    public function courierTodayIds()
+    {
+        $ids = StatusChangeLog::where('status_id_to', 4)
+            ->whereDate('changed_at', today())
+            ->pluck('order_id')
+            ->unique()
+            ->values()
+            ->toArray();
+
+        // მხოლოდ root/standalone ორდერები (is_primary ან merged_id=NULL)
+        $rootIds = Product_Order::withoutGlobalScope('active')
+            ->whereIn('id', $ids)
+            ->where(fn($q) => $q->where('is_primary', 1)->orWhereNull('merged_id'))
+            ->pluck('id')
+            ->toArray();
+
+        return response()->json(['ids' => $rootIds, 'count' => count($rootIds)]);
+    }
+
     public function sendAllReadyToCourier(Request $request)
     {
         $ids = array_filter(array_map('intval', $request->input('ids', [])));

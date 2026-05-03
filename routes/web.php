@@ -101,6 +101,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('productsOut/send-all-to-courier',  [ProductOrderController::class, 'sendAllReadyToCourier'])->name('productsOut.sendAllToCourier');
     Route::post('productsOut/{id}/revert-from-courier', [ProductOrderController::class, 'revertFromCourier'])->name('productsOut.revertFromCourier');
     Route::post('exportPDF/productOrder/filtered', [ProductOrderController::class, 'exportFilteredOrders'])->name('exportPDF.productOrderFiltered');
+    Route::get('productsOut/courier-today-ids',   [ProductOrderController::class, 'courierTodayIds'])->name('productsOut.courierTodayIds');
     Route::get('/apiProductsOut', [ProductOrderController::class, 'apiProductsOut'])->name('api.productsOut');
     Route::get('/productsOut/stats', [ProductOrderController::class, 'stats'])->name('productsOut.stats');
     Route::resource('productsOut', ProductOrderController::class);

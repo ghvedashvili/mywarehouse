@@ -807,6 +807,9 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
         <button id="btn-send-all-courier" onclick="sendAllReadyToCourier()" class="po-btn po-btn-success" style="display:none;">
             <i class="fa fa-truck"></i> ყველას გაგზავნა
         </button>
+        <button onclick="printCourierToday()" class="po-btn" style="background:#f0f9ff;border-color:#0ea5e9;color:#0369a1;">
+            <i class="fa fa-print"></i> დღეს გაგზავნილი
+        </button>
         <div class="po-toggle-wrap">
             <label for="toggle-deleted">დავ.</label>
             <div class="form-check form-switch mb-0">
@@ -1755,6 +1758,29 @@ $(document).on('change', '#toggle-ready-ship', function() {
 });
 $(document).on('change', '#toggle-deleted',      function() { reloadTableWithFilters(); });
 $(document).on('change', '#toggle-show-deleted', function() { reloadTableWithFilters(); });
+
+window.printCourierToday = function() {
+    $.get('{{ route('productsOut.courierTodayIds') }}', function(res) {
+        if (!res.ids || res.ids.length === 0) {
+            swal('ინფო', 'დღეს კურიერს გადაცემული ორდერი არ მოიძებნა.', 'info');
+            return;
+        }
+        swal({
+            title: 'დღეს გაგზავნილი',
+            text: res.count + ' ორდერი გადაეცა კურიერს დღეს. დაბეჭდვა?',
+            type: 'info',
+            showCancelButton: true,
+            confirmButtonText: 'დაბეჭდვა',
+            cancelButtonText: 'გაუქმება'
+        }).then(function(result) {
+            if (!result.isConfirmed) return;
+            var form = $('<form method="POST" action="{{ route('exportPDF.productOrderFiltered') }}" target="_blank">');
+            form.append('<input type="hidden" name="_token" value="{{ csrf_token() }}">');
+            res.ids.forEach(function(id) { form.append('<input type="hidden" name="ids[]" value="'+id+'">'); });
+            $('body').append(form); form.submit(); form.remove();
+        });
+    });
+};
 
 window.sendAllReadyToCourier = function() {
     var ids = [];
