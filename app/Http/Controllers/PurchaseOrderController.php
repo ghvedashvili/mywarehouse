@@ -236,7 +236,7 @@ class PurchaseOrderController extends Controller
     // ─── გზაში გაყიდვები ─────────────────────────────────────────────
     public function inTransitSales()
     {
-        $rows = Product_Order::where('order_type', 'sale')
+        $rows = Product_Order::whereIn('order_type', ['sale', 'change'])
             ->where('status', 'active')
             ->where('status_id', 1)
             ->select('product_id', 'product_size', \DB::raw('SUM(quantity) as total_qty'))
