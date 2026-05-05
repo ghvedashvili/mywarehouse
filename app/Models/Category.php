@@ -7,13 +7,18 @@ use Illuminate\Database\Eloquent\Model;
 class Category extends Model
 {
     protected $fillable = [
-    'name',
-    'sizes',
-    'user_id',
-    'color',
-    'status',
-    'international_courier_price' 
-];
+        'name',
+        'sizes',
+        'is_divisible',
+        'user_id',
+        'color',
+        'status',
+        'international_courier_price',
+    ];
+
+    protected $casts = [
+        'is_divisible' => 'boolean',
+    ];
 
     protected static function booted()
     {

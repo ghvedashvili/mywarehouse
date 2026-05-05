@@ -21,6 +21,14 @@
                         </label>
                         <input type="text" class="form-control" id="sizes" name="sizes" placeholder="მძიმით გამოყოფილი">
                     </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="is_divisible" name="is_divisible" value="1">
+                            <label class="form-check-label fw-semibold" for="is_divisible">
+                                დაშლადი <small class="text-muted">(პროპორციული ზომა/ფასი — მაგ. სუნამო)</small>
+                            </label>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>

@@ -23,6 +23,17 @@ class PurchaseOrderController extends Controller
         $this->middleware('auth');
     }
 
+    private function divisibleStockKey(int $productId, string $size): string
+    {
+        return FifoService::divisibleFactor($productId, $size) !== null ? 'divisible' : $size;
+    }
+
+    private function divisibleStockQty(int $productId, string $size, int $units): int
+    {
+        $val = FifoService::divisibleFactor($productId, $size);
+        return $val !== null ? (int) round($val * $units) : $units;
+    }
+
     // ─── სტატისტიკა (AJAX, badge განახლებისთვის) ─────────────────────
     public function stats(): \Illuminate\Http\JsonResponse
     {
@@ -740,8 +751,9 @@ class PurchaseOrderController extends Controller
     private function deleteSinglePurchase(Product_Order $order): void
     {
         if (in_array($order->status_id, [2, 3])) {
+            $dSize = $order->product_size ?? '';
             $stock = Warehouse::where('product_id', $order->product_id)
-                              ->where('size', $order->product_size)->first();
+                              ->where('size', $this->divisibleStockKey($order->product_id, $dSize))->first();
 
             if ($order->status_id == 2) PurchaseService::handleStockForPurchase($order->id, 1, $order->original_sale_id !== null);
             elseif ($order->status_id == 3) PurchaseService::handleStockForPurchase($order->id, 4, $order->original_sale_id !== null);
@@ -774,7 +786,7 @@ class PurchaseOrderController extends Controller
                         'changed_at'     => now(),
                     ]);
                 } else {
-                    if ($stock) $stock->decrement('reserved_qty', 1);
+                    if ($stock) $stock->decrement('reserved_qty', $this->divisibleStockQty($order->product_id, $sale->product_size ?? $dSize, $sale->quantity ?? 1));
                     $sale->purchase_order_id = null;
                     $sale->status_id         = 1;
                     $sale->save();
@@ -814,10 +826,11 @@ class PurchaseOrderController extends Controller
                 // handleStockForPurchase-მა უკვე შეცვალა physical_qty,
                 // ამიტომ qty_before = physical_qty − ცვლილება
                 $stockNow = Warehouse::where('product_id', $order->product_id)
-                    ->where('size', $order->product_size)->first();
+                    ->where('size', $this->divisibleStockKey($order->product_id, $order->product_size ?? ''))->first();
+                $stockOrderQty = $this->divisibleStockQty($order->product_id, $order->product_size ?? '', $order->quantity);
 
                 if ($oldStatusId === 2 && $newStatusId === 3) {
-                    $qtyBefore = ($stockNow->physical_qty ?? 0) - $order->quantity;
+                    $qtyBefore = ($stockNow->physical_qty ?? 0) - $stockOrderQty;
                     WarehouseLogService::log(
                         'purchase_in',
                         $order->product_id,
@@ -829,7 +842,7 @@ class PurchaseOrderController extends Controller
                         $qtyBefore
                     );
                 } elseif ($oldStatusId === 3 && $newStatusId === 2) {
-                    $qtyBefore = ($stockNow->physical_qty ?? 0) + $order->quantity;
+                    $qtyBefore = ($stockNow->physical_qty ?? 0) + $stockOrderQty;
                     WarehouseLogService::log(
                         'purchase_rollback',
                         $order->product_id,
@@ -878,8 +891,17 @@ class PurchaseOrderController extends Controller
                 return response()->json(['success' => false,
                     'message' => 'ჯამი (' . $totalAccountedQty . ') აღემატება შეკვეთილ რაოდენობას (' . $totalOriginalQty . ')'], 422);
 
-            $stock = Warehouse::where('product_id', $purchase->product_id)
-                              ->where('size', $purchase->product_size)->first();
+            $pSize     = $purchase->product_size ?? '';
+            $pProdId   = $purchase->product_id;
+            $divVal    = FifoService::divisibleFactor($pProdId, $pSize);
+            $stockKey  = $divVal !== null ? 'divisible' : $pSize;
+            $stock = Warehouse::where('product_id', $pProdId)
+                              ->where('size', $stockKey)->first();
+
+            // qty სკალირება warehouse ოპერაციებისთვის (დაშლადი: units×factor, სხვა: units)
+            $sReceivedQty = $divVal !== null ? (int) round($divVal * $receivedQty) : $receivedQty;
+            $sDefectQty   = $divVal !== null ? (int) round($divVal * $defectQty)   : $defectQty;
+            $sLostQty     = $divVal !== null ? (int) round($divVal * $lostQty)     : $lostQty;
 
             // return/exchange purchase-ისთვის return_incoming_qty იკლება, ჩვეულებრივისთვის incoming_qty
             $isReturnPurchase = $purchase->original_sale_id !== null;
@@ -891,19 +913,18 @@ class PurchaseOrderController extends Controller
             if ($stock && $defectQty > 0) {
                 Defect::create([
                     'purchase_order_id' => $purchase->id,
-                    'product_id'        => $purchase->product_id,
-                    'product_size'      => $purchase->product_size,
+                    'product_id'        => $pProdId,
+                    'product_size'      => $pSize,
                     'type'              => 'defect',
                     'qty'               => $defectQty,
                     'note'              => $request->defect_note ?? null,
                     'user_id'           => auth()->id(),
                 ]);
-                // წუნი საწყობში შემოდის ფიზიკურად, მაგრამ ხელმისაწვდომი არ არის
-                $stock->increment('physical_qty', $defectQty);
-                $stock->increment('defect_qty',   $defectQty);
-                $stock->decrement($incomingCol,   $defectQty);
+                $stock->increment('physical_qty', $sDefectQty);
+                $stock->increment('defect_qty',   $sDefectQty);
+                $stock->decrement($incomingCol,   $sDefectQty);
                 WarehouseLogService::log(
-                    'defect', $purchase->product_id, $purchase->product_size ?? '',
+                    'defect', $pProdId, $pSize,
                     +$defectQty, 'purchase_order', $purchase->id,
                     $request->defect_note ?? 'წუნი — partial receive'
                 );
@@ -912,16 +933,15 @@ class PurchaseOrderController extends Controller
             if ($stock && $lostQty > 0) {
                 Defect::create([
                     'purchase_order_id' => $purchase->id,
-                    'product_id'        => $purchase->product_id,
-                    'product_size'      => $purchase->product_size,
+                    'product_id'        => $pProdId,
+                    'product_size'      => $pSize,
                     'type'              => 'lost',
                     'qty'               => $lostQty,
                     'note'              => $request->lost_note ?? null,
                     'user_id'           => auth()->id(),
                 ]);
-                // დაკარგული საწყობში არ შემოდის — მხოლოდ incoming/return_incoming-დან გამოვა
-                $stock->decrement($incomingCol, $lostQty);
-                $stock->increment('lost_qty',   $lostQty);
+                $stock->decrement($incomingCol, $sLostQty);
+                $stock->increment('lost_qty',   $sLostQty);
                 WarehouseLogService::log(
                     'lost', $purchase->product_id, $purchase->product_size ?? '',
                     -$lostQty, 'purchase_order', $purchase->id,
@@ -1019,16 +1039,16 @@ class PurchaseOrderController extends Controller
                 $purchase->update(['status_id' => 3, 'quantity' => $receivedQty]);
 
                 if ($stock) {
-                    $stock->decrement($incomingCol, $receivedQty);
-                    $stock->increment('physical_qty', $receivedQty);
+                    $stock->decrement($incomingCol, $sReceivedQty);
+                    $stock->increment('physical_qty', $sReceivedQty);
                     $stock->save();
                 }
 
                 WarehouseLogService::log(
-                    'purchase_in', $purchase->product_id, $purchase->product_size ?? '',
+                    'purchase_in', $pProdId, $pSize,
                     +$receivedQty, 'purchase_order', $purchase->id,
                     null,
-                    ($stock->physical_qty ?? 0) - $receivedQty
+                    ($stock->physical_qty ?? 0) - $sReceivedQty
                 );
 
                 $linkedSales = Product_Order::where('purchase_order_id', $purchase->id)
@@ -1036,10 +1056,9 @@ class PurchaseOrderController extends Controller
                     ->orderBy('created_at', 'asc')
                     ->get();
 
-                $promoted = 0;
-                foreach ($linkedSales as $sale) {
-                    if ($promoted < $receivedQty) {
-                        // ✓ ნივთი მიღებულია → status=3 (reserved_qty უცვლელია)
+                if ($divVal !== null) {
+                    // დაშლადი: ყველა linked sale-ი გადაჰყავს status=3 (ნაშთი ml-ებით ითვლება, არა ცალებით)
+                    foreach ($linkedSales as $sale) {
                         $sale->status_id = 3;
                         $sale->save();
                         StatusChangeLog::create([
@@ -1049,13 +1068,29 @@ class PurchaseOrderController extends Controller
                             'status_id_to'   => 3,
                             'changed_at'     => now(),
                         ]);
-                        $promoted++;
-                    } else {
-                        // ✗ ნივთი ვერ მოვიდა → სხვა purchase ან ახალი
-                        $rerouteOrDrop($sale, $purchase->id);
+                    }
+                } else {
+                    $promoted = 0;
+                    foreach ($linkedSales as $sale) {
+                        if ($promoted < $receivedQty) {
+                            // ✓ ნივთი მიღებულია → status=3 (reserved_qty უცვლელია)
+                            $sale->status_id = 3;
+                            $sale->save();
+                            StatusChangeLog::create([
+                                'order_id'       => $sale->id,
+                                'user_id'        => auth()->id(),
+                                'status_id_from' => 2,
+                                'status_id_to'   => 3,
+                                'changed_at'     => now(),
+                            ]);
+                            $promoted++;
+                        } else {
+                            // ✗ ნივთი ვერ მოვიდა → სხვა purchase ან ახალი
+                            $rerouteOrDrop($sale, $purchase->id);
+                        }
                     }
                 }
-               if ($stock) {
+                if ($stock) {
                     PurchaseService::attachPendingSalesToPurchase($purchase, $stock);
                     $stock->save();
                 }
@@ -1106,16 +1141,16 @@ class PurchaseOrderController extends Controller
             $newPurchase = Product_Order::create($newData);
 
             if ($stock) {
-                $stock->decrement($incomingCol, $receivedQty);
-                $stock->increment('physical_qty', $receivedQty);
+                $stock->decrement($incomingCol, $sReceivedQty);
+                $stock->increment('physical_qty', $sReceivedQty);
                 $stock->save();
             }
 
             WarehouseLogService::log(
-                'purchase_in', $purchase->product_id, $purchase->product_size ?? '',
+                'purchase_in', $pProdId, $pSize,
                 +$receivedQty, 'purchase_order', $purchase->id,
                 null,
-                ($stock->physical_qty ?? 0) - $receivedQty
+                ($stock->physical_qty ?? 0) - $sReceivedQty
             );
 
             $linkedSales = Product_Order::where('purchase_order_id', $purchase->id)
@@ -1123,10 +1158,9 @@ class PurchaseOrderController extends Controller
                 ->orderBy('created_at', 'asc')
                 ->get();
 
-            $processed = 0;
-            foreach ($linkedSales as $sale) {
-                if ($processed < $receivedQty) {
-                    // ✓ მიღებული purchase-ზე → status=3 (reserved_qty უცვლელია)
+            if ($divVal !== null) {
+                // დაშლადი: ყველა linked sale-ი 3-ზე, ნაშთი ახალ purchase-ზე გადამისამართდება პატარა სრულ მიღებისას
+                foreach ($linkedSales as $sale) {
                     $sale->status_id = 3;
                     $sale->save();
                     StatusChangeLog::create([
@@ -1136,11 +1170,27 @@ class PurchaseOrderController extends Controller
                         'status_id_to'   => 3,
                         'changed_at'     => now(),
                     ]);
-                    $processed++;
-                } else {
-                    // დარჩენილი → ახალ (გზაში) purchase-ზე (reserved_qty უცვლელია)
-                    $sale->purchase_order_id = $newPurchase->id;
-                    $sale->save();
+                }
+            } else {
+                $processed = 0;
+                foreach ($linkedSales as $sale) {
+                    if ($processed < $receivedQty) {
+                        // ✓ მიღებული purchase-ზე → status=3 (reserved_qty უცვლელია)
+                        $sale->status_id = 3;
+                        $sale->save();
+                        StatusChangeLog::create([
+                            'order_id'       => $sale->id,
+                            'user_id'        => auth()->id(),
+                            'status_id_from' => 2,
+                            'status_id_to'   => 3,
+                            'changed_at'     => now(),
+                        ]);
+                        $processed++;
+                    } else {
+                        // დარჩენილი → ახალ (გზაში) purchase-ზე (reserved_qty უცვლელია)
+                        $sale->purchase_order_id = $newPurchase->id;
+                        $sale->save();
+                    }
                 }
             }
 $purchase->refresh();

@@ -6,20 +6,47 @@ use App\Models\Product_Order;
 
 class FifoService
 {
+    private static array $divisibleCache = [];
+
     // ════════════════════════════════════════════════════════════════
-    // ml ზომიდან რიცხვის ამოღება: "10ml" → 10.0, "100ml" → 100.0, სხვა → null
+    // კატეგორიის is_divisible ფლაგის შემოწმება (cached)
     // ════════════════════════════════════════════════════════════════
-    public static function mlValue(string $size): ?float
+    public static function isDivisibleProduct(int $productId): bool
     {
-        if (preg_match('/^(\d+(?:\.\d+)?)ml$/i', trim($size), $m)) {
+        if (!isset(self::$divisibleCache[$productId])) {
+            $product = \App\Models\Product::withoutGlobalScope('active')->find($productId);
+            self::$divisibleCache[$productId] = false;
+            if ($product) {
+                $category = \App\Models\Category::withoutGlobalScope('active')->find($product->category_id);
+                self::$divisibleCache[$productId] = $category ? (bool) $category->is_divisible : false;
+            }
+        }
+        return self::$divisibleCache[$productId];
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // ზომის სახელის წამყვანი რიცხვი: "10ml"→10, "100ML"→100, "25"→25, "S"→null
+    // ════════════════════════════════════════════════════════════════
+    public static function sizeNumericValue(string $size): ?float
+    {
+        if (preg_match('/^(\d+(?:\.\d+)?)/i', trim($size), $m)) {
             return (float) $m[1];
         }
         return null;
     }
 
     // ════════════════════════════════════════════════════════════════
+    // დაშლადი პროდუქტისთვის ზომის რიცხვი, სხვა შემთხვევაში null
+    // ════════════════════════════════════════════════════════════════
+    public static function divisibleFactor(int $productId, string $size): ?float
+    {
+        if (!self::isDivisibleProduct($productId)) return null;
+        return self::sizeNumericValue($size);
+    }
+
+    // ════════════════════════════════════════════════════════════════
     // შემდეგი sale-ისთვის შესაბამისი purchase-ის პოვნა (FIFO)
-    // ml ზომებისთვის: cross-size matching (10ml sale ← 100ml purchase)
+    // დაშლადი კატეგორიისთვის: cross-size matching (10ml sale ← 100ml purchase)
     // ════════════════════════════════════════════════════════════════
     public static function getNextPurchase(int $productId, string $size = '', int $excludeId = 0): ?Product_Order
     {
@@ -38,26 +65,25 @@ class FifoService
 
         if ($excludeId > 0) $query->where('id', '!=', $excludeId);
 
-        $saleSizeMl = self::mlValue($size);
+        $saleVal = self::divisibleFactor($productId, $size);
 
-        if ($saleSizeMl !== null) {
-            // ml პროდუქტი: ნებისმიერი ml ზომის purchase გამოდგება
+        if ($saleVal !== null) {
+            // დაშლადი: ნებისმიერი ზომის purchase გამოდგება (cross-size)
             $purchases = $query->get(['id', 'quantity', 'product_size', 'cost_price', 'price_georgia', 'status_id', 'created_at']);
 
             foreach ($purchases as $purchase) {
-                $purchSizeMl = self::mlValue($purchase->product_size ?? '');
-                if ($purchSizeMl === null) continue;
+                $purchVal = self::divisibleFactor($productId, $purchase->product_size ?? '');
+                if ($purchVal === null) continue;
 
-                $capacityMl = $purchSizeMl * $purchase->quantity;
+                $capacity = $purchVal * $purchase->quantity;
 
-                // რამდენი ml-ია უკვე გამოყენებული ამ purchase-დან
-                $usedMl = Product_Order::whereIn('order_type', ['sale', 'change'])
+                $used = Product_Order::whereIn('order_type', ['sale', 'change'])
                     ->where('purchase_order_id', $purchase->id)
                     ->whereIn('status_id', [1, 2, 3, 4, 5, 6])
                     ->get(['quantity', 'product_size'])
-                    ->sum(fn($s) => ($s->quantity ?? 1) * (self::mlValue($s->product_size) ?? 0));
+                    ->sum(fn($s) => ($s->quantity ?? 1) * (self::divisibleFactor($productId, $s->product_size) ?? 0));
 
-                if ($usedMl + $saleSizeMl <= $capacityMl) {
+                if ($used + $saleVal <= $capacity) {
                     return $purchase;
                 }
             }
@@ -65,7 +91,7 @@ class FifoService
             return null;
         }
 
-        // არა-ml: ზუსტი ზომის შემოწმება (ძველი ლოგიკა)
+        // არა-დაშლადი: ზუსტი ზომის შემოწმება
         if ($size !== '') $query->where('product_size', $size);
 
         $purchases = $query->get(['id', 'quantity', 'cost_price', 'price_georgia', 'status_id', 'created_at']);
@@ -88,7 +114,7 @@ class FifoService
 
     // ════════════════════════════════════════════════════════════════
     // შემდეგი sale-ისთვის ფასები
-    // ml პროდუქტისთვის: პროპორციული გამოთვლა (10ml = 10/100 × 100ml ფასი)
+    // დაშლადი პროდუქტისთვის: პროპორციული გამოთვლა
     // ════════════════════════════════════════════════════════════════
     public static function getPrices(int $productId, string $size = ''): array
     {
@@ -103,11 +129,11 @@ class FifoService
             ];
         }
 
-        // ml: პროპორციული სკალირება
-        $saleSizeMl  = self::mlValue($size);
-        $purchSizeMl = self::mlValue($purchase->product_size ?? '');
-        if ($saleSizeMl !== null && $purchSizeMl !== null && $purchSizeMl > 0 && $saleSizeMl !== $purchSizeMl) {
-            $factor = $saleSizeMl / $purchSizeMl;
+        $saleVal  = self::divisibleFactor($productId, $size);
+        $purchVal = self::divisibleFactor($productId, $purchase->product_size ?? '');
+
+        if ($saleVal !== null && $purchVal !== null && $purchVal > 0 && $saleVal !== $purchVal) {
+            $factor = $saleVal / $purchVal;
             return [
                 'cost_price'        => round((float) $purchase->cost_price * $factor, 2),
                 'price_georgia'     => round((float) $purchase->price_georgia * $factor, 2),

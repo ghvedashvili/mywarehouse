@@ -9,25 +9,23 @@ use App\Models\StatusChangeLog;
 class PurchaseService
 {
     // ════════════════════════════════════════════════════════════════
-    // Helpers: ml პროდუქტებისთვის warehouse key და qty სკალირება
+    // Helpers: დაშლადი პროდუქტებისთვის warehouse key და qty სკალირება
     // ════════════════════════════════════════════════════════════════
-    private static function stockKey(string $size): string
+    private static function stockKey(int $productId, string $size): string
     {
-        return FifoService::mlValue($size) !== null ? 'ml' : $size;
+        return FifoService::divisibleFactor($productId, $size) !== null ? 'divisible' : $size;
     }
 
-    // ml ორდერის ზომა × რაოდენობა → ml ერთეულები warehouse-ისთვის
-    private static function stockQty(string $size, int $units): int
+    private static function stockQty(int $productId, string $size, int $units): int
     {
-        $ml = FifoService::mlValue($size);
-        return $ml !== null ? (int) round($ml * $units) : $units;
+        $val = FifoService::divisibleFactor($productId, $size);
+        return $val !== null ? (int) round($val * $units) : $units;
     }
 
-    // sale ერთეულის ml ღირებულება reservation-ისთვის (qty=1 unit of "10ml" → 10)
-    private static function reserveQty(string $size, int $units = 1): int
+    private static function reserveQty(int $productId, string $size, int $units = 1): int
     {
-        $ml = FifoService::mlValue($size);
-        return $ml !== null ? (int) round($ml * $units) : $units;
+        $val = FifoService::divisibleFactor($productId, $size);
+        return $val !== null ? (int) round($val * $units) : $units;
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -46,12 +44,13 @@ class PurchaseService
         if ($oldStatusId == 3 && $newStatusId == 1)
             throw new \Exception("შეცდომა: საწყობში მიღებული საქონლის პირდაპირ 'ახალ' სტატუსზე დაბრუნება შეუძლებელია!");
 
-        $size     = $order->product_size ?? '';
-        $stockKey = self::stockKey($size);
-        $qty      = self::stockQty($size, $order->quantity);
+        $productId = $order->product_id;
+        $size      = $order->product_size ?? '';
+        $stockKey  = self::stockKey($productId, $size);
+        $qty       = self::stockQty($productId, $size, $order->quantity);
 
         $stock = Warehouse::firstOrCreate(
-            ['product_id' => $order->product_id, 'size' => $stockKey],
+            ['product_id' => $productId, 'size' => $stockKey],
             ['physical_qty' => 0, 'incoming_qty' => 0, 'return_incoming_qty' => 0, 'reserved_qty' => 0]
         );
 
@@ -105,8 +104,8 @@ class PurchaseService
     {
         $productId = $order->product_id;
         $size      = $order->product_size ?? '';
-        $sizeMl    = FifoService::mlValue($size);
-        $stockKey  = self::stockKey($size);
+        $sizeVal   = FifoService::divisibleFactor($productId, $size);
+        $stockKey  = self::stockKey($productId, $size);
 
         $logAndSave = function (Product_Order $sale, int $newSaleStatus, float $priceUsa = 0, ?int $purchaseOrderId = -1) {
             StatusChangeLog::create([
@@ -128,26 +127,26 @@ class PurchaseService
             $stock = Warehouse::where('product_id', $productId)->where('size', $stockKey)->first();
             if (!$stock) return;
 
-            if ($sizeMl !== null) {
-                // ml: cross-size, capacity in ml units
-                $capacityMl  = $sizeMl * $order->quantity;
-                $usedMl      = self::usedMlForPurchase($order->id);
-                $canTakeMl   = $capacityMl - $usedMl;
-                if ($canTakeMl <= 0) return;
+            if ($sizeVal !== null) {
+                $capacity  = $sizeVal * $order->quantity;
+                $used      = self::usedForPurchase($order->id, $productId);
+                $canTake   = $capacity - $used;
+                if ($canTake <= 0) return;
 
-                $pendingSales = self::pendingMlSales($productId);
+                $pendingSales = self::pendingDivisibleSales($productId);
                 foreach ($pendingSales as $sale) {
-                    if ($canTakeMl <= 0) break;
-                    $saleMl = FifoService::mlValue($sale->product_size) * ($sale->quantity ?? 1);
-                    if ($canTakeMl < $saleMl) continue;
+                    if ($canTake <= 0) break;
+                    $saleUnitVal = FifoService::divisibleFactor($productId, $sale->product_size);
+                    $saleTotalVal = $saleUnitVal * ($sale->quantity ?? 1);
+                    if ($canTake < $saleTotalVal) continue;
                     $stock->refresh();
                     $available = $stock->incoming_qty - $stock->reserved_qty;
-                    if ($available < $saleMl) break;
+                    if ($available < $saleTotalVal) break;
 
                     $sale->purchase_order_id = $order->id;
-                    $sale->price_usa         = round($order->cost_price * (FifoService::mlValue($sale->product_size) / $sizeMl), 2);
-                    $stock->increment('reserved_qty', (int) $saleMl);
-                    $canTakeMl -= $saleMl;
+                    $sale->price_usa         = round($order->cost_price * ($saleUnitVal / $sizeVal), 2);
+                    $stock->increment('reserved_qty', (int) $saleTotalVal);
+                    $canTake -= $saleTotalVal;
                     $logAndSave($sale, 2, $sale->price_usa, $sale->purchase_order_id);
                 }
             } else {
@@ -206,8 +205,8 @@ class PurchaseService
                 ->get();
 
             foreach ($reservedSales as $sale) {
-                $rQty = $sizeMl !== null
-                    ? (int) round((FifoService::mlValue($sale->product_size) ?? 1) * ($sale->quantity ?? 1))
+                $rQty = $sizeVal !== null
+                    ? (int) round((FifoService::divisibleFactor($productId, $sale->product_size) ?? 1) * ($sale->quantity ?? 1))
                     : 1;
                 if ($stock) $stock->decrement('reserved_qty', $rQty);
                 $logAndSave($sale, 1, 0, null);
@@ -225,8 +224,8 @@ class PurchaseService
                 ->get();
             foreach ($salesToRollback as $sale) {
                 if ($order->original_sale_id !== null) {
-                    $rQty = $sizeMl !== null
-                        ? (int) round((FifoService::mlValue($sale->product_size) ?? 1) * ($sale->quantity ?? 1))
+                    $rQty = $sizeVal !== null
+                        ? (int) round((FifoService::divisibleFactor($productId, $sale->product_size) ?? 1) * ($sale->quantity ?? 1))
                         : 1;
                     if ($stock) $stock->decrement('reserved_qty', $rQty);
                     $logAndSave($sale, 1, 0, null);
@@ -247,8 +246,8 @@ class PurchaseService
                 ->get();
 
             foreach ($affectedSales as $sale) {
-                $rQty = $sizeMl !== null
-                    ? (int) round((FifoService::mlValue($sale->product_size) ?? 1) * ($sale->quantity ?? 1))
+                $rQty = $sizeVal !== null
+                    ? (int) round((FifoService::divisibleFactor($productId, $sale->product_size) ?? 1) * ($sale->quantity ?? 1))
                     : 1;
                 if ($stock) $stock->decrement('reserved_qty', $rQty);
                 $logAndSave($sale, 1, 0, null);
@@ -266,25 +265,25 @@ class PurchaseService
             return;
         }
 
+        $productId      = $purchase->product_id;
         $purchaseStatus = $purchase->status_id;
         $isReturn       = $purchase->original_sale_id !== null;
         $size           = $purchase->product_size ?? '';
-        $sizeMl         = FifoService::mlValue($size);
+        $sizeVal        = FifoService::divisibleFactor($productId, $size);
 
-        if ($sizeMl !== null) {
-            // ml product: cross-size matching
-            $capacityMl  = $sizeMl * $purchase->quantity;
-            $usedMl      = self::usedMlForPurchase($purchase->id);
-            $canTakeMl   = $capacityMl - $usedMl;
-            if ($canTakeMl <= 0) return;
+        if ($sizeVal !== null) {
+            $capacity  = $sizeVal * $purchase->quantity;
+            $used      = self::usedForPurchase($purchase->id, $productId);
+            $canTake   = $capacity - $used;
+            if ($canTake <= 0) return;
 
-            $pendingSales = self::pendingMlSales($purchase->product_id, $purchase->id);
+            $pendingSales = self::pendingDivisibleSales($productId, $purchase->id);
 
             foreach ($pendingSales as $sale) {
-                if ($canTakeMl <= 0) break;
-                $saleSaleUnitMl = FifoService::mlValue($sale->product_size);
-                $saleTotalMl    = $saleSaleUnitMl * ($sale->quantity ?? 1);
-                if ($canTakeMl < $saleTotalMl) break;
+                if ($canTake <= 0) break;
+                $saleUnitVal  = FifoService::divisibleFactor($productId, $sale->product_size);
+                $saleTotalVal = $saleUnitVal * ($sale->quantity ?? 1);
+                if ($canTake < $saleTotalVal) break;
 
                 $stock->refresh();
                 if ($purchaseStatus == 2) {
@@ -294,11 +293,11 @@ class PurchaseService
                 } else {
                     $available = $stock->physical_qty - $stock->defect_qty - $stock->reserved_qty;
                 }
-                if ($available < $saleTotalMl) break;
+                if ($available < $saleTotalVal) break;
 
-                $stock->increment('reserved_qty', (int) $saleTotalMl);
+                $stock->increment('reserved_qty', (int) $saleTotalVal);
                 $sale->purchase_order_id = $purchase->id;
-                $sale->price_usa         = round($purchase->cost_price * ($saleSaleUnitMl / $sizeMl), 2);
+                $sale->price_usa         = round($purchase->cost_price * ($saleUnitVal / $sizeVal), 2);
                 $sale->status_id         = $purchaseStatus;
                 $sale->save();
 
@@ -310,14 +309,14 @@ class PurchaseService
                     'changed_at'     => now(),
                 ]);
 
-                $canTakeMl -= $saleTotalMl;
+                $canTake -= $saleTotalVal;
             }
             return;
         }
 
-        // არა-ml: ძველი ლოგიკა
+        // არა-დაშლადი: ძველი ლოგიკა
         $pendingSales = Product_Order::whereIn('order_type', ['sale', 'change'])
-            ->where('product_id', $purchase->product_id)
+            ->where('product_id', $productId)
             ->where('product_size', $size)
             ->where('status_id', 1)
             ->where(function ($q) use ($purchase) {
@@ -368,26 +367,27 @@ class PurchaseService
     // ════════════════════════════════════════════════════════════════
     public static function promotePendingSales(int $productId, string $size, Warehouse $stock, int $purchaseStatus): void
     {
-        $sizeMl = FifoService::mlValue($size);
+        $sizeVal = FifoService::divisibleFactor($productId, $size);
 
-        if ($sizeMl !== null) {
-            $pendingSales = self::pendingMlSales($productId);
+        if ($sizeVal !== null) {
+            $pendingSales = self::pendingDivisibleSales($productId);
             foreach ($pendingSales as $sale) {
                 $stock->refresh();
                 $nextPurchase = FifoService::getNextPurchase($productId, $sale->product_size);
                 if (!$nextPurchase) break;
 
-                $saleMl    = FifoService::mlValue($sale->product_size) * ($sale->quantity ?? 1);
+                $saleUnitVal = FifoService::divisibleFactor($productId, $sale->product_size);
+                $saleTotalVal = $saleUnitVal * ($sale->quantity ?? 1);
                 $available = $purchaseStatus == 2
                     ? $stock->incoming_qty - $stock->reserved_qty
                     : $stock->physical_qty - $stock->defect_qty - $stock->reserved_qty;
-                if ($available < $saleMl) break;
+                if ($available < $saleTotalVal) break;
 
-                $purchSizeMl         = FifoService::mlValue($nextPurchase->product_size ?? '');
-                $sale->price_usa     = $purchSizeMl ? round($nextPurchase->cost_price * (FifoService::mlValue($sale->product_size) / $purchSizeMl), 2) : 0;
+                $purchVal            = FifoService::divisibleFactor($productId, $nextPurchase->product_size ?? '');
+                $sale->price_usa     = $purchVal ? round($nextPurchase->cost_price * ($saleUnitVal / $purchVal), 2) : 0;
                 $sale->purchase_order_id = $nextPurchase->id;
                 $sale->status_id     = $nextPurchase->status_id;
-                $stock->increment('reserved_qty', (int) $saleMl);
+                $stock->increment('reserved_qty', (int) $saleTotalVal);
                 $sale->save();
             }
             return;
@@ -423,14 +423,14 @@ class PurchaseService
     // ════════════════════════════════════════════════════════════════
     public static function reviewSaleStatuses(int $productId, string $size, int $purchaseStatus): void
     {
-        $stockKey = self::stockKey($size);
+        $stockKey = self::stockKey($productId, $size);
         $stock    = Warehouse::where('product_id', $productId)->where('size', $stockKey)->first();
         if (!$stock) return;
 
-        $sizeMl = FifoService::mlValue($size);
+        $sizeVal = FifoService::divisibleFactor($productId, $size);
 
-        if ($sizeMl !== null) {
-            $pendingSales = self::pendingMlSales($productId);
+        if ($sizeVal !== null) {
+            $pendingSales = self::pendingDivisibleSales($productId);
         } else {
             $pendingSales = Product_Order::whereIn('order_type', ['sale', 'change'])
                 ->where('product_id', $productId)
@@ -446,8 +446,8 @@ class PurchaseService
             $nextPurchase = FifoService::getNextPurchase($productId, $sale->product_size);
             if (!$nextPurchase) break;
 
-            $saleMl = $sizeMl !== null
-                ? (FifoService::mlValue($sale->product_size) ?? 1) * ($sale->quantity ?? 1)
+            $saleUnitVal = $sizeVal !== null
+                ? (FifoService::divisibleFactor($productId, $sale->product_size) ?? 1) * ($sale->quantity ?? 1)
                 : 1;
 
             if ($nextPurchase->status_id == 2) {
@@ -458,15 +458,15 @@ class PurchaseService
                 $available = $stock->physical_qty - $stock->defect_qty - $stock->reserved_qty;
             }
 
-            if ($available < $saleMl) break;
+            if ($available < $saleUnitVal) break;
 
-            $purchSizeMl         = FifoService::mlValue($nextPurchase->product_size ?? '');
+            $purchVal            = FifoService::divisibleFactor($productId, $nextPurchase->product_size ?? '');
             $sale->purchase_order_id = $nextPurchase->id;
-            $sale->price_usa     = ($sizeMl !== null && $purchSizeMl)
-                ? round($nextPurchase->cost_price * (FifoService::mlValue($sale->product_size) / $purchSizeMl), 2)
+            $sale->price_usa     = ($sizeVal !== null && $purchVal)
+                ? round($nextPurchase->cost_price * (FifoService::divisibleFactor($productId, $sale->product_size) / $purchVal), 2)
                 : (float) $nextPurchase->cost_price;
             $sale->status_id     = $nextPurchase->status_id;
-            $stock->increment('reserved_qty', (int) $saleMl);
+            $stock->increment('reserved_qty', (int) $saleUnitVal);
             $sale->save();
 
             StatusChangeLog::create([
@@ -483,18 +483,18 @@ class PurchaseService
     // Internal helpers
     // ════════════════════════════════════════════════════════════════
 
-    // სულ რამდენი ml-ია გამოყენებული მოცემული purchase-დან
-    private static function usedMlForPurchase(int $purchaseId): float
+    // სულ რამდენი ერთეული გამოყენებულია მოცემული purchase-დან (დაშლადი)
+    private static function usedForPurchase(int $purchaseId, int $productId): float
     {
         return Product_Order::whereIn('order_type', ['sale', 'change'])
             ->where('purchase_order_id', $purchaseId)
             ->whereIn('status_id', [1, 2, 3, 4, 5, 6])
             ->get(['quantity', 'product_size'])
-            ->sum(fn($s) => ($s->quantity ?? 1) * (FifoService::mlValue($s->product_size) ?? 0));
+            ->sum(fn($s) => ($s->quantity ?? 1) * (FifoService::divisibleFactor($productId, $s->product_size) ?? 0));
     }
 
-    // ml ზომის pending sale-ები პროდუქტისთვის
-    private static function pendingMlSales(int $productId, ?int $purchaseId = null): \Illuminate\Support\Collection
+    // დაშლადი ზომის pending sale-ები პროდუქტისთვის
+    private static function pendingDivisibleSales(int $productId, ?int $purchaseId = null): \Illuminate\Support\Collection
     {
         $q = Product_Order::whereIn('order_type', ['sale', 'change'])
             ->where('product_id', $productId)
@@ -511,6 +511,6 @@ class PurchaseService
             });
         }
 
-        return $q->get()->filter(fn($s) => FifoService::mlValue($s->product_size) !== null)->values();
+        return $q->get()->filter(fn($s) => FifoService::divisibleFactor($productId, $s->product_size) !== null)->values();
     }
 }

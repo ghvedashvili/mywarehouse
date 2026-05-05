@@ -164,6 +164,7 @@ function editForm(id) {
             $('#id').val(data.id);
             $('#name').val(data.name);
             $('#sizes').val(data.sizes);
+            $('#is_divisible').prop('checked', !!data.is_divisible);
         }
     });
 }
