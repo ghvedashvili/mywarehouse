@@ -722,7 +722,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
         </div>
 
         {{-- Card 2: ფინანსები --}}
-        <div class="po-stat" style="--stat-line:var(--c-green);">
+        <!-- <div class="po-stat" style="--stat-line:var(--c-green);">
             <div class="po-stat-icon" style="background:var(--c-green-dim);color:var(--c-green);"><i class="fa fa-coins"></i></div>
             <div class="po-stat-label">ფინანსები</div>
             <div style="margin-top:8px;">
@@ -735,7 +735,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                     <span class="po-stat-row-val" id="stat-debt" style="color:var(--c-red);">—</span>
                 </div>
             </div>
-        </div>
+        </div> -->
 
         {{-- Card 3: სტატუსები --}}
         <div class="po-stat" style="--stat-line:var(--c-teal);">

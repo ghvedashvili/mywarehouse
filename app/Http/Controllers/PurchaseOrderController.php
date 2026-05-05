@@ -223,9 +223,7 @@ class PurchaseOrderController extends Controller
                 $receive = $hasInTransit
                     ? '<a onclick="openGroupReceive('.$gid.')" class="btn btn-warning btn-xs" title="საწყობში მიღება"><i class="fa fa-inbox"></i></a>'
                     : '';
-                $edit = ($count === 1 || $uniqueProducts === 1)
-                    ? '<a onclick="editPurchase('.$row->id.')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i></a>'
-                    : '';
+                $edit = '<a onclick="editPurchase('.$row->id.')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i></a>';
                 $del = '<a onclick="deletePurchase('.$row->id.')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i></a>';
                 return '<div class="d-flex gap-1 justify-content-center">'.$view.$receive.$edit.$del.'</div>';
             })
@@ -387,15 +385,51 @@ class PurchaseOrderController extends Controller
     // ─── შესყიდვის Edit ───────────────────────────────────────────────
     public function edit($id)
     {
-        $order = Product_Order::with('product')->where('order_type', 'purchase')->findOrFail($id);
+        $order   = Product_Order::with('product')->where('order_type', 'purchase')->findOrFail($id);
+        $groupId = $order->purchase_group_id ?? $order->id;
 
-        // ამ purchase-დან ოდესმე გაყიდვა მოხდა? — front-end lock-ისთვის
-        $order->courier_count = Product_Order::withoutGlobalScope('active')
+        $siblings = Product_Order::with('product')
+            ->where('order_type', 'purchase')
+            ->where('purchase_group_id', $groupId)
+            ->orderBy('id')
+            ->get();
+
+        if ($siblings->count() > 1) {
+            $items = $siblings->map(function ($item) {
+                $courierCount = Product_Order::withoutGlobalScope('active')
+                    ->where('purchase_order_id', $item->id)
+                    ->whereIn('status_id', [4, 5, 6])
+                    ->count();
+                return [
+                    'id'                          => $item->id,
+                    'product_id'                  => $item->product_id,
+                    'product_name'                => $item->product?->name ?? 'N/A',
+                    'product_size'                => $item->product_size,
+                    'quantity'                    => $item->quantity,
+                    'price_usa'                   => $item->price_usa,
+                    'courier_price_international' => $item->courier_price_international,
+                    'price_georgia'               => $item->price_georgia,
+                    'courier_count'               => $courierCount,
+                ];
+            })->values();
+
+            return response()->json([
+                'id'                 => $order->id,
+                'group_id'           => $groupId,
+                'is_group'           => true,
+                'order_number'       => $order->order_number,
+                'comment'            => $order->comment,
+                'is_return_purchase' => $order->original_sale_id !== null ? 1 : 0,
+                'items'              => $items,
+            ]);
+        }
+
+        // Single item (existing behaviour)
+        $order->courier_count      = Product_Order::withoutGlobalScope('active')
             ->where('purchase_order_id', $id)
             ->whereIn('status_id', [4, 5, 6])
             ->count();
-
-        $order->product_name      = $order->product->name ?? 'Purchase #' . $id;
+        $order->product_name       = $order->product?->name ?? 'Purchase #' . $id;
         $order->is_return_purchase = $order->original_sale_id !== null ? 1 : 0;
 
         return response()->json($order);

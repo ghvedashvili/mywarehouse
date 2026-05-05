@@ -733,6 +733,7 @@ $(function() {
 
     // ══ MULTI-LINE PURCHASE FORM ══
     var purchaseLineIndex = 0;
+    var isGroupEdit       = false;
     var productOptionsTpl = document.getElementById('tpl-product-options').innerHTML;
 
     window.addPurchaseLine = function(defaults) {
@@ -781,6 +782,8 @@ $(function() {
             $('<td class="text-center">').append($removeBtn)
         );
 
+        if (defaults && defaults.order_id) $tr.attr('data-order-id', defaults.order_id);
+
         $('#purchase-lines-body').append($tr);
 
         $prodSel.select2({
@@ -822,6 +825,12 @@ $(function() {
     $transport.val(defaults.transport);
 }
             $priceGeo.val(defaults.price_georgia ? parseFloat(defaults.price_georgia).toFixed(2) : '');
+
+            if (defaults.locked) {
+                $tr.find('.line-product, .line-size, .line-price-usa, .line-transport')
+                   .prop('disabled', true).css('background', '#f5f5f5');
+                $tr.find('.line-qty').attr('min', defaults.courier_count || 1).css('background', '#fff8e1');
+            }
         } else {
             // ახალი row — transport-ი წინა row-ებიდან გადმოვა
             var existingTransport = parseFloat($('#purchase-lines-body .line-transport').first().val()) || 0;
@@ -871,8 +880,9 @@ $(function() {
         updateRemoveButtons();
     });
 
-    // ── ტრანსპ. სინქრონიზაცია ყველა row-ზე ─────────────────────────
+    // ── ტრანსპ. სინქრონიზაცია ყველა row-ზე (მხოლოდ ახალ შესყიდვაში) ──
     $(document).on('input', '#purchase-lines-body .line-transport', function() {
+        if (isGroupEdit) return;
         var val = $(this).val();
         $('#purchase-lines-body .line-transport').not(this).val(val);
     });
@@ -896,46 +906,73 @@ $(function() {
     window.editPurchase = function(id) {
         $.get("{{ url('purchases') }}/" + id + "/edit", function(data) {
             purchaseLineIndex = 0;
+            isGroupEdit = !!data.is_group;
             $('#purchase_id').val(data.id);
             $('input[name="_method"]', '#form-purchase').val('PATCH');
             $('#purchase-modal-title').text('✏️ ' + (data.order_number || '#' + data.id));
             $('#purchase-lines-body').empty();
             $('#btn-add-line').hide();
-
             $('#purchase_comment').val(data.comment || '');
+            $('#purchase_courier_section').hide();
+            $('input[name="purchase_courier_type"][value="none"]').prop('checked', true);
 
-            if (data.is_return_purchase) {
-                $('#purchase_courier_section').show();
-                var cType = 'none';
-                if ((data.courier_price_tbilisi || 0) > 0) cType = 'tbilisi';
-                else if ((data.courier_price_region  || 0) > 0) cType = 'region';
-                else if ((data.courier_price_village || 0) > 0) cType = 'village';
-                $('input[name="purchase_courier_type"][value="' + cType + '"]').prop('checked', true);
+            if (data.is_group) {
+                // ── ჯგუფური რედაქტირება ──────────────────────────────
+                var anyLocked = false;
+                data.items.forEach(function(item) {
+                    var locked = (item.courier_count || 0) > 0;
+                    if (locked) anyLocked = true;
+                    addPurchaseLine({
+                        order_id:      item.id,
+                        product_id:    item.product_id,
+                        product_size:  item.product_size,
+                        quantity:      item.quantity,
+                        price_usa:     item.price_usa,
+                        transport:     item.courier_price_international || 0,
+                        price_georgia: item.price_georgia || 0,
+                        courier_count: item.courier_count || 0,
+                        locked:        locked,
+                    });
+                });
+                if (anyLocked) {
+                    $('#purchase-courier-lock-msg').remove();
+                    var lockMsg = '<div id="purchase-courier-lock-msg" style="background:#fff3cd;border:1px solid #ffc107;' +
+                        'border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#856404;">' +
+                        '⚠️ ზოგიერთ ჩანაწერს გაყიდვა უკვე განხორციელდა — პროდუქტი/ზომა/ფასი/ტრანსპ. ვერ შეიცვლება.</div>';
+                    $('#form-purchase .modal-body').prepend(lockMsg);
+                }
             } else {
-                $('#purchase_courier_section').hide();
-                $('input[name="purchase_courier_type"][value="none"]').prop('checked', true);
-            }
+                // ── ერთი ჩანაწერის რედაქტირება ──────────────────────
+                if (data.is_return_purchase) {
+                    $('#purchase_courier_section').show();
+                    var cType = 'none';
+                    if ((data.courier_price_tbilisi || 0) > 0) cType = 'tbilisi';
+                    else if ((data.courier_price_region  || 0) > 0) cType = 'region';
+                    else if ((data.courier_price_village || 0) > 0) cType = 'village';
+                    $('input[name="purchase_courier_type"][value="' + cType + '"]').prop('checked', true);
+                }
 
-            addPurchaseLine({
-                product_id:   data.product_id,
-                product_size: data.product_size,
-                quantity:     data.quantity,
-                price_usa:    data.price_usa,
-                transport:    data.is_return_purchase ? 0 : (data.courier_price_international || 0),
-                price_georgia: data.price_georgia || 0,
-            });
+                addPurchaseLine({
+                    product_id:    data.product_id,
+                    product_size:  data.product_size,
+                    quantity:      data.quantity,
+                    price_usa:     data.price_usa,
+                    transport:     data.is_return_purchase ? 0 : (data.courier_price_international || 0),
+                    price_georgia: data.price_georgia || 0,
+                });
 
-            var courierCount = data.courier_count || 0;
-            if (courierCount > 0) {
-                var $tr = $('#purchase-lines-body .purchase-line');
-                $tr.find('.line-product, .line-size, .line-price-usa, .line-transport')
-                   .prop('disabled', true).css('background', '#f5f5f5');
-                $tr.find('.line-qty').attr('min', courierCount).css('background', '#fff8e1');
-                $('#purchase-courier-lock-msg').remove();
-                var lockMsg = '<div id="purchase-courier-lock-msg" style="background:#fff3cd;border:1px solid #ffc107;' +
-                    'border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#856404;">' +
-                    '⚠️ <strong>' + courierCount + ' ერთეული</strong> გაყიდულია — პროდუქტი/ზომა/ფასი/ტრანსპ. ვერ შეიცვლება.</div>';
-                $('#form-purchase .modal-body').prepend(lockMsg);
+                var courierCount = data.courier_count || 0;
+                if (courierCount > 0) {
+                    var $tr = $('#purchase-lines-body .purchase-line');
+                    $tr.find('.line-product, .line-size, .line-price-usa, .line-transport')
+                       .prop('disabled', true).css('background', '#f5f5f5');
+                    $tr.find('.line-qty').attr('min', courierCount).css('background', '#fff8e1');
+                    $('#purchase-courier-lock-msg').remove();
+                    var lockMsg = '<div id="purchase-courier-lock-msg" style="background:#fff3cd;border:1px solid #ffc107;' +
+                        'border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#856404;">' +
+                        '⚠️ <strong>' + courierCount + ' ერთეული</strong> გაყიდულია — პროდუქტი/ზომა/ფასი/ტრანსპ. ვერ შეიცვლება.</div>';
+                    $('#form-purchase .modal-body').prepend(lockMsg);
+                }
             }
 
             $('#modal-purchase').modal('show');
@@ -943,6 +980,7 @@ $(function() {
     };
 
     $('#modal-purchase').on('hidden.bs.modal', function() {
+        isGroupEdit = false;
         $('#purchase-lines-body .line-product').each(function() {
             if ($(this).data('select2')) $(this).select2('destroy');
         });
@@ -1000,7 +1038,56 @@ $(function() {
         }
 
         var $locked = $(this).find(':disabled').prop('disabled', false);
+        var comment = $('#purchase_comment').val();
         var formData;
+
+        if (isGroupEdit) {
+            // ── ჯგუფური განახლება: თითოეულ ჩანაწერს ინდივიდუალურად ვაგზავნით ──
+            var groupRows = [];
+            $('#purchase-lines-body .purchase-line').each(function() {
+                var $r = $(this);
+                groupRows.push({
+                    orderId:   $r.data('order-id'),
+                    data: {
+                        _method:                     'PATCH',
+                        _token:                      "{{ csrf_token() }}",
+                        order_type:                  'purchase',
+                        product_id:                  $r.find('.line-product').val(),
+                        product_size:                $r.find('.line-size').val(),
+                        quantity:                    $r.find('.line-qty').val(),
+                        price_usa:                   $r.find('.line-price-usa').val() || 0,
+                        courier_price_international: $r.find('.line-transport').val() || 0,
+                        price_georgia:               $r.find('.line-price-geo').val() || 0,
+                        comment:                     comment,
+                    }
+                });
+            });
+
+            $locked.prop('disabled', true);
+
+            function sendNext(idx) {
+                if (idx >= groupRows.length) {
+                    $('#modal-purchase').modal('hide');
+                    purchasesTable.ajax.reload();
+                    returnsTable.ajax.reload();
+                    refreshPurchaseStats();
+                    swal({ title: '✅', text: 'ჯგუფი განახლდა!', type: 'success', timer: 1800 });
+                    return;
+                }
+                var row = groupRows[idx];
+                $.ajax({
+                    url: "{{ url('purchases') }}/" + row.orderId,
+                    type: 'POST', data: row.data,
+                    success: function() { sendNext(idx + 1); },
+                    error: function(xhr) {
+                        var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'შეცდომა!';
+                        swal({ title: 'შეცდომა', text: msg, type: 'error' });
+                    }
+                });
+            }
+            sendNext(0);
+            return;
+        }
 
         if (id) {
             var $tr = $('#purchase-lines-body .purchase-line').first();
@@ -1015,7 +1102,7 @@ $(function() {
                 courier_price_international: $tr.find('.line-transport').val() || 0,
                 price_georgia:               $tr.find('.line-price-geo').val() || 0,
                 purchase_courier_type:       $('input[name="purchase_courier_type"]:checked').val() || 'none',
-                comment:                     $('#purchase_comment').val(),
+                comment:                     comment,
             };
         } else {
             formData = $(this).serialize();
