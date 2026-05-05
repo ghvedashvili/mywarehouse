@@ -1249,7 +1249,9 @@ class ProductOrderController extends Controller
                         (float)($o->paid_lib ?? 0) + (float)($o->paid_cash ?? 0));
                     $diff = $totalDue - $totalPaid;
 
-                    if ($diff <= 0.01) {
+                    if ($diff < -0.01) {
+                        $statusHtml = '<span style="color:green; font-weight:700;"><i class="fa fa-plus-circle"></i> +' . number_format(abs($diff), 2) . ' ₾</span>';
+                    } elseif ($diff <= 0.01) {
                         $statusHtml = '<span style="color:green; font-weight:700;"><i class="fa fa-check-circle"></i> გადახდილია</span>';
                     } else {
                         $statusHtml = '<span style="color:red; font-weight:700;"><i class="fa fa-exclamation-circle"></i> -' . number_format($diff, 2) . ' ₾</span>';

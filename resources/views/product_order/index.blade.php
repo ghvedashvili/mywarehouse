@@ -1224,12 +1224,17 @@ var columns = [
             if (data.is_primary && data.children_count > 1) return '<div style="font-size:12.5px;">'+(data.payment || '')+'</div>';
             var geo  = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
             var paid = parseFloat(data.paid_tbc || 0) + parseFloat(data.paid_bog || 0) + parseFloat(data.paid_lib || 0) + parseFloat(data.paid_cash || 0);
+            var diff   = geo - paid;
             var pct    = geo > 0 ? Math.min(paid/geo, 1) : 1;
-            var isPaid = (geo - paid) <= 0.01;
             var pColor = pct >= 1 ? 'var(--c-green)' : (pct > 0 ? 'var(--c-amber)' : 'var(--c-red)');
-            var tag = isPaid
-                ? '<span class="po-paid-tag"><i class="fa fa-check" style="font-size:9px;"></i> გადახდილი</span>'
-                : '<span class="po-debt-tag"><i class="fa fa-circle-exclamation" style="font-size:9px;"></i> '+(geo-paid).toFixed(2)+' ₾</span>';
+            var tag;
+            if (diff < -0.01) {
+                tag = '<span class="po-paid-tag" style="color:var(--c-green);font-weight:700;"><i class="fa fa-plus" style="font-size:9px;"></i> +'+Math.abs(diff).toFixed(2)+' ₾</span>';
+            } else if (diff <= 0.01) {
+                tag = '<span class="po-paid-tag"><i class="fa fa-check" style="font-size:9px;"></i> გადახდილი</span>';
+            } else {
+                tag = '<span class="po-debt-tag"><i class="fa fa-circle-exclamation" style="font-size:9px;"></i> '+diff.toFixed(2)+' ₾</span>';
+            }
             return '<div class="po-finance-total">'+geo.toFixed(2)+' ₾</div>'
                 + (parseFloat(data.discount||0) > 0 ? '<div style="font-size:10px;color:var(--c-text-3);">🏷️ -'+data.discount+'₾</div>' : '')
                 + '<div class="po-paid-row"><div class="po-paid-bar"><div class="po-paid-fill" style="width:'+(pct*100).toFixed(0)+'%;background:'+pColor+';"></div></div></div>'
