@@ -831,10 +831,6 @@ $(function() {
                    .prop('disabled', true).css('background', '#f5f5f5');
                 $tr.find('.line-qty').attr('min', defaults.courier_count || 1).css('background', '#fff8e1');
             }
-        } else {
-            // ახალი row — transport-ი წინა row-ებიდან გადმოვა
-            var existingTransport = parseFloat($('#purchase-lines-body .line-transport').first().val()) || 0;
-            if (existingTransport > 0) $transport.val(existingTransport);
         }
 
         updateRemoveButtons();
@@ -846,8 +842,9 @@ $(function() {
     }
 
     $(document).on('change', '#purchase-lines-body .line-product', function() {
-        var $tr  = $(this).closest('tr');
-        var opt  = $(this).find(':selected');
+        var $tr   = $(this).closest('tr');
+        var prodId = $(this).val();
+        var opt   = $(this).find(':selected');
         var sizes = (opt.attr('data-sizes') || '').toString();
         var geo   = opt.attr('data-price-ge') || 0;
 
@@ -860,6 +857,16 @@ $(function() {
         }
         $tr.find('.line-price-geo').val(geo ? parseFloat(geo).toFixed(2) : '');
         $tr.find('.line-fifo').text('');
+
+        // იგივე პროდუქტის სხვა row-ში ტრანსპ. თუ უკვე შეყვანილია — ამ row-შიც შეავსე
+        if (prodId) {
+            $('#purchase-lines-body .purchase-line').not($tr).each(function() {
+                if ($(this).find('.line-product').val() === prodId) {
+                    var t = parseFloat($(this).find('.line-transport').val()) || 0;
+                    if (t > 0) { $tr.find('.line-transport').val(t); return false; }
+                }
+            });
+        }
     });
 
     $(document).on('change', '#purchase-lines-body .line-size', function() {
@@ -880,11 +887,16 @@ $(function() {
         updateRemoveButtons();
     });
 
-    // ── ტრანსპ. სინქრონიზაცია ყველა row-ზე (მხოლოდ ახალ შესყიდვაში) ──
+    // ── ტრანსპ. სინქრონიზაცია — მხოლოდ იმავე პროდუქტის row-ებზე ──
     $(document).on('input', '#purchase-lines-body .line-transport', function() {
         if (isGroupEdit) return;
-        var val = $(this).val();
-        $('#purchase-lines-body .line-transport').not(this).val(val);
+        var val     = $(this).val();
+        var prodId  = $(this).closest('tr').find('.line-product').val();
+        $('#purchase-lines-body .purchase-line').not($(this).closest('tr')).each(function() {
+            if ($(this).find('.line-product').val() === prodId) {
+                $(this).find('.line-transport').val(val);
+            }
+        });
     });
 
     // ══ MODAL OPEN ══
