@@ -7,61 +7,111 @@ use App\Models\Product_Order;
 class FifoService
 {
     // ════════════════════════════════════════════════════════════════
-    // შემდეგი sale-ისთვის შესაბამისი purchase-ის პოვნა (FIFO)
-    // აბრუნებს purchase ორდერს რომლიდანაც შემდეგი sale უნდა წავიდეს
+    // ml ზომიდან რიცხვის ამოღება: "10ml" → 10.0, "100ml" → 100.0, სხვა → null
     // ════════════════════════════════════════════════════════════════
-    public static function getNextPurchase(int $productId, string $size = '', int $excludeId = 0): ?Product_Order
-{
-    $query = Product_Order::where('order_type', 'purchase')
-        ->where('status', 'active')
-        ->where('product_id', $productId)
-        ->where(function ($q) {
-            // ჩვეულებრივი შესყიდვა — status 2 ან 3
-            // დაბრუნება/გაცვლის შესყიდვა (original_sale_id IS NOT NULL) — მხოლოდ status 3
-            $q->where(function ($inner) {
-                $inner->whereNull('original_sale_id')->whereIn('status_id', [2, 3]);
-            })->orWhere(function ($inner) {
-                $inner->whereNotNull('original_sale_id')->where('status_id', 3);
-            });
-        })
-        ->orderBy('status_id', 'desc')   // საწყობი (3) პრიორიტეტი გზაზე (2)
-        ->orderBy('created_at', 'asc');  // FIFO ერთი სტატუსის შიგნით
-
-    if ($size !== '') $query->where('product_size', $size);
-    if ($excludeId > 0) $query->where('id', '!=', $excludeId);
-
-    $purchases = $query->get(['id', 'quantity', 'cost_price', 'price_georgia', 'status_id', 'created_at']);
-
-    if ($purchases->isEmpty()) return null;
-
-    foreach ($purchases as $purchase) {
-        $usedCount = Product_Order::whereIn('order_type', ['sale', 'change'])
-            ->where('purchase_order_id', $purchase->id)
-            ->whereIn('status_id', [1, 2, 3, 4, 5, 6])  // returned(5) + exchanged(6) ასევე ითვლება
-            ->count();
-
-        if ($usedCount < $purchase->quantity) {
-            return $purchase;
+    public static function mlValue(string $size): ?float
+    {
+        if (preg_match('/^(\d+(?:\.\d+)?)ml$/i', trim($size), $m)) {
+            return (float) $m[1];
         }
+        return null;
     }
 
-    return null;
-}
+    // ════════════════════════════════════════════════════════════════
+    // შემდეგი sale-ისთვის შესაბამისი purchase-ის პოვნა (FIFO)
+    // ml ზომებისთვის: cross-size matching (10ml sale ← 100ml purchase)
+    // ════════════════════════════════════════════════════════════════
+    public static function getNextPurchase(int $productId, string $size = '', int $excludeId = 0): ?Product_Order
+    {
+        $query = Product_Order::where('order_type', 'purchase')
+            ->where('status', 'active')
+            ->where('product_id', $productId)
+            ->where(function ($q) {
+                $q->where(function ($inner) {
+                    $inner->whereNull('original_sale_id')->whereIn('status_id', [2, 3]);
+                })->orWhere(function ($inner) {
+                    $inner->whereNotNull('original_sale_id')->where('status_id', 3);
+                });
+            })
+            ->orderBy('status_id', 'desc')
+            ->orderBy('created_at', 'asc');
+
+        if ($excludeId > 0) $query->where('id', '!=', $excludeId);
+
+        $saleSizeMl = self::mlValue($size);
+
+        if ($saleSizeMl !== null) {
+            // ml პროდუქტი: ნებისმიერი ml ზომის purchase გამოდგება
+            $purchases = $query->get(['id', 'quantity', 'product_size', 'cost_price', 'price_georgia', 'status_id', 'created_at']);
+
+            foreach ($purchases as $purchase) {
+                $purchSizeMl = self::mlValue($purchase->product_size ?? '');
+                if ($purchSizeMl === null) continue;
+
+                $capacityMl = $purchSizeMl * $purchase->quantity;
+
+                // რამდენი ml-ია უკვე გამოყენებული ამ purchase-დან
+                $usedMl = Product_Order::whereIn('order_type', ['sale', 'change'])
+                    ->where('purchase_order_id', $purchase->id)
+                    ->whereIn('status_id', [1, 2, 3, 4, 5, 6])
+                    ->get(['quantity', 'product_size'])
+                    ->sum(fn($s) => ($s->quantity ?? 1) * (self::mlValue($s->product_size) ?? 0));
+
+                if ($usedMl + $saleSizeMl <= $capacityMl) {
+                    return $purchase;
+                }
+            }
+
+            return null;
+        }
+
+        // არა-ml: ზუსტი ზომის შემოწმება (ძველი ლოგიკა)
+        if ($size !== '') $query->where('product_size', $size);
+
+        $purchases = $query->get(['id', 'quantity', 'cost_price', 'price_georgia', 'status_id', 'created_at']);
+
+        if ($purchases->isEmpty()) return null;
+
+        foreach ($purchases as $purchase) {
+            $usedCount = Product_Order::whereIn('order_type', ['sale', 'change'])
+                ->where('purchase_order_id', $purchase->id)
+                ->whereIn('status_id', [1, 2, 3, 4, 5, 6])
+                ->count();
+
+            if ($usedCount < $purchase->quantity) {
+                return $purchase;
+            }
+        }
+
+        return null;
+    }
 
     // ════════════════════════════════════════════════════════════════
     // შემდეგი sale-ისთვის ფასები
+    // ml პროდუქტისთვის: პროპორციული გამოთვლა (10ml = 10/100 × 100ml ფასი)
     // ════════════════════════════════════════════════════════════════
     public static function getPrices(int $productId, string $size = ''): array
     {
         $purchase = self::getNextPurchase($productId, $size);
 
         if (!$purchase) {
-            // purchase არ არის — პროდუქტის ფასი გამოვიყენოთ
             $product = \App\Models\Product::find($productId);
             return [
                 'cost_price'        => (float) ($product->price_usa ?? 0),
                 'price_georgia'     => (float) ($product->price_geo ?? 0),
                 'purchase_order_id' => null,
+            ];
+        }
+
+        // ml: პროპორციული სკალირება
+        $saleSizeMl  = self::mlValue($size);
+        $purchSizeMl = self::mlValue($purchase->product_size ?? '');
+        if ($saleSizeMl !== null && $purchSizeMl !== null && $purchSizeMl > 0 && $saleSizeMl !== $purchSizeMl) {
+            $factor = $saleSizeMl / $purchSizeMl;
+            return [
+                'cost_price'        => round((float) $purchase->cost_price * $factor, 2),
+                'price_georgia'     => round((float) $purchase->price_georgia * $factor, 2),
+                'purchase_order_id' => $purchase->id,
             ];
         }
 
@@ -74,7 +124,6 @@ class FifoService
 
     // ════════════════════════════════════════════════════════════════
     // sale-ების purchase_order_id + ფასების გადანაწილება
-    // გამოიყენება purchase-ის cost_price/price_georgia შეცვლისას
     // ════════════════════════════════════════════════════════════════
     public static function reassignPrices(int $productId, string $size, int $excludePurchaseId = 0): void
     {
@@ -99,8 +148,6 @@ class FifoService
 
         if ($purchases->isEmpty()) return;
 
-        // 1. მიბმული sale-ების price_usa განახლება purchase-ის cost_price-ით
-        // price_georgia არ იცვლება — პროდუქტიდან მოდის
         foreach ($purchases as $purchase) {
             Product_Order::where('order_type', 'sale')
                 ->where('purchase_order_id', $purchase->id)
@@ -110,7 +157,6 @@ class FifoService
                 ]);
         }
 
-        // 2. purchase_order_id=null მქონე sale-ები — FIFO-ს მიხედვით მივუბრუნოთ purchase
         $nullSales = Product_Order::where('order_type', 'sale')
             ->where('product_id', $productId)
             ->where('product_size', $size)
@@ -124,7 +170,6 @@ class FifoService
             if ($nextPurchase) {
                 $sale->purchase_order_id = $nextPurchase->id;
                 $sale->price_usa         = (float) $nextPurchase->cost_price;
-                // price_georgia არ იცვლება
                 $sale->save();
             }
         }

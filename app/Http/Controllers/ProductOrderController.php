@@ -29,6 +29,19 @@ class ProductOrderController extends Controller
         $this->middleware('auth');
     }
 
+    // ml ზომისთვის warehouse key ('ml'), სხვა ზომისთვის — ზომა თავად
+    private function stockKey(string $size): string
+    {
+        return \App\Services\FifoService::mlValue($size) !== null ? 'ml' : $size;
+    }
+
+    // ml ზომისთვის — ml ერთეულები (qty × mlValue), სხვა — qty
+    private function mlQty(string $size, int $units = 1): int
+    {
+        $ml = \App\Services\FifoService::mlValue($size);
+        return $ml !== null ? (int) round($ml * $units) : $units;
+    }
+
     public function index()
     {
         $products = Product::orderBy('name','ASC')->pluck('name','id');
@@ -85,8 +98,10 @@ class ProductOrderController extends Controller
             (int) $request->product_id,
             $request->product_size ?? ''
         );
-        $data['price_georgia']     = (float) ($product->price_geo ?? 0);
-        $data['price_usa']         = $nextPurchase ? (float) $nextPurchase->cost_price : 0;
+        $fifoSaleSize    = $request->product_size ?? '';
+        $fifoSalePrices  = \App\Services\FifoService::getPrices((int) $request->product_id, $fifoSaleSize);
+        $data['price_georgia']     = $fifoSalePrices['price_georgia'] ?: (float) ($product->price_geo ?? 0);
+        $data['price_usa']         = $nextPurchase ? (float) $fifoSalePrices['cost_price'] : 0;
         $data['purchase_order_id'] = null;
 
         if ($user->role === 'staff') {
@@ -116,19 +131,22 @@ class ProductOrderController extends Controller
             $data['courier_price_village'] = $courier->village_price ?? 13;
         }
 
+        $saleSize  = $request->product_size ?? '';
+        $stockKey  = $this->stockKey($saleSize);
+        $reserveMl = $this->mlQty($saleSize, $data['quantity'] ?? 1);
         $stock = \App\Models\Warehouse::where('product_id', $data['product_id'])
-                                      ->where('size', $request->product_size)
+                                      ->where('size', $stockKey)
                                       ->first();
 
         if ($nextPurchase) {
             $data['status_id']         = $nextPurchase->status_id;
             $data['purchase_order_id'] = $nextPurchase->id;
-            $data['price_usa']         = (float) $nextPurchase->cost_price;
+            $data['price_usa']         = (float) \App\Services\FifoService::getPrices((int)$data['product_id'], $saleSize)['cost_price'];
             $data['sale_from']         = ($nextPurchase->status_id == 3) ? 1 : 0;
             $newOrder = Product_Order::create($data);
 
             if ($stock) {
-                $stock->increment('reserved_qty', 1);
+                $stock->increment('reserved_qty', $reserveMl);
             }
 
             StatusChangeLog::create([
@@ -212,8 +230,8 @@ class ProductOrderController extends Controller
                 'customer_id'      => $request->customer_id,
                 'user_id'          => $user->id,
                 'order_type'       => 'sale',
-                'price_georgia'    => (float) ($product->price_geo ?? 0),
-                'price_usa'        => $nextPurchase ? (float) $nextPurchase->cost_price : 0,
+                'price_georgia'    => \App\Services\FifoService::getPrices($productId, $productSize)['price_georgia'] ?: (float) ($product->price_geo ?? 0),
+                'price_usa'        => $nextPurchase ? (float) \App\Services\FifoService::getPrices($productId, $productSize)['cost_price'] : 0,
                 'discount'         => $discount,
                 'paid_tbc'         => 0,
                 'paid_bog'         => 0,
@@ -226,19 +244,21 @@ class ProductOrderController extends Controller
                 'purchase_order_id'=> null,
             ]);
 
+            $stockKey2  = $this->stockKey($productSize);
+            $reserveMl2 = $this->mlQty($productSize, $data['quantity'] ?? 1);
             $stock = \App\Models\Warehouse::where('product_id', $productId)
-                                          ->where('size', $productSize)
+                                          ->where('size', $stockKey2)
                                           ->first();
 
             if ($nextPurchase) {
                 $data['status_id']         = $nextPurchase->status_id;
                 $data['purchase_order_id'] = $nextPurchase->id;
-                $data['price_usa']         = (float) $nextPurchase->cost_price;
+                $data['price_usa']         = (float) \App\Services\FifoService::getPrices((int)$productId, $productSize)['cost_price'];
                 $data['sale_from']         = ($nextPurchase->status_id == 3) ? 1 : 0;
                 $newOrder = Product_Order::create($data);
 
                 if ($stock) {
-                    $stock->increment('reserved_qty', 1);
+                    $stock->increment('reserved_qty', $reserveMl2);
                 }
 
                 StatusChangeLog::create([
@@ -420,9 +440,9 @@ class ProductOrderController extends Controller
                 $oldStockForPromotion = null;
                 if ($keyChanged && in_array($order->order_type, ['sale', 'change']) && in_array($oldStatusId, [2, 3])) {
                     $oldStockForPromotion = \App\Models\Warehouse::where('product_id', $oldProductId)
-                        ->where('size', $oldSize)->first();
+                        ->where('size', $this->stockKey($oldSize))->first();
                     if ($oldStockForPromotion) {
-                        $oldStockForPromotion->decrement('reserved_qty', 1);
+                        $oldStockForPromotion->decrement('reserved_qty', $this->mlQty($oldSize, $order->quantity ?? 1));
                     }
                     $data['purchase_order_id'] = null;
                     $data['status_id']         = 1;
@@ -461,13 +481,13 @@ class ProductOrderController extends Controller
                         if (!$waitingNext) break;
 
                         $waitingSale->purchase_order_id = $waitingNext->id;
-                        $waitingSale->price_usa         = (float) $waitingNext->cost_price;
-                        $waitingSale->status_id         = $waitingNext->status_id; // 2 ან 3
+                        $waitingSale->price_usa         = (float) \App\Services\FifoService::getPrices($oldProductId, $oldSize)['cost_price'];
+                        $waitingSale->status_id         = $waitingNext->status_id;
                         $waitingSale->save();
 
                         if ($oldStockForPromotion) {
                             $oldStockForPromotion->refresh();
-                            $oldStockForPromotion->increment('reserved_qty', 1);
+                            $oldStockForPromotion->increment('reserved_qty', $this->mlQty($oldSize, $waitingSale->quantity ?? 1));
                         }
 
                         StatusChangeLog::create([
@@ -485,26 +505,28 @@ class ProductOrderController extends Controller
                 // 7. sale/change — stock კორექტირება (ახალი product/size-ისთვის)
                 if (in_array($order->order_type, ['sale', 'change'])) {
 
+                    $curSize  = $order->product_size ?? '';
                     $stock = \App\Models\Warehouse::where('product_id', $order->product_id)
-                                                  ->where('size', $order->product_size)
+                                                  ->where('size', $this->stockKey($curSize))
                                                   ->first();
 
-                    $saleQty = $order->quantity ?? 1;
+                    $saleQty    = $order->quantity ?? 1;
+                    $saleResQty = $this->mlQty($curSize, $saleQty);
 
                     // CASE A: status=1 და FIFO-ში ადგილი გამოჩნდა → დავარეზერვოთ
                     if ($order->status_id == 1) {
                         $caseANextPurchase = \App\Services\FifoService::getNextPurchase(
                             $order->product_id,
-                            $order->product_size
+                            $curSize
                         );
 
                         if ($caseANextPurchase) {
                             $order->status_id         = $caseANextPurchase->status_id;
                             $order->purchase_order_id = $caseANextPurchase->id;
-                            $order->price_usa         = (float) $caseANextPurchase->cost_price;
+                            $order->price_usa         = (float) \App\Services\FifoService::getPrices($order->product_id, $curSize)['cost_price'];
 
                             if ($stock) {
-                                $stock->increment('reserved_qty', 1);
+                                $stock->increment('reserved_qty', $saleResQty);
                             }
 
                             $order->save();
@@ -521,13 +543,13 @@ class ProductOrderController extends Controller
 
                     // CASE C: 2→1 (რეზერვის გაუქმება — product/size უცვლელია)
                     if ($oldStatusId == 2 && $order->status_id == 1 && !$keyChanged && $stock) {
-                        $stock->decrement('reserved_qty', 1);
+                        $stock->decrement('reserved_qty', $saleResQty);
                         $stock->save();
                     }
 
                     // CASE D: 3→1 (საწყობიდან გაუქმება — product/size უცვლელია)
                     if ($oldStatusId == 3 && $order->status_id == 1 && !$keyChanged && $stock) {
-                        $stock->decrement('reserved_qty', $saleQty);
+                        $stock->decrement('reserved_qty', $saleResQty);
                         $stock->save();
                     }
                 }
@@ -555,16 +577,20 @@ class ProductOrderController extends Controller
 
         if ($oldStatusId == $newStatusId && $oldStatusParam !== null) return true;
 
+        $size    = $order->product_size ?? '';
+        $key     = $this->stockKey($size);
+        $units   = $order->quantity ?? 1;
+        $qty     = $this->mlQty($size, $units); // ml units if ml-based, else regular qty
+        $resQty  = $this->mlQty($size, 1);       // per-unit reservation (1 unit of "10ml" = 10 ml)
+
         $stock = \App\Models\Warehouse::firstOrCreate(
-            ['product_id' => $order->product_id, 'size' => $order->product_size],
+            ['product_id' => $order->product_id, 'size' => $key],
             ['physical_qty' => 0, 'incoming_qty' => 0, 'reserved_qty' => 0]
         );
 
-        $qty = $order->quantity ?? 1;
-
-        // 1→2: reserved +1
+        // 1→2: reserved +resQty
         if ($oldStatusId == 1 && $newStatusId == 2) {
-            $stock->increment('reserved_qty', 1);
+            $stock->increment('reserved_qty', $resQty);
         }
 
         // 3→4: კურიერთან გაგზავნა
@@ -579,9 +605,9 @@ class ProductOrderController extends Controller
             $stock->increment('reserved_qty', $qty);
         }
 
-        // 2→1: reserved -1
+        // 2→1: reserved -resQty
         if ($oldStatusId == 2 && $newStatusId == 1) {
-            $stock->decrement('reserved_qty', 1);
+            $stock->decrement('reserved_qty', $resQty);
         }
 
         return $stock->save();
@@ -699,31 +725,43 @@ class ProductOrderController extends Controller
 
             // ─── stock rollback + ყველაზე ძველი pending-ის დაწინაურება ────
             if ($wasReserved) {
+                $delMlQty = $this->mlQty($deletedSize, 1);
                 $stock = \App\Models\Warehouse::where('product_id', $deletedProdId)
-                                              ->where('size', $deletedSize)
+                                              ->where('size', $this->stockKey($deletedSize))
                                               ->first();
                 if ($stock) {
-                    $stock->decrement('reserved_qty', 1);
+                    $stock->decrement('reserved_qty', $delMlQty);
                     $stock->refresh();
 
                     // ─── FIFO: ყველაზე ძველი pending sale ────────────────
-                    $pendingSale = Product_Order::whereIn('order_type', ['sale', 'change'])
-                        ->where('product_id', $deletedProdId)
-                        ->where('product_size', $deletedSize)
-                        ->where('status_id', 1)
-                        ->orderBy('created_at', 'asc')
-                        ->first();
+                    $deletedSizeMl = \App\Services\FifoService::mlValue($deletedSize);
+                    if ($deletedSizeMl !== null) {
+                        // ml: find any pending ml sale for this product
+                        $pendingSale = Product_Order::whereIn('order_type', ['sale', 'change'])
+                            ->where('product_id', $deletedProdId)
+                            ->where('status_id', 1)
+                            ->orderBy('created_at', 'asc')
+                            ->get()
+                            ->first(fn($s) => \App\Services\FifoService::mlValue($s->product_size) !== null);
+                    } else {
+                        $pendingSale = Product_Order::whereIn('order_type', ['sale', 'change'])
+                            ->where('product_id', $deletedProdId)
+                            ->where('product_size', $deletedSize)
+                            ->where('status_id', 1)
+                            ->orderBy('created_at', 'asc')
+                            ->first();
+                    }
 
                     if ($pendingSale) {
-                        $nextPurchase = \App\Services\FifoService::getNextPurchase($deletedProdId, $deletedSize);
+                        $nextPurchase = \App\Services\FifoService::getNextPurchase($deletedProdId, $pendingSale->product_size);
 
                         if ($nextPurchase) {
                             $pendingSale->purchase_order_id = $nextPurchase->id;
-                            $pendingSale->price_usa         = (float) $nextPurchase->cost_price;
+                            $pendingSale->price_usa         = (float) \App\Services\FifoService::getPrices($deletedProdId, $pendingSale->product_size)['cost_price'];
                             $pendingSale->status_id         = $nextPurchase->status_id;
                             $pendingSale->save();
 
-                            $stock->increment('reserved_qty', 1);
+                            $stock->increment('reserved_qty', $this->mlQty($pendingSale->product_size, $pendingSale->quantity ?? 1));
 
                             StatusChangeLog::create([
                                 'order_id'       => $pendingSale->id,

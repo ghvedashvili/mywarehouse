@@ -163,4 +163,5 @@ document.getElementById('image').addEventListener('change', function() {
         preview.innerHTML = '<span class="text-muted small">Upload</span>';
     }
 });
+
 </script>
