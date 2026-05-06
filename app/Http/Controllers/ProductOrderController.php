@@ -866,6 +866,7 @@ class ProductOrderController extends Controller
                          ->orWhere('tel', 'like', "%{$search}%")
                          ->orWhere('alternative_tel', 'like', "%{$search}%");
                   })
+                  ->orWhere('comment', 'like', "%{$search}%")
                   ->orWhereHas('siblings', function($sq) use ($search) {
                       $sq->whereHas('product', function($pq) use ($search) {
                           $pq->where('name', 'like', "%{$search}%")
@@ -1416,9 +1417,10 @@ class ProductOrderController extends Controller
                     return $wrap . $revertBtn . $pdfBtn . $mailBtn . $unmergeBtn . '</div>';
                 }
 
-                // სტატუს 5,6 — მხოლოდ PDF, Mail, History
+                // სტატუს 5,6 — PDF, Mail, History + კომენტარის რედაქტირება
                 if (in_array($item->status_id, [5, 6])) {
-                    return $wrap . $pdfBtn . $mailBtn . $histBtn . '</div>';
+                    $commentBtn = '<a onclick="editComment('.$item->id.')" class="btn btn-xs btn-warning" title="კომენტარი"><i class="fa fa-comment"></i></a>';
+                    return $wrap . $commentBtn . $pdfBtn . $mailBtn . $histBtn . '</div>';
                 }
 
                 if ($item->is_primary) {
@@ -1887,6 +1889,14 @@ class ProductOrderController extends Controller
         ]);
 
         return response()->json(['success' => true, 'message' => 'გადახდა განახლდა ✅']);
+    }
+
+    public function updateComment(Request $request, $id)
+    {
+        $order = Product_Order::findOrFail($id);
+        $order->comment = $request->input('comment', '');
+        $order->save();
+        return response()->json(['success' => true]);
     }
 
     public function updateStatus(Request $request, $id)

@@ -115,6 +115,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('product-order/{id}/status-log', [ProductOrderController::class, 'statusLog'])->name('productOrder.statusLog');
     Route::patch('productsOut/{id}/status',  [ProductOrderController::class, 'updateStatus'])->name('productsOut.updateStatus');
     Route::patch('productsOut/{id}/payment', [ProductOrderController::class, 'updatePayment'])->name('productsOut.updatePayment');
+    Route::patch('productsOut/{id}/comment', [ProductOrderController::class, 'updateComment'])->name('productsOut.updateComment');
 
     // ── Warehouse (ნაშთი) ─────────────────────────────────────────────
     Route::get('warehouse',             [WarehouseController::class, 'index'])->name('warehouse.index');

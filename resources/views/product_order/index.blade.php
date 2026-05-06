@@ -961,6 +961,26 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     </div>
 </div>
 
+{{-- კომენტარის რედაქტირება (status 5/6) --}}
+<div class="modal fade" id="modal-comment-edit" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content" style="border-radius:12px;">
+            <div class="modal-header" style="background:#fff8e1;">
+                <h5 class="modal-title"><i class="fa fa-comment me-1"></i> კომენტარი</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="comment-edit-id">
+                <textarea id="comment-edit-text" class="form-control" rows="4" placeholder="კომენტარი..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">გაუქმება</button>
+                <button type="button" class="btn btn-warning btn-sm" id="comment-edit-save">შენახვა</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @include('product_order.form_sale')
 
 <div class="modal fade" id="modal-quick-pay" tabindex="-1" data-bs-backdrop="static">
@@ -2371,6 +2391,27 @@ function loadPoStats() {
     });
 }
 loadPoStats();
+
+function editComment(id) {
+    $.get("{{ url('productsOut') }}/"+id+"/edit", function(data) {
+        $('#comment-edit-id').val(id);
+        $('#comment-edit-text').val(data.comment || '');
+        $('#modal-comment-edit').modal('show');
+    }, 'json');
+}
+
+$('#comment-edit-save').on('click', function() {
+    var id = $('#comment-edit-id').val();
+    $.ajax({
+        url: "{{ url('productsOut') }}/"+id+"/comment",
+        type: 'POST',
+        data: { _method: 'PATCH', _token: '{{ csrf_token() }}', comment: $('#comment-edit-text').val() },
+        success: function() {
+            $('#modal-comment-edit').modal('hide');
+            table.ajax.reload(null, false);
+        }
+    });
+});
 
 </script>
 @endsection
