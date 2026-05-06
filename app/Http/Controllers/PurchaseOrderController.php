@@ -89,7 +89,7 @@ class PurchaseOrderController extends Controller
                         ?? $items->first();
             }
 
-            $groupCountMap[$primary->id]        = $items->count();
+            $groupCountMap[$primary->id]        = $items->groupBy(fn($r) => $r->product_id . '_' . ($r->product_size ?? ''))->count();
             $groupReceivedQtyMap[$primary->id]  = (int) $items->where('status_id', 3)->sum('quantity');
             $groupRemainingQtyMap[$primary->id] = (int) $items->where('status_id', 2)->sum('quantity');
             $groupItemsMap[$primary->id]        = $items->map(fn($r) => [
@@ -287,20 +287,35 @@ class PurchaseOrderController extends Controller
         ->selectRaw('reference_id, ABS(SUM(qty_change)) as lost_qty')
         ->pluck('lost_qty', 'reference_id');
 
-    return response()->json($items->map(fn($r) => [
-        'id'            => $r->id,
-        'product_name'  => $r->product?->name         ?? 'N/A',
-        'product_code'  => $r->product?->product_code ?? '—',
-        'product_image' => $r->product?->image_url,
-        'product_size'  => $r->product_size,
-        'quantity'      => $r->quantity,
-        'original_qty'  => $r->original_qty ?? $r->quantity,
-        'cost_price'    => (float) ($r->cost_price ?? 0),
-        'lost_qty'      => (int) ($lostMap[$r->id] ?? 0),
-        'status_id'     => $r->status_id,
-        'status_name'   => $r->orderStatus?->name  ?? '-',
-        'status_color'  => $r->orderStatus?->color ?? 'default',
-    ])->values());
+    // ნაწილობრივი შემოტანის შემდეგ ერთი პროდუქტი/ზომა შეიძლება
+    // რამდენიმე row-ად გაიყოს (status=3 received + status=2 remainder).
+    // ვაერთიანებთ (product_id, product_size) წყვილით.
+    $merged = $items->groupBy(fn($r) => $r->product_id . '_' . ($r->product_size ?? ''));
+
+    return response()->json($merged->map(function ($group) use ($lostMap) {
+        $first        = $group->first();
+        $inTransit    = $group->where('status_id', 2);
+        $received     = $group->where('status_id', 3);
+        $inTransitQty = (int) $inTransit->sum('quantity');
+        $rep          = $inTransit->first() ?? $first;
+        $originalQty  = (int) ($group->max('original_qty') ?: $group->sum('quantity'));
+        $totalLost    = $group->reduce(fn($c, $r) => $c + (int) ($lostMap[$r->id] ?? 0), 0);
+
+        return [
+            'id'            => $rep->id,
+            'product_name'  => $first->product?->name         ?? 'N/A',
+            'product_code'  => $first->product?->product_code ?? '—',
+            'product_image' => $first->product?->image_url,
+            'product_size'  => $first->product_size,
+            'quantity'      => $inTransitQty > 0 ? $inTransitQty : (int) $received->sum('quantity'),
+            'original_qty'  => $originalQty,
+            'cost_price'    => (float) ($first->cost_price ?? 0),
+            'lost_qty'      => $totalLost,
+            'status_id'     => $inTransitQty > 0 ? 2 : 3,
+            'status_name'   => $rep->orderStatus?->name  ?? '-',
+            'status_color'  => $rep->orderStatus?->color ?? 'default',
+        ];
+    })->values());
 }
 
     // ─── შესყიდვის შექმნა ─────────────────────────────────────────────
