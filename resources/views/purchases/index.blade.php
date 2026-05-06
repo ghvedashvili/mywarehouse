@@ -1034,6 +1034,9 @@ $(function() {
     // ══ SUBMIT ══
     $('#form-purchase').on('submit', function(e) {
         e.preventDefault();
+        var $saveBtn = $('#btn-purchase-save');
+        if ($saveBtn.prop('disabled')) return;
+
         var id  = $('#purchase_id').val();
         var url = id ? "{{ url('purchases') }}/" + id : "{{ url('purchases') }}";
 
@@ -1049,7 +1052,8 @@ $(function() {
             return;
         }
 
-        var $locked = $(this).find(':disabled').prop('disabled', false);
+        $saveBtn.prop('disabled', true).css('opacity', '0.65');
+        var $locked = $(this).find(':disabled').not($saveBtn).prop('disabled', false);
         var comment = $('#purchase_comment').val();
         var formData;
 
@@ -1079,6 +1083,7 @@ $(function() {
 
             function sendNext(idx) {
                 if (idx >= groupRows.length) {
+                    $saveBtn.prop('disabled', false).css('opacity', '');
                     $('#modal-purchase').modal('hide');
                     purchasesTable.ajax.reload();
                     returnsTable.ajax.reload();
@@ -1092,6 +1097,7 @@ $(function() {
                     type: 'POST', data: row.data,
                     success: function() { sendNext(idx + 1); },
                     error: function(xhr) {
+                        $saveBtn.prop('disabled', false).css('opacity', '');
                         var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'შეცდომა!';
                         swal({ title: 'შეცდომა', text: msg, type: 'error' });
                     }
@@ -1135,6 +1141,9 @@ $(function() {
             error: function(xhr) {
                 var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'შეცდომა!';
                 swal({ title: 'შეცდომა', text: msg, type: 'error' });
+            },
+            complete: function() {
+                $saveBtn.prop('disabled', false).css('opacity', '');
             }
         });
     });

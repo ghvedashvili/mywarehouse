@@ -190,6 +190,9 @@ function deleteData(id) {
 $(function() {
     $('#modal-form form').validator().on('submit', function(e) {
         if (!e.isDefaultPrevented()) {
+            var $submitBtn = $(this).find('[type=submit]');
+            if ($submitBtn.prop('disabled')) return false;
+            $submitBtn.prop('disabled', true).css('opacity', '0.65');
             var id  = $('#id').val();
             var url = (save_method == 'add') ? "{{ url('categories') }}" : "{{ url('categories') }}/" + id;
             $.ajax({
@@ -208,7 +211,8 @@ $(function() {
                         $.each(response.errors, function(key, value) { errorString += value + ' '; });
                     } else { errorString = 'Something went wrong!'; }
                     swal({ title: 'Oops...', text: errorString, icon: 'error' });
-                }
+                },
+                complete: function() { $submitBtn.prop('disabled', false).css('opacity', ''); }
             });
             return false;
         }

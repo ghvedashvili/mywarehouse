@@ -111,6 +111,9 @@ $(function() {
 
     $('#form-bundle').on('submit', function(e) {
         e.preventDefault();
+        var $submitBtn = $(this).find('[type=submit]');
+        if ($submitBtn.prop('disabled')) return;
+        $submitBtn.prop('disabled', true).css('opacity', '0.65');
         var id   = $('#bundle_id_field').val();
         var url  = id ? '/product-bundles/' + id : '/product-bundles';
         var data = { _token: '{{ csrf_token() }}', name: $('#bundle_name').val() };
@@ -124,7 +127,8 @@ $(function() {
             },
             error: function(xhr) {
                 swal('შეცდომა', xhr.responseJSON?.errors?.name?.[0] || xhr.responseJSON?.message || '', 'error');
-            }
+            },
+            complete: function() { $submitBtn.prop('disabled', false).css('opacity', ''); }
         });
     });
 });

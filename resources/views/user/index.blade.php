@@ -98,7 +98,7 @@
             </div>
             <div class="modal-footer" style="background:#fff;">
                 <button type="button" class="btn btn-light fw-semibold" data-bs-dismiss="modal" style="border-radius:8px;border:1.5px solid #dee2e6;">გაუქმება</button>
-                <button type="button" class="btn btn-success fw-semibold" onclick="submitCreateUser()" style="border-radius:8px;">
+                <button type="button" id="btn-create-user" class="btn btn-success fw-semibold" onclick="submitCreateUser()" style="border-radius:8px;">
                     <i class="fa fa-check me-1"></i> შექმნა
                 </button>
             </div>
@@ -133,7 +133,7 @@
             </div>
             <div class="modal-footer" style="background:#fff;">
                 <button type="button" class="btn btn-light fw-semibold" data-bs-dismiss="modal" style="border-radius:8px;border:1.5px solid #dee2e6;">გაუქმება</button>
-                <button type="button" class="btn btn-primary fw-semibold" onclick="submitChangePassword()" style="border-radius:8px;">
+                <button type="button" id="btn-change-password" class="btn btn-primary fw-semibold" onclick="submitChangePassword()" style="border-radius:8px;">
                     <i class="fa fa-save me-1"></i> შეცვლა
                 </button>
             </div>
@@ -186,7 +186,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-light" data-bs-dismiss="modal" style="border-radius:8px;">გაუქმება</button>
-                <button type="button" onclick="submitEdit()" class="btn btn-success" style="border-radius:8px;"><i class="fa fa-check me-1"></i> შენახვა</button>
+                <button type="button" id="btn-edit-user" onclick="submitEdit()" class="btn btn-success" style="border-radius:8px;"><i class="fa fa-check me-1"></i> შენახვა</button>
             </div>
         </div>
     </div>
@@ -224,6 +224,9 @@ function openCreateUser() {
 }
 
 function submitCreateUser() {
+    var $btn = $('#btn-create-user');
+    if ($btn.prop('disabled')) return;
+    $btn.prop('disabled', true).css('opacity', '0.65');
     var fields = ['cu-name','cu-email','cu-password','cu-password-confirm','cu-role'];
     fields.forEach(function(id) {
         var el = document.getElementById(id);
@@ -259,7 +262,8 @@ function submitCreateUser() {
             if (!Object.keys(errors).length) {
                 swal({ title: 'შეცდომა', text: xhr.responseJSON?.message || 'შეცდომა', icon: 'error' });
             }
-        }
+        },
+        complete: function() { $btn.prop('disabled', false).css('opacity', ''); }
     });
 }
 
@@ -275,6 +279,8 @@ function openChangePassword() {
 }
 
 function submitChangePassword() {
+    var $btn = $('#btn-change-password');
+    if ($btn.prop('disabled')) return;
     ['cp-current','cp-new'].forEach(function(id) {
         document.getElementById(id).classList.remove('is-invalid');
     });
@@ -285,6 +291,7 @@ function submitChangePassword() {
         document.getElementById('cp-new-err').textContent = 'პაროლები არ ემთხვევა.';
         return;
     }
+    $btn.prop('disabled', true).css('opacity', '0.65');
     $.ajax({
         url: "{{ route('user.change-password') }}",
         type: 'POST',
@@ -302,7 +309,8 @@ function submitChangePassword() {
             var msg = xhr.responseJSON?.message || 'შეცდომა';
             document.getElementById('cp-current').classList.add('is-invalid');
             document.getElementById('cp-current-err').textContent = msg;
-        }
+        },
+        complete: function() { $btn.prop('disabled', false).css('opacity', ''); }
     });
 }
 
@@ -344,6 +352,9 @@ function editForm(id) {
 }
 
 function submitEdit() {
+    var $btn = $('#btn-edit-user');
+    if ($btn.prop('disabled')) return;
+    $btn.prop('disabled', true).css('opacity', '0.65');
     $.ajax({
         url: "{{ url('user') }}/" + $('#edit_user_id').val(),
         type: "POST",
@@ -353,7 +364,8 @@ function submitEdit() {
             table.ajax.reload();
             swal({ title: 'წარმატება!', text: data.message, icon: 'success', timer: 1500 });
         },
-        error: function(xhr) { swal({ title: 'შეცდომა', text: xhr.responseJSON?.message, icon: 'error' }); }
+        error: function(xhr) { swal({ title: 'შეცდომა', text: xhr.responseJSON?.message, icon: 'error' }); },
+        complete: function() { $btn.prop('disabled', false).css('opacity', ''); }
     });
 }
 

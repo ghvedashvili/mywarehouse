@@ -214,7 +214,7 @@
             </div>
             <div class="modal-footer py-2">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">გაუქმება</button>
-                <button type="button" class="btn btn-success" onclick="savePolicy()">
+                <button type="button" id="btn-save-policy" class="btn btn-success" onclick="savePolicy()">
                     <i class="fa fa-save me-1"></i> შენახვა
                 </button>
             </div>
@@ -274,9 +274,11 @@ function openEdit(id, name, role, saleBase, saleBonus, warehouse, fixedSalary, e
 }
 
 function savePolicy() {
-    var id   = $('#policy_id').val();
-    var role = isEdit ? $('#f_role').val() : $('#f_role').val();
+    var $btn = $('#btn-save-policy');
+    if ($btn.prop('disabled')) return;
+    $btn.prop('disabled', true).css('opacity', '0.65');
 
+    var id   = $('#policy_id').val();
     var data = {
         _token:         '{{ csrf_token() }}',
         role:           $('#f_role').val(),
@@ -297,9 +299,8 @@ function savePolicy() {
         data.fixed_salary = $('#f_fixed_salary').val();
     }
 
-    var url    = id ? '/salary-policy/' + id : '/salary-policy';
-    var method = id ? 'PATCH' : 'POST';
-    if (method === 'PATCH') data['_method'] = 'PATCH';
+    var url = id ? '/salary-policy/' + id : '/salary-policy';
+    if (id) data['_method'] = 'PATCH';
 
     $.ajax({
         url: url, type: 'POST', data: data,
@@ -311,7 +312,8 @@ function savePolicy() {
         error: function(xhr) {
             var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'შეცდომა';
             Swal.fire({ icon: 'error', title: 'შეცდომა', text: msg });
-        }
+        },
+        complete: function() { $btn.prop('disabled', false).css('opacity', ''); }
     });
 }
 

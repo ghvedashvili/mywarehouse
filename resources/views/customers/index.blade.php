@@ -172,14 +172,19 @@ $(function() {
             $(this).addClass('was-validated');
             return false;
         }
-        
+
+        var $submitBtn = $(this).find('[type=submit]');
+        if ($submitBtn.prop('disabled')) return false;
+        $submitBtn.prop('disabled', true).css('opacity', '0.65');
+
         var id  = $('#id').val();
         var url = (save_method == 'add') ? "{{ url('customers') }}" : "{{ url('customers') }}/" + id;
-        
+        var form = this;
+
         $.ajax({
             url: url,
             type: "POST",
-            data: new FormData(this),
+            data: new FormData(form),
             contentType: false,
             processData: false,
             success: function(data) {
@@ -188,28 +193,16 @@ $(function() {
                 Swal.fire({ title: 'წარმატება!', text: data.message, icon: 'success', timer: 1500 });
             },
             error: function(data) {
-    if (data.status === 422) { // ვალიდაციის შეცდომა
-        var errors = data.responseJSON.errors;
-        var errorMessages = "";
-
-        // ყველა შეცდომის შეგროვება ერთ ტექსტში
-        $.each(errors, function(key, value) {
-            errorMessages += value[0] + "<br>"; 
-        });
-
-        Swal.fire({
-            title: 'ვალიდაციის შეცდომა!',
-            html: errorMessages, // აქ გამოჩნდება "ტელეფონი უკვე გამოყენებულია" და ა.შ.
-            icon: 'error'
-        });
-    } else {
-        Swal.fire({
-            title: 'Oops!',
-            text: 'დაფიქსირდა გაუთვალისწინებელი შეცდომა',
-            icon: 'error'
-        });
-    }
-}
+                if (data.status === 422) {
+                    var errors = data.responseJSON.errors;
+                    var errorMessages = "";
+                    $.each(errors, function(key, value) { errorMessages += value[0] + "<br>"; });
+                    Swal.fire({ title: 'ვალიდაციის შეცდომა!', html: errorMessages, icon: 'error' });
+                } else {
+                    Swal.fire({ title: 'Oops!', text: 'დაფიქსირდა გაუთვალისწინებელი შეცდომა', icon: 'error' });
+                }
+            },
+            complete: function() { $submitBtn.prop('disabled', false).css('opacity', ''); }
         });
         return false;
     });

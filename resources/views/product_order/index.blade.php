@@ -1149,7 +1149,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-default" data-bs-dismiss="modal">გაუქმება</button>
-                    <button type="submit" class="btn btn-warning"><i class="fa fa-refresh"></i> დარეგისტრირება</button>
+                    <button type="submit" id="btn-change-save" class="btn btn-warning"><i class="fa fa-refresh"></i> დარეგისტრირება</button>
                 </div>
             </form>
         </div>
@@ -2336,14 +2336,18 @@ $(document).on('input', '#courier_refund_input', function() {
 
 $('#form-change').on('submit', function(e) {
     e.preventDefault();
+    var $saveBtn = $('#btn-change-save');
+    if ($saveBtn.prop('disabled')) return;
     var productId = $('#change_product_id').val(); var size = $('#change_size').val();
     if (!productId || !size) { swal('შეცდომა', 'პროდუქტი და ზომა სავალდებულოა', 'error'); return; }
+    $saveBtn.prop('disabled', true).css('opacity', '0.65');
     var $disabledSize = $('#change_size').filter(':disabled'); $disabledSize.prop('disabled',false);
     var formData = $(this).serialize(); $disabledSize.prop('disabled',true);
     $.ajax({
         url:"{{ url('productsOut/change') }}", type:'POST', data:formData,
         success: function(res) { $('#modal-change').modal('hide'); table.ajax.reload(null,false); swal({ title:'✅', text:res.message, type:'success', timer:2000 }); },
-        error: function(xhr) { swal('შეცდომა', xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'შეცდომა!', 'error'); }
+        error: function(xhr) { swal('შეცდომა', xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'შეცდომა!', 'error'); },
+        complete: function() { $saveBtn.prop('disabled', false).css('opacity', ''); }
     });
 });
 

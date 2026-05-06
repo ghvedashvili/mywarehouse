@@ -78,7 +78,7 @@
 
             <div class="modal-footer py-2">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">გაუქმება</button>
-                <button type="submit" form="form-purchase" class="btn btn-success">
+                <button type="submit" form="form-purchase" id="btn-purchase-save" class="btn btn-success">
                     <i class="fa fa-save me-1"></i> შენახვა
                 </button>
             </div>
