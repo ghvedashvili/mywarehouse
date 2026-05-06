@@ -369,6 +369,169 @@ class FinanceController extends Controller
     }
 
     // ─── პერიოდის განსაზღვრა ─────────────────────────────────────────
+    public function courierStats(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $from  = $request->input('date_from', now()->startOfMonth()->toDateString());
+        $to    = $request->input('date_to',   now()->endOfMonth()->toDateString());
+        $types = $request->input('types', ['tbilisi', 'region', 'village']);
+
+        $allowed = ['tbilisi', 'region', 'village'];
+        $types   = array_intersect($types, $allowed);
+        if (empty($types)) {
+            $types = $allowed;
+        }
+
+        $hasCourier = function ($q) use ($types) {
+            $q->where(function ($inner) use ($types) {
+                foreach ($types as $t) {
+                    $inner->orWhere('courier_price_' . $t, '>', 0);
+                }
+            });
+        };
+
+        $sumRaw = implode(', ', array_map(
+            fn($t) => "COALESCE(SUM(courier_price_{$t}),0) as {$t}",
+            $allowed
+        ));
+
+        // Unpaid in date range
+        $unpaid = \App\Models\Product_Order::withoutGlobalScope('active')
+            ->whereNull('courier_paid_at')
+            ->whereBetween(\DB::raw('DATE(created_at)'), [$from, $to])
+            ->where($hasCourier)
+            ->selectRaw($sumRaw)
+            ->first();
+
+        // Paid in date range (by order creation date)
+        $paid = \App\Models\Product_Order::withoutGlobalScope('active')
+            ->whereNotNull('courier_paid_at')
+            ->whereBetween(\DB::raw('DATE(created_at)'), [$from, $to])
+            ->where($hasCourier)
+            ->selectRaw($sumRaw)
+            ->first();
+
+        // Payment history (last 15 batches by courier_paid_at date)
+        $history = \App\Models\Product_Order::withoutGlobalScope('active')
+            ->whereNotNull('courier_paid_at')
+            ->where(function ($q) use ($allowed) {
+                foreach ($allowed as $t) {
+                    $q->orWhere('courier_price_' . $t, '>', 0);
+                }
+            })
+            ->selectRaw("DATE(courier_paid_at) as pay_date, {$sumRaw}")
+            ->groupBy('pay_date')
+            ->orderBy('pay_date', 'desc')
+            ->limit(15)
+            ->get();
+
+        $toArr = fn($row) => [
+            'tbilisi' => (float)($row?->tbilisi ?? 0),
+            'region'  => (float)($row?->region  ?? 0),
+            'village' => (float)($row?->village  ?? 0),
+            'total'   => (float)(($row?->tbilisi ?? 0) + ($row?->region ?? 0) + ($row?->village ?? 0)),
+        ];
+
+        return response()->json([
+            'unpaid'  => $toArr($unpaid),
+            'paid'    => $toArr($paid),
+            'history' => $history->map(fn($r) => array_merge(['date' => $r->pay_date], $toArr($r)))->values(),
+        ]);
+    }
+
+    public function courierOrders(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $paidDate = $request->input('paid_date');
+
+        if ($paidDate) {
+            $orders = \App\Models\Product_Order::withoutGlobalScope('active')
+                ->whereRaw('DATE(courier_paid_at) = ?', [$paidDate])
+                ->where(function ($q) {
+                    $q->where('courier_price_tbilisi', '>', 0)
+                      ->orWhere('courier_price_region',  '>', 0)
+                      ->orWhere('courier_price_village', '>', 0);
+                })
+                ->with('customer:id,name')
+                ->select(['id', 'order_number', 'customer_id',
+                          'courier_price_tbilisi', 'courier_price_region', 'courier_price_village'])
+                ->orderBy('id', 'desc')
+                ->get();
+        } else {
+            $from  = $request->input('date_from');
+            $to    = $request->input('date_to');
+            $types = array_intersect((array)$request->input('types', ['tbilisi', 'region', 'village']),
+                                     ['tbilisi', 'region', 'village']);
+
+            $orders = \App\Models\Product_Order::withoutGlobalScope('active')
+                ->whereNull('courier_paid_at')
+                ->whereBetween(\DB::raw('DATE(created_at)'), [$from, $to])
+                ->where(function ($q) use ($types) {
+                    foreach ($types as $t) {
+                        $q->orWhere('courier_price_' . $t, '>', 0);
+                    }
+                })
+                ->with('customer:id,name')
+                ->select(['id', 'order_number', 'customer_id',
+                          'courier_price_tbilisi', 'courier_price_region', 'courier_price_village'])
+                ->orderBy('id', 'desc')
+                ->get();
+        }
+
+        return response()->json($orders->map(fn($o) => [
+            'id'           => $o->id,
+            'order_number' => $o->order_number ?: ('S' . $o->id),
+            'customer'     => $o->customer->name ?? '—',
+            'tbilisi'      => (float)($o->courier_price_tbilisi ?? 0),
+            'region'       => (float)($o->courier_price_region  ?? 0),
+            'village'      => (float)($o->courier_price_village ?? 0),
+            'total'        => (float)(($o->courier_price_tbilisi ?? 0)
+                                    + ($o->courier_price_region  ?? 0)
+                                    + ($o->courier_price_village ?? 0)),
+        ])->values());
+    }
+
+    public function courierPay(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $from  = $request->input('date_from');
+        $to    = $request->input('date_to');
+        $types = $request->input('types', ['tbilisi', 'region', 'village']);
+
+        $allowed = ['tbilisi', 'region', 'village'];
+        $types   = array_intersect((array)$types, $allowed);
+        if (empty($types) || !$from || !$to) {
+            return response()->json(['success' => false, 'message' => 'პარამეტრები არასრულია'], 422);
+        }
+
+        $query = \App\Models\Product_Order::withoutGlobalScope('active')
+            ->whereNull('courier_paid_at')
+            ->whereBetween(\DB::raw('DATE(created_at)'), [$from, $to])
+            ->where(function ($q) use ($types) {
+                foreach ($types as $t) {
+                    $q->orWhere('courier_price_' . $t, '>', 0);
+                }
+            });
+
+        $orders = $query->get();
+        $total  = $orders->sum(function ($o) use ($types) {
+            return array_sum(array_map(fn($t) => (float)($o->{'courier_price_' . $t} ?? 0), $types));
+        });
+
+        $count = \App\Models\Product_Order::withoutGlobalScope('active')
+            ->whereNull('courier_paid_at')
+            ->whereBetween(\DB::raw('DATE(created_at)'), [$from, $to])
+            ->where(function ($q) use ($types) {
+                foreach ($types as $t) {
+                    $q->orWhere('courier_price_' . $t, '>', 0);
+                }
+            })
+            ->update(['courier_paid_at' => now()]);
+
+        return response()->json([
+            'success' => true,
+            'count'   => $count,
+            'total'   => round($total, 2),
+        ]);
+    }
+
     private function resolveDateRange(Request $request): array
     {
         $preset = $request->input('period', 'month');

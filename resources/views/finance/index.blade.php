@@ -204,6 +204,39 @@
 .cost-row.total-row .lbl,
 .cost-row.total-row .val { color: var(--red); font-size: 13px; }
 
+/* ─── COURIER PAY SECTION ────────────────────────────────────── */
+.cp-section { background: #fff; border-radius: 12px; padding: 18px 20px; box-shadow: var(--card-shadow); margin-bottom: 20px; }
+.cp-title    { font-size: 14px; font-weight: 700; color: #2d3436; margin-bottom: 14px; }
+.cp-filter   { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px;
+               background: #f8f9fa; border-radius: 8px; padding: 12px 14px; }
+.cp-filter label { font-size: 11px; font-weight: 700; color: #636e72; text-transform: uppercase; display: block; margin-bottom: 4px; }
+.cp-filter input[type=date] { border: 1.5px solid #dfe6e9; border-radius: 6px; padding: 5px 8px; font-size: 12px; }
+.cp-types   { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cp-types label { font-size: 12px; font-weight: 600; color: #2d3436; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.cp-cards   { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.cp-card    { background: #f8f9fa; border-radius: 10px; padding: 12px 14px; border-left: 4px solid #dfe6e9; }
+.cp-card.tbilisi { border-left-color: #0984e3; }
+.cp-card.region  { border-left-color: #00b894; }
+.cp-card.village { border-left-color: #e17055; }
+.cp-card.total-card { border-left-color: #6c5ce7; background: #f5f3ff; }
+.cp-card .cp-card-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #636e72; margin-bottom: 4px; }
+.cp-card .cp-card-val   { font-size: 18px; font-weight: 800; color: #2d3436; }
+.cp-card .cp-card-sub   { font-size: 10px; color: #b2bec3; margin-top: 2px; }
+.cp-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.btn-cp-pay  { background: #00b894; color: #fff; border: none; border-radius: 8px;
+               padding: 9px 22px; font-size: 13px; font-weight: 700; cursor: pointer; transition: opacity .15s; }
+.btn-cp-pay:disabled { opacity: .55; cursor: not-allowed; }
+.btn-cp-pay:not(:disabled):hover { opacity: .88; }
+.btn-cp-refresh { background: #fff; border: 1.5px solid #dfe6e9; border-radius: 8px;
+                  padding: 7px 14px; font-size: 12px; font-weight: 600; color: #636e72; cursor: pointer; }
+.cp-history-toggle { font-size: 12px; color: #0984e3; cursor: pointer; text-decoration: underline; margin-left: auto; }
+.cp-history  { margin-top: 14px; display: none; }
+.cp-history table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.cp-history th { background: #f8f9fa; padding: 6px 10px; text-align: left; font-size: 10px; font-weight: 700;
+                 text-transform: uppercase; color: #b2bec3; }
+.cp-history td { padding: 7px 10px; border-bottom: 1px solid #f5f5f5; }
+.cp-history tr:last-child td { border-bottom: none; }
+
 /* ─── ENTRIES TABLE ───────────────────────────────────────────── */
 .entries-section { background: #fff; border-radius: 12px; padding: 18px 20px; box-shadow: var(--card-shadow); margin-bottom: 20px; }
 .entries-header  { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
@@ -538,6 +571,92 @@
         </div>
     </div>
 
+    {{-- ══ COURIER PAY SECTION ══ --}}
+    @if(auth()->user()->role === 'admin')
+    <div class="cp-section">
+        <div class="cp-title">🚚 საკურიეროს გადახდა</div>
+
+        <div class="cp-filter">
+            <div>
+                <label>თარიღიდან</label>
+                <input type="date" id="cp-from" value="{{ now()->startOfMonth()->toDateString() }}">
+            </div>
+            <div>
+                <label>თარიღამდე</label>
+                <input type="date" id="cp-to" value="{{ now()->toDateString() }}">
+            </div>
+            <div>
+                <label>ტიპი</label>
+                <div class="cp-types">
+                    <label><input type="checkbox" class="cp-type-check" value="tbilisi" checked> თბილისი</label>
+                    <label><input type="checkbox" class="cp-type-check" value="region"  checked> რეგიონი</label>
+                    <label><input type="checkbox" class="cp-type-check" value="village" checked> სოფელი</label>
+                </div>
+            </div>
+            <button class="btn-cp-refresh" onclick="loadCourierStats()">
+                <i class="fa fa-refresh"></i> განახლება
+            </button>
+        </div>
+
+        {{-- Unpaid stat cards --}}
+        <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#636e72; margin-bottom:8px; letter-spacing:.4px;">
+            გადაუხდელი (არჩეული პერიოდი)
+        </div>
+        <div class="cp-cards">
+            <div class="cp-card tbilisi">
+                <div class="cp-card-label">თბილისი</div>
+                <div class="cp-card-val" id="cp-unpaid-tbilisi">—</div>
+                <div class="cp-card-sub">გადაუხდელი</div>
+            </div>
+            <div class="cp-card region">
+                <div class="cp-card-label">რეგიონი</div>
+                <div class="cp-card-val" id="cp-unpaid-region">—</div>
+                <div class="cp-card-sub">გადაუხდელი</div>
+            </div>
+            <div class="cp-card village">
+                <div class="cp-card-label">სოფელი</div>
+                <div class="cp-card-val" id="cp-unpaid-village">—</div>
+                <div class="cp-card-sub">გადაუხდელი</div>
+            </div>
+            <div class="cp-card total-card">
+                <div class="cp-card-label">სულ გადაუხდელი</div>
+                <div class="cp-card-val" id="cp-unpaid-total">—</div>
+                <div class="cp-card-sub" id="cp-unpaid-orders-count"></div>
+            </div>
+        </div>
+
+        <div class="cp-actions">
+            <button class="btn-cp-pay" id="btn-cp-pay" onclick="doCourierPay()">
+                <i class="fa fa-check me-1"></i> გადახდა
+            </button>
+            <span style="font-size:12px; color:#636e72;" id="cp-pay-note">გადახდა მონიშნავს ყველა გადაუხდელ ორდერს არჩეულ პერიოდში</span>
+            <span class="cp-history-toggle" onclick="toggleCpHistory()">ისტორია ▾</span>
+        </div>
+
+        {{-- Payment history --}}
+        <div class="cp-history" id="cp-history-block">
+            <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#636e72; margin-bottom:8px; margin-top:10px; letter-spacing:.4px;">
+                გადახდების ისტორია (ბოლო 15)
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>თარიღი</th>
+                        <th style="text-align:right; color:#0984e3;">თბილისი</th>
+                        <th style="text-align:right; color:#00b894;">რეგიონი</th>
+                        <th style="text-align:right; color:#e17055;">სოფელი</th>
+                        <th style="text-align:right; color:#6c5ce7;">სულ</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="cp-history-body">
+                    <tr><td colspan="6" style="text-align:center; color:#b2bec3; padding:16px;">იტვირთება...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    @endif
+
     {{-- ══ SALARY SECTION ══ --}}
     @if(auth()->user()->role === 'admin')
     <div class="entries-section" id="salary-section">
@@ -686,6 +805,39 @@
 
 </div>{{-- /fin-wrap --}}
 </div>{{-- /mod-wrap --}}
+
+{{-- ══ MODAL: COURIER ORDERS ══ --}}
+<div class="modal fade" id="modal-cp-orders" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width:540px;">
+        <div class="modal-content" style="border-radius:12px;">
+            <div class="modal-header" style="background:#f8f9fa;">
+                <h5 class="modal-title" id="cp-orders-title" style="font-size:15px;font-weight:700;">ორდერები</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div id="cp-orders-summary"
+                 style="padding:8px 18px;background:#f0f4ff;font-size:13px;border-bottom:1px solid #e9ecef;"></div>
+            <div class="modal-body p-0">
+                <table class="table table-sm table-hover mb-0" style="font-size:13px;">
+                    <thead style="position:sticky;top:0;z-index:1;background:#f8f9fa;">
+                        <tr>
+                            <th style="padding:8px 14px;font-size:11px;text-transform:uppercase;color:#b2bec3;font-weight:700;">ორდ. №</th>
+                            <th style="padding:8px 14px;font-size:11px;text-transform:uppercase;color:#b2bec3;font-weight:700;">მომხმარებელი</th>
+                            <th style="padding:8px 14px;text-align:right;font-size:11px;text-transform:uppercase;color:#b2bec3;font-weight:700;">თანხა</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cp-orders-body"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer" style="gap:8px;">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">დახურვა</button>
+                <button type="button" class="btn btn-success btn-sm" id="btn-cp-confirm-pay"
+                        onclick="confirmCpPay()" style="display:none;">
+                    <i class="fa fa-check me-1"></i> გადახდის დადასტურება
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {{-- ══ MODAL: ADD ENTRY ══ --}}
 @if(auth()->user()->role === 'admin')
@@ -1238,6 +1390,167 @@ function deleteEntry(id) {
         }
     });
 }
+
+// ══════════════════════════════════════════════════════════
+// COURIER PAY
+// ══════════════════════════════════════════════════════════
+function getCpParams() {
+    var types = [];
+    document.querySelectorAll('.cp-type-check:checked').forEach(function(cb) { types.push(cb.value); });
+    return {
+        date_from: document.getElementById('cp-from').value,
+        date_to:   document.getElementById('cp-to').value,
+        types:     types,
+    };
+}
+
+function fmt(v) { return parseFloat(v || 0).toFixed(2) + ' ₾'; }
+
+var _cpPayPending = false;
+
+function showCpOrdersModal(orders, title, withPayBtn) {
+    var total = orders.reduce(function(s, o) { return s + o.total; }, 0);
+    document.getElementById('cp-orders-title').textContent = title;
+    document.getElementById('cp-orders-summary').innerHTML =
+        '<strong>' + orders.length + '</strong> ორდერი &nbsp;·&nbsp; ' +
+        '<strong style="color:#6c5ce7;">' + fmt(total) + '</strong>';
+
+    var tbody = document.getElementById('cp-orders-body');
+    if (!orders.length) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#b2bec3;padding:20px;">ორდერები არ მოიძებნა</td></tr>';
+    } else {
+        tbody.innerHTML = orders.map(function(o) {
+            return '<tr>' +
+                '<td style="padding:7px 14px;font-weight:700;white-space:nowrap;">' + o.order_number + '</td>' +
+                '<td style="padding:7px 14px;color:#636e72;">' + o.customer + '</td>' +
+                '<td style="padding:7px 14px;text-align:right;font-weight:700;color:#6c5ce7;">' + fmt(o.total) + '</td>' +
+                '</tr>';
+        }).join('');
+    }
+
+    var payBtn = document.getElementById('btn-cp-confirm-pay');
+    payBtn.style.display = withPayBtn ? '' : 'none';
+    payBtn.disabled = false;
+
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-cp-orders')).show();
+}
+
+function loadCourierStats() {
+    var p = getCpParams();
+    var qs = 'date_from=' + p.date_from + '&date_to=' + p.date_to;
+    p.types.forEach(function(t) { qs += '&types[]=' + t; });
+
+    $.get('{{ route("finance.courierStats") }}?' + qs, function(d) {
+        document.getElementById('cp-unpaid-tbilisi').textContent = fmt(d.unpaid.tbilisi);
+        document.getElementById('cp-unpaid-region').textContent  = fmt(d.unpaid.region);
+        document.getElementById('cp-unpaid-village').textContent = fmt(d.unpaid.village);
+        document.getElementById('cp-unpaid-total').textContent   = fmt(d.unpaid.total);
+
+        var payBtn = document.getElementById('btn-cp-pay');
+        payBtn.disabled = d.unpaid.total <= 0;
+
+        // history
+        var tbody = document.getElementById('cp-history-body');
+        if (!d.history || !d.history.length) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#b2bec3; padding:16px;">გადახდები არ მოიძებნა</td></tr>';
+        } else {
+            tbody.innerHTML = d.history.map(function(r) {
+                return '<tr>' +
+                    '<td><strong>' + r.date + '</strong></td>' +
+                    '<td style="text-align:right; color:#0984e3;">' + fmt(r.tbilisi) + '</td>' +
+                    '<td style="text-align:right; color:#00b894;">'  + fmt(r.region)  + '</td>' +
+                    '<td style="text-align:right; color:#e17055;">'  + fmt(r.village) + '</td>' +
+                    '<td style="text-align:right; font-weight:700; color:#6c5ce7;">' + fmt(r.total) + '</td>' +
+                    '<td style="text-align:center;">' +
+                        '<button onclick="showCpHistoryDetail(\'' + r.date + '\')" ' +
+                            'style="border:1.5px solid #0984e3;background:#fff;color:#0984e3;border-radius:5px;' +
+                            'padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;">დათვ.</button>' +
+                    '</td>' +
+                    '</tr>';
+            }).join('');
+        }
+    });
+}
+
+function toggleCpHistory() {
+    var block = document.getElementById('cp-history-block');
+    block.style.display = block.style.display === 'none' ? 'block' : 'none';
+}
+
+function showCpHistoryDetail(date) {
+    document.getElementById('cp-orders-body').innerHTML =
+        '<tr><td colspan="3" style="text-align:center;color:#b2bec3;padding:20px;"><i class="fa fa-spinner fa-spin"></i> იტვირთება...</td></tr>';
+    document.getElementById('cp-orders-summary').innerHTML = '';
+    document.getElementById('cp-orders-title').textContent = 'ორდერები — ' + date;
+    document.getElementById('btn-cp-confirm-pay').style.display = 'none';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-cp-orders')).show();
+
+    $.get('{{ route("finance.courierOrders") }}?paid_date=' + date, function(orders) {
+        showCpOrdersModal(orders, 'ორდერები — ' + date, false);
+    });
+}
+
+function doCourierPay() {
+    var p = getCpParams();
+    if (!p.types.length) { Swal.fire('შეცდომა', 'აირჩიე სულ მცირე ერთი ტიპი', 'error'); return; }
+    if (!p.date_from || !p.date_to) { Swal.fire('შეცდომა', 'მიუთითე თარიღის დიაპაზონი', 'error'); return; }
+
+    var $btn = $('#btn-cp-pay');
+    $btn.prop('disabled', true).css('opacity', '0.65');
+
+    var qs = 'date_from=' + p.date_from + '&date_to=' + p.date_to;
+    p.types.forEach(function(t) { qs += '&types[]=' + t; });
+
+    $.get('{{ route("finance.courierOrders") }}?' + qs, function(orders) {
+        if (!orders.length) {
+            Swal.fire('ინფო', 'გადაუხდელი ორდერები არ მოიძებნა', 'info');
+            $btn.prop('disabled', false).css('opacity', '');
+            return;
+        }
+        _cpPayPending = true;
+        showCpOrdersModal(orders, 'გადახდის დადასტურება', true);
+        $btn.prop('disabled', false).css('opacity', '');
+    }).fail(function() {
+        $btn.prop('disabled', false).css('opacity', '');
+    });
+}
+
+function confirmCpPay() {
+    if (!_cpPayPending) return;
+    _cpPayPending = false;
+
+    var $confirmBtn = $('#btn-cp-confirm-pay');
+    $confirmBtn.prop('disabled', true);
+    bootstrap.Modal.getInstance(document.getElementById('modal-cp-orders')).hide();
+
+    var p = getCpParams();
+    var $btn = $('#btn-cp-pay');
+    $btn.prop('disabled', true).css('opacity', '0.65');
+
+    var data = { _token: '{{ csrf_token() }}', date_from: p.date_from, date_to: p.date_to };
+    p.types.forEach(function(t, i) { data['types[' + i + ']'] = t; });
+
+    $.post('{{ route("finance.courierPay") }}', data, function(res) {
+        if (res.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'გადახდა დაფიქსირდა',
+                text: res.count + ' ორდერი · ' + parseFloat(res.total).toFixed(2) + ' ₾',
+                timer: 2500,
+                showConfirmButton: false,
+            });
+            loadCourierStats();
+        }
+    }).fail(function(xhr) {
+        Swal.fire('შეცდომა', xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'შეცდომა', 'error');
+    }).always(function() {
+        $btn.prop('disabled', false).css('opacity', '');
+        $confirmBtn.prop('disabled', false);
+    });
+}
+
+// Load on page init
+$(function() { loadCourierStats(); });
 </script>
 @endsection
 

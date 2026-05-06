@@ -65,7 +65,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/finance',           [FinanceController::class, 'index'])->name('finance.index');
     Route::post('/finance',          [FinanceController::class, 'store'])->name('finance.store');
     Route::delete('/finance/{id}',   [FinanceController::class, 'destroy'])->name('finance.destroy');
-    Route::get('/finance/api-stats', [FinanceController::class, 'apiStats'])->name('finance.apiStats');
+    Route::get('/finance/api-stats',     [FinanceController::class, 'apiStats'])->name('finance.apiStats');
+    Route::get('/finance/courier-stats',  [FinanceController::class, 'courierStats'])->name('finance.courierStats');
+    Route::get('/finance/courier-orders', [FinanceController::class, 'courierOrders'])->name('finance.courierOrders');
+    Route::post('/finance/courier-pay',   [FinanceController::class, 'courierPay'])->name('finance.courierPay');
 
     // ── Salary ────────────────────────────────────────────────────────
     Route::get('/salary/calculate',  [SalaryController::class, 'calculate'])->name('salary.calculate');
