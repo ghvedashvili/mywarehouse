@@ -18,6 +18,7 @@ use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\SalaryController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\ProductBundleController;
+use App\Http\Controllers\CourierController;
 
 /*
 |--------------------------------------------------------------------------
@@ -76,6 +77,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/salary/history',    [SalaryController::class, 'history'])->name('salary.history');
 
     // ── Salary Policy ─────────────────────────────────────────────────
+    Route::get('/couriers',        [CourierController::class, 'index'])->name('couriers.index');
+    Route::patch('/couriers/{id}', [CourierController::class, 'update'])->name('couriers.update');
+
     Route::get('/salary-policy',         [\App\Http\Controllers\SalaryPolicyController::class, 'index'])->name('salary-policy.index');
     Route::post('/salary-policy',        [\App\Http\Controllers\SalaryPolicyController::class, 'store'])->name('salary-policy.store');
     Route::patch('/salary-policy/{id}',  [\App\Http\Controllers\SalaryPolicyController::class, 'update'])->name('salary-policy.update');

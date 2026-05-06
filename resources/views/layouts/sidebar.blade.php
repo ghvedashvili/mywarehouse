@@ -59,6 +59,9 @@
             <a href="{{ route('finance.index') }}" class="sidebar-link {{ request()->is('finance*') ? 'active' : '' }}" onclick="closeSidebar()">
                 <i class="fa fa-chart-line"></i> 💰 ფინანსები
             </a>
+            <a href="{{ route('couriers.index') }}" class="sidebar-link {{ request()->is('couriers*') ? 'active' : '' }}" onclick="closeSidebar()">
+                <i class="fa fa-truck"></i> კურიერები
+            </a>
             <a href="{{ route('user.index') }}" class="sidebar-link {{ request()->is('user*') ? 'active' : '' }}" onclick="closeSidebar()">
                 <i class="fa fa-user-shield"></i> თანამშრომლები
             </a>
