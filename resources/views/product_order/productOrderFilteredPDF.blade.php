@@ -33,11 +33,13 @@
         .pr-action { display:table-cell; vertical-align:middle; text-align:right; width:90px; }
         .badge-deliver { background:#d1fae5; color:#065f46; font-size:10px; font-weight:700; padding:3px 7px; border-radius:4px; }
         .badge-pickup  { background:#fee2e2; color:#991b1b; font-size:10px; font-weight:700; padding:3px 7px; border-radius:4px; }
+        .badge-paid    { background:#d1fae5; color:#065f46; font-size:10px; font-weight:700; padding:3px 7px; border-radius:4px; }
+        .badge-unpaid  { background:#fee2e2; color:#991b1b; font-size:10px; font-weight:700; padding:3px 7px; border-radius:4px; }
 
         /* ── normal single order ── */
         .order-row { display:table; width:100%; padding:4px 0; }
         .col-num { display:table-cell; vertical-align:middle; width:18px; color:#bbb; font-size:10px; }
-        .col-order-num { display:table-cell; vertical-align:middle; text-align:right; width:60px; color:#888; font-size:10px; font-weight:700; }
+        .col-order-num { display:table-cell; vertical-align:middle; text-align:right; width:90px; color:#888; font-size:10px; font-weight:700; }
 
         /* ── customer header row (reused) ── */
         .cust-header { display:table; width:100%; padding:8px 12px; }
@@ -101,8 +103,11 @@
         $isReturn = $group['is_return'];
         $orderNum = $primary->order_number ?? ('#' . $primary->id);
         $customer = $primary->customer;
-        $totalNew = (float)$primary->price_georgia - (float)($primary->discount ?? 0);
-        $totalOld = $origOrd ? ((float)$origOrd->price_georgia - (float)($origOrd->discount ?? 0)) : 0;
+        $totalNew  = (float)$primary->price_georgia - (float)($primary->discount ?? 0);
+        $totalOld  = $origOrd ? ((float)$origOrd->price_georgia - (float)($origOrd->discount ?? 0)) : 0;
+        $isPaid = ((float)($primary->courier_price_tbilisi ?? 0) > 0)
+               || ((float)($primary->courier_price_region   ?? 0) > 0)
+               || ((float)($primary->courier_price_village  ?? 0) > 0);
     @endphp
 
     @if($index > 0)
@@ -129,7 +134,7 @@
                     </div>
                 </div>
                 <div class="cust-right">
-                    <div class="cust-total">{{ number_format($totalNew, 2) }} GEL</div>
+                    <div>@if($isPaid)<span class="badge-paid">გადახდილია</span>@else<span class="badge-unpaid">გადასახდელია</span>@endif</div>
                     <div class="cust-num">{{ $orderNum }}</div>
                 </div>
             </div>
@@ -148,10 +153,9 @@
                         <div class="pr-name">{{ $primary->product->name ?? '—' }}</div>
                         <div class="pr-meta">
                             @if($primary->product_size)ზომა: {{ $primary->product_size }}@endif
-                            @if($primary->comment) · {{ $primary->comment }}@endif
+                            @if($primary->comment)<br>{{ $primary->comment }}@endif
                         </div>
                     </div>
-                    <div class="pr-price">{{ number_format($totalNew, 2) }} GEL</div>
                     <div class="pr-action"><span class="badge-deliver">&#10003; გადაეცი</span></div>
                 </div>
 
@@ -171,7 +175,6 @@
                             @if($origOrd->product_size)ზომა: {{ $origOrd->product_size }}@endif
                         </div>
                     </div>
-                    <div class="pr-price" style="color:#991b1b;">{{ number_format($totalOld, 2) }} GEL</div>
                     <div class="pr-action"><span class="badge-pickup">&#8617; წამოიღე</span></div>
                 </div>
                 @endif
@@ -195,7 +198,7 @@
                     </div>
                 </div>
                 <div class="cust-right">
-                    <div class="cust-total">{{ number_format($totalNew, 2) }} GEL</div>
+                    <div>@if($isPaid)<span class="badge-paid">გადახდილია</span>@else<span class="badge-unpaid">გადასახდელია</span>@endif</div>
                     <div class="cust-num">{{ $orderNum }}</div>
                 </div>
             </div>
@@ -216,7 +219,6 @@
                             @if($primary->comment) · {{ $primary->comment }}@endif
                         </div>
                     </div>
-                    <div class="pr-price" style="color:#991b1b;">{{ number_format($totalNew, 2) }} GEL</div>
                     <div class="pr-action"><span class="badge-pickup">&#8617; წამოიღე</span></div>
                 </div>
             </div>
@@ -241,7 +243,7 @@
                     </div>
                 </div>
                 <div class="cust-right">
-                    <div class="cust-total">{{ number_format($groupTotal, 2) }} GEL</div>
+                    <div>@if($isPaid)<span class="badge-paid">გადახდილია</span>@else<span class="badge-unpaid">გადასახდელია</span>@endif</div>
                     <div class="cust-num">{{ $orderNum }}</div>
                 </div>
             </div>
@@ -262,7 +264,6 @@
                                 @if($member->comment) · {{ $member->comment }}@endif
                             </div>
                         </div>
-                        <div class="pr-price">{{ number_format((float)$member->price_georgia - (float)($member->discount ?? 0), 2) }} GEL</div>
                     </div>
                 @endforeach
             </div>
@@ -282,8 +283,7 @@
             <div class="pr-info">
                 <div class="pr-name">{{ $primary->product->name ?? '—' }}</div>
                 <div class="pr-meta">
-                    @if($primary->product_size)ზომა: {{ $primary->product_size }}<br>@endif
-                    ღირებულება: {{ number_format($totalNew, 2) }} GEL
+                    @if($primary->product_size)ზომა: {{ $primary->product_size }}@endif
                     @if($primary->comment)<br>{{ $primary->comment }}@endif
                 </div>
             </div>
@@ -297,7 +297,10 @@
                     @if($customer->address ?? ''), {{ $customer->address }}@endif
                 </div>
             </div>
-            <div class="col-order-num">{{ $orderNum }}</div>
+            <div class="col-order-num">
+                @if($isPaid)<span class="badge-paid">გადახდილია</span>@else<span class="badge-unpaid">გადასახდელია</span>@endif
+                <div style="margin-top:3px;">{{ $orderNum }}</div>
+            </div>
         </div>
     @endif
 
