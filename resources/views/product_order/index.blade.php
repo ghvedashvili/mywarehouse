@@ -1659,9 +1659,13 @@ $(document).on('submit', '#form-sale-content', function(e) {
 });
 
 function submitSaleForm(form, updateCustomer) {
+    var $saveBtn = $('#btn-sale-save');
+    if ($saveBtn.prop('disabled')) return;
+    $saveBtn.prop('disabled', true).css('opacity', '0.65');
+
     var id  = form.find('input[name="id"]').val();
     var url = (save_method == 'add') ? "{{ url('productsOut') }}" : "{{ url('productsOut') }}/"+id;
-    var $locked = form.find(':disabled');
+    var $locked = form.find(':disabled').not($saveBtn);
     $locked.prop('disabled', false);
     var formData = new FormData(form[0]);
     $locked.prop('disabled', true);
@@ -1695,6 +1699,9 @@ function submitSaleForm(form, updateCustomer) {
             if (xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON.message;
             else if (xhr.status === 422) { try { msg = JSON.parse(xhr.responseText).message; } catch(e) {} }
             swal({ title: 'შეცდომა', text: msg, type: 'error' });
+        },
+        complete: function() {
+            $saveBtn.prop('disabled', false).css('opacity', '');
         }
     });
 }
