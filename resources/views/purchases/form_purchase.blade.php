@@ -94,7 +94,8 @@
         <option value="{{ $p->id }}"
                 data-price-ge="{{ $p->price_geo }}"
                 data-sizes="{{ $p->sizes ?? '' }}"
-                data-image="{{ $p->image_url ?? '' }}">
+                data-image="{{ $p->image_url ?? '' }}"
+                data-divisible="{{ $p->category?->is_divisible ? '1' : '0' }}">
             {{ $p->name }}@if($p->product_code) ({{ $p->product_code }})@endif
         </option>
     @endforeach

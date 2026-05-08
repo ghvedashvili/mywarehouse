@@ -35,9 +35,10 @@ class CategoryController extends Controller
         }
 
         Category::create([
-            'name'    => $request->name,
-            'sizes'   => $sizes,
-            'user_id' => Auth::id(),
+            'name'         => $request->name,
+            'sizes'        => $sizes,
+            'is_divisible' => $request->boolean('is_divisible'),
+            'user_id'      => Auth::id(),
         ]);
 
         return response()->json([
@@ -68,8 +69,9 @@ class CategoryController extends Controller
 
         $category = Category::findOrFail($id);
         $category->update([
-            'name'  => $request->name,
-            'sizes' => $sizes,
+            'name'         => $request->name,
+            'sizes'        => $sizes,
+            'is_divisible' => $request->boolean('is_divisible'),
         ]);
 
         return response()->json([

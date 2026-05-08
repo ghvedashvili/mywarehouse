@@ -810,20 +810,32 @@ $(function() {
 
         if (defaults) {
             $prodSel.val(defaults.product_id || '').trigger('change.select2');
-            var opt   = $prodSel.find(':selected');
-            var sizes = (opt.attr('data-sizes') || '').toString();
-            if (sizes) {
-                sizes.split(',').forEach(function(s) {
-                    s = s.trim();
-                    if (s) $sizeSel.append('<option value="' + s + '">' + s + '</option>');
-                });
+            var opt         = $prodSel.find(':selected');
+            var sizes       = (opt.attr('data-sizes') || '').toString();
+            var isDivisible = opt.attr('data-divisible') === '1';
+
+            if (isDivisible) {
+                // replace size select with a number (ml) input
+                var $mlInput = $('<input type="number" required>')
+                    .addClass('form-control form-control-sm line-size')
+                    .attr({ name: $sizeSel.attr('name'), min: 1, step: 1, placeholder: 'მლ' })
+                    .val(defaults.product_size || '');
+                $sizeSel.replaceWith($mlInput);
+            } else {
+                if (sizes) {
+                    sizes.split(',').forEach(function(s) {
+                        s = s.trim();
+                        if (s) $sizeSel.append('<option value="' + s + '">' + s + '</option>');
+                    });
+                }
+                $sizeSel.val(defaults.product_size || '');
             }
-            $sizeSel.val(defaults.product_size || '');
+
             $qty.val(defaults.quantity || 1);
             $priceUsa.val(defaults.price_usa || '');
-           if (defaults.transport != null && defaults.transport !== '' && defaults.transport !== undefined) {
-    $transport.val(defaults.transport);
-}
+            if (defaults.transport != null && defaults.transport !== '' && defaults.transport !== undefined) {
+                $transport.val(defaults.transport);
+            }
             $priceGeo.val(defaults.price_georgia ? parseFloat(defaults.price_georgia).toFixed(2) : '');
 
             if (defaults.locked) {
@@ -842,19 +854,34 @@ $(function() {
     }
 
     $(document).on('change', '#purchase-lines-body .line-product', function() {
-        var $tr   = $(this).closest('tr');
-        var prodId = $(this).val();
-        var opt   = $(this).find(':selected');
-        var sizes = (opt.attr('data-sizes') || '').toString();
-        var geo   = opt.attr('data-price-ge') || 0;
+        var $tr         = $(this).closest('tr');
+        var prodId      = $(this).val();
+        var opt         = $(this).find(':selected');
+        var sizes       = (opt.attr('data-sizes') || '').toString();
+        var geo         = opt.attr('data-price-ge') || 0;
+        var isDivisible = opt.attr('data-divisible') === '1';
+        var $oldSz      = $tr.find('.line-size');
+        var szName      = $oldSz.attr('name') || '';
 
-        var $sz = $tr.find('.line-size').empty().append('<option value="">—</option>');
-        if (sizes) {
-            sizes.split(',').forEach(function(s) {
-                s = s.trim();
-                if (s) $sz.append('<option value="' + s + '">' + s + '</option>');
-            });
+        if (isDivisible) {
+            var $mlIn = $('<input type="number" required>')
+                .addClass('form-control form-control-sm line-size')
+                .attr({ name: szName, min: 1, step: 1, placeholder: 'მლ' });
+            $oldSz.replaceWith($mlIn);
+        } else {
+            var $sz = $('<select required>')
+                .addClass('form-select form-select-sm line-size')
+                .attr('name', szName)
+                .append('<option value="">—</option>');
+            if (sizes) {
+                sizes.split(',').forEach(function(s) {
+                    s = s.trim();
+                    if (s) $sz.append('<option value="' + s + '">' + s + '</option>');
+                });
+            }
+            $oldSz.replaceWith($sz);
         }
+
         $tr.find('.line-price-geo').val(geo ? parseFloat(geo).toFixed(2) : '');
         $tr.find('.line-fifo').text('');
 
@@ -1261,17 +1288,25 @@ $(function() {
 
             inTransitItems = items;
 
-            items.forEach(function(it) {
+            items.forEach(function(it, idx) {
                 var img = it.image_url
                     ? '<img src="' + it.image_url + '" style="width:44px;height:44px;object-fit:cover;border-radius:4px;cursor:zoom-in;" onclick="zoomPurchaseImg(this)">'
                     : '<span class="text-muted">—</span>';
                 var price = it.price_geo ? parseFloat(it.price_geo).toFixed(2) + ' ₾' : '—';
+                var sizeCell;
+                if (it.is_divisible) {
+                    sizeCell = '<input type="number" class="form-control form-control-sm transit-ml-input" '
+                             + 'data-idx="' + idx + '" value="' + (it.product_size || '') + '" '
+                             + 'min="1" step="1" style="width:70px;" placeholder="მლ">';
+                } else {
+                    sizeCell = (it.product_size || '—');
+                }
                 $('#in-transit-rows').append(
                     '<tr>'
                     + '<td class="text-center">' + img + '</td>'
                     + '<td class="fw-semibold">' + $('<span>').text(it.product_name).html() + '</td>'
                     + '<td class="text-muted">' + $('<span>').text(it.product_code).html() + '</td>'
-                    + '<td class="text-center">' + (it.product_size || '—') + '</td>'
+                    + '<td class="text-center">' + sizeCell + '</td>'
                     + '<td class="text-center fw-bold">' + it.quantity + '</td>'
                     + '<td class="text-end">' + price + '</td>'
                     + '</tr>'
@@ -1301,10 +1336,15 @@ $(function() {
         $('input[name="purchase_courier_type"][value="none"]').prop('checked', true);
         $('#btn-add-line').show();
 
-        inTransitItems.forEach(function(it) {
+        inTransitItems.forEach(function(it, idx) {
+            var size = it.product_size;
+            if (it.is_divisible) {
+                var mlVal = parseFloat($('.transit-ml-input[data-idx="' + idx + '"]').val()) || 0;
+                if (mlVal > 0) size = mlVal.toString();
+            }
             addPurchaseLine({
                 product_id:    it.product_id,
-                product_size:  it.product_size,
+                product_size:  size,
                 quantity:      it.quantity,
                 price_georgia: it.price_geo || '',
             });

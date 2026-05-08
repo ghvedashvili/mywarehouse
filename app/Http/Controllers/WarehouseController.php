@@ -57,9 +57,10 @@ class WarehouseController extends Controller
                 return '<img src="' . $url . '" style="height:36px;width:36px;object-fit:cover;border-radius:4px;cursor:zoom-in;"
                             onclick="whZoom(\'' . $url . '\')">';
             })
-            ->addColumn('product_name', fn($row) => $row->product->name ?? 'N/A')
-            ->addColumn('product_code', fn($row) => $row->product->product_code ?? '-')
-            ->addColumn('available',    fn($row) => $row->available_qty)
+            ->addColumn('product_name',  fn($row) => $row->product->name ?? 'N/A')
+            ->addColumn('product_code',  fn($row) => $row->product->product_code ?? '-')
+            ->addColumn('available',     fn($row) => $row->available_qty)
+            ->addColumn('is_divisible',  fn($row) => $row->size === 'divisible' ? 1 : 0)
             ->addColumn('defect_qty',   fn($row) => $row->defect_qty ?? 0)
             ->addColumn('fifo_cost', function ($row) use ($costMap) {
                 $key = $row->product_id . '|' . ($row->size ?? '');
@@ -376,6 +377,7 @@ class WarehouseController extends Controller
         $totalRevenue   = 0.0;
 
         foreach ($stock as $row) {
+            if ($row->size === 'divisible') continue;
             $available = $row->available_qty;
             if ($available <= 0) continue;
 

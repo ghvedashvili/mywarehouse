@@ -9,6 +9,20 @@ use App\Models\StatusChangeLog;
 class PurchaseService
 {
     // ════════════════════════════════════════════════════════════════
+    // Helpers: დაშლადი პროდუქტებისთვის warehouse key და qty
+    // ════════════════════════════════════════════════════════════════
+    private static function stockKey(int $productId, string $size): string
+    {
+        return FifoService::divisibleFactor($productId, $size) !== null ? 'divisible' : $size;
+    }
+
+    private static function stockQty(int $productId, string $size, int $units): int
+    {
+        $val = FifoService::divisibleFactor($productId, $size);
+        return $val !== null ? (int) round($val * $units) : $units;
+    }
+
+    // ════════════════════════════════════════════════════════════════
     // Purchase stock ლოგიკა
     // ════════════════════════════════════════════════════════════════
     // $isReturnPurchase=true — შექმნისას გამოიყენება, სანამ original_sale_id DB-ში ჩაიწერება
@@ -25,12 +39,15 @@ class PurchaseService
         if ($oldStatusId == 3 && $newStatusId == 1)
             throw new \Exception("შეცდომა: საწყობში მიღებული საქონლის პირდაპირ 'ახალ' სტატუსზე დაბრუნება შეუძლებელია!");
 
+        $productId = $order->product_id;
+        $size      = $order->product_size ?? '';
+        $stockKey  = self::stockKey($productId, $size);
+        $qty       = self::stockQty($productId, $size, $order->quantity);
+
         $stock = Warehouse::firstOrCreate(
-            ['product_id' => $order->product_id, 'size' => $order->product_size],
+            ['product_id' => $productId, 'size' => $stockKey],
             ['physical_qty' => 0, 'incoming_qty' => 0, 'return_incoming_qty' => 0, 'reserved_qty' => 0]
         );
-
-        $qty = $order->quantity;
 
         if ($isReturn) {
             // დაბრუნება/გაცვლის purchase — return_incoming_qty სვეტი (ხელმისაწვდომ ნაშთში არ ითვლება)
@@ -84,7 +101,9 @@ class PurchaseService
     public static function syncSaleOrdersAfterPurchase(Product_Order $order, int $oldStatusId, int $newStatusId): void
     {
         $productId = $order->product_id;
-        $size      = $order->product_size;
+        $size      = $order->product_size ?? '';
+        $stockKey  = self::stockKey($productId, $size);
+        $isDivisible = FifoService::isDivisibleProduct($productId);
 
         $logAndSave = function (Product_Order $sale, int $newSaleStatus, float $priceUsa = 0, ?int $purchaseOrderId = -1) {
             StatusChangeLog::create([
@@ -100,43 +119,76 @@ class PurchaseService
             $sale->save();
         };
 
-        // CASE 1: purchase 1→2 — პირდაპირ ამ purchase-ს ვაბამთ
+        // CASE 1: purchase 1→2
         // return/exchange purchase-ი (original_sale_id NOT NULL) — status=2-ზე sale-ები არ მიებმება
         if ($oldStatusId === 1 && $newStatusId === 2) {
             if ($order->original_sale_id !== null) return;
-            $stock = Warehouse::where('product_id', $productId)->where('size', $size)->first();
+            $stock = Warehouse::where('product_id', $productId)->where('size', $stockKey)->first();
             if (!$stock) return;
 
-            $capacity    = $order->quantity;
-            $alreadyUsed = Product_Order::whereIn('order_type', ['sale', 'change'])
-                ->where('purchase_order_id', $order->id)
-                ->whereIn('status_id', [1, 2, 3, 5, 6])
-                ->count();
-            $canTake = $capacity - $alreadyUsed;
+            if ($isDivisible) {
+                $purchVal = FifoService::divisibleFactor($productId, $size);
+                if ($purchVal === null) return;
+                $capacity = $purchVal * $order->quantity;
 
-            if ($canTake <= 0) return;
+                $pendingSales = Product_Order::whereIn('order_type', ['sale', 'change'])
+                    ->where('product_id', $productId)
+                    ->where('status_id', 1)->orderBy('created_at', 'asc')->get();
 
-            $pendingSales = Product_Order::whereIn('order_type', ['sale', 'change'])
-                ->where('product_id', $productId)->where('product_size', $size)
-                ->where('status_id', 1)->orderBy('created_at', 'asc')->get();
+                foreach ($pendingSales as $sale) {
+                    $saleVal = FifoService::divisibleFactor($productId, $sale->product_size ?? '');
+                    if ($saleVal === null) continue;
 
-            foreach ($pendingSales as $sale) {
-                if ($canTake <= 0) break;
-                $stock->refresh();
-                $available = $stock->incoming_qty - $stock->reserved_qty;
-                if ($available <= 0) break;
+                    $stock->refresh();
+                    $available = $stock->incoming_qty - $stock->reserved_qty;
+                    if ($available < $saleVal) break;
 
-                $sale->purchase_order_id = $order->id;
-                $sale->price_usa         = $order->cost_price;
-                $stock->increment('reserved_qty', 1);
-                $canTake--;
-                $logAndSave($sale, 2, $sale->price_usa, $sale->purchase_order_id);
+                    $usedMl = Product_Order::whereIn('order_type', ['sale', 'change'])
+                        ->where('purchase_order_id', $order->id)
+                        ->whereIn('status_id', [1, 2, 3, 5, 6])
+                        ->get(['quantity', 'product_size'])
+                        ->sum(fn($s) => ($s->quantity ?? 1) * (FifoService::divisibleFactor($productId, $s->product_size ?? '') ?? 0));
+
+                    if ($usedMl + $saleVal > $capacity) continue;
+
+                    $prices = FifoService::getPrices($productId, $sale->product_size ?? '');
+                    $sale->purchase_order_id = $order->id;
+                    $sale->price_usa         = $prices['cost_price'];
+                    $stock->increment('reserved_qty', (int) round($saleVal));
+                    $logAndSave($sale, 2, $sale->price_usa, $sale->purchase_order_id);
+                }
+            } else {
+                $capacity    = $order->quantity;
+                $alreadyUsed = Product_Order::whereIn('order_type', ['sale', 'change'])
+                    ->where('purchase_order_id', $order->id)
+                    ->whereIn('status_id', [1, 2, 3, 5, 6])
+                    ->count();
+                $canTake = $capacity - $alreadyUsed;
+
+                if ($canTake <= 0) return;
+
+                $pendingSales = Product_Order::whereIn('order_type', ['sale', 'change'])
+                    ->where('product_id', $productId)->where('product_size', $size)
+                    ->where('status_id', 1)->orderBy('created_at', 'asc')->get();
+
+                foreach ($pendingSales as $sale) {
+                    if ($canTake <= 0) break;
+                    $stock->refresh();
+                    $available = $stock->incoming_qty - $stock->reserved_qty;
+                    if ($available <= 0) break;
+
+                    $sale->purchase_order_id = $order->id;
+                    $sale->price_usa         = $order->cost_price;
+                    $stock->increment('reserved_qty', 1);
+                    $canTake--;
+                    $logAndSave($sale, 2, $sale->price_usa, $sale->purchase_order_id);
+                }
             }
         }
 
         // CASE 2: purchase 2→3
         if ($oldStatusId === 2 && $newStatusId === 3) {
-            $stock = Warehouse::where('product_id', $productId)->where('size', $size)->first();
+            $stock = Warehouse::where('product_id', $productId)->where('size', $stockKey)->first();
 
             $salesToPromote = Product_Order::whereIn('order_type', ['sale', 'change'])
                 ->where('purchase_order_id', $order->id)
@@ -157,7 +209,7 @@ class PurchaseService
 
         // CASE 3: purchase 2→1
         if ($oldStatusId === 2 && $newStatusId === 1) {
-            $stock = Warehouse::where('product_id', $productId)->where('size', $size)->first();
+            $stock = Warehouse::where('product_id', $productId)->where('size', $stockKey)->first();
 
             $reservedSales = Product_Order::whereIn('order_type', ['sale', 'change'])
                 ->where('purchase_order_id', $order->id)
@@ -165,7 +217,12 @@ class PurchaseService
                 ->get();
 
             foreach ($reservedSales as $sale) {
-                if ($stock) $stock->decrement('reserved_qty', 1);
+                if ($stock) {
+                    $resQty = $isDivisible
+                        ? (int) round(FifoService::divisibleFactor($productId, $sale->product_size ?? '') ?? 1)
+                        : 1;
+                    $stock->decrement('reserved_qty', $resQty);
+                }
                 $logAndSave($sale, 1, 0, null);
             }
             if ($stock) $stock->save();
@@ -173,7 +230,7 @@ class PurchaseService
 
         // CASE 4: purchase 3→2
         if ($oldStatusId === 3 && $newStatusId === 2) {
-            $stock = Warehouse::where('product_id', $productId)->where('size', $size)->first();
+            $stock = Warehouse::where('product_id', $productId)->where('size', $stockKey)->first();
 
             $salesToRollback = Product_Order::whereIn('order_type', ['sale', 'change'])
                 ->where('purchase_order_id', $order->id)
@@ -181,13 +238,13 @@ class PurchaseService
                 ->get();
             foreach ($salesToRollback as $sale) {
                 if ($order->original_sale_id !== null) {
-                    // დაბრუნება/გაცვლის purchase — status=2-ზე sale-ები არ უნდა იყოს მიბმული
-                    if ($stock) $stock->decrement('reserved_qty', 1);
+                    $resQty = $isDivisible
+                        ? (int) round(FifoService::divisibleFactor($productId, $sale->product_size ?? '') ?? 1)
+                        : 1;
+                    if ($stock) $stock->decrement('reserved_qty', $resQty);
                     $logAndSave($sale, 1, 0, null);
                 } else {
-                    // ჩვეულებრივი purchase — sale-ები ნარჩუნდება მიბმული (status=2)
                     $logAndSave($sale, 2, $sale->price_usa, $sale->purchase_order_id);
-                    // reserved_qty უცვლელია (კვლავ ჯავშნილია)
                 }
             }
             if ($stock) $stock->save();
@@ -195,7 +252,7 @@ class PurchaseService
 
         // CASE 5: purchase →4 (გაუქმება)
         if ($newStatusId === 4) {
-            $stock = Warehouse::where('product_id', $productId)->where('size', $size)->first();
+            $stock = Warehouse::where('product_id', $productId)->where('size', $stockKey)->first();
 
             $affectedSales = Product_Order::whereIn('order_type', ['sale', 'change'])
                 ->where('purchase_order_id', $order->id)
@@ -203,8 +260,12 @@ class PurchaseService
                 ->get();
 
             foreach ($affectedSales as $sale) {
-                // status=2 ან 3: ორივე reserved_qty-ში ითვლება — გაუქმებისას ვათავისუფლებთ
-                if ($stock) $stock->decrement('reserved_qty', 1);
+                if ($stock) {
+                    $resQty = $isDivisible
+                        ? (int) round(FifoService::divisibleFactor($productId, $sale->product_size ?? '') ?? 1)
+                        : 1;
+                    $stock->decrement('reserved_qty', $resQty);
+                }
                 $logAndSave($sale, 1, 0, null);
             }
             if ($stock) $stock->save();
@@ -215,103 +276,159 @@ class PurchaseService
     // ახალი purchase-ზე pending sale-ების მიბმა
     // ════════════════════════════════════════════════════════════════
     public static function attachPendingSalesToPurchase(Product_Order $purchase, Warehouse $stock): void
-{
-    // 1. თუ ეს არის დაბრუნება (original_sale_id-ით) და არის "გზაში" (status=2)
-    // მაშინვე ვწყვეტთ მუშაობას. ეს დაბრუნებული საქონელი არ უნდა გამოჩნდეს "ხელმისაწვდომში".
-    if ($purchase->original_sale_id !== null && $purchase->status_id === 2) {
-        return;
-    }
-
-    $purchaseStatus = $purchase->status_id;
-    $isReturn = $purchase->original_sale_id !== null;
-
-    $pendingSales = Product_Order::whereIn('order_type', ['sale', 'change'])
-        ->where('product_id', $purchase->product_id)
-        ->where('product_size', $purchase->product_size)
-        ->where('status_id', 1)
-        ->where(function ($q) use ($purchase) {
-            $q->whereNull('purchase_order_id')
-              ->orWhere('purchase_order_id', $purchase->id)
-              ->orWhereHas('purchaseOrder', function ($pq) {
-                  $pq->withoutGlobalScope('active')->where('status', '!=', 'active');
-              });
-        })
-        ->orderBy('created_at', 'asc')
-        ->get();
-
-    foreach ($pendingSales as $sale) {
-        $stock->refresh();
-
-        // 2. ნაშთის დათვლის ლოგიკა, რომელიც იცავს incoming_qty-ს
-        if ($purchaseStatus == 2) {
-            // დაბრუნებული purchase status=2-ზე — return_incoming_qty-ში ზის
-            // ჩვეულებრივი purchase status=2-ზე — incoming_qty-ში ზის
-            $available = $isReturn
-                ? $stock->return_incoming_qty - $stock->reserved_qty
-                : $stock->incoming_qty - $stock->reserved_qty;
-        } else {
-            // status=3 (საწყობშია): აქ უკვე ჩვეულებრივიც და დაბრუნებულიც ფიზიკურად საწყობშია.
-            $available = $stock->physical_qty - $stock->defect_qty - $stock->reserved_qty;
+    {
+        if ($purchase->original_sale_id !== null && $purchase->status_id === 2) {
+            return;
         }
 
-        // თუ ნაშთი არ გვაქვს, ვწყვეტთ ციკლს
-        if ($available <= 0) break;
+        $productId      = $purchase->product_id;
+        $purchaseStatus = $purchase->status_id;
+        $isReturn       = $purchase->original_sale_id !== null;
+        $isDivisible    = FifoService::isDivisibleProduct($productId);
 
-        // 3. მკაცრი შემოწმება: არ დაარეზერვოს იმაზე მეტი, რაც კონკრეტულ პარტიაშია
-        $alreadyLinked = Product_Order::where('purchase_order_id', $purchase->id)->count();
-        if ($alreadyLinked >= $purchase->quantity) break;
+        if ($isDivisible) {
+            $purchVal = FifoService::divisibleFactor($productId, $purchase->product_size ?? '');
+            if ($purchVal === null) return;
+            $capacity = $purchVal * $purchase->quantity;
 
-        // რეზერვაცია
-        $stock->increment('reserved_qty', 1);
+            $pendingSales = Product_Order::whereIn('order_type', ['sale', 'change'])
+                ->where('product_id', $productId)
+                ->where('status_id', 1)
+                ->where(function ($q) use ($purchase) {
+                    $q->whereNull('purchase_order_id')
+                      ->orWhere('purchase_order_id', $purchase->id)
+                      ->orWhereHas('purchaseOrder', fn($pq) => $pq->withoutGlobalScope('active')->where('status', '!=', 'active'));
+                })
+                ->orderBy('created_at', 'asc')
+                ->get();
 
-        $sale->purchase_order_id = $purchase->id;
-        $sale->price_usa         = (float) $purchase->cost_price;
-        $sale->status_id         = $purchaseStatus;
-        $sale->save();
+            foreach ($pendingSales as $sale) {
+                $saleVal = FifoService::divisibleFactor($productId, $sale->product_size ?? '');
+                if ($saleVal === null) continue;
 
-        StatusChangeLog::create([
-            'order_id'       => $sale->id,
-            'user_id'        => auth()->id(),
-            'status_id_from' => 1,
-            'status_id_to'   => $purchaseStatus,
-            'changed_at'     => now(),
-        ]);
+                $stock->refresh();
+                if ($purchaseStatus == 2) {
+                    $available = $isReturn
+                        ? $stock->return_incoming_qty - $stock->reserved_qty
+                        : $stock->incoming_qty - $stock->reserved_qty;
+                } else {
+                    $available = $stock->physical_qty - ($stock->defect_qty ?? 0) - $stock->reserved_qty;
+                }
+                if ($available < $saleVal) continue;
+
+                $usedMl = Product_Order::where('purchase_order_id', $purchase->id)
+                    ->whereIn('order_type', ['sale', 'change'])
+                    ->whereIn('status_id', [1, 2, 3, 5, 6])
+                    ->get(['quantity', 'product_size'])
+                    ->sum(fn($s) => ($s->quantity ?? 1) * (FifoService::divisibleFactor($productId, $s->product_size ?? '') ?? 0));
+
+                if ($usedMl + $saleVal > $capacity) continue;
+
+                $prices = FifoService::getPrices($productId, $sale->product_size ?? '');
+                $stock->increment('reserved_qty', (int) round($saleVal));
+                $sale->purchase_order_id = $purchase->id;
+                $sale->price_usa         = $prices['cost_price'];
+                $sale->status_id         = $purchaseStatus;
+                $sale->save();
+
+                StatusChangeLog::create([
+                    'order_id'       => $sale->id,
+                    'user_id'        => auth()->id(),
+                    'status_id_from' => 1,
+                    'status_id_to'   => $purchaseStatus,
+                    'changed_at'     => now(),
+                ]);
+            }
+            return;
+        }
+
+        // ─── ჩვეულებრივი (non-divisible) ───────────────────────────────
+        $pendingSales = Product_Order::whereIn('order_type', ['sale', 'change'])
+            ->where('product_id', $productId)
+            ->where('product_size', $purchase->product_size)
+            ->where('status_id', 1)
+            ->where(function ($q) use ($purchase) {
+                $q->whereNull('purchase_order_id')
+                  ->orWhere('purchase_order_id', $purchase->id)
+                  ->orWhereHas('purchaseOrder', fn($pq) => $pq->withoutGlobalScope('active')->where('status', '!=', 'active'));
+            })
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        foreach ($pendingSales as $sale) {
+            $stock->refresh();
+
+            if ($purchaseStatus == 2) {
+                $available = $isReturn
+                    ? $stock->return_incoming_qty - $stock->reserved_qty
+                    : $stock->incoming_qty - $stock->reserved_qty;
+            } else {
+                $available = $stock->physical_qty - ($stock->defect_qty ?? 0) - $stock->reserved_qty;
+            }
+
+            if ($available <= 0) break;
+
+            $alreadyLinked = Product_Order::where('purchase_order_id', $purchase->id)->count();
+            if ($alreadyLinked >= $purchase->quantity) break;
+
+            $stock->increment('reserved_qty', 1);
+            $sale->purchase_order_id = $purchase->id;
+            $sale->price_usa         = (float) $purchase->cost_price;
+            $sale->status_id         = $purchaseStatus;
+            $sale->save();
+
+            StatusChangeLog::create([
+                'order_id'       => $sale->id,
+                'user_id'        => auth()->id(),
+                'status_id_from' => 1,
+                'status_id_to'   => $purchaseStatus,
+                'changed_at'     => now(),
+            ]);
+        }
     }
-}
 
     // ════════════════════════════════════════════════════════════════
     // Pending sale-ების დაწინაურება FIFO
     // ════════════════════════════════════════════════════════════════
     public static function promotePendingSales(int $productId, string $size, Warehouse $stock, int $purchaseStatus): void
     {
-        $pendingSales = Product_Order::whereIn('order_type', ['sale', 'change'])
-            ->where('product_id', $productId)->where('product_size', $size)
-            ->where('status_id', 1)->orderBy('created_at', 'asc')->get();
+        $isDivisible = FifoService::isDivisibleProduct($productId);
+
+        $pendingSalesQuery = Product_Order::whereIn('order_type', ['sale', 'change'])
+            ->where('product_id', $productId)
+            ->where('status_id', 1)
+            ->orderBy('created_at', 'asc');
+
+        if (!$isDivisible) {
+            $pendingSalesQuery->where('product_size', $size);
+        }
+
+        $pendingSales = $pendingSalesQuery->get();
 
         foreach ($pendingSales as $sale) {
             $stock->refresh();
-            $nextPurchase = FifoService::getNextPurchase($productId, $size);
-            if (!$nextPurchase) break;
+            $nextPurchase = FifoService::getNextPurchase($productId, $sale->product_size ?? '');
+            if (!$nextPurchase) continue;
 
-            // status=2: incoming - reserved (ან return_incoming - reserved დაბრუნებისთვის)
-            // status=3: physical - defect - reserved
+            $resQty = $isDivisible
+                ? (int) round(FifoService::divisibleFactor($productId, $sale->product_size ?? '') ?? 1)
+                : 1;
+
             if ($nextPurchase->status_id == 2) {
                 $available = $nextPurchase->original_sale_id !== null
                     ? $stock->return_incoming_qty - $stock->reserved_qty
                     : $stock->incoming_qty - $stock->reserved_qty;
             } else {
-                $available = $stock->physical_qty - $stock->defect_qty - $stock->reserved_qty;
+                $available = $stock->physical_qty - ($stock->defect_qty ?? 0) - $stock->reserved_qty;
             }
 
-            if ($available <= 0) break;
+            if ($available < $resQty) continue;
 
-            $sale->price_usa         = (float) $nextPurchase->cost_price;
+            $prices = FifoService::getPrices($productId, $sale->product_size ?? '');
+            $sale->price_usa         = $prices['cost_price'];
             $sale->purchase_order_id = $nextPurchase->id;
             $sale->status_id         = $nextPurchase->status_id;
-
-            // status=2 ან 3: ორივე reserved_qty-ში ითვლება
-            $stock->increment('reserved_qty', 1);
-
+            $stock->increment('reserved_qty', $resQty);
             $sale->save();
         }
     }
@@ -321,41 +438,47 @@ class PurchaseService
     // ════════════════════════════════════════════════════════════════
     public static function reviewSaleStatuses(int $productId, string $size, int $purchaseStatus): void
     {
-        $stock = Warehouse::where('product_id', $productId)->where('size', $size)->first();
+        $isDivisible = FifoService::isDivisibleProduct($productId);
+        $stockKey    = $isDivisible ? 'divisible' : $size;
+        $stock       = Warehouse::where('product_id', $productId)->where('size', $stockKey)->first();
         if (!$stock) return;
 
-        $pendingSales = Product_Order::whereIn('order_type', ['sale', 'change'])
+        $pendingSalesQuery = Product_Order::whereIn('order_type', ['sale', 'change'])
             ->where('product_id', $productId)
-            ->where('product_size', $size)
             ->where('status_id', 1)
             ->whereNull('purchase_order_id')
-            ->orderBy('created_at', 'asc')
-            ->get();
+            ->orderBy('created_at', 'asc');
+
+        if (!$isDivisible) {
+            $pendingSalesQuery->where('product_size', $size);
+        }
+
+        $pendingSales = $pendingSalesQuery->get();
 
         foreach ($pendingSales as $sale) {
             $stock->refresh();
-            $nextPurchase = FifoService::getNextPurchase($productId, $size);
-            if (!$nextPurchase) break;
+            $nextPurchase = FifoService::getNextPurchase($productId, $sale->product_size ?? '');
+            if (!$nextPurchase) continue;
 
-            // status=2: incoming - reserved (ან return_incoming - reserved დაბრუნებისთვის)
-            // status=3: physical - defect - reserved
+            $resQty = $isDivisible
+                ? (int) round(FifoService::divisibleFactor($productId, $sale->product_size ?? '') ?? 1)
+                : 1;
+
             if ($nextPurchase->status_id == 2) {
                 $available = $nextPurchase->original_sale_id !== null
                     ? $stock->return_incoming_qty - $stock->reserved_qty
                     : $stock->incoming_qty - $stock->reserved_qty;
             } else {
-                $available = $stock->physical_qty - $stock->defect_qty - $stock->reserved_qty;
+                $available = $stock->physical_qty - ($stock->defect_qty ?? 0) - $stock->reserved_qty;
             }
 
-            if ($available <= 0) break;
+            if ($available < $resQty) continue;
 
+            $prices = FifoService::getPrices($productId, $sale->product_size ?? '');
             $sale->purchase_order_id = $nextPurchase->id;
-            $sale->price_usa         = (float) $nextPurchase->cost_price;
+            $sale->price_usa         = $prices['cost_price'];
             $sale->status_id         = $nextPurchase->status_id;
-
-            // status=2 ან 3: ორივე reserved_qty-ში ითვლება
-            $stock->increment('reserved_qty', 1);
-
+            $stock->increment('reserved_qty', $resQty);
             $sale->save();
 
             StatusChangeLog::create([

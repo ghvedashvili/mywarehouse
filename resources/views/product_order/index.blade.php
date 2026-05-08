@@ -1390,7 +1390,7 @@ function addSaleLine(defaults) {
         + '<div class="row g-2 align-items-end">'
         + '<div class="col-12 col-sm-5"><div class="sale-col-label">პროდუქტი <span class="sale-bundle-icon"></span></div>'
         + '<select name="items['+idx+'][product_id]" class="form-select form-select-sm sale-product-select" required '+lockProd+' style="border-radius:8px;border:1.5px solid #e0e4f0;">'+optHtml+'</select></div>'
-        + '<div class="col-6 col-sm-2"><div class="sale-col-label">ზომა</div>'
+        + '<div class="col-6 col-sm-2 sale-size-wrap"><div class="sale-col-label sale-size-label">ზომა</div>'
         + '<select name="items['+idx+'][product_size]" class="form-select form-select-sm sale-size-select" '+lockSize+' style="border-radius:8px;border:1.5px solid #e0e4f0;"><option value="">— ზომა —</option></select></div>'
         + '<div class="col-6 col-sm-2"><div class="sale-col-label">ფასდაკლება</div>'
         + '<div class="input-group input-group-sm"><span class="input-group-text" style="background:#fdf0f8;border:1.5px solid #e0e4f0;border-right:0;border-radius:8px 0 0 8px;color:#9b59b6;font-weight:700;">🏷</span>'
@@ -1433,15 +1433,30 @@ function addSaleLine(defaults) {
     if (defaults.product_id) {
         $row.find('.sale-product-select').val(defaults.product_id).trigger('change');
         if (defaults.product_size) {
-            var checkSize = setInterval(function() {
-                if ($row.find('.sale-size-select option').length > 1) {
-                    clearInterval(checkSize);
-                    $row.find('.sale-size-select').val(defaults.product_size);
-                    if (defaults.price_georgia) { $row.find('.sale-price-gel').text(defaults.price_georgia+' ₾'); $row.find('.sale-hidden-gel').val(defaults.price_georgia); }
-                    if (defaults.price_usa)     { $row.find('.sale-price-usd').text('$'+defaults.price_usa);      $row.find('.sale-hidden-usd').val(defaults.price_usa); }
-                }
-            }, 100);
-            setTimeout(function() { clearInterval(checkSize); }, 3000);
+            var tplOpt    = $('#product-options-template option[value="'+defaults.product_id+'"]');
+            var isDefDiv  = tplOpt.data('divisible') == '1';
+            if (isDefDiv) {
+                var mlVal = parseFloat(defaults.product_size) || 0;
+                var checkMl = setInterval(function() {
+                    if ($row.find('.sale-ml-input').length) {
+                        clearInterval(checkMl);
+                        $row.find('.sale-ml-input').val(mlVal);
+                        if (defaults.price_georgia) { $row.find('.sale-price-gel').text(defaults.price_georgia+' ₾'); $row.find('.sale-hidden-gel').val(defaults.price_georgia); }
+                        if (defaults.price_usa)     { $row.find('.sale-price-usd').text('$'+defaults.price_usa);      $row.find('.sale-hidden-usd').val(defaults.price_usa); }
+                    }
+                }, 100);
+                setTimeout(function() { clearInterval(checkMl); }, 3000);
+            } else {
+                var checkSize = setInterval(function() {
+                    if ($row.find('.sale-size-select option').length > 1) {
+                        clearInterval(checkSize);
+                        $row.find('.sale-size-select').val(defaults.product_size);
+                        if (defaults.price_georgia) { $row.find('.sale-price-gel').text(defaults.price_georgia+' ₾'); $row.find('.sale-hidden-gel').val(defaults.price_georgia); }
+                        if (defaults.price_usa)     { $row.find('.sale-price-usd').text('$'+defaults.price_usa);      $row.find('.sale-hidden-usd').val(defaults.price_usa); }
+                    }
+                }, 100);
+                setTimeout(function() { clearInterval(checkSize); }, 3000);
+            }
         }
     }
     if (defaults.discount !== undefined) $row.find('.sale-discount').val(defaults.discount);
@@ -1507,31 +1522,51 @@ function editForm(id) {
 var isEditMode = false;
 
 $(document).on('change', '.sale-product-select', function() {
-    var $row = $(this).closest('.sale-item-row');
+    var $row     = $(this).closest('.sale-item-row');
     var selected = $(this).find('option:selected');
+    var productId = selected.val();
+    var isDivProd = selected.data('divisible') == '1';
+    var rowIdx    = $row.data('idx');
+    var $wrap     = $row.find('.sale-size-wrap');
+
     if (!isEditMode) {
-        $row.find('.sale-price-gel').text((selected.data('price-ge')||0)+' ₾');
-        $row.find('.sale-hidden-gel').val(selected.data('price-ge')||0);
-        $row.find('.sale-price-usd').text('$'+(selected.data('price-us')||0));
-        $row.find('.sale-hidden-usd').val(selected.data('price-us')||0);
+        $row.find('.sale-price-gel').text('0 ₾');
+        $row.find('.sale-hidden-gel').val(0);
+        $row.find('.sale-price-usd').text('$0');
+        $row.find('.sale-hidden-usd').val(0);
     }
+
     var imageUrl = selected.data('image');
     if (imageUrl) { $('#target_image').attr('src', imageUrl).show(); $('#no_image_text').hide(); }
     else { $('#target_image').hide(); $('#no_image_text').show(); }
-    var sizesRaw = selected.data('sizes');
-    var $sizeSelect = $row.find('.sale-size-select');
-    $sizeSelect.empty();
-    if (sizesRaw && sizesRaw.toString().trim() !== '') {
-        $sizeSelect.append('<option value="">— ზომა —</option>');
-        sizesRaw.toString().split(',').forEach(function(s) { s = s.trim(); if (s) $sizeSelect.append('<option value="'+s+'">'+s+'</option>'); });
-        $sizeSelect.prop('required', true);
+
+    if (isDivProd) {
+        $wrap.find('.sale-size-label').text('მლ (რაოდენობა)');
+        $wrap.find('.sale-size-select').remove();
+        if (!$wrap.find('.sale-ml-input').length) {
+            $wrap.append('<input type="number" name="items['+rowIdx+'][product_size]" class="form-control form-control-sm sale-ml-input" min="1" step="1" placeholder="მაგ: 10" required style="border-radius:8px;border:1.5px solid #e0e4f0;">');
+        }
+        $row.find('.sale-row-stock').hide();
     } else {
-        $sizeSelect.append('<option value="">— არ არის —</option>');
-        $sizeSelect.prop('required', false);
+        if ($wrap.find('.sale-ml-input').length) {
+            $wrap.find('.sale-ml-input').remove();
+            $wrap.append('<select name="items['+rowIdx+'][product_size]" class="form-select form-select-sm sale-size-select" style="border-radius:8px;border:1.5px solid #e0e4f0;"><option value="">— ზომა —</option></select>');
+        }
+        $wrap.find('.sale-size-label').text('ზომა');
+        var sizesRaw   = selected.data('sizes');
+        var $sizeSelect = $wrap.find('.sale-size-select');
+        $sizeSelect.empty();
+        if (sizesRaw && sizesRaw.toString().trim() !== '') {
+            $sizeSelect.append('<option value="">— ზომა —</option>');
+            sizesRaw.toString().split(',').forEach(function(s) { s = s.trim(); if (s) $sizeSelect.append('<option value="'+s+'">'+s+'</option>'); });
+            $sizeSelect.prop('required', true);
+        } else {
+            $sizeSelect.append('<option value="">— არ არის —</option>');
+            $sizeSelect.prop('required', false);
+        }
+        if (productId) $.get("{{ route('warehouse.stockInfo') }}", { product_id: productId }, function(data) { _updateRowStock($row, data, productId, null); });
+        else $row.find('.sale-row-stock').hide();
     }
-    var productId = selected.val();
-    if (productId) $.get("{{ route('warehouse.stockInfo') }}", { product_id: productId }, function(data) { _updateRowStock($row, data, productId, null); });
-    else $row.find('.sale-row-stock').hide();
     updateBundleIcons();
 });
 
@@ -1592,19 +1627,48 @@ function updateBundleIcons() {
 }
 
 $(document).on('change', '.sale-size-select', function() {
-    var $row = $(this).closest('.sale-item-row');
+    var $row      = $(this).closest('.sale-item-row');
     var productId = $row.find('.sale-product-select').val();
-    var size = $(this).val();
+    var size      = $(this).val();
     if (!isEditMode && productId && size) {
         $.get("{{ url('api/fifo-prices') }}", { product_id: productId, size: size }, function(fifo) {
-            $row.find('.sale-price-gel').text((fifo.price_georgia||0)+' ₾');
-            $row.find('.sale-hidden-gel').val(fifo.price_georgia||0);
-            $row.find('.sale-price-usd').text('$'+(fifo.cost_price||0));
-            $row.find('.sale-hidden-usd').val(fifo.cost_price||0);
+            if ((fifo.price_georgia || 0) > 0) {
+                $row.find('.sale-price-gel').text(fifo.price_georgia + ' ₾');
+                $row.find('.sale-hidden-gel').val(fifo.price_georgia);
+            }
+            $row.find('.sale-price-usd').text('$' + (fifo.cost_price || 0));
+            $row.find('.sale-hidden-usd').val(fifo.cost_price || 0);
         });
     }
     if (productId && size) $.get("{{ route('warehouse.stockInfo') }}", { product_id: productId, size: size }, function(data) { _updateRowStock($row, data, productId, size); });
     else $row.find('.sale-row-stock').hide();
+});
+
+$(document).on('input change', '.sale-ml-input', function() {
+    var $row      = $(this).closest('.sale-item-row');
+    var $prodOpt  = $row.find('.sale-product-select option:selected');
+    var productId = $row.find('.sale-product-select').val();
+    var ml        = parseFloat($(this).val()) || 0;
+    var ppu       = parseFloat($prodOpt.data('price-ge') || 0);
+    if (ppu > 0 && ml > 0) {
+        var p = Math.round(ppu * ml * 100) / 100;
+        $row.find('.sale-price-gel').text(p + ' ₾');
+        $row.find('.sale-hidden-gel').val(p);
+    } else {
+        $row.find('.sale-price-gel').text('0 ₾');
+        $row.find('.sale-hidden-gel').val(0);
+    }
+    if (productId && ml > 0) {
+        $.get("{{ url('api/fifo-prices') }}", { product_id: productId, size: ml }, function(fifo) {
+            $row.find('.sale-price-usd').text('$' + (fifo.cost_price || 0));
+            $row.find('.sale-hidden-usd').val(fifo.cost_price || 0);
+        });
+        $.get("{{ route('warehouse.stockInfo') }}", { product_id: productId, size: 'divisible' }, function(data) {
+            _updateRowStock($row, data, productId, 'divisible');
+        });
+    } else {
+        $row.find('.sale-row-stock').hide();
+    }
 });
 
 function _updateRowStock($row, data, productId, size) {

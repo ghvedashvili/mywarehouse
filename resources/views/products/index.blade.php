@@ -228,6 +228,7 @@ function editForm(id) {
             $('#product_status').prop('checked', data.product_status == 1);
             $('#in_warehouse').prop('checked', data.in_warehouse == 1);
             $('#category_id').val(data.category_id);
+            updatePriceHint();
             $('#brand_id').val(data.brand_id || null).trigger('change');
             $('#bundle_id').val(data.bundle_id || '');
 
@@ -248,8 +249,15 @@ function editForm(id) {
     });
 }
 
+function updatePriceHint() {
+    var isDivisible = $('#category_id option:selected').data('divisible') == '1';
+    $('#price_geo_hint').toggle(isDivisible);
+    $('#price_geo_label').text(isDivisible ? 'Price (1ml-ზე)' : 'Price');
+}
+
 // ── SIZES ────────────────────────────────────────────────────
 function filterSizes(selectedSizes) {
+    updatePriceHint();
     selectedSizes = selectedSizes || [];
     var catId = $('#category_id').val();
     if (!catId) {

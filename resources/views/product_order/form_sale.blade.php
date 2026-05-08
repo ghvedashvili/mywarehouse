@@ -129,7 +129,8 @@
                                 data-price-us="{{ $product->price_usa }}"
                                 data-sizes="{{ $product->sizes }}"
                                 data-image="{{ $product->image_url ?? '' }}"
-                                data-bundle-id="{{ $product->bundle_id ?? '' }}">
+                                data-bundle-id="{{ $product->bundle_id ?? '' }}"
+                                data-divisible="{{ $product->category?->is_divisible ? '1' : '0' }}">
                                 {{ $product->name }}
                             </option>
                         @endforeach
