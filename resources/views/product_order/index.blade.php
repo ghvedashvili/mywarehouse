@@ -702,7 +702,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     <div class="po-stats">
 
         {{-- Card 1: ორდერები --}}
-        <div class="po-stat" style="--stat-line:var(--c-blue);">
+        <!-- <div class="po-stat" style="--stat-line:var(--c-blue);">
             <div class="po-stat-icon" style="background:var(--c-blue-dim);color:var(--c-blue);"><i class="fa fa-cart-shopping"></i></div>
             <div class="po-stat-label">სულ ორდერი</div>
             <div style="margin-top:6px;">
@@ -719,7 +719,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                     <span class="po-stat-row-val" id="stat-ready" style="color:var(--c-green);">—</span>
                 </div>
             </div>
-        </div>
+        </div> -->
 
         {{-- Card 2: ფინანსები --}}
         <!-- <div class="po-stat" style="--stat-line:var(--c-green);">
@@ -738,7 +738,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
         </div> -->
 
         {{-- Card 3: სტატუსები --}}
-        <div class="po-stat" style="--stat-line:var(--c-teal);">
+        <!-- <div class="po-stat" style="--stat-line:var(--c-teal);">
             <div class="po-stat-icon" style="background:var(--c-teal-dim);color:var(--c-teal);"><i class="fa fa-layer-group"></i></div>
             <div class="po-stat-label">სტატუსები</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px;margin-top:6px;">
@@ -750,7 +750,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                 <div class="po-stat-row"><span class="po-stat-row-lbl">გაცვლ.</span><span class="po-stat-row-val" id="stat-s6" style="color:var(--c-green);">—</span></div>
                 <div class="po-stat-row" style="border-bottom:none;grid-column:1/-1;"><span class="po-stat-row-lbl">წაშლილი</span><span class="po-stat-row-val" id="stat-deleted" style="color:var(--c-text-3);">—</span></div>
             </div>
-        </div>
+        </div> -->
 
     </div>
 
