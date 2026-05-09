@@ -1705,16 +1705,20 @@ class ProductOrderController extends Controller
 
     public function courierTodayIds()
     {
+        $startUtc = now()->startOfDay()->utc();
+        $endUtc   = now()->endOfDay()->utc();
+
         $ids = StatusChangeLog::where('status_id_to', 4)
-            ->whereDate('changed_at', today())
+            ->whereBetween('changed_at', [$startUtc, $endUtc])
             ->pluck('order_id')
             ->unique()
             ->values()
             ->toArray();
 
-        // მხოლოდ root/standalone ორდერები (is_primary ან merged_id=NULL)
+        // მხოლოდ root/standalone ორდერები, რომლებიც ახლაც კურიერთანაა (status_id=4)
         $rootIds = Product_Order::withoutGlobalScope('active')
             ->whereIn('id', $ids)
+            ->where('status_id', 4)
             ->where(fn($q) => $q->where('is_primary', 1)->orWhereNull('merged_id'))
             ->pluck('id')
             ->toArray();
