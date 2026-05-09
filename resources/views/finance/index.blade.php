@@ -579,7 +579,7 @@
         <div class="cp-filter">
             <div>
                 <label>თარიღიდან</label>
-                <input type="date" id="cp-from" value="{{ now()->startOfMonth()->toDateString() }}">
+                <input type="date" id="cp-from" value="{{ now()->toDateString() }}">
             </div>
             <div>
                 <label>თარიღამდე</label>
@@ -1437,6 +1437,13 @@ function showCpOrdersModal(orders, title, withPayBtn) {
 
 function loadCourierStats() {
     var p = getCpParams();
+    if (!p.date_from || !p.date_to) {
+        ['cp-unpaid-tbilisi','cp-unpaid-region','cp-unpaid-village','cp-unpaid-total'].forEach(function(id) {
+            document.getElementById(id).textContent = '—';
+        });
+        document.getElementById('cp-unpaid-orders-count').textContent = '';
+        return;
+    }
     var qs = 'date_from=' + p.date_from + '&date_to=' + p.date_to;
     p.types.forEach(function(t) { qs += '&types[]=' + t; });
 
@@ -1549,7 +1556,6 @@ function confirmCpPay() {
     });
 }
 
-// Load on page init
 $(function() { loadCourierStats(); });
 </script>
 @endsection

@@ -946,15 +946,30 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 
 <div class="modal fade" id="modal-status-log" tabindex="-1" role="dialog">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header bg-gray">
-                <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
-                <h4 class="modal-title"><i class="fa fa-history"></i> სტატუსის ისტორია</h4>
+        <div class="modal-content" style="border-radius:10px; overflow:hidden; border:none; box-shadow:0 8px 32px rgba(0,0,0,.15);">
+            <div class="modal-header" style="background:#f8fafc; border-bottom:1.5px solid #e9ecef; padding:14px 20px; display:flex; align-items:center; justify-content:space-between;">
+                <h5 class="modal-title" style="margin:0; font-size:15px; font-weight:700; color:#1a1a2e;">
+                    <i class="fa fa-history" style="color:#6c5ce7; margin-right:7px;"></i>სტატუსის ისტორია
+                </h5>
+                <button type="button" data-bs-dismiss="modal"
+                        style="background:none; border:none; cursor:pointer; width:30px; height:30px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:18px; color:#636e72; line-height:1; transition:background .15s;"
+                        onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='none'">
+                    &#10005;
+                </button>
             </div>
-            <div class="modal-body">
-                <table class="table table-bordered table-striped">
-                    <thead><tr><th>თარიღი</th><th>იყო</th><th>გახდა</th><th>შეცვალა</th></tr></thead>
-                    <tbody id="status-log-body"><tr><td colspan="4" class="text-center">იტვირთება...</td></tr></tbody>
+            <div class="modal-body" style="padding:16px 20px;">
+                <table class="table table-bordered table-striped" style="font-size:13px; margin:0;">
+                    <thead style="background:#f8fafc;">
+                        <tr>
+                            <th style="white-space:nowrap;">თარიღი</th>
+                            <th>იყო</th>
+                            <th>გახდა</th>
+                            <th>შეცვალა</th>
+                        </tr>
+                    </thead>
+                    <tbody id="status-log-body">
+                        <tr><td colspan="4" class="text-center">იტვირთება...</td></tr>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -2027,7 +2042,11 @@ function showStatusLog(orderId) {
             var from = isCreation ? '<span style="color:#94a3b8;font-size:11px;">— (შექმნა)</span>' : '<span class="label label-'+log.from_status.color+'">'+log.from_status.name+'</span>';
             var to   = log.to_status ? '<span class="label label-'+log.to_status.color+'">'+log.to_status.name+'</span>' : '<span class="text-muted">—</span>';
             html += '<tr'+(isCreation?' style="background:#f0fdf4;"':'')+'>'+
-                '<td>'+log.changed_at+'</td><td>'+from+'</td><td>'+to+'</td><td>'+(log.user ? log.user.name : '—')+'</td></tr>';
+                '<td style="white-space:nowrap;font-size:12px;color:#555;font-family:monospace;">'+log.changed_at+'</td>'+
+                '<td>'+from+'</td>'+
+                '<td>'+to+'</td>'+
+                '<td style="font-size:12px;">'+( log.user ? log.user.name : '—')+'</td>'+
+                '</tr>';
         });
         $('#status-log-body').html(html);
     });

@@ -2288,7 +2288,14 @@ class ProductOrderController extends Controller
             }
         }
 
-        return response()->json($logs->sortByDesc('changed_at')->values());
+        return response()->json($logs->sortByDesc('changed_at')->values()->map(fn($l) => [
+            'changed_at'  => $l->changed_at
+                ? \Carbon\Carbon::parse($l->changed_at)->setTimezone('Asia/Tbilisi')->format('d.m.Y H:i:s')
+                : '—',
+            'from_status' => $l->fromStatus ? ['name' => $l->fromStatus->name, 'color' => $l->fromStatus->color] : null,
+            'to_status'   => $l->toStatus   ? ['name' => $l->toStatus->name,   'color' => $l->toStatus->color]   : null,
+            'user'        => $l->user        ? ['name' => $l->user->name]                                         : null,
+        ]));
     }
 
     public function mergeOrders(Request $request)

@@ -394,18 +394,25 @@ class FinanceController extends Controller
             $allowed
         ));
 
+        // order IDs handed to courier in the selected date range
+        $deliveredIds = \App\Models\StatusChangeLog::where('status_id_to', 4)
+            ->select('order_id', \DB::raw('MAX(changed_at) as last_delivery'))
+            ->groupBy('order_id')
+            ->havingRaw('DATE(MAX(changed_at)) BETWEEN ? AND ?', [$from, $to])
+            ->pluck('order_id');
+
         // Unpaid in date range
         $unpaid = \App\Models\Product_Order::withoutGlobalScope('active')
             ->whereNull('courier_paid_at')
-            ->whereBetween(\DB::raw('DATE(created_at)'), [$from, $to])
+            ->whereIn('id', $deliveredIds)
             ->where($hasCourier)
             ->selectRaw($sumRaw)
             ->first();
 
-        // Paid in date range (by order creation date)
+        // Paid in date range
         $paid = \App\Models\Product_Order::withoutGlobalScope('active')
             ->whereNotNull('courier_paid_at')
-            ->whereBetween(\DB::raw('DATE(created_at)'), [$from, $to])
+            ->whereIn('id', $deliveredIds)
             ->where($hasCourier)
             ->selectRaw($sumRaw)
             ->first();
@@ -461,9 +468,13 @@ class FinanceController extends Controller
             $types = array_intersect((array)$request->input('types', ['tbilisi', 'region', 'village']),
                                      ['tbilisi', 'region', 'village']);
 
+            $deliveredIds = \App\Models\StatusChangeLog::where('status_id_to', 4)
+                ->whereBetween(\DB::raw('DATE(changed_at)'), [$from, $to])
+                ->pluck('order_id')->unique()->values();
+
             $orders = \App\Models\Product_Order::withoutGlobalScope('active')
                 ->whereNull('courier_paid_at')
-                ->whereBetween(\DB::raw('DATE(created_at)'), [$from, $to])
+                ->whereIn('id', $deliveredIds)
                 ->where(function ($q) use ($types) {
                     foreach ($types as $t) {
                         $q->orWhere('courier_price_' . $t, '>', 0);
@@ -501,9 +512,15 @@ class FinanceController extends Controller
             return response()->json(['success' => false, 'message' => 'პარამეტრები არასრულია'], 422);
         }
 
+        $deliveredIds = \App\Models\StatusChangeLog::where('status_id_to', 4)
+            ->select('order_id', \DB::raw('MAX(changed_at) as last_delivery'))
+            ->groupBy('order_id')
+            ->havingRaw('DATE(MAX(changed_at)) BETWEEN ? AND ?', [$from, $to])
+            ->pluck('order_id');
+
         $query = \App\Models\Product_Order::withoutGlobalScope('active')
             ->whereNull('courier_paid_at')
-            ->whereBetween(\DB::raw('DATE(created_at)'), [$from, $to])
+            ->whereIn('id', $deliveredIds)
             ->where(function ($q) use ($types) {
                 foreach ($types as $t) {
                     $q->orWhere('courier_price_' . $t, '>', 0);
@@ -517,7 +534,7 @@ class FinanceController extends Controller
 
         $count = \App\Models\Product_Order::withoutGlobalScope('active')
             ->whereNull('courier_paid_at')
-            ->whereBetween(\DB::raw('DATE(created_at)'), [$from, $to])
+            ->whereIn('id', $deliveredIds)
             ->where(function ($q) use ($types) {
                 foreach ($types as $t) {
                     $q->orWhere('courier_price_' . $t, '>', 0);

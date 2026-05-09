@@ -622,35 +622,6 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 
 
-<div id="fb-root"></div>
-<div id="fb-customer-chat" class="fb-customerchat"></div>
-
-<script>
-  var chatbox = document.getElementById('fb-customer-chat');
-  chatbox.setAttribute("page_id", "196409790221137");
-  chatbox.setAttribute("attribution", "biz_inbox");
-  chatbox.setAttribute("theme_color", "#0084ff");
-</script>
-
-<script>
-  window.fbAsyncInit = function () {
-    FB.init({
-      xfbml: true,
-      version: 'v18.0'
-    });
-  };
-
-  (function(d, s, id) {
-    if (d.getElementById(id)) return;
-    var js = d.createElement(s);
-    js.id = id;
-    js.src = "https://connect.facebook.net/en_US/sdk/xfbml.customerchat.js";
-    var fjs = d.getElementsByTagName(s)[0];
-    fjs.parentNode.insertBefore(js, fjs);
-  }(document, 'script', 'facebook-jssdk'));
-</script>
-
-
 
 <script>
 // ── Bootstrap 3 modal API → Bootstrap 5 shim ──────────────────────────
