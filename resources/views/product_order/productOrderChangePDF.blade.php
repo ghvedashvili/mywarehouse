@@ -4,319 +4,126 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <meta charset="utf-8">
     <style>
-        * {
-            font-family: 'DejaVu Sans', sans-serif !important;
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { font-family: 'DejaVu Sans', sans-serif !important; margin:0; padding:0; box-sizing:border-box; }
+        body { background:#fff; padding:16px 20px; font-size:11px; color:#1a1a1a; }
 
-        body {
-            font-family: 'DejaVu Sans', sans-serif !important;
-            background: #f4f6f8;
-            padding: 20px;
-        }
+        .doc-header { display:table; width:100%; border-bottom:2px solid #f59e0b; padding-bottom:10px; margin-bottom:14px; }
+        .doc-header-left  { display:table-cell; vertical-align:middle; }
+        .doc-header-left h2 { font-size:15px; }
+        .doc-header-left p  { font-size:10px; color:#999; margin-top:2px; }
+        .doc-header-right   { display:table-cell; text-align:right; vertical-align:middle; width:80px; }
+        .doc-header-right img { max-height:40px; width:auto; }
 
-        .page {
-            max-width: 800px;
-            margin: auto;
-            background: #fff;
-            border-radius: 12px;
-            overflow: hidden;
-        }
+        .prod-row { display:table; width:100%; padding:6px 0; border-bottom:1px solid #f0f0f0; }
+        .prod-row:last-child { border-bottom:none; }
+        .pr-img  { display:table-cell; vertical-align:middle; width:96px; }
+        .pr-img img  { width:88px; height:88px; object-fit:cover; border-radius:5px; border:1px solid #e0e0e0; }
+        .pr-img .no-img { width:88px; height:88px; border-radius:5px; border:1px solid #e0e0e0; background:#f4f6f8; display:block; }
+        .pr-info { display:table-cell; vertical-align:middle; padding-left:10px; }
+        .pr-name { font-size:12px; font-weight:700; }
+        .pr-meta { font-size:10px; color:#666; margin-top:3px; }
+        .pr-action { display:table-cell; vertical-align:middle; text-align:right; width:90px; }
+        .badge-deliver { background:#d1fae5; color:#065f46; font-size:10px; font-weight:700; padding:3px 7px; border-radius:4px; }
+        .badge-pickup  { background:#fee2e2; color:#991b1b; font-size:10px; font-weight:700; padding:3px 7px; border-radius:4px; }
+        .badge-paid    { background:#d1fae5; color:#065f46; font-size:10px; font-weight:700; padding:3px 7px; border-radius:4px; }
+        .badge-unpaid  { background:#fee2e2; color:#991b1b; font-size:10px; font-weight:700; padding:3px 7px; border-radius:4px; }
 
-        /* ════ HEADER ════ */
-        .top-header {
-            padding: 20px 20px;
-            display: table;
-            width: 100%;
-            border-bottom: 2px solid #8e44ad;
-        }
+        .cust-header { display:table; width:100%; padding:8px 12px; }
+        .cust-left  { display:table-cell; vertical-align:middle; }
+        .cust-right { display:table-cell; vertical-align:middle; text-align:right; width:130px; }
+        .cust-name  { font-size:12px; font-weight:700; }
+        .cust-meta  { font-size:10px; color:#666; margin-top:3px; line-height:1.5; }
+        .cust-num   { font-size:10px; color:#888; margin-top:2px; }
 
-        .top-header-left {
-            display: table-cell;
-            vertical-align: middle;
+        .exchange-block { position:relative; border:2px solid #f59e0b; border-radius:6px; overflow:hidden; background:#fffbeb; }
+        .exchange-block .cust-header { background:#fef3c7; border-bottom:1px solid #fcd34d; }
+        .exchange-watermark {
+            position:absolute; top:28px; left:0; right:0;
+            text-align:center; font-size:52px; font-weight:900;
+            color:#fde68a; letter-spacing:4px;
         }
-
-        .top-header-left h2 {
-            font-size: 20px;
-            color: #1a1a1a;
-        }
-
-        .top-header-left p {
-            font-size: 12px;
-            color: #888;
-            margin-top: 2px;
-        }
-
-        .top-header-right {
-            display: table-cell;
-            text-align: right;
-            vertical-align: middle;
-            width: 150px;
-        }
-
-        .top-header-right img {
-            max-height: 100px;
-            width: auto;
-            display: block;
-            margin-left: auto;
-        }
-
-        /* ════ EXCHANGE BANNER ════ */
-        .exchange-banner {
-            background: #f5eef8;
-            border-left: 4px solid #8e44ad;
-            padding: 10px 20px;
-            font-size: 12px;
-            color: #6c3483;
-        }
-
-        .exchange-banner strong {
-            font-size: 13px;
-        }
-
-        /* ════ SECTION LABEL ════ */
-        .section-label {
-            padding: 8px 20px;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #fff;
-        }
-
-        .section-label.old {
-            background: #95a5a6;
-        }
-
-        .section-label.new {
-            background: #8e44ad;
-        }
-
-        /* ════ ORDER ITEM ════ */
-        .order-item {
-            display: table;
-            width: 100%;
-            padding: 20px 20px;
-            border-bottom: 1px solid #eee;
-        }
-
-        .order-item.dimmed {
-            opacity: 0.6;
-            background: #fafafa;
-        }
-
-        .order-image {
-            display: table-cell;
-            width: 120px;
-            vertical-align: top;
-        }
-
-        .order-image img {
-            width: 110px;
-            height: 110px;
-            object-fit: cover;
-            border-radius: 8px;
-            border: 1px solid #eee;
-        }
-
-        .no-image {
-            width: 110px;
-            height: 110px;
-            border-radius: 8px;
-            border: 1px solid #eee;
-            background: #f4f6f8;
-            display: block;
-        }
-
-        .order-info {
-            display: table-cell;
-            vertical-align: top;
-            padding-left: 16px;
-        }
-
-        .order-info h3 {
-            font-size: 14px;
-            margin-bottom: 6px;
-        }
-
-        .order-info p {
-            font-size: 12px;
-            color: #555;
-            margin: 2px 0;
-        }
-
-        .order-meta {
-            display: table-cell;
-            text-align: right;
-            vertical-align: top;
-            width: 200px;
-        }
-
-        .order-meta .order-id {
-            font-size: 12px;
-            color: #aaa;
-            margin-bottom: 4px;
-        }
-
-        .order-meta .order-customer {
-            font-size: 13px;
-            font-weight: 600;
-            color: #1a1a1a;
-            margin-bottom: 4px;
-        }
-
-        /* ════ ARROW DIVIDER ════ */
-        .arrow-divider {
-            text-align: center;
-            padding: 8px 0;
-            font-size: 20px;
-            color: #8e44ad;
-            background: #fff;
-            border-bottom: 1px solid #eee;
-        }
-
-        /* ════ FOOTER ════ */
-        .bottom-footer {
-            padding: 16px 20px;
-            background: #fafafa;
-            display: table;
-            width: 100%;
-            font-size: 12px;
-            color: #777;
-            border-top: 1px solid #eee;
-        }
-
-        .bottom-footer-left  { display: table-cell; }
-        .bottom-footer-right {
-            display: table-cell;
-            text-align: right;
-            font-weight: 600;
-            color: #1a1a1a;
-        }
+        .exchange-content { position:relative; padding:8px 12px; }
     </style>
 </head>
 <body>
 
-<div class="page">
+@php
+    $customer = $changeOrder->customer;
+    $orderNum = $changeOrder->order_number ?? ('#' . $changeOrder->id);
+    $isPaid   = ((float)($changeOrder->courier_price_tbilisi ?? 0) > 0)
+             || ((float)($changeOrder->courier_price_region   ?? 0) > 0)
+             || ((float)($changeOrder->courier_price_village  ?? 0) > 0);
+@endphp
 
-    {{-- ════ HEADER ════ --}}
-    <div class="top-header">
-        <div class="top-header-left">
-            <h2>გაცვლის ორდერი</h2>
-            <p>{{ now()->format('d M Y') }} &nbsp;·&nbsp; C#{{ $changeOrder->id }}</p>
+<div class="doc-header">
+    <div class="doc-header-left">
+        <h2>გაცვლის ორდერი</h2>
+        <p>{{ now()->format('d.m.Y') }} &nbsp;·&nbsp; {{ $orderNum }}</p>
+    </div>
+    <div class="doc-header-right">
+        @if(isset($logoBase64) && $logoBase64)
+            <img src="{{ $logoBase64 }}" alt="Logo">
+        @endif
+    </div>
+</div>
+
+<div class="exchange-block">
+    <div class="exchange-watermark">გადაცვლა</div>
+
+    <div class="cust-header">
+        <div class="cust-left">
+            <div class="cust-name">{{ $customer->name ?? '—' }}</div>
+            <div class="cust-meta">
+                {{ $customer->tel ?? '' }}
+                @if($customer->alternative_tel ?? '') / {{ $customer->alternative_tel }}@endif
+                <br>{{ $customer->city->name ?? '' }}
+                @if($customer->address ?? ''), {{ $customer->address }}@endif
+            </div>
         </div>
-        <div class="top-header-right">
-            @if(isset($logoBase64) && $logoBase64)
-                <img src="{{ $logoBase64 }}" alt="Logo">
-            @endif
+        <div class="cust-right">
+            <div>@if($isPaid)<span class="badge-paid">გადახდილია</span>@else<span class="badge-unpaid">გადასახდელია</span>@endif</div>
+            <div class="cust-num">{{ $orderNum }}</div>
         </div>
     </div>
 
-    {{-- ════ BANNER ════ --}}
-    <div class="exchange-banner">
-        <strong>🔄 გაცვლა</strong>
-        &nbsp;·&nbsp;
-        S#{{ $originalSale->id }} გაიცვალა C#{{ $changeOrder->id }}-ით
-        &nbsp;·&nbsp;
-        {{ $changeOrder->customer->name ?? '' }}
-    </div>
-
-    {{-- ════ ძველი პროდუქტი ════ --}}
-    <div class="section-label old">↩ გაცვლილი პროდუქტი (ძველი)</div>
-
-    <div class="order-item dimmed">
-        <div class="order-image">
-            @if($originalSale->imageBase64)
-                <img src="{{ $originalSale->imageBase64 }}" alt="Old Product">
-            @else
-                <div class="no-image"></div>
-            @endif
-        </div>
-
-        <div class="order-info">
-            <h3>{{ $originalSale->product->name ?? '—' }}</h3>
-            @if($originalSale->product_size)
-                <p><strong>ზომა:</strong> {{ $originalSale->product_size }}</p>
-            @endif
-            @if($originalSale->discount > 0)
-                <p style="color:#888;">ფასდაკლება: -{{ $originalSale->discount }} ₾</p>
-            @endif
-            <p><strong>ღირებულება:</strong> {{ $originalSale->price_georgia }} ₾</p>
-            @if($originalSale->comment)
-                <p><strong>კომენტარი:</strong> {{ $originalSale->comment }}</p>
-            @endif
-        </div>
-
-        <div class="order-meta">
-            <div class="order-id">S#{{ $originalSale->id }}</div>
-            <div class="order-customer" style="color:#95a5a6;">გაცვლილია</div>
-        </div>
-    </div>
-
-    {{-- ════ ARROW ════ --}}
-    <div class="arrow-divider">↓</div>
-
-    {{-- ════ ახალი პროდუქტი ════ --}}
-    <div class="section-label new">🔄 ახალი პროდუქტი</div>
-
-    <div class="order-item">
-        <div class="order-image">
-            @if($changeOrder->imageBase64)
-                <img src="{{ $changeOrder->imageBase64 }}" alt="New Product">
-            @else
-                <div class="no-image"></div>
-            @endif
-        </div>
-
-        <div class="order-info">
-            <h3>{{ $changeOrder->product->name ?? '—' }}</h3>
-            @if($changeOrder->product_size)
-                <p><strong>ზომა:</strong> {{ $changeOrder->product_size }}</p>
-            @endif
-            @if($changeOrder->discount > 0)
-                <p style="color:#888;">ფასდაკლება: -{{ $changeOrder->discount }} ₾</p>
-            @endif
-            <p><strong>ღირებულება:</strong> {{ $changeOrder->price_georgia }} ₾</p>
-
-            {{-- ფასთა სხვაობა --}}
-            @php
-                $diff = $changeOrder->price_georgia - $originalSale->price_georgia;
-            @endphp
-            @if(abs($diff) > 0.01)
-                <p style="color:{{ $diff > 0 ? '#e74c3c' : '#27ae60' }}; font-weight:600;">
-                    ფასთა სხვაობა: {{ $diff > 0 ? '+' : '' }}{{ number_format($diff, 2) }} ₾
-                </p>
-            @endif
-
-            @if($changeOrder->comment)
-                <p><strong>კომენტარი:</strong> {{ $changeOrder->comment }}</p>
-            @endif
-        </div>
-
-        <div class="order-meta">
-            <div class="order-customer">{{ $changeOrder->customer->name ?? '—' }}</div>
-            <div class="order-customer" style="font-weight:400; font-size:11px;">
-                {{ $changeOrder->customer->tel ?? '' }}
-                @if($changeOrder->customer->alternative_tel ?? false)
-                    / {{ $changeOrder->customer->alternative_tel }}
+    <div class="exchange-content">
+        {{-- ახალი პროდუქტი: გადაეცი --}}
+        <div class="prod-row">
+            <div class="pr-img">
+                @if(!empty($changeOrder->imageBase64))
+                    <img src="{{ $changeOrder->imageBase64 }}" alt="">
+                @else
+                    <div class="no-img"></div>
                 @endif
             </div>
-            <div class="order-customer" style="font-weight:400; font-size:11px;">
-                {{ $changeOrder->customer->city->name ?? '' }},
-                {{ $changeOrder->customer->address ?? '' }}
+            <div class="pr-info">
+                <div class="pr-name">{{ $changeOrder->product->name ?? '—' }}</div>
+                <div class="pr-meta">
+                    @if($changeOrder->product_size)ზომა: {{ $changeOrder->product_size }}@endif
+                    @if($changeOrder->comment)<br>{{ $changeOrder->comment }}@endif
+                </div>
             </div>
-            <div class="order-id">C#{{ $changeOrder->id }}</div>
+            <div class="pr-action"><span class="badge-deliver">&#10003; გადაეცი</span></div>
+        </div>
+
+        {{-- ძველი პროდუქტი: წამოიღე --}}
+        <div class="prod-row">
+            <div class="pr-img">
+                @if(!empty($originalSale->imageBase64))
+                    <img src="{{ $originalSale->imageBase64 }}" alt="">
+                @else
+                    <div class="no-img"></div>
+                @endif
+            </div>
+            <div class="pr-info">
+                <div class="pr-name">{{ $originalSale->product->name ?? '—' }}</div>
+                <div class="pr-meta">
+                    @if($originalSale->product_size)ზომა: {{ $originalSale->product_size }}@endif
+                </div>
+            </div>
+            <div class="pr-action"><span class="badge-pickup">&#8617; წამოიღე</span></div>
         </div>
     </div>
-
-    {{-- ════ FOOTER ════ --}}
-    <div class="bottom-footer">
-        <div class="bottom-footer-left">გმადლობთ შენაძენისთვის</div>
-        <div class="bottom-footer-right">Original 100% - ის გუნდი34321</div>
-    </div>
-
 </div>
 
 </body>

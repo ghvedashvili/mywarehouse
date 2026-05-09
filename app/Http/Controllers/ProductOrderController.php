@@ -2008,7 +2008,44 @@ class ProductOrderController extends Controller
 
     public function exportProductOrder($id)
     {
-        $product_Order = $this->buildOrderCollection($id);
+        $order = Product_Order::withoutGlobalScope('active')
+            ->with(['product' => fn($q) => $q->withoutGlobalScope('active'), 'customer.city', 'orderStatus'])
+            ->findOrFail($id);
+
+        $order->imageBase64 = $this->productImageBase64($order->product);
+
+        $children = collect();
+        if ($order->is_primary) {
+            $childRows = Product_Order::withoutGlobalScope('active')
+                ->with(['product' => fn($q) => $q->withoutGlobalScope('active')])
+                ->where('merged_id', $order->id)
+                ->where('is_primary', 0)
+                ->get();
+            foreach ($childRows as $child) {
+                $child->imageBase64 = $this->productImageBase64($child->product);
+            }
+            $children = $childRows;
+        }
+
+        $isExchange = $order->order_type === 'change' && $order->original_sale_id;
+        $origOrd    = null;
+        if ($isExchange) {
+            $origOrd = Product_Order::withoutGlobalScope('active')
+                ->with(['product' => fn($q) => $q->withoutGlobalScope('active')])
+                ->find($order->original_sale_id);
+            if ($origOrd) {
+                $origOrd->imageBase64 = $this->productImageBase64($origOrd->product);
+            }
+        }
+
+        $groups = collect([[
+            'primary'        => $order,
+            'children'       => $children,
+            'is_group'       => $order->is_primary == 1 && $children->isNotEmpty(),
+            'is_exchange'    => $isExchange,
+            'original_order' => $origOrd,
+            'is_return'      => $order->status_id == 5,
+        ]]);
 
         $logoBase64 = null;
         $logoPath   = public_path('assets/img/logo.png');
@@ -2016,7 +2053,8 @@ class ProductOrderController extends Controller
             $logoBase64 = 'data:' . mime_content_type($logoPath) . ';base64,' . base64_encode(file_get_contents($logoPath));
         }
 
-        $pdf = Pdf::loadView('product_order.productOrderFilteredPDF', compact('product_Order', 'logoBase64'))
+        $title = 'Invoice #' . $id;
+        $pdf = Pdf::loadView('product_order.productOrderFilteredPDF', compact('groups', 'logoBase64', 'title'))
             ->setPaper('a4')
             ->setOptions([
                 'defaultFont'          => 'dejavu sans',
@@ -2145,7 +2183,41 @@ class ProductOrderController extends Controller
             'body'    => 'nullable|string',
         ]);
 
-        $product_Order = $this->buildOrderCollection($id);
+        $order = Product_Order::withoutGlobalScope('active')
+            ->with(['product' => fn($q) => $q->withoutGlobalScope('active'), 'customer.city', 'orderStatus'])
+            ->findOrFail($id);
+        $order->imageBase64 = $this->productImageBase64($order->product);
+
+        $children = collect();
+        if ($order->is_primary) {
+            $childRows = Product_Order::withoutGlobalScope('active')
+                ->with(['product' => fn($q) => $q->withoutGlobalScope('active')])
+                ->where('merged_id', $order->id)
+                ->where('is_primary', 0)
+                ->get();
+            foreach ($childRows as $child) {
+                $child->imageBase64 = $this->productImageBase64($child->product);
+            }
+            $children = $childRows;
+        }
+
+        $isExchange = $order->order_type === 'change' && $order->original_sale_id;
+        $origOrd    = null;
+        if ($isExchange) {
+            $origOrd = Product_Order::withoutGlobalScope('active')
+                ->with(['product' => fn($q) => $q->withoutGlobalScope('active')])
+                ->find($order->original_sale_id);
+            if ($origOrd) $origOrd->imageBase64 = $this->productImageBase64($origOrd->product);
+        }
+
+        $groups = collect([[
+            'primary'        => $order,
+            'children'       => $children,
+            'is_group'       => $order->is_primary == 1 && $children->isNotEmpty(),
+            'is_exchange'    => $isExchange,
+            'original_order' => $origOrd,
+            'is_return'      => $order->status_id == 5,
+        ]]);
 
         $logoBase64 = null;
         $logoPath   = public_path('assets/img/logo.png');
@@ -2153,7 +2225,7 @@ class ProductOrderController extends Controller
             $logoBase64 = 'data:' . mime_content_type($logoPath) . ';base64,' . base64_encode(file_get_contents($logoPath));
         }
 
-        $pdf = Pdf::loadView('product_order.productOrderFilteredPDF', compact('product_Order', 'logoBase64'))
+        $pdf = Pdf::loadView('product_order.productOrderFilteredPDF', compact('groups', 'logoBase64'))
             ->setPaper('a4')
             ->setOptions([
                 'defaultFont'          => 'dejavu sans',
@@ -2719,7 +2791,13 @@ public function exportChangePDF($id)
         'changeOrder',
         'originalSale',
         'logoBase64'
-    ));
+    ))
+        ->setPaper('a4')
+        ->setOptions([
+            'defaultFont'          => 'dejavu sans',
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled'      => true,
+        ]);
 
     return $pdf->download('change_order_' . $changeOrder->id . '.pdf');
 }

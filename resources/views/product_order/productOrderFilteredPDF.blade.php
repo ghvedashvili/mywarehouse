@@ -83,7 +83,7 @@
 
 <div class="doc-header">
     <div class="doc-header-left">
-        <h2>ორდერების სია</h2>
+        <h2>{{ $title ?? 'ორდერების სია' }}</h2>
         <p>{{ now()->format('d.m.Y') }} &nbsp;·&nbsp; {{ $groups->count() }} ორდერი</p>
     </div>
     <div class="doc-header-right">
