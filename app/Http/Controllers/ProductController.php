@@ -60,7 +60,7 @@ public function store(Request $request)
     if ($request->hasFile('image')) {
         $filename = Str::slug($request->product_code, '-') . '-' . time() . '.' . $request->image->getClientOriginalExtension();
         if (config('filesystems.default') === 's3') {
-            Storage::disk('s3')->putFileAs('products', $request->file('image'), $filename, 'public');
+            Storage::disk('s3')->putFileAs('products', $request->file('image'), $filename);
             $input['image'] = 'products/' . $filename;
         } else {
             $request->image->move(public_path('/upload/products/'), $filename);
@@ -123,7 +123,7 @@ public function store(Request $request)
             if ($product->image && !str_starts_with($product->image, '/')) {
                 Storage::disk('s3')->delete($product->image);
             }
-            Storage::disk('s3')->putFileAs('products', $request->file('image'), $filename, 'public');
+            Storage::disk('s3')->putFileAs('products', $request->file('image'), $filename);
             $input['image'] = 'products/' . $filename;
         } else {
             if ($product->image && file_exists(public_path($product->image))) {
