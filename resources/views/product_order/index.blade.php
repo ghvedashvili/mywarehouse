@@ -737,7 +737,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
             </div>
         </div> -->
 
-        {{-- Card 3: სტატუსები --}}
+        {{-- Card 3: სტატუსები  --}}
         <!-- <div class="po-stat" style="--stat-line:var(--c-teal);">
             <div class="po-stat-icon" style="background:var(--c-teal-dim);color:var(--c-teal);"><i class="fa fa-layer-group"></i></div>
             <div class="po-stat-label">სტატუსები</div>
