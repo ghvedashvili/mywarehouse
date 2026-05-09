@@ -217,23 +217,16 @@ class ProductOrderController extends Controller
             $product = Product::with('category')->find($productId);
             if (!$product || $product->product_status != 1) continue;
 
-            $nextPurchase = FifoService::getNextPurchase($productId, $productSize);
+            $stockKey2 = $this->stockKey((int) $productId, $productSize);
+            $stock     = \App\Models\Warehouse::where('product_id', $productId)
+                                              ->where('size', $stockKey2)
+                                              ->first();
 
-            // მხოლოდ პირველ ორდერს (primary) ეწერება კურიერის ფასი;
-            // დანარჩენ ჯგუფის წევრებს — 0, რათა ფინანსებში ერთხელ დაითვალოს
-            $itemCourierData = count($createdOrders) === 0
-                ? $courierData
-                : ['courier_price_tbilisi' => 0, 'courier_price_region' => 0,
-                   'courier_price_village' => 0, 'courier_servise_local' => 'none'];
-
-            $data = array_merge($itemCourierData, [
+            $baseData = [
                 'product_id'       => $productId,
-                'product_size'     => $productSize,
                 'customer_id'      => $request->customer_id,
                 'user_id'          => $user->id,
                 'order_type'       => 'sale',
-                'price_georgia'    => (float) ($product->price_geo ?? 0),
-                'price_usa'        => $nextPurchase ? (float) $nextPurchase->cost_price : 0,
                 'discount'         => $discount,
                 'paid_tbc'         => 0,
                 'paid_bog'         => 0,
@@ -244,26 +237,51 @@ class ProductOrderController extends Controller
                 'order_alt_tel'    => $orderAltTel,
                 'order_city_id'    => $orderCityId,
                 'purchase_order_id'=> null,
-            ]);
+            ];
 
-            $stockKey2   = $this->stockKey((int) $productId, $productSize);
-            $reserveQty2 = $this->divisibleQty((int) $productId, $productSize, 1);
+            $saleValMl = FifoService::sizeNumericValue($productSize);
+            if (FifoService::isDivisibleProduct($productId) && $saleValMl !== null && $saleValMl > 0) {
+                // ─── დაშლადი: ONE record, weighted cost across FIFO purchases ─
+                $allocations   = FifoService::getDivisibleAllocations($productId);
+                $mlNeeded      = $saleValMl;
+                $totalCost     = 0.0;
+                $worstStatus   = 3;
+                $firstPurchase = null;
 
-            $stock = \App\Models\Warehouse::where('product_id', $productId)
-                                          ->where('size', $stockKey2)
-                                          ->first();
+                foreach ($allocations as $alloc) {
+                    if ($mlNeeded <= 0) break;
+                    $takeMl       = min($mlNeeded, $alloc['remaining_ml']);
+                    $purchase     = $alloc['purchase'];
+                    $purchSizeVal = FifoService::sizeNumericValue($purchase->product_size ?? '') ?? 0;
+                    $costPerMl    = $purchSizeVal > 0 ? (float)$purchase->cost_price / $purchSizeVal : 0;
+                    $totalCost   += $takeMl * $costPerMl;
+                    $worstStatus  = min($worstStatus, (int)$purchase->status_id);
+                    if ($firstPurchase === null) $firstPurchase = $purchase;
+                    $mlNeeded    -= $takeMl;
+                }
 
-            if ($nextPurchase) {
-                $prices2 = FifoService::getPrices((int) $productId, $productSize);
-                $data['status_id']         = $nextPurchase->status_id;
-                $data['purchase_order_id'] = $nextPurchase->id;
-                $data['price_usa']         = $prices2['cost_price'];
-                $data['price_georgia']     = $prices2['price_georgia'] ?: $data['price_georgia'];
-                $data['sale_from']         = ($nextPurchase->status_id == 3) ? 1 : 0;
+                if ($mlNeeded > 0.001) $worstStatus = 1; // ნაწილი არ გვაქვს — ლოდინი
+
+                $priceGeoPerMl   = (float)($product->price_geo ?? 0);
+                $itemCourierData = count($createdOrders) === 0
+                    ? $courierData
+                    : ['courier_price_tbilisi' => 0, 'courier_price_region' => 0,
+                       'courier_price_village' => 0, 'courier_servise_local' => 'none'];
+
+                $data = array_merge($baseData, $itemCourierData, [
+                    'product_size'      => $productSize,
+                    'price_georgia'     => round($priceGeoPerMl * $saleValMl, 2),
+                    'price_usa'         => round($totalCost, 2),
+                    'purchase_order_id' => $worstStatus > 1 ? $firstPurchase?->id : null,
+                    'status_id'         => $worstStatus,
+                    'sale_from'         => ($worstStatus == 3) ? 1 : 0,
+                ]);
+
                 $newOrder = Product_Order::create($data);
 
-                if ($stock) {
-                    $stock->increment('reserved_qty', $reserveQty2);
+                if ($stock && $worstStatus > 1) {
+                    $reserveQtyDiv = $this->divisibleQty($productId, $productSize, 1);
+                    $stock->increment('reserved_qty', $reserveQtyDiv);
                 }
 
                 StatusChangeLog::create([
@@ -273,21 +291,56 @@ class ProductOrderController extends Controller
                     'status_id_to'   => $newOrder->status_id,
                     'changed_at'     => now(),
                 ]);
+                $createdOrders[] = $newOrder;
+                // ─── end divisible ────────────────────────────────────────────
             } else {
-                $prices2               = FifoService::getPrices((int) $productId, $productSize);
-                $data['price_georgia'] = $prices2['price_georgia'] ?: $data['price_georgia'];
-                $data['status_id']     = 1;
-                $newOrder = Product_Order::create($data);
-                StatusChangeLog::create([
-                    'order_id'       => $newOrder->id,
-                    'user_id'        => auth()->id(),
-                    'status_id_from' => null,
-                    'status_id_to'   => 1,
-                    'changed_at'     => now(),
-                ]);
-            }
+                // ─── ჩვეულებრივი ────────────────────────────────────────────
+                $nextPurchase = FifoService::getNextPurchase($productId, $productSize);
+                $reserveQty2  = $this->divisibleQty((int) $productId, $productSize, 1);
 
-            $createdOrders[] = $newOrder;
+                $itemCourierData = count($createdOrders) === 0
+                    ? $courierData
+                    : ['courier_price_tbilisi' => 0, 'courier_price_region' => 0,
+                       'courier_price_village' => 0, 'courier_servise_local' => 'none'];
+
+                $data = array_merge($baseData, $itemCourierData, [
+                    'product_size'  => $productSize,
+                    'price_georgia' => (float)($product->price_geo ?? 0),
+                    'price_usa'     => $nextPurchase ? (float)$nextPurchase->cost_price : 0,
+                ]);
+
+                if ($nextPurchase) {
+                    $prices2 = FifoService::getPrices((int) $productId, $productSize);
+                    $data['status_id']         = $nextPurchase->status_id;
+                    $data['purchase_order_id'] = $nextPurchase->id;
+                    $data['price_usa']         = $prices2['cost_price'];
+                    $data['price_georgia']     = $prices2['price_georgia'] ?: $data['price_georgia'];
+                    $data['sale_from']         = ($nextPurchase->status_id == 3) ? 1 : 0;
+                    $newOrder = Product_Order::create($data);
+                    if ($stock) $stock->increment('reserved_qty', $reserveQty2);
+                    StatusChangeLog::create([
+                        'order_id'       => $newOrder->id,
+                        'user_id'        => auth()->id(),
+                        'status_id_from' => null,
+                        'status_id_to'   => $newOrder->status_id,
+                        'changed_at'     => now(),
+                    ]);
+                } else {
+                    $prices2               = FifoService::getPrices((int) $productId, $productSize);
+                    $data['price_georgia'] = $prices2['price_georgia'] ?: $data['price_georgia'];
+                    $data['status_id']     = 1;
+                    $newOrder = Product_Order::create($data);
+                    StatusChangeLog::create([
+                        'order_id'       => $newOrder->id,
+                        'user_id'        => auth()->id(),
+                        'status_id_from' => null,
+                        'status_id_to'   => 1,
+                        'changed_at'     => now(),
+                    ]);
+                }
+                $createdOrders[] = $newOrder;
+                // ─── end ჩვეულებრივი ────────────────────────────────────────
+            }
         }
 
         if (empty($createdOrders)) {
@@ -717,9 +770,14 @@ class ProductOrderController extends Controller
 
             // ─── stock rollback info (ვიმახსოვრებთ წაშლამდე) ───────────────
             $isSaleType    = in_array($order->order_type, ['sale', 'change']);
-            $wasReserved   = $isSaleType && in_array($order->status_id, [2, 3]);
             $deletedProdId = $order->product_id;
             $deletedSize   = $order->product_size;
+            $isDivisibleDel = FifoService::isDivisibleProduct($deletedProdId);
+            // divisible status=1 also had reserved_qty set (backward compat)
+            $wasReserved   = $isSaleType && (
+                in_array($order->status_id, [2, 3]) ||
+                ($isDivisibleDel && $order->status_id == 1)
+            );
 
             // ─── ჯერ ვშლით ─────────────────────────────────────────────────
             // FifoService-ი ამ ორდერს usedCount-ში ვეღარ ჩათვლის
@@ -740,7 +798,10 @@ class ProductOrderController extends Controller
                                               ->where('size', $delStockKey)
                                               ->first();
                 if ($stock) {
-                    $stock->decrement('reserved_qty', $delQty);
+                    \DB::statement(
+                        'UPDATE `warehouse` SET `reserved_qty` = GREATEST(0, `reserved_qty` - ?) WHERE `id` = ?',
+                        [$delQty, $stock->id]
+                    );
                     $stock->refresh();
 
                     // ─── FIFO: ყველაზე ძველი pending sale ─────────────

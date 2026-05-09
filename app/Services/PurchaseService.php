@@ -127,10 +127,6 @@ class PurchaseService
             if (!$stock) return;
 
             if ($isDivisible) {
-                $purchVal = FifoService::divisibleFactor($productId, $size);
-                if ($purchVal === null) return;
-                $capacity = $purchVal * $order->quantity;
-
                 $pendingSales = Product_Order::whereIn('order_type', ['sale', 'change'])
                     ->where('product_id', $productId)
                     ->where('status_id', 1)->orderBy('created_at', 'asc')->get();
@@ -139,23 +135,29 @@ class PurchaseService
                     $saleVal = FifoService::divisibleFactor($productId, $sale->product_size ?? '');
                     if ($saleVal === null) continue;
 
+                    $allocations = FifoService::getDivisibleAllocations($productId);
+                    $mlNeeded    = $saleVal;
+                    $totalCost   = 0.0;
+                    $newStatus   = 3;
+                    $firstPurch  = null;
+
+                    foreach ($allocations as $alloc) {
+                        if ($mlNeeded <= 0) break;
+                        $p        = $alloc['purchase'];
+                        $pSizeVal = FifoService::sizeNumericValue($p->product_size ?? '') ?? 0;
+                        if ($pSizeVal <= 0) continue;
+                        $takeMl    = min($mlNeeded, $alloc['remaining_ml']);
+                        $totalCost += $takeMl * ((float) $p->cost_price / $pSizeVal);
+                        $newStatus  = min($newStatus, (int) $p->status_id);
+                        if ($firstPurch === null) $firstPurch = $p;
+                        $mlNeeded  -= $takeMl;
+                    }
+
+                    if ($mlNeeded > 0.001) continue;
+
                     $stock->refresh();
-                    $available = $stock->incoming_qty - $stock->reserved_qty;
-                    if ($available < $saleVal) break;
-
-                    $usedMl = Product_Order::whereIn('order_type', ['sale', 'change'])
-                        ->where('purchase_order_id', $order->id)
-                        ->whereIn('status_id', [1, 2, 3, 5, 6])
-                        ->get(['quantity', 'product_size'])
-                        ->sum(fn($s) => ($s->quantity ?? 1) * (FifoService::divisibleFactor($productId, $s->product_size ?? '') ?? 0));
-
-                    if ($usedMl + $saleVal > $capacity) continue;
-
-                    $prices = FifoService::getPrices($productId, $sale->product_size ?? '');
-                    $sale->purchase_order_id = $order->id;
-                    $sale->price_usa         = $prices['cost_price'];
                     $stock->increment('reserved_qty', (int) round($saleVal));
-                    $logAndSave($sale, 2, $sale->price_usa, $sale->purchase_order_id);
+                    $logAndSave($sale, $newStatus, round($totalCost, 2), $firstPurch?->id);
                 }
             } else {
                 $capacity    = $order->quantity;
@@ -287,10 +289,6 @@ class PurchaseService
         $isDivisible    = FifoService::isDivisibleProduct($productId);
 
         if ($isDivisible) {
-            $purchVal = FifoService::divisibleFactor($productId, $purchase->product_size ?? '');
-            if ($purchVal === null) return;
-            $capacity = $purchVal * $purchase->quantity;
-
             $pendingSales = Product_Order::whereIn('order_type', ['sale', 'change'])
                 ->where('product_id', $productId)
                 ->where('status_id', 1)
@@ -306,36 +304,39 @@ class PurchaseService
                 $saleVal = FifoService::divisibleFactor($productId, $sale->product_size ?? '');
                 if ($saleVal === null) continue;
 
-                $stock->refresh();
-                if ($purchaseStatus == 2) {
-                    $available = $isReturn
-                        ? $stock->return_incoming_qty - $stock->reserved_qty
-                        : $stock->incoming_qty - $stock->reserved_qty;
-                } else {
-                    $available = $stock->physical_qty - ($stock->defect_qty ?? 0) - $stock->reserved_qty;
+                // Re-compute allocations after each assignment so remaining_ml stays accurate
+                $allocations = FifoService::getDivisibleAllocations($productId);
+                $mlNeeded    = $saleVal;
+                $totalCost   = 0.0;
+                $newStatus   = 3;
+                $firstPurch  = null;
+
+                foreach ($allocations as $alloc) {
+                    if ($mlNeeded <= 0) break;
+                    $p        = $alloc['purchase'];
+                    $pSizeVal = FifoService::sizeNumericValue($p->product_size ?? '') ?? 0;
+                    if ($pSizeVal <= 0) continue;
+                    $takeMl    = min($mlNeeded, $alloc['remaining_ml']);
+                    $totalCost += $takeMl * ((float) $p->cost_price / $pSizeVal);
+                    $newStatus  = min($newStatus, (int) $p->status_id);
+                    if ($firstPurch === null) $firstPurch = $p;
+                    $mlNeeded  -= $takeMl;
                 }
-                if ($available < $saleVal) continue;
 
-                $usedMl = Product_Order::where('purchase_order_id', $purchase->id)
-                    ->whereIn('order_type', ['sale', 'change'])
-                    ->whereIn('status_id', [1, 2, 3, 5, 6])
-                    ->get(['quantity', 'product_size'])
-                    ->sum(fn($s) => ($s->quantity ?? 1) * (FifoService::divisibleFactor($productId, $s->product_size ?? '') ?? 0));
+                if ($mlNeeded > 0.001) continue; // still not enough stock across all purchases
 
-                if ($usedMl + $saleVal > $capacity) continue;
-
-                $prices = FifoService::getPrices($productId, $sale->product_size ?? '');
+                $stock->refresh();
                 $stock->increment('reserved_qty', (int) round($saleVal));
-                $sale->purchase_order_id = $purchase->id;
-                $sale->price_usa         = $prices['cost_price'];
-                $sale->status_id         = $purchaseStatus;
+                $sale->purchase_order_id = $firstPurch?->id;
+                $sale->price_usa         = round($totalCost, 2);
+                $sale->status_id         = $newStatus;
                 $sale->save();
 
                 StatusChangeLog::create([
                     'order_id'       => $sale->id,
                     'user_id'        => auth()->id(),
                     'status_id_from' => 1,
-                    'status_id_to'   => $purchaseStatus,
+                    'status_id_to'   => $newStatus,
                     'changed_at'     => now(),
                 ]);
             }

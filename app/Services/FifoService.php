@@ -41,6 +41,85 @@ class FifoService
     }
 
     // ════════════════════════════════════════════════════════════════
+    // purchase-ების remaining ml — overflow-aware (FIFO cascade)
+    // P17 has 20ml capacity but 30ml linked sales → overflow=10ml passes to P18
+    // Returns: [purchase_id => remaining_ml]
+    public static function divisibleRemainingMap(int $productId): array
+    {
+        $purchases = Product_Order::where('order_type', 'purchase')
+            ->where('status', 'active')
+            ->where('product_id', $productId)
+            ->where(function ($q) {
+                $q->where(function ($inner) {
+                    $inner->whereNull('original_sale_id')->whereIn('status_id', [2, 3]);
+                })->orWhere(function ($inner) {
+                    $inner->whereNotNull('original_sale_id')->where('status_id', 3);
+                });
+            })
+            ->orderBy('status_id', 'desc')
+            ->orderBy('created_at', 'asc')
+            ->get(['id', 'quantity', 'product_size', 'cost_price', 'price_georgia', 'status_id']);
+
+        $purchaseIds = $purchases->pluck('id');
+        $salesByPurchase = Product_Order::whereIn('order_type', ['sale', 'change'])
+            ->whereIn('purchase_order_id', $purchaseIds)
+            ->whereIn('status_id', [1, 2, 3, 4, 5, 6])
+            ->get(['purchase_order_id', 'product_size', 'quantity'])
+            ->groupBy('purchase_order_id');
+
+        $map      = [];
+        $overflow = 0.0;
+        foreach ($purchases as $p) {
+            $purchVal = self::divisibleFactor($productId, $p->product_size ?? '');
+            if ($purchVal === null || $purchVal <= 0) continue;
+            $capacity      = $purchVal * (int)$p->quantity;
+            $directUsedMl  = ($salesByPurchase->get($p->id) ?? collect())
+                ->sum(fn($s) => ($s->quantity ?? 1) * (self::divisibleFactor($productId, $s->product_size ?? '') ?? 0));
+            $totalUsed     = $directUsedMl + $overflow;
+            $map[$p->id]   = max(0.0, $capacity - $totalUsed);
+            $overflow      = max(0.0, $totalUsed - $capacity);
+        }
+        return $map;
+    }
+
+    // დაშლადი პროდუქტის purchase-ის დარჩენილი ml (overflow-aware)
+    public static function getRemainingMl(int $productId, int $purchaseId): float
+    {
+        return self::divisibleRemainingMap($productId)[$purchaseId] ?? 0.0;
+    }
+
+    // დაშლადი პროდუქტის ყველა purchase-ი remaining_ml > 0 (FIFO, overflow-aware)
+    // აბრუნებს: [['purchase' => Product_Order, 'remaining_ml' => float], ...]
+    public static function getDivisibleAllocations(int $productId): array
+    {
+        $map = self::divisibleRemainingMap($productId);
+        if (empty($map)) return [];
+
+        $purchases = Product_Order::where('order_type', 'purchase')
+            ->where('status', 'active')
+            ->where('product_id', $productId)
+            ->where(function ($q) {
+                $q->where(function ($inner) {
+                    $inner->whereNull('original_sale_id')->whereIn('status_id', [2, 3]);
+                })->orWhere(function ($inner) {
+                    $inner->whereNotNull('original_sale_id')->where('status_id', 3);
+                });
+            })
+            ->orderBy('status_id', 'desc')
+            ->orderBy('created_at', 'asc')
+            ->whereIn('id', array_keys($map))
+            ->get(['id', 'quantity', 'product_size', 'cost_price', 'price_georgia', 'status_id']);
+
+        $result = [];
+        foreach ($purchases as $p) {
+            $rem = $map[$p->id] ?? 0.0;
+            if ($rem > 0.001) {
+                $result[] = ['purchase' => $p, 'remaining_ml' => $rem];
+            }
+        }
+        return $result;
+    }
+
     // შემდეგი sale-ისთვის purchase-ის პოვნა (FIFO)
     // დაშლადი: cross-size matching ml-ის დატვირთულობით
     // ჩვეულებრივი: ზუსტი ზომის count-ით
@@ -65,27 +144,12 @@ class FifoService
         $saleVal = self::divisibleFactor($productId, $size);
 
         if ($saleVal !== null) {
-            // ─── დაშლადი: ნებისმიერი ზომის purchase, ml-ის ტევადობა ─────
-            $purchases = $query->get(['id', 'quantity', 'product_size', 'cost_price', 'price_georgia', 'status_id', 'created_at']);
-
-            foreach ($purchases as $purchase) {
-                $purchVal = self::divisibleFactor($productId, $purchase->product_size ?? '');
-                if ($purchVal === null) continue;
-
-                $capacity = $purchVal * $purchase->quantity;
-
-                $usedMl = Product_Order::whereIn('order_type', ['sale', 'change'])
-                    ->where('purchase_order_id', $purchase->id)
-                    ->whereIn('status_id', [1, 2, 3, 4, 5, 6])
-                    ->get(['quantity', 'product_size'])
-                    ->sum(fn($s) => ($s->quantity ?? 1) * (self::divisibleFactor($productId, $s->product_size ?? '') ?? 0));
-
-                if ($usedMl + $saleVal <= $capacity) {
-                    return $purchase;
-                }
+            // ─── დაშლადი: overflow-aware — პირველი purchase სადაც remaining_ml > 0
+            $allocations = self::getDivisibleAllocations($productId);
+            if ($excludeId > 0) {
+                $allocations = array_values(array_filter($allocations, fn($a) => $a['purchase']->id !== $excludeId));
             }
-
-            return null;
+            return $allocations[0]['purchase'] ?? null;
         }
 
         // ─── ჩვეულებრივი: ზუსტი ზომა + count ──────────────────────────
@@ -115,39 +179,55 @@ class FifoService
     // ════════════════════════════════════════════════════════════════
     public static function getPrices(int $productId, string $size = ''): array
     {
-        $purchase = self::getNextPurchase($productId, $size);
+        $saleVal = self::divisibleFactor($productId, $size);
 
-        if (!$purchase) {
-            $product   = \App\Models\Product::find($productId);
-            $baseGeo   = (float) ($product->price_geo ?? 0);
-            $baseUsd   = (float) ($product->price_usa ?? 0);
-            $saleVal   = self::divisibleFactor($productId, $size);
-            if ($saleVal !== null && $saleVal > 0) {
-                // price_geo = ფასი 1ml-ზე; ვამრავლებთ ზომაზე
+        // ─── დაშლადი: weighted cost across multiple purchases ────────
+        if ($saleVal !== null && $saleVal > 0) {
+            $product     = \App\Models\Product::withoutGlobalScope('active')->find($productId);
+            $priceGeo    = round((float) ($product->price_geo ?? 0) * $saleVal, 2);
+            $allocations = self::getDivisibleAllocations($productId);
+
+            if (empty($allocations)) {
+                $baseUsd = (float) ($product->price_usa ?? 0);
                 return [
                     'cost_price'        => round($baseUsd * $saleVal, 2),
-                    'price_georgia'     => round($baseGeo * $saleVal, 2),
+                    'price_georgia'     => $priceGeo,
                     'purchase_order_id' => null,
                 ];
             }
+
+            $mlNeeded      = $saleVal;
+            $totalCost     = 0.0;
+            $firstPurchase = null;
+
+            foreach ($allocations as $alloc) {
+                if ($mlNeeded <= 0) break;
+                $purchase     = $alloc['purchase'];
+                $purchSizeVal = self::sizeNumericValue($purchase->product_size ?? '') ?? 0;
+                if ($purchSizeVal <= 0) continue;
+                $takeMl       = min($mlNeeded, $alloc['remaining_ml']);
+                $costPerMl    = (float) $purchase->cost_price / $purchSizeVal;
+                $totalCost   += $takeMl * $costPerMl;
+                if ($firstPurchase === null) $firstPurchase = $purchase;
+                $mlNeeded    -= $takeMl;
+            }
+
             return [
-                'cost_price'        => $baseUsd,
-                'price_georgia'     => $baseGeo,
-                'purchase_order_id' => null,
+                'cost_price'        => round($totalCost, 2),
+                'price_georgia'     => $priceGeo,
+                'purchase_order_id' => $firstPurchase?->id,
             ];
         }
 
-        $saleVal  = self::divisibleFactor($productId, $size);
-        $purchVal = self::divisibleFactor($productId, $purchase->product_size ?? '');
+        // ─── ჩვეულებრივი ─────────────────────────────────────────────
+        $purchase = self::getNextPurchase($productId, $size);
 
-        if ($saleVal !== null && $purchVal !== null && $purchVal > 0 && $saleVal !== $purchVal) {
-            $factor  = $saleVal / $purchVal;
-            // selling price always from product.price_geo × ml (not purchase's price_georgia)
-            $product = \App\Models\Product::withoutGlobalScope('active')->find($productId);
+        if (!$purchase) {
+            $product = \App\Models\Product::find($productId);
             return [
-                'cost_price'        => round((float) $purchase->cost_price * $factor, 2),
-                'price_georgia'     => round((float) ($product->price_geo ?? 0) * $saleVal, 2),
-                'purchase_order_id' => $purchase->id,
+                'cost_price'        => (float) ($product->price_usa ?? 0),
+                'price_georgia'     => (float) ($product->price_geo ?? 0),
+                'purchase_order_id' => null,
             ];
         }
 
