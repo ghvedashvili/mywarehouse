@@ -1818,6 +1818,7 @@ window.printCourierToday = function() {
             if (!result.isConfirmed) return;
             var form = $('<form method="POST" action="{{ route('exportPDF.productOrderFiltered') }}" target="_blank">');
             form.append('<input type="hidden" name="_token" value="{{ csrf_token() }}">');
+            form.append('<input type="hidden" name="courier_layout" value="1">');
             res.ids.forEach(function(id) { form.append('<input type="hidden" name="ids[]" value="'+id+'">'); });
             $('body').append(form); form.submit(); form.remove();
         });

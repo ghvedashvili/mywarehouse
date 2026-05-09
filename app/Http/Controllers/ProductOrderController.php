@@ -2108,6 +2108,24 @@ class ProductOrderController extends Controller
             $logoBase64 = 'data:' . mime_content_type($logoPath) . ';base64,' . base64_encode(file_get_contents($logoPath));
         }
 
+        if ($request->input('courier_layout') == '1') {
+            $singles  = $groups->filter(fn($g) => !$g['is_exchange'] && !$g['is_return'] && $g['children']->count() == 0)->values();
+            $twos     = $groups->filter(fn($g) => !$g['is_exchange'] && !$g['is_return'] && $g['children']->count() == 1)->values();
+            $threes   = $groups->filter(fn($g) => !$g['is_exchange'] && !$g['is_return'] && $g['children']->count() == 2)->values();
+            $manys    = $groups->filter(fn($g) => !$g['is_exchange'] && !$g['is_return'] && $g['children']->count() >= 3)->values();
+            $specials = $groups->filter(fn($g) => $g['is_exchange'] || $g['is_return'])->values();
+
+            $pdf = Pdf::loadView('product_order.productOrderCourierPDF', compact('singles', 'twos', 'threes', 'manys', 'specials', 'logoBase64'))
+                ->setPaper('a4')
+                ->setOptions([
+                    'defaultFont'          => 'dejavu sans',
+                    'isHtml5ParserEnabled' => true,
+                    'isRemoteEnabled'      => true,
+                ]);
+
+            return $pdf->download('courier_' . now()->format('Y-m-d') . '.pdf');
+        }
+
         $pdf = Pdf::loadView('product_order.productOrderFilteredPDF', compact('groups', 'logoBase64'))
             ->setPaper('a4')
             ->setOptions([
