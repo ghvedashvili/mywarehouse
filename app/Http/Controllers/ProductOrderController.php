@@ -2716,17 +2716,36 @@ private function productImageBase64(?\App\Models\Product $product): ?string
     if (!$product || !$product->image) return null;
     try {
         if (str_starts_with($product->image, '/')) {
-            // ძველი ლოკალური ფაილი
             $path = public_path(ltrim($product->image, '/'));
             if (!file_exists($path)) return null;
-            return 'data:' . mime_content_type($path) . ';base64,' . base64_encode(file_get_contents($path));
+            $contents = file_get_contents($path);
+        } else {
+            $url = $product->image_url;
+            if (!$url) return null;
+            $contents = @file_get_contents($url, false, stream_context_create([
+                'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
+                'http' => ['timeout' => 5],
+            ]));
         }
-        // ახალი ფაილი — public disk (ლოკალური) ან s3 (production)
-        $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
-        $contents = \Illuminate\Support\Facades\Storage::disk($disk)->get($product->image);
         if (!$contents) return null;
+
+        // dompdf-ი AVIF/WEBP-ს ვერ ახდენს render-ს — GD-ით PNG-ად ვაქცევთ
+        $img = @imagecreatefromstring($contents);
+        if ($img !== false) {
+            ob_start();
+            imagepng($img);
+            $png = ob_get_clean();
+            imagedestroy($img);
+            return 'data:image/png;base64,' . base64_encode($png);
+        }
+
+        // GD ვერ ახდენს — original format-ით ვრჩებით (jpeg/png/gif)
         $ext  = strtolower(pathinfo($product->image, PATHINFO_EXTENSION));
-        $mime = match($ext) { 'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp', default => 'image/jpeg' };
+        $mime = match($ext) {
+            'png'  => 'image/png',
+            'gif'  => 'image/gif',
+            default => 'image/jpeg',
+        };
         return 'data:' . $mime . ';base64,' . base64_encode($contents);
     } catch (\Throwable) {
         return null;
