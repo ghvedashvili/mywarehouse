@@ -77,14 +77,30 @@
             color:#fecaca; letter-spacing:4px;
         }
         .return-content { position:relative; padding:8px 12px; }
+
+        /* ── page break helpers ── */
+        .order-wrap   { page-break-inside: avoid; }
+        .section-break { page-break-before: always; }
+        .page-only    { page-break-before: always; page-break-after: always; }
     </style>
 </head>
 <body>
 
+@php
+    $singles   = $groups->filter(fn($g) => !$g['is_exchange'] && !$g['is_return'] && $g['children']->isEmpty())->values();
+    $multiGroups = $groups
+        ->filter(fn($g) => !$g['is_exchange'] && !$g['is_return'] && $g['children']->isNotEmpty())
+        ->groupBy(fn($g) => $g['children']->count() + 1)
+        ->sortKeys();
+    $returns   = $groups->filter(fn($g) => $g['is_return'])->values();
+    $exchanges = $groups->filter(fn($g) => $g['is_exchange'])->values();
+    $totalCount = $groups->count();
+@endphp
+
 <div class="doc-header">
     <div class="doc-header-left">
         <h2>{{ $title ?? 'ორდერების სია' }}</h2>
-        <p>{{ now()->format('d.m.Y') }} &nbsp;·&nbsp; {{ $groups->count() }} ორდერი</p>
+        <p>{{ now()->format('d.m.Y') }} &nbsp;·&nbsp; {{ $totalCount }} ორდერი</p>
     </div>
     <div class="doc-header-right">
         @if(isset($logoBase64) && $logoBase64)
@@ -93,186 +109,25 @@
     </div>
 </div>
 
-@foreach($groups as $index => $group)
+{{-- ══ SECTION 1: SINGLE-PRODUCT ORDERS ══ --}}
+@foreach($singles as $i => $group)
     @php
         $primary  = $group['primary'];
-        $children = $group['children'];
-        $isGroup  = $group['is_group'];
-        $isExch   = $group['is_exchange'];
-        $origOrd  = $group['original_order'];
-        $isReturn = $group['is_return'];
         $orderNum = $primary->order_number ?? ('#' . $primary->id);
         $customer = $primary->customer;
-        $totalNew  = (float)$primary->price_georgia - (float)($primary->discount ?? 0);
-        $totalOld  = $origOrd ? ((float)$origOrd->price_georgia - (float)($origOrd->discount ?? 0)) : 0;
         $isPaid = ((float)($primary->courier_price_tbilisi ?? 0) > 0)
                || ((float)($primary->courier_price_region   ?? 0) > 0)
                || ((float)($primary->courier_price_village  ?? 0) > 0);
     @endphp
-
-    @if($index > 0)
-        <div class="cut-line">
-            <div class="cut-icon">&#9986;</div>
-            <div class="cut-dash"></div>
-        </div>
-    @endif
-
-    {{-- ══ EXCHANGE ORDER ══ --}}
-    @if($isExch)
-        <div class="exchange-block">
-            <div class="exchange-watermark">გადაცვლა</div>
-
-            <div class="cust-header">
-                <div class="cust-left">
-                    <div class="cust-name">{{ $customer->name ?? '—' }}</div>
-                    <div class="cust-meta">
-                        {{ $customer->tel ?? '' }}
-                        @if($customer->alternative_tel ?? '') / {{ $customer->alternative_tel }}@endif
-                        <br>
-                        {{ $customer->city->name ?? '' }}
-                        @if($customer->address ?? ''), {{ $customer->address }}@endif
-                    </div>
-                </div>
-                <div class="cust-right">
-                    <div>@if($isPaid)<span class="badge-paid">გადახდილია</span>@else<span class="badge-unpaid">გადასახდელია</span>@endif</div>
-                    <div class="cust-num">{{ $orderNum }}</div>
-                </div>
+    <div class="order-wrap">
+        @if($i > 0)
+            <div class="cut-line">
+                <div class="cut-icon">&#9986;</div>
+                <div class="cut-dash"></div>
             </div>
-
-            <div class="exchange-content">
-                {{-- new product: deliver --}}
-                <div class="prod-row">
-                    <div class="pr-img">
-                        @if(!empty($primary->imageBase64))
-                            <img src="{{ $primary->imageBase64 }}" alt="">
-                        @else
-                            <div class="no-img"></div>
-                        @endif
-                    </div>
-                    <div class="pr-info">
-                        <div class="pr-name">{{ $primary->product->name ?? '—' }}</div>
-                        <div class="pr-meta">
-                            @if($primary->product_size)ზომა: {{ $primary->product_size }}@endif
-                            @if($primary->comment)<br>{{ $primary->comment }}@endif
-                        </div>
-                    </div>
-                    <div class="pr-action"><span class="badge-deliver">&#10003; გადაეცი</span></div>
-                </div>
-
-                {{-- original product: pick up --}}
-                @if($origOrd)
-                <div class="prod-row">
-                    <div class="pr-img">
-                        @if(!empty($origOrd->imageBase64))
-                            <img src="{{ $origOrd->imageBase64 }}" alt="">
-                        @else
-                            <div class="no-img"></div>
-                        @endif
-                    </div>
-                    <div class="pr-info">
-                        <div class="pr-name">{{ $origOrd->product->name ?? '—' }}</div>
-                        <div class="pr-meta">
-                            @if($origOrd->product_size)ზომა: {{ $origOrd->product_size }}@endif
-                        </div>
-                    </div>
-                    <div class="pr-action"><span class="badge-pickup">&#8617; წამოიღე</span></div>
-                </div>
-                @endif
-            </div>
-        </div>
-
-    {{-- ══ RETURN ORDER ══ --}}
-    @elseif($isReturn)
-        <div class="return-block">
-            <div class="return-watermark">დაბრუნება</div>
-
-            <div class="cust-header">
-                <div class="cust-left">
-                    <div class="cust-name">{{ $customer->name ?? '—' }}</div>
-                    <div class="cust-meta">
-                        {{ $customer->tel ?? '' }}
-                        @if($customer->alternative_tel ?? '') / {{ $customer->alternative_tel }}@endif
-                        <br>
-                        {{ $customer->city->name ?? '' }}
-                        @if($customer->address ?? ''), {{ $customer->address }}@endif
-                    </div>
-                </div>
-                <div class="cust-right">
-                    <div>@if($isPaid)<span class="badge-paid">გადახდილია</span>@else<span class="badge-unpaid">გადასახდელია</span>@endif</div>
-                    <div class="cust-num">{{ $orderNum }}</div>
-                </div>
-            </div>
-
-            <div class="return-content">
-                <div class="prod-row">
-                    <div class="pr-img">
-                        @if(!empty($primary->imageBase64))
-                            <img src="{{ $primary->imageBase64 }}" alt="">
-                        @else
-                            <div class="no-img"></div>
-                        @endif
-                    </div>
-                    <div class="pr-info">
-                        <div class="pr-name">{{ $primary->product->name ?? '—' }}</div>
-                        <div class="pr-meta">
-                            @if($primary->product_size)ზომა: {{ $primary->product_size }}@endif
-                            @if($primary->comment) · {{ $primary->comment }}@endif
-                        </div>
-                    </div>
-                    <div class="pr-action"><span class="badge-pickup">&#8617; წამოიღე</span></div>
-                </div>
-            </div>
-        </div>
-
-    {{-- ══ GROUPED ORDER ══ --}}
-    @elseif($isGroup)
-        @php
-            $allMembers = collect([$primary])->merge($children);
-            $groupTotal = $allMembers->sum(fn($o) => (float)$o->price_georgia - (float)($o->discount ?? 0));
-        @endphp
-        <div class="group-block">
-            <div class="cust-header">
-                <div class="cust-left">
-                    <div class="cust-name">{{ $customer->name ?? '—' }}</div>
-                    <div class="cust-meta">
-                        {{ $customer->tel ?? '' }}
-                        @if($customer->alternative_tel ?? '') / {{ $customer->alternative_tel }}@endif
-                        <br>
-                        {{ $customer->city->name ?? '' }}
-                        @if($customer->address ?? ''), {{ $customer->address }}@endif
-                    </div>
-                </div>
-                <div class="cust-right">
-                    <div>@if($isPaid)<span class="badge-paid">გადახდილია</span>@else<span class="badge-unpaid">გადასახდელია</span>@endif</div>
-                    <div class="cust-num">{{ $orderNum }}</div>
-                </div>
-            </div>
-            <div class="group-items">
-                @foreach($allMembers as $member)
-                    <div class="prod-row">
-                        <div class="pr-img">
-                            @if(!empty($member->imageBase64))
-                                <img src="{{ $member->imageBase64 }}" alt="">
-                            @else
-                                <div class="no-img"></div>
-                            @endif
-                        </div>
-                        <div class="pr-info">
-                            <div class="pr-name">{{ $member->product->name ?? '—' }}</div>
-                            <div class="pr-meta">
-                                @if($member->product_size)ზომა: {{ $member->product_size }}@endif
-                                @if($member->comment) · {{ $member->comment }}@endif
-                            </div>
-                        </div>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-
-    {{-- ══ NORMAL SINGLE ORDER ══ --}}
-    @else
+        @endif
         <div class="order-row">
-            <div class="col-num">{{ $index + 1 }}</div>
+            <div class="col-num">{{ $i + 1 }}</div>
             <div class="pr-img">
                 @if(!empty($primary->imageBase64))
                     <img src="{{ $primary->imageBase64 }}" alt="">
@@ -302,8 +157,192 @@
                 <div style="margin-top:3px;">{{ $orderNum }}</div>
             </div>
         </div>
-    @endif
+    </div>
+@endforeach
 
+{{-- ══ SECTIONS: MULTI-PRODUCT ORDERS (grouped by count) ══ --}}
+@foreach($multiGroups as $productCount => $items)
+    @foreach($items as $i => $group)
+        @php
+            $primary  = $group['primary'];
+            $children = $group['children'];
+            $orderNum = $primary->order_number ?? ('#' . $primary->id);
+            $customer = $primary->customer;
+            $isPaid = ((float)($primary->courier_price_tbilisi ?? 0) > 0)
+                   || ((float)($primary->courier_price_region   ?? 0) > 0)
+                   || ((float)($primary->courier_price_village  ?? 0) > 0);
+            $allMembers = collect([$primary])->merge($children);
+        @endphp
+        <div class="order-wrap {{ $i === 0 ? 'section-break' : '' }}">
+            @if($i > 0)
+                <div class="cut-line">
+                    <div class="cut-icon">&#9986;</div>
+                    <div class="cut-dash"></div>
+                </div>
+            @endif
+            <div class="group-block">
+                <div class="cust-header">
+                    <div class="cust-left">
+                        <div class="cust-name">{{ $customer->name ?? '—' }}</div>
+                        <div class="cust-meta">
+                            {{ $customer->tel ?? '' }}
+                            @if($customer->alternative_tel ?? '') / {{ $customer->alternative_tel }}@endif
+                            <br>
+                            {{ $customer->city->name ?? '' }}
+                            @if($customer->address ?? ''), {{ $customer->address }}@endif
+                        </div>
+                    </div>
+                    <div class="cust-right">
+                        <div>@if($isPaid)<span class="badge-paid">გადახდილია</span>@else<span class="badge-unpaid">გადასახდელია</span>@endif</div>
+                        <div class="cust-num">{{ $orderNum }}</div>
+                    </div>
+                </div>
+                <div class="group-items">
+                    @foreach($allMembers as $member)
+                        <div class="prod-row">
+                            <div class="pr-img">
+                                @if(!empty($member->imageBase64))
+                                    <img src="{{ $member->imageBase64 }}" alt="">
+                                @else
+                                    <div class="no-img"></div>
+                                @endif
+                            </div>
+                            <div class="pr-info">
+                                <div class="pr-name">{{ $member->product->name ?? '—' }}</div>
+                                <div class="pr-meta">
+                                    @if($member->product_size)ზომა: {{ $member->product_size }}@endif
+                                    @if($member->comment) · {{ $member->comment }}@endif
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    @endforeach
+@endforeach
+
+{{-- ══ RETURNS: each on its own page ══ --}}
+@foreach($returns as $group)
+    @php
+        $primary  = $group['primary'];
+        $orderNum = $primary->order_number ?? ('#' . $primary->id);
+        $customer = $primary->customer;
+        $isPaid = ((float)($primary->courier_price_tbilisi ?? 0) > 0)
+               || ((float)($primary->courier_price_region   ?? 0) > 0)
+               || ((float)($primary->courier_price_village  ?? 0) > 0);
+    @endphp
+    <div class="section-break">
+        <div class="return-block">
+            <div class="return-watermark">დაბრუნება</div>
+            <div class="cust-header">
+                <div class="cust-left">
+                    <div class="cust-name">{{ $customer->name ?? '—' }}</div>
+                    <div class="cust-meta">
+                        {{ $customer->tel ?? '' }}
+                        @if($customer->alternative_tel ?? '') / {{ $customer->alternative_tel }}@endif
+                        <br>
+                        {{ $customer->city->name ?? '' }}
+                        @if($customer->address ?? ''), {{ $customer->address }}@endif
+                    </div>
+                </div>
+                <div class="cust-right">
+                    <div>@if($isPaid)<span class="badge-paid">გადახდილია</span>@else<span class="badge-unpaid">გადასახდელია</span>@endif</div>
+                    <div class="cust-num">{{ $orderNum }}</div>
+                </div>
+            </div>
+            <div class="return-content">
+                <div class="prod-row">
+                    <div class="pr-img">
+                        @if(!empty($primary->imageBase64))
+                            <img src="{{ $primary->imageBase64 }}" alt="">
+                        @else
+                            <div class="no-img"></div>
+                        @endif
+                    </div>
+                    <div class="pr-info">
+                        <div class="pr-name">{{ $primary->product->name ?? '—' }}</div>
+                        <div class="pr-meta">
+                            @if($primary->product_size)ზომა: {{ $primary->product_size }}@endif
+                            @if($primary->comment) · {{ $primary->comment }}@endif
+                        </div>
+                    </div>
+                    <div class="pr-action"><span class="badge-pickup">&#8617; წამოიღე</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+@endforeach
+
+{{-- ══ EXCHANGES: each on its own page ══ --}}
+@foreach($exchanges as $group)
+    @php
+        $primary  = $group['primary'];
+        $origOrd  = $group['original_order'];
+        $orderNum = $primary->order_number ?? ('#' . $primary->id);
+        $customer = $primary->customer;
+        $isPaid = ((float)($primary->courier_price_tbilisi ?? 0) > 0)
+               || ((float)($primary->courier_price_region   ?? 0) > 0)
+               || ((float)($primary->courier_price_village  ?? 0) > 0);
+    @endphp
+    <div class="section-break">
+        <div class="exchange-block">
+            <div class="exchange-watermark">გადაცვლა</div>
+            <div class="cust-header">
+                <div class="cust-left">
+                    <div class="cust-name">{{ $customer->name ?? '—' }}</div>
+                    <div class="cust-meta">
+                        {{ $customer->tel ?? '' }}
+                        @if($customer->alternative_tel ?? '') / {{ $customer->alternative_tel }}@endif
+                        <br>
+                        {{ $customer->city->name ?? '' }}
+                        @if($customer->address ?? ''), {{ $customer->address }}@endif
+                    </div>
+                </div>
+                <div class="cust-right">
+                    <div>@if($isPaid)<span class="badge-paid">გადახდილია</span>@else<span class="badge-unpaid">გადასახდელია</span>@endif</div>
+                    <div class="cust-num">{{ $orderNum }}</div>
+                </div>
+            </div>
+            <div class="exchange-content">
+                <div class="prod-row">
+                    <div class="pr-img">
+                        @if(!empty($primary->imageBase64))
+                            <img src="{{ $primary->imageBase64 }}" alt="">
+                        @else
+                            <div class="no-img"></div>
+                        @endif
+                    </div>
+                    <div class="pr-info">
+                        <div class="pr-name">{{ $primary->product->name ?? '—' }}</div>
+                        <div class="pr-meta">
+                            @if($primary->product_size)ზომა: {{ $primary->product_size }}@endif
+                            @if($primary->comment)<br>{{ $primary->comment }}@endif
+                        </div>
+                    </div>
+                    <div class="pr-action"><span class="badge-deliver">&#10003; გადაეცი</span></div>
+                </div>
+                @if($origOrd)
+                <div class="prod-row">
+                    <div class="pr-img">
+                        @if(!empty($origOrd->imageBase64))
+                            <img src="{{ $origOrd->imageBase64 }}" alt="">
+                        @else
+                            <div class="no-img"></div>
+                        @endif
+                    </div>
+                    <div class="pr-info">
+                        <div class="pr-name">{{ $origOrd->product->name ?? '—' }}</div>
+                        <div class="pr-meta">
+                            @if($origOrd->product_size)ზომა: {{ $origOrd->product_size }}@endif
+                        </div>
+                    </div>
+                    <div class="pr-action"><span class="badge-pickup">&#8617; წამოიღე</span></div>
+                </div>
+                @endif
+            </div>
+        </div>
+    </div>
 @endforeach
 
 </body>

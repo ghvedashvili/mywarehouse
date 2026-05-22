@@ -1203,7 +1203,7 @@ var columns = [
         data: null, orderable: false, searchable: false, width: '36px',
         render: function(data) {
             if (!data.has_mergeable || data.status === 'deleted') return '';
-            return '<input type="checkbox" class="row-check" data-id="'+data.id+'" data-status="'+data.status_id+'">';
+            return '<input type="checkbox" class="row-check" data-id="'+data.id+'" data-status="'+data.status_id+'" data-ready="'+(data.is_ready||0)+'">';
         }
     },
     {
@@ -2156,7 +2156,7 @@ $(document).on('click', '.merge-search-btn', function(e) {
     e.stopPropagation();
     var customerId = $(this).data('customer-id');
     mergeMode = true; $('#po-page-root').addClass('po-merge-mode');
-    table.ajax.url("{{ route('api.productsOut') }}?merge_customer_id="+customerId).load(function() { $('.row-check').prop('checked',true); toggleMergeBtn(); });
+    table.ajax.url("{{ route('api.productsOut') }}?merge_customer_id="+customerId).load(function() { $('.row-check').each(function() { $(this).prop('checked', $(this).data('ready') == 1); }); toggleMergeBtn(); });
 });
 
 function unmergeOrder(id) {

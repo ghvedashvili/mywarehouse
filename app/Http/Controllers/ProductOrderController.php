@@ -1124,6 +1124,13 @@ class ProductOrderController extends Controller
                 if ($item->merged_id && !$item->is_primary) return 0;
                 return isset($mergeableCustomerIds[$item->customer_id]) ? 1 : 0;
             })
+            ->addColumn('is_ready', function ($item) {
+                if ($item->status_id != 3) return 0;
+                $total = (float)$item->price_georgia - (float)($item->discount ?? 0);
+                $paid  = (float)($item->paid_tbc ?? 0) + (float)($item->paid_bog ?? 0)
+                       + (float)($item->paid_lib ?? 0) + (float)($item->paid_cash ?? 0);
+                return ($total - $paid) <= 0.01 ? 1 : 0;
+            })
             ->addColumn('cross_ref_html', function ($item) {
                 $html = '';
 
@@ -1869,7 +1876,7 @@ class ProductOrderController extends Controller
                 if (!$root) continue;
 
                 $orders = $root->is_primary
-                    ? Product_Order::where('merged_id', $root->id)->get()
+                    ? collect([$root])->merge(Product_Order::where('merged_id', $root->id)->get())
                     : collect([$root]);
 
                 // status_id=3 შემოწმება
@@ -1891,9 +1898,11 @@ class ProductOrderController extends Controller
                 // ნაშთი შემოწმება
                 $noStock = false;
                 foreach ($orders as $order) {
+                    $stockKey = $this->stockKey($order->product_id, $order->product_size ?? '');
+                    $needQty  = $this->divisibleQty($order->product_id, $order->product_size ?? '', $order->quantity ?? 1);
                     $stock = \App\Models\Warehouse::where('product_id', $order->product_id)
-                        ->where('size', $order->product_size)->first();
-                    if (!$stock || $stock->physical_qty < ($order->quantity ?? 1)) {
+                        ->where('size', $stockKey)->first();
+                    if (!$stock || $stock->physical_qty < $needQty) {
                         $noStock = true; break;
                     }
                 }
