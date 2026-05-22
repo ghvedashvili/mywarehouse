@@ -253,13 +253,26 @@ function updatePriceHint() {
     var isDivisible = $('#category_id option:selected').data('divisible') == '1';
     $('#price_geo_hint').toggle(isDivisible);
     $('#price_geo_label').text(isDivisible ? 'Price (1ml-ზე)' : 'Price');
+    // red border on category select when divisible
+    $('#category_id').css('border-color', isDivisible ? '#ef4444' : '').css('color', isDivisible ? '#dc2626' : '').css('font-weight', isDivisible ? '700' : '');
 }
 
 // ── SIZES ────────────────────────────────────────────────────
 function filterSizes(selectedSizes) {
     updatePriceHint();
     selectedSizes = selectedSizes || [];
-    var catId = $('#category_id').val();
+    var catId       = $('#category_id').val();
+    var isDivisible = $('#category_id option:selected').data('divisible') == '1';
+
+    if (isDivisible) {
+        $('#sizes-wrapper').hide();
+        $('#divisible-notice').show();
+        return;
+    }
+
+    $('#sizes-wrapper').show();
+    $('#divisible-notice').hide();
+
     if (!catId) {
         $('#size-checkboxes').html('<span class="text-muted" style="font-size:12px;">Choose a category first</span>');
         return;

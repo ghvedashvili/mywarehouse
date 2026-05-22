@@ -35,7 +35,10 @@
                                         required onchange="filterSizes()">
                                     <option value="">Choose...</option>
                                     @foreach($category as $cat)
-                                        <option value="{{ $cat->id }}" data-divisible="{{ $cat->is_divisible ? '1' : '0' }}">{{ $cat->name }}</option>
+                                        <option value="{{ $cat->id }}" data-divisible="{{ $cat->is_divisible ? '1' : '0' }}"
+                                            @if($cat->is_divisible) style="color:#dc2626;font-weight:600;" @endif>
+                                            {{ $cat->name }}{{ $cat->is_divisible ? ' 🔴 (დაშლადი)' : '' }}
+                                        </option>
                                     @endforeach
                                 </select>
                             </div>
@@ -52,13 +55,16 @@
                             </div>
 
                             {{-- SIZES --}}
-                            <div>
+                            <div id="sizes-wrapper">
                                 <label class="form-label small text-muted mb-1">Sizes</label>
                                 <div id="size-checkboxes"
                                      class="d-flex flex-wrap gap-1 border rounded p-2 bg-white"
                                      style="min-height:36px;">
                                     <span class="text-muted small">Select category</span>
                                 </div>
+                            </div>
+                            <div id="divisible-notice" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:6px 12px;font-size:12px;color:#dc2626;font-weight:600;">
+                                🔴 დაშლადი კატეგორია — ზომები არ გამოიყენება
                             </div>
 
                             {{-- CODE --}}

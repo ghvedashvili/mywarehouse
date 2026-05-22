@@ -101,7 +101,12 @@ var table = $('#categories-table').DataTable({
     autoWidth: false,
     columns: [
        // {data: 'id',             name: 'id'},
-        {data: 'name',           name: 'name',           width: '30%'},
+        {data: 'name', name: 'name', width: '30%', render: function(data, type, row) {
+            if (type === 'display' && row.is_divisible) {
+                return '<span style="font-weight:600;">' + $('<div>').text(data).html() + '</span> <span style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:4px;">დაშლადი</span>';
+            }
+            return $('<div>').text(data).html();
+        }},
         {data: 'sizes_display',  name: 'sizes_display',  orderable: false, searchable: false, width: '45%'},
         {data: 'status_display', name: 'status_display', orderable: false, searchable: false, visible: false, width: '60px'},
         {data: 'action',         name: 'action',         orderable: false, searchable: false, width: '70px'}

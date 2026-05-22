@@ -26,7 +26,8 @@ class WarehouseController extends Controller
     public function index()
     {
         $categories = Category::orderBy('name')->get(['id', 'name']);
-        return view('warehouse.index', compact('categories'));
+        $sizes = Warehouse::select('size')->distinct()->whereNotNull('size')->orderBy('size')->pluck('size');
+        return view('warehouse.index', compact('categories', 'sizes'));
     }
 
     // ─── ლოგის გვერდი (ყველა) ────────────────────────────────────────
@@ -42,6 +43,10 @@ class WarehouseController extends Controller
         $query = Warehouse::with('product');
         if ($request->filled('category_id')) {
             $query->whereHas('product', fn($q) => $q->where('category_id', $request->category_id));
+        }
+        $sizes = array_filter((array) $request->input('sizes', []));
+        if (!empty($sizes)) {
+            $query->whereIn('size', $sizes);
         }
         $stock = $query->get();
 

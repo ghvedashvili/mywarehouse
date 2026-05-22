@@ -142,6 +142,11 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
                     <option value="{{ $cat->id }}">{{ $cat->name }}</option>
                 @endforeach
             </select>
+            <select id="filter-size" class="form-select form-select-sm" style="width:180px;" multiple>
+                @foreach($sizes as $size)
+                    <option value="{{ $size }}">{{ $size }}</option>
+                @endforeach
+            </select>
         </div>
         <div class="table-responsive">
             <table id="stock-table" class="table wh-table table-hover table-bordered w-100">
@@ -296,7 +301,7 @@ $(function() {
         dom: 't<"d-flex justify-content-between align-items-center mt-2 px-2"ip>',
         ajax: {
             url: "{{ route('warehouse.apiStock') }}",
-            data: function(d) { d.category_id = $('#filter-category').val(); }
+            data: function(d) { d.category_id = $('#filter-category').val(); d.sizes = $('#filter-size').val() || []; }
         },
         columns: [
             // priority: დაბალი რიცხვი = პირველი რჩება ეკრანზე, მაღალი = პირველი იმალება
@@ -329,6 +334,8 @@ $(function() {
     $('#dt-page-length').on('change', function() { stockTable.page.len(this.value).draw(); });
     $('#filter-category').select2({ placeholder: 'ყველა კატეგორია', allowClear: true, width: '170px' });
     $('#filter-category').on('change', function() { stockTable.ajax.reload(); });
+    $('#filter-size').select2({ placeholder: 'ყველა ზომა', allowClear: true, width: '180px' });
+    $('#filter-size').on('change', function() { stockTable.ajax.reload(); });
 
     // ══ WRITE-OFF MODAL ══
     var woStockData   = [];
