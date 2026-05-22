@@ -498,11 +498,13 @@ class ProductOrderController extends Controller
                 // sale/change — პროდუქტი/ზომა შეიცვალა და იყო დარეზერვებული
                 // oldStock-ს ვინახავთ promotion-ისთვის; promotion კი update()-ის შემდეგ ხდება
                 $oldStockForPromotion = null;
+                $oldReleaseQty = $this->divisibleQty($oldProductId, $oldSize ?? '', 1);
                 if ($keyChanged && in_array($order->order_type, ['sale', 'change']) && in_array($oldStatusId, [2, 3])) {
+                    $oldStockKey = $this->stockKey($oldProductId, $oldSize ?? '');
                     $oldStockForPromotion = \App\Models\Warehouse::where('product_id', $oldProductId)
-                        ->where('size', $oldSize)->first();
+                        ->where('size', $oldStockKey)->first();
                     if ($oldStockForPromotion) {
-                        $oldStockForPromotion->decrement('reserved_qty', 1);
+                        $oldStockForPromotion->decrement('reserved_qty', $oldReleaseQty);
                     }
                     $data['purchase_order_id'] = null;
                     $data['status_id']         = 1;
@@ -512,7 +514,11 @@ class ProductOrderController extends Controller
                 if ($keyChanged && in_array($order->order_type, ['sale', 'change'])) {
                     $fifo = \App\Services\FifoService::getPrices($newProductId, $newSize);
                     $newProduct = \App\Models\Product::withoutGlobalScope('active')->find($newProductId);
-                    $data['price_georgia']     = (float) ($newProduct->price_geo ?? $order->price_georgia);
+                    $newMlVal = \App\Services\FifoService::sizeNumericValue($newSize ?? '') ?? 0;
+                    $isDivNew = \App\Services\FifoService::isDivisibleProduct($newProductId);
+                    $data['price_georgia'] = ($isDivNew && $newMlVal > 0)
+                        ? round((float)($newProduct->price_geo ?? 0) * $newMlVal, 2)
+                        : (float)($newProduct->price_geo ?? $order->price_georgia);
                     $data['price_usa']         = $fifo['purchase_order_id'] ? (float) $fifo['cost_price'] : 0;
                     $data['purchase_order_id'] = null;
                     if (!isset($data['status_id'])) {
@@ -548,7 +554,8 @@ class ProductOrderController extends Controller
 
                         if ($oldStockForPromotion) {
                             $oldStockForPromotion->refresh();
-                            $oldStockForPromotion->increment('reserved_qty', 1);
+                            $promoteQty = $this->divisibleQty($oldProductId, $waitingSale->product_size ?? $oldSize, 1);
+                            $oldStockForPromotion->increment('reserved_qty', $promoteQty);
                         }
 
                         StatusChangeLog::create([
@@ -566,11 +573,12 @@ class ProductOrderController extends Controller
                 // 7. sale/change — stock კორექტირება (ახალი product/size-ისთვის)
                 if (in_array($order->order_type, ['sale', 'change'])) {
 
-                    $stock = \App\Models\Warehouse::where('product_id', $order->product_id)
-                                                  ->where('size', $order->product_size)
-                                                  ->first();
+                    $newStockKey   = $this->stockKey($order->product_id, $order->product_size ?? '');
+                    $newReserveQty = $this->divisibleQty($order->product_id, $order->product_size ?? '', 1);
 
-                    $saleQty = $order->quantity ?? 1;
+                    $stock = \App\Models\Warehouse::where('product_id', $order->product_id)
+                                                  ->where('size', $newStockKey)
+                                                  ->first();
 
                     // CASE A: status=1 და FIFO-ში ადგილი გამოჩნდა → დავარეზერვოთ
                     if ($order->status_id == 1) {
@@ -579,6 +587,16 @@ class ProductOrderController extends Controller
                             $order->product_size
                         );
 
+                        // for divisible products getNextPurchase returns a purchase if ANY ml
+                        // remains, but we need to verify total available ml covers the new amount
+                        if ($caseANextPurchase && \App\Services\FifoService::isDivisibleProduct($order->product_id)) {
+                            $allocations   = \App\Services\FifoService::getDivisibleAllocations($order->product_id);
+                            $totalAvailMl  = array_sum(array_column($allocations, 'remaining_ml'));
+                            if ($totalAvailMl < $newReserveQty) {
+                                $caseANextPurchase = null;
+                            }
+                        }
+
                         if ($caseANextPurchase) {
                             $_ap = \App\Services\FifoService::getPrices($order->product_id, $order->product_size ?? '');
                             $order->status_id         = $caseANextPurchase->status_id;
@@ -586,7 +604,7 @@ class ProductOrderController extends Controller
                             $order->price_usa         = $_ap['cost_price'];
 
                             if ($stock) {
-                                $stock->increment('reserved_qty', 1);
+                                $stock->increment('reserved_qty', $newReserveQty);
                             }
 
                             $order->save();
@@ -603,13 +621,13 @@ class ProductOrderController extends Controller
 
                     // CASE C: 2→1 (რეზერვის გაუქმება — product/size უცვლელია)
                     if ($oldStatusId == 2 && $order->status_id == 1 && !$keyChanged && $stock) {
-                        $stock->decrement('reserved_qty', 1);
+                        $stock->decrement('reserved_qty', $newReserveQty);
                         $stock->save();
                     }
 
                     // CASE D: 3→1 (საწყობიდან გაუქმება — product/size უცვლელია)
                     if ($oldStatusId == 3 && $order->status_id == 1 && !$keyChanged && $stock) {
-                        $stock->decrement('reserved_qty', $saleQty);
+                        $stock->decrement('reserved_qty', $newReserveQty);
                         $stock->save();
                     }
                 }
@@ -1759,11 +1777,13 @@ class ProductOrderController extends Controller
             }
             // ──────────────────────────────────────────────────────────
 
+            $stockKey = $this->stockKey($order->product_id, $order->product_size ?? '');
+            $needQty  = $this->divisibleQty($order->product_id, $order->product_size ?? '', 1);
             $stock = \App\Models\Warehouse::where('product_id', $order->product_id)
-                                          ->where('size', $order->product_size)
+                                          ->where('size', $stockKey)
                                           ->first();
 
-            if (!$stock || $stock->physical_qty < 1) {
+            if (!$stock || $stock->physical_qty < $needQty) {
                 return response()->json([
                     'success' => false,
                     'message' => 'საწყობში ნაშთი არ არის!'
@@ -2478,10 +2498,12 @@ class ProductOrderController extends Controller
         // ──────────────────────────────────────────────────────────────
 
         foreach ($orders as $order) {
+            $stockKey = $this->stockKey($order->product_id, $order->product_size ?? '');
+            $needQty  = $this->divisibleQty($order->product_id, $order->product_size ?? '', $order->quantity ?? 1);
             $stock = \App\Models\Warehouse::where('product_id', $order->product_id)
-                                          ->where('size', $order->product_size)
+                                          ->where('size', $stockKey)
                                           ->first();
-            if (!$stock || $stock->physical_qty < ($order->quantity ?? 1)) {
+            if (!$stock || $stock->physical_qty < $needQty) {
                 return response()->json([
                     'success' => false,
                     'message' => "ამანათი #{$order->id} ვერ გაიგზავნება - საწყობში ნაშთი არ არის!"
@@ -2686,20 +2708,28 @@ class ProductOrderController extends Controller
             }
 
             // ─── 2. ახალი stock შემოწმება (მხოლოდ გაცვლისას) ──────────
-            $newStock  = \App\Models\Warehouse::where('product_id', $newProductId)
-                ->where('size', $newSize)->first();
+            $newStockKey  = $this->stockKey($newProductId, $newSize ?? '');
+            $newNeedQty   = $this->divisibleQty($newProductId, $newSize ?? '', 1);
+            $newStock     = \App\Models\Warehouse::where('product_id', $newProductId)
+                ->where('size', $newStockKey)->first();
             $fifo      = \App\Services\FifoService::getPrices($newProductId, $newSize);
             $newStatus = 1;
 
             if ($newStock) {
                 $available = $newStock->physical_qty + $newStock->incoming_qty - $newStock->defect_qty - $newStock->reserved_qty;
-                if ($available > 0) {
+                if ($available >= $newNeedQty) {
                     $newStatus = ($newStock->physical_qty - $newStock->defect_qty) > $newStock->reserved_qty ? 3 : 2;
                 }
             }
 
             // ─── 3. Change ორდერი (მხოლოდ გაცვლისას) ───────────────────
             $newProduct = Product::findOrFail($newProductId);
+
+            $newMlVal     = \App\Services\FifoService::sizeNumericValue($newSize ?? '') ?? 0;
+            $isDivNew     = \App\Services\FifoService::isDivisibleProduct($newProductId);
+            $priceGeorgia = ($isDivNew && $newMlVal > 0)
+                ? round((float)($newProduct->price_geo ?? 0) * $newMlVal, 2)
+                : (float)($newProduct->price_geo ?? $originalSale->price_georgia);
 
             $paidTbc  = ($originalSale->paid_tbc  ?? 0) + ($request->paid_tbc  ?? 0);
             $paidBog  = ($originalSale->paid_bog  ?? 0) + ($request->paid_bog  ?? 0);
@@ -2715,7 +2745,7 @@ class ProductOrderController extends Controller
                 'customer_id'                 => $originalSale->customer_id,
                 'user_id'                     => auth()->id(),
                 'status_id'                   => $newStatus,
-                'price_georgia'               => (float) ($newProduct->price_geo ?? $originalSale->price_georgia),
+                'price_georgia'               => $priceGeorgia,
                 'price_usa'                   => $fifo['purchase_order_id'] ? (float) $fifo['cost_price'] : 0,
                 'cost_price'                  => $fifo['cost_price'] ?: $originalSale->price_usa,
                 'purchase_order_id'           => ($newStatus > 1) ? ($fifo['purchase_order_id'] ?? null) : null,
@@ -2734,8 +2764,8 @@ class ProductOrderController extends Controller
             // ─── 4. გაცვლისას ახალი stock დარეზერვება ──────────────────
             if ($newStatus > 1) {
                 $newStock = \App\Models\Warehouse::where('product_id', $newProductId)
-                    ->where('size', $newSize)->first();
-                if ($newStock) $newStock->increment('reserved_qty', 1);
+                    ->where('size', $newStockKey)->first();
+                if ($newStock) $newStock->increment('reserved_qty', $newNeedQty);
             }
 
             // ─── 5. original sale → სტატუსი 6 (გაცვლილი) + cross-ref ──
