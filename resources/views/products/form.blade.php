@@ -34,8 +34,8 @@
                                         class="form-select form-select-sm"
                                         required onchange="filterSizes()">
                                     <option value="">Choose...</option>
-                                    @foreach($category as $id => $name)
-                                        <option value="{{ $id }}">{{ $name }}</option>
+                                    @foreach($category as $cat)
+                                        <option value="{{ $cat->id }}" data-divisible="{{ $cat->is_divisible ? '1' : '0' }}">{{ $cat->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -70,11 +70,14 @@
 
                             {{-- PRICE --}}
                             <div>
-                                <label class="form-label small mb-1">Price</label>
+                                <label class="form-label small mb-1" id="price_geo_label">Price</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">₾</span>
                                     <input type="text" class="form-control fw-semibold text-success"
                                            id="price_geo" name="price_geo" required>
+                                </div>
+                                <div id="price_geo_hint" class="text-muted" style="font-size:11px;margin-top:3px;display:none;">
+                                    დაშლადი პროდუქტი — შეიყვანეთ ფასი <strong>1ml-ზე</strong> (მაგ: 100ml = 50₾ → შეიყვანეთ 0.5)
                                 </div>
                             </div>
 

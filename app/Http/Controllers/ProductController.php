@@ -24,7 +24,7 @@ class ProductController extends Controller
      */
     public function index()
     {
-        $category = Category::orderBy('name', 'ASC')->pluck('name', 'id');
+        $category = Category::orderBy('name', 'ASC')->get(['id', 'name', 'is_divisible']);
         $brand    = Brand::orderBy('name', 'ASC')->get();
         $bundles  = ProductBundle::orderBy('name')->get();
         return view('products.index', compact('category', 'brand', 'bundles'));

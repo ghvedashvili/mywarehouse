@@ -320,7 +320,7 @@ $(function() {
         ],
         drawCallback: function() {
             var d=this.api().rows().data(), ph=0,inc=0,ret=0,res=0,low=0;
-            d.each(function(r){ ph+=parseInt(r.physical_qty)||0; inc+=parseInt(r.incoming_qty)||0; ret+=parseInt(r.return_incoming_qty)||0; res+=parseInt(r.reserved_qty)||0; if(parseInt(r.available)<=3)low++; });
+            d.each(function(r){ if(r.is_divisible) return; ph+=parseInt(r.physical_qty)||0; inc+=parseInt(r.incoming_qty)||0; ret+=parseInt(r.return_incoming_qty)||0; res+=parseInt(r.reserved_qty)||0; if(parseInt(r.available)<=3)low++; });
             $('#stat-physical').text(ph); $('#stat-incoming').text(inc); $('#stat-return-incoming').text(ret); $('#stat-reserved').text(res); $('#stat-low').text(low);
         }
     });

@@ -23,6 +23,17 @@ class PurchaseOrderController extends Controller
         $this->middleware('auth');
     }
 
+    private function pStockKey(int $productId, string $size): string
+    {
+        return FifoService::divisibleFactor($productId, $size) !== null ? 'divisible' : $size;
+    }
+
+    private function pStockQty(int $productId, string $size, int $units): int
+    {
+        $val = FifoService::divisibleFactor($productId, $size);
+        return $val !== null ? (int) round($val * $units) : $units;
+    }
+
     // ─── სტატისტიკა (AJAX, badge განახლებისთვის) ─────────────────────
     public function stats(): \Illuminate\Http\JsonResponse
     {
@@ -38,7 +49,7 @@ class PurchaseOrderController extends Controller
     // ─── მთავარი გვერდი ───────────────────────────────────────────────
     public function index()
     {
-        $products = Product::where('product_status', 1)->orderBy('name')->get();
+        $products = Product::where('product_status', 1)->with('category:id,is_divisible')->orderBy('name')->get();
         return view('purchases.index', compact('products'));
     }
 
@@ -242,14 +253,40 @@ class PurchaseOrderController extends Controller
             ->get();
 
         $products = Product::withoutGlobalScope('active')
+            ->with('category:id,is_divisible')
             ->whereIn('id', $rows->pluck('product_id')->unique())
             ->get()
             ->keyBy('id');
 
-        return response()->json(
-            $rows->map(function ($row) use ($products) {
-                $p = $products->get($row->product_id);
-                return [
+        $result       = [];
+        $divisibleMap = [];
+
+        foreach ($rows as $row) {
+            $p           = $products->get($row->product_id);
+            $isDivisible = (bool) ($p?->category?->is_divisible ?? false);
+
+            if ($isDivisible) {
+                $sizeVal = \App\Services\FifoService::sizeNumericValue($row->product_size ?? '') ?? 0;
+                $totalMl = $sizeVal * (int) $row->total_qty;
+
+                if (isset($divisibleMap[$row->product_id])) {
+                    $result[$divisibleMap[$row->product_id]]['product_size'] =
+                        (string) round($result[$divisibleMap[$row->product_id]]['product_size'] + $totalMl);
+                } else {
+                    $divisibleMap[$row->product_id] = count($result);
+                    $result[] = [
+                        'product_id'   => $row->product_id,
+                        'product_name' => $p?->name         ?? 'N/A',
+                        'product_code' => $p?->product_code ?? '—',
+                        'product_size' => (string) round($totalMl),
+                        'quantity'     => 1,
+                        'price_geo'    => $p?->price_geo    ?? 0,
+                        'image_url'    => $p?->image_url    ?? null,
+                        'is_divisible' => true,
+                    ];
+                }
+            } else {
+                $result[] = [
                     'product_id'   => $row->product_id,
                     'product_name' => $p?->name         ?? 'N/A',
                     'product_code' => $p?->product_code ?? '—',
@@ -257,9 +294,12 @@ class PurchaseOrderController extends Controller
                     'quantity'     => (int) $row->total_qty,
                     'price_geo'    => $p?->price_geo    ?? 0,
                     'image_url'    => $p?->image_url    ?? null,
+                    'is_divisible' => false,
                 ];
-            })
-        );
+            }
+        }
+
+        return response()->json(array_values($result));
     }
 
     // ─── ჯგუფის მიღება: items data ───────────────────────────────────
@@ -518,7 +558,8 @@ class PurchaseOrderController extends Controller
             // CASE A: პროდუქტი ან ზომა შეიცვალა
             if ($keyChanged && in_array($order->status_id, [2, 3])) {
 
-                $oldStock = Warehouse::where('product_id', $oldProduct)->where('size', $oldSize)->first();
+                $oldKey   = $this->pStockKey($oldProduct, $oldSize);
+                $oldStock = Warehouse::where('product_id', $oldProduct)->where('size', $oldKey)->first();
 
                 $boundSales = Product_Order::whereIn('order_type', ['sale', 'change'])
                     ->where('purchase_order_id', $order->id)
@@ -579,8 +620,9 @@ class PurchaseOrderController extends Controller
                 }
 
                 if ($oldStock) {
-                    if ($order->status_id == 2) $oldStock->decrement('incoming_qty', $oldQty);
-                    elseif ($order->status_id == 3) $oldStock->decrement('physical_qty', $oldQty);
+                    $oldStockQty = $this->pStockQty($oldProduct, $oldSize, $oldQty);
+                    if ($order->status_id == 2) $oldStock->decrement('incoming_qty', $oldStockQty);
+                    elseif ($order->status_id == 3) $oldStock->decrement('physical_qty', $oldStockQty);
                     $oldStock->save();
                 }
 
@@ -603,12 +645,14 @@ class PurchaseOrderController extends Controller
                     'comment'                     => $request->comment,
                 ]);
 
+                $newKey      = $this->pStockKey($newProduct, $newSize);
+                $newStockQty = $this->pStockQty($newProduct, $newSize, $newQty);
                 $newStock = Warehouse::firstOrCreate(
-                    ['product_id' => $newProduct, 'size' => $newSize],
+                    ['product_id' => $newProduct, 'size' => $newKey],
                     ['physical_qty' => 0, 'incoming_qty' => 0, 'reserved_qty' => 0]
                 );
-                if ($order->status_id == 2) $newStock->increment('incoming_qty', $newQty);
-                elseif ($order->status_id == 3) $newStock->increment('physical_qty', $newQty);
+                if ($order->status_id == 2) $newStock->increment('incoming_qty', $newStockQty);
+                elseif ($order->status_id == 3) $newStock->increment('physical_qty', $newStockQty);
                 $newStock->save();
                 $newStock->refresh();
 
@@ -643,11 +687,13 @@ class PurchaseOrderController extends Controller
                 }
 
                 if ($qtyDiff !== 0 && in_array($order->status_id, [2, 3])) {
-                    $stock = Warehouse::where('product_id', $newProduct)->where('size', $newSize)->first();
+                    $caseBKey  = $this->pStockKey($newProduct, $newSize);
+                    $stock = Warehouse::where('product_id', $newProduct)->where('size', $caseBKey)->first();
+                    $qtyDiffStock = $this->pStockQty($newProduct, $newSize, abs($qtyDiff)) * ($qtyDiff > 0 ? 1 : -1);
 
                     if ($stock) {
-                        if ($order->status_id == 2) $stock->increment('incoming_qty', $qtyDiff);
-                        elseif ($order->status_id == 3) $stock->increment('physical_qty', $qtyDiff);
+                        if ($order->status_id == 2) $stock->increment('incoming_qty', $qtyDiffStock);
+                        elseif ($order->status_id == 3) $stock->increment('physical_qty', $qtyDiffStock);
                         $stock->save();
                         $stock->refresh();
 
@@ -659,7 +705,7 @@ class PurchaseOrderController extends Controller
                             WarehouseLogService::log(
                                 'adjustment',
                                 $order->product_id,
-                                $order->product_size ?? '',
+                                $caseBKey,
                                 $qtyDiff,
                                 'purchase_order',
                                 $order->id,
@@ -789,41 +835,51 @@ class PurchaseOrderController extends Controller
     private function deleteSinglePurchase(Product_Order $order): void
     {
         if (in_array($order->status_id, [2, 3])) {
-            $stock = Warehouse::where('product_id', $order->product_id)
-                              ->where('size', $order->product_size)->first();
+            $delProdId  = $order->product_id;
+            $delSize    = $order->product_size ?? '';
+            $delKey     = $this->pStockKey($delProdId, $delSize);
+            $isDivisible = FifoService::isDivisibleProduct($delProdId);
+
+            $stock = Warehouse::where('product_id', $delProdId)->where('size', $delKey)->first();
 
             if ($order->status_id == 2) PurchaseService::handleStockForPurchase($order->id, 1, $order->original_sale_id !== null);
             elseif ($order->status_id == 3) PurchaseService::handleStockForPurchase($order->id, 4, $order->original_sale_id !== null);
 
-            $boundSales = Product_Order::whereIn('order_type', ['sale', 'change'])
-                ->where('product_id', $order->product_id)
-                ->where('product_size', $order->product_size)
+            $boundSalesQuery = Product_Order::whereIn('order_type', ['sale', 'change'])
+                ->where('product_id', $delProdId)
                 ->where(function ($q) use ($order) {
                     $q->where('purchase_order_id', $order->id)
                       ->orWhereNull('purchase_order_id');
                 })
-                ->whereIn('status_id', [2, 3])->get();
+                ->whereIn('status_id', [2, 3]);
+
+            if (!$isDivisible) {
+                $boundSalesQuery->where('product_size', $delSize);
+            }
+
+            $boundSales = $boundSalesQuery->get();
 
             foreach ($boundSales as $sale) {
-                $nextPurchase = FifoService::getNextPurchase(
-                    $order->product_id, $order->product_size, $order->id
-                );
+                $nextPurchase = FifoService::getNextPurchase($delProdId, $sale->product_size ?? '', $order->id);
 
                 if ($nextPurchase) {
-                    $newSaleStatus           = $nextPurchase->status_id;
+                    $prices = FifoService::getPrices($delProdId, $sale->product_size ?? '');
                     $sale->purchase_order_id = $nextPurchase->id;
-                    $sale->price_usa         = (float) $nextPurchase->cost_price;
-                    $sale->status_id         = $newSaleStatus;
+                    $sale->price_usa         = $prices['cost_price'];
+                    $sale->status_id         = $nextPurchase->status_id;
                     $sale->save();
                     StatusChangeLog::create([
                         'order_id'       => $sale->id,
                         'user_id'        => auth()->id(),
                         'status_id_from' => $sale->getOriginal('status_id'),
-                        'status_id_to'   => $newSaleStatus,
+                        'status_id_to'   => $nextPurchase->status_id,
                         'changed_at'     => now(),
                     ]);
                 } else {
-                    if ($stock) $stock->decrement('reserved_qty', 1);
+                    $resQty = $isDivisible
+                        ? (int) round(FifoService::divisibleFactor($delProdId, $sale->product_size ?? '') ?? 1)
+                        : 1;
+                    if ($stock) $stock->decrement('reserved_qty', $resQty);
                     $sale->purchase_order_id = null;
                     $sale->status_id         = 1;
                     $sale->save();
@@ -860,17 +916,16 @@ class PurchaseOrderController extends Controller
                 PurchaseService::syncSaleOrdersAfterPurchase($order, $oldStatusId, $newStatusId);
 
                 // ─── Warehouse Log ─────────────────────────────────────────
-                // handleStockForPurchase-მა უკვე შეცვალა physical_qty,
-                // ამიტომ qty_before = physical_qty − ცვლილება
+                $logKey   = $this->pStockKey($order->product_id, $order->product_size ?? '');
                 $stockNow = Warehouse::where('product_id', $order->product_id)
-                    ->where('size', $order->product_size)->first();
+                    ->where('size', $logKey)->first();
 
                 if ($oldStatusId === 2 && $newStatusId === 3) {
                     $qtyBefore = ($stockNow->physical_qty ?? 0) - $order->quantity;
                     WarehouseLogService::log(
                         'purchase_in',
                         $order->product_id,
-                        $order->product_size ?? '',
+                        $logKey,
                         +$order->quantity,
                         'purchase_order',
                         $order->id,
@@ -882,7 +937,7 @@ class PurchaseOrderController extends Controller
                     WarehouseLogService::log(
                         'purchase_rollback',
                         $order->product_id,
-                        $order->product_size ?? '',
+                        $logKey,
                         -$order->quantity,
                         'purchase_order',
                         $order->id,
@@ -927,8 +982,11 @@ class PurchaseOrderController extends Controller
                 return response()->json(['success' => false,
                     'message' => 'ჯამი (' . $totalAccountedQty . ') აღემატება შეკვეთილ რაოდენობას (' . $totalOriginalQty . ')'], 422);
 
-            $stock = Warehouse::where('product_id', $purchase->product_id)
-                              ->where('size', $purchase->product_size)->first();
+            $pSize    = $purchase->product_size ?? '';
+            $pProdId  = $purchase->product_id;
+            $pKey     = $this->pStockKey($pProdId, $pSize);
+
+            $stock = Warehouse::where('product_id', $pProdId)->where('size', $pKey)->first();
 
             // return/exchange purchase-ისთვის return_incoming_qty იკლება, ჩვეულებრივისთვის incoming_qty
             $isReturnPurchase = $purchase->original_sale_id !== null;
@@ -937,23 +995,26 @@ class PurchaseOrderController extends Controller
             // ─── წუნი / დაკარგული ჩაწერა ──────────────────────────────────
             // წუნი  → physical_qty-ში შედის (ფიზიკურად საწყობშია), defect_qty-ში ითვლება
             // დაკარგული → physical_qty-ში არ შედის, incoming/return_incoming-დან გამოვა, lost_qty-ში ითვლება
+            $defectStockQty = $this->pStockQty($pProdId, $pSize, $defectQty);
+            $lostStockQty   = $this->pStockQty($pProdId, $pSize, $lostQty);
+            $recvStockQty   = $this->pStockQty($pProdId, $pSize, $receivedQty);
+
             if ($stock && $defectQty > 0) {
                 Defect::create([
                     'purchase_order_id' => $purchase->id,
-                    'product_id'        => $purchase->product_id,
-                    'product_size'      => $purchase->product_size,
+                    'product_id'        => $pProdId,
+                    'product_size'      => $pSize,
                     'type'              => 'defect',
                     'qty'               => $defectQty,
                     'note'              => $request->defect_note ?? null,
                     'user_id'           => auth()->id(),
                 ]);
-                // წუნი საწყობში შემოდის ფიზიკურად, მაგრამ ხელმისაწვდომი არ არის
-                $stock->increment('physical_qty', $defectQty);
-                $stock->increment('defect_qty',   $defectQty);
-                $stock->decrement($incomingCol,   $defectQty);
+                $stock->increment('physical_qty', $defectStockQty);
+                $stock->increment('defect_qty',   $defectStockQty);
+                $stock->decrement($incomingCol,   $defectStockQty);
                 WarehouseLogService::log(
-                    'defect', $purchase->product_id, $purchase->product_size ?? '',
-                    +$defectQty, 'purchase_order', $purchase->id,
+                    'defect', $pProdId, $pKey,
+                    +$defectStockQty, 'purchase_order', $purchase->id,
                     $request->defect_note ?? 'წუნი — partial receive'
                 );
             }
@@ -969,11 +1030,11 @@ class PurchaseOrderController extends Controller
                     'user_id'           => auth()->id(),
                 ]);
                 // დაკარგული საწყობში არ შემოდის — მხოლოდ incoming/return_incoming-დან გამოვა
-                $stock->decrement($incomingCol, $lostQty);
-                $stock->increment('lost_qty',   $lostQty);
+                $stock->decrement($incomingCol, $lostStockQty);
+                $stock->increment('lost_qty',   $lostStockQty);
                 WarehouseLogService::log(
-                    'lost', $purchase->product_id, $purchase->product_size ?? '',
-                    -$lostQty, 'purchase_order', $purchase->id,
+                    'lost', $pProdId, $pKey,
+                    -$lostStockQty, 'purchase_order', $purchase->id,
                     $request->lost_note ?? 'დაკარგული — partial receive',
                     $stock->physical_qty,
                     $stock->physical_qty
@@ -1068,16 +1129,16 @@ class PurchaseOrderController extends Controller
                 $purchase->update(['status_id' => 3, 'quantity' => $receivedQty]);
 
                 if ($stock) {
-                    $stock->decrement($incomingCol, $receivedQty);
-                    $stock->increment('physical_qty', $receivedQty);
+                    $stock->decrement($incomingCol, $recvStockQty);
+                    $stock->increment('physical_qty', $recvStockQty);
                     $stock->save();
                 }
 
                 WarehouseLogService::log(
-                    'purchase_in', $purchase->product_id, $purchase->product_size ?? '',
-                    +$receivedQty, 'purchase_order', $purchase->id,
+                    'purchase_in', $pProdId, $pKey,
+                    +$recvStockQty, 'purchase_order', $purchase->id,
                     null,
-                    ($stock->physical_qty ?? 0) - $receivedQty
+                    ($stock->physical_qty ?? 0) - $recvStockQty
                 );
 
                 $linkedSales = Product_Order::where('purchase_order_id', $purchase->id)
@@ -1161,10 +1222,10 @@ class PurchaseOrderController extends Controller
             }
 
             WarehouseLogService::log(
-                'purchase_in', $purchase->product_id, $purchase->product_size ?? '',
-                +$receivedQty, 'purchase_order', $purchase->id,
+                'purchase_in', $pProdId, $pKey,
+                +$recvStockQty, 'purchase_order', $purchase->id,
                 null,
-                ($stock->physical_qty ?? 0) - $receivedQty
+                ($stock->physical_qty ?? 0) - $recvStockQty
             );
 
             $linkedSales = Product_Order::where('purchase_order_id', $purchase->id)
@@ -1236,8 +1297,15 @@ $purchase->refresh();
                     );
                 }
 
+                $gProdId       = $purchase->product_id;
+                $gSize         = $purchase->product_size ?? '';
+                $gKey          = $this->pStockKey($gProdId, $gSize);
+                $gLostStockQty = $this->pStockQty($gProdId, $gSize, $lostQty);
+                $gRecvStockQty = $this->pStockQty($gProdId, $gSize, $receivedQty);
+                $isDivisible   = \App\Services\FifoService::isDivisibleProduct($gProdId);
+
                 $stock = Warehouse::firstOrCreate(
-                    ['product_id' => $purchase->product_id, 'size' => $purchase->product_size],
+                    ['product_id' => $gProdId, 'size' => $gKey],
                     ['physical_qty' => 0, 'incoming_qty' => 0, 'reserved_qty' => 0]
                 );
 
@@ -1247,10 +1315,10 @@ $purchase->refresh();
 
                 // დაკარგული
                 if ($lostQty > 0) {
-                    $stock->decrement($incomingCol, $lostQty);
-                    $stock->increment('lost_qty', $lostQty);
-                    WarehouseLogService::log('lost', $purchase->product_id, $purchase->product_size ?? '',
-                        -$lostQty, 'purchase_order', $purchase->id, $lostNote ?? 'დაკარგული — შესყიდვის ორდერიდან დაიკარგა',
+                    $stock->decrement($incomingCol, $gLostStockQty);
+                    $stock->increment('lost_qty', $gLostStockQty);
+                    WarehouseLogService::log('lost', $gProdId, $gKey,
+                        -$gLostStockQty, 'purchase_order', $purchase->id, $lostNote ?? 'დაკარგული — შესყიდვის ორდერიდან დაიკარგა',
                         $stock->physical_qty, $stock->physical_qty);
 
                     $totalCost = round((float)($purchase->cost_price ?? 0) * $lostQty, 2);
@@ -1273,11 +1341,11 @@ $purchase->refresh();
                 // მიღებული
                 if ($receivedQty > 0) {
                     $qtyBefore = $stock->physical_qty;
-                    $stock->decrement($incomingCol, $receivedQty);
-                    $stock->increment('physical_qty', $receivedQty);
+                    $stock->decrement($incomingCol, $gRecvStockQty);
+                    $stock->increment('physical_qty', $gRecvStockQty);
                     $stock->save();
-                    WarehouseLogService::log('purchase_in', $purchase->product_id, $purchase->product_size ?? '',
-                        +$receivedQty, 'purchase_order', $purchase->id, null, $qtyBefore);
+                    WarehouseLogService::log('purchase_in', $gProdId, $gKey,
+                        +$gRecvStockQty, 'purchase_order', $purchase->id, null, $qtyBefore);
                 } else {
                     $stock->save();
                 }
@@ -1328,9 +1396,26 @@ $purchase->refresh();
                 $allLinked = Product_Order::where('purchase_order_id', $purchase->id)
                     ->where('status_id', 2)->orderBy('created_at')->get();
 
-                $promoted = 0;
+                $promoted   = 0;
+                $promotedMl = 0;
                 foreach ($allLinked as $sale) {
-                    if ($receivedQty > 0 && $promoted < $receivedQty) {
+                    $canPromote = false;
+                    if ($receivedQty > 0) {
+                        if ($isDivisible) {
+                            $saleMl = (int) round((\App\Services\FifoService::divisibleFactor($gProdId, $sale->product_size ?? '') ?? 0) * ($sale->quantity ?? 1));
+                            if ($promotedMl + $saleMl <= $gRecvStockQty) {
+                                $canPromote  = true;
+                                $promotedMl += $saleMl;
+                            }
+                        } else {
+                            if ($promoted < $receivedQty) {
+                                $canPromote = true;
+                                $promoted++;
+                            }
+                        }
+                    }
+
+                    if ($canPromote) {
                         // ✅ მიღებული → status=3 (purchase-ზე რჩება)
                         $sale->status_id = 3;
                         $sale->save();
@@ -1341,7 +1426,6 @@ $purchase->refresh();
                             'status_id_to'   => 3,
                             'changed_at'     => now(),
                         ]);
-                        $promoted++;
                     } else {
                         if ($newPurchase) {
                             // split case — დარჩენილი sales → new (გზაში) purchase
@@ -1356,9 +1440,10 @@ $purchase->refresh();
                                 $purchase->product_id, $purchase->product_size, $purchase->id
                             );
                             if ($next) {
+                                $_np = \App\Services\FifoService::getPrices($gProdId, $sale->product_size ?? '');
                                 $oldStatus               = $sale->status_id;
                                 $sale->purchase_order_id = $next->id;
-                                $sale->price_usa         = (float) $next->cost_price;
+                                $sale->price_usa         = $_np['cost_price'];
                                 $sale->status_id         = $next->status_id;
                                 $sale->save();
                                 StatusChangeLog::create([
@@ -1369,7 +1454,10 @@ $purchase->refresh();
                                     'changed_at'     => now(),
                                 ]);
                             } else {
-                                $stock->decrement('reserved_qty', 1);
+                                $saleReserveQty = $isDivisible
+                                    ? (int) round((\App\Services\FifoService::divisibleFactor($gProdId, $sale->product_size ?? '') ?? 1) * ($sale->quantity ?? 1))
+                                    : 1;
+                                $stock->decrement('reserved_qty', $saleReserveQty);
                                 $sale->purchase_order_id = null;
                                 $sale->price_usa         = 0;
                                 $sale->status_id         = 1;

@@ -57,9 +57,10 @@ class WarehouseController extends Controller
                 return '<img src="' . $url . '" style="height:36px;width:36px;object-fit:cover;border-radius:4px;cursor:zoom-in;"
                             onclick="whZoom(\'' . $url . '\')">';
             })
-            ->addColumn('product_name', fn($row) => $row->product->name ?? 'N/A')
-            ->addColumn('product_code', fn($row) => $row->product->product_code ?? '-')
-            ->addColumn('available',    fn($row) => $row->available_qty)
+            ->addColumn('product_name',  fn($row) => $row->product->name ?? 'N/A')
+            ->addColumn('product_code',  fn($row) => $row->product->product_code ?? '-')
+            ->addColumn('available',     fn($row) => $row->available_qty)
+            ->addColumn('is_divisible',  fn($row) => $row->size === 'divisible' ? 1 : 0)
             ->addColumn('defect_qty',   fn($row) => $row->defect_qty ?? 0)
             ->addColumn('fifo_cost', function ($row) use ($costMap) {
                 $key = $row->product_id . '|' . ($row->size ?? '');
@@ -68,15 +69,18 @@ class WarehouseController extends Controller
                     return '<span style="color:#aaa;">—</span>';
                 }
 
-                $data   = $costMap[$key];
-                $avg    = $data['total_cost'] / $data['total_qty'];
-                $unique = array_unique($data['prices']);
+                $data        = $costMap[$key];
+                $isDivisible = !empty($data['divisible']);
+                $avg         = $data['total_cost'] / $data['total_qty'];
+                $unique      = array_unique($data['prices']);
                 sort($unique);
 
-                $avgHtml = '<span style="color:#8e44ad;font-weight:700;">$' . number_format($avg, 2) . '</span>';
+                $suffix  = $isDivisible ? '/მლ' : '';
+                $fmtFn   = fn($v) => rtrim(rtrim(number_format($v, 4, '.', ''), '0'), '.');
+                $avgHtml = '<span style="color:#8e44ad;font-weight:700;">$' . $fmtFn($avg) . $suffix . '</span>';
 
                 if (count($unique) > 1) {
-                    $list = implode(', ', array_map(fn($p) => '$' . number_format($p, 2), $unique));
+                    $list = implode(', ', array_map(fn($p) => '$' . $fmtFn($p) . $suffix, $unique));
                     $avgHtml .= '<br><small style="color:#888;font-size:10px;">საშ. (' . $list . ')</small>';
                 }
 
@@ -376,6 +380,7 @@ class WarehouseController extends Controller
         $totalRevenue   = 0.0;
 
         foreach ($stock as $row) {
+            if ($row->size === 'divisible') continue;
             $available = $row->available_qty;
             if ($available <= 0) continue;
 
@@ -403,6 +408,14 @@ class WarehouseController extends Controller
     {
         if (empty($productIds)) return [];
 
+        // divisible product ids (keyed as product_id|divisible in the warehouse)
+        $divisibleSet = array_flip(
+            Product::whereIn('id', $productIds)
+                ->whereHas('category', fn($q) => $q->where('is_divisible', true))
+                ->pluck('id')
+                ->toArray()
+        );
+
         $purchases = Product_Order::where('order_type', 'purchase')
             ->where('status', 'active')
             ->whereIn('product_id', $productIds)
@@ -410,21 +423,28 @@ class WarehouseController extends Controller
             ->get(['id', 'product_id', 'product_size', 'quantity', 'cost_price']);
 
         $purchaseIds = $purchases->pluck('id')->toArray();
-        $usedCounts  = [];
+
+        // count-based usage for non-divisible only (divisible uses FifoService::divisibleRemainingMap)
+        $usedCounts = [];
         if (!empty($purchaseIds)) {
-            $usedCounts = Product_Order::whereIn('order_type', ['sale', 'change'])
-                ->whereIn('purchase_order_id', $purchaseIds)
-                ->whereIn('status_id', [1, 2, 3, 4, 6])
-                ->groupBy('purchase_order_id')
-                ->selectRaw('purchase_order_id, COUNT(*) as cnt')
-                ->pluck('cnt', 'purchase_order_id')
-                ->toArray();
+            $nonDivisibleIds = $purchases
+                ->filter(fn($p) => !isset($divisibleSet[$p->product_id]))
+                ->pluck('id')->toArray();
+            if (!empty($nonDivisibleIds)) {
+                $usedCounts = Product_Order::whereIn('order_type', ['sale', 'change'])
+                    ->whereIn('purchase_order_id', $nonDivisibleIds)
+                    ->whereIn('status_id', [1, 2, 3, 4, 6])
+                    ->groupBy('purchase_order_id')
+                    ->selectRaw('purchase_order_id, COUNT(*) as cnt')
+                    ->pluck('cnt', 'purchase_order_id')
+                    ->toArray();
+            }
         }
 
         // ჩამოწერილი (type='lost') ნაშთები purchase-ის remaining-დან გამოვაკლოთ
         $lostCounts = [];
         if (!empty($purchaseIds)) {
-            $lostCounts = \App\Models\Defect::whereIn('purchase_order_id', $purchaseIds)
+            $lostCounts = Defect::whereIn('purchase_order_id', $purchaseIds)
                 ->where('type', 'lost')
                 ->groupBy('purchase_order_id')
                 ->selectRaw('purchase_order_id, SUM(qty) as total')
@@ -432,19 +452,44 @@ class WarehouseController extends Controller
                 ->toArray();
         }
 
+        // divisible products: overflow-aware remaining ml per product
+        $divisibleRemMap = [];
+        foreach (array_keys($divisibleSet) as $divProdId) {
+            $divisibleRemMap[$divProdId] = FifoService::divisibleRemainingMap($divProdId);
+        }
+
         $costMap = [];
         foreach ($purchases as $purchase) {
-            $remaining = (int)$purchase->quantity
-                       - (int)($usedCounts[$purchase->id] ?? 0)
-                       - (int)($lostCounts[$purchase->id] ?? 0);
-            if ($remaining <= 0) continue;
-            $key = $purchase->product_id . '|' . ($purchase->product_size ?? '');
-            if (!isset($costMap[$key])) {
-                $costMap[$key] = ['total_qty' => 0, 'total_cost' => 0.0, 'prices' => []];
+            $isDivisible = isset($divisibleSet[$purchase->product_id]);
+
+            if ($isDivisible) {
+                $sizeVal = FifoService::sizeNumericValue($purchase->product_size ?? '') ?? 0;
+                if ($sizeVal <= 0) continue;
+
+                $remainingMl = $divisibleRemMap[$purchase->product_id][$purchase->id] ?? 0.0;
+                if ($remainingMl <= 0) continue;
+
+                $costPerMl = (float)$purchase->cost_price / $sizeVal;
+                $key = $purchase->product_id . '|divisible';
+                if (!isset($costMap[$key])) {
+                    $costMap[$key] = ['total_qty' => 0, 'total_cost' => 0.0, 'prices' => [], 'divisible' => true];
+                }
+                $costMap[$key]['total_qty']  += $remainingMl;
+                $costMap[$key]['total_cost'] += $remainingMl * $costPerMl;
+                $costMap[$key]['prices'][]    = round($costPerMl, 4);
+            } else {
+                $remaining = (int)$purchase->quantity
+                           - (int)($usedCounts[$purchase->id] ?? 0)
+                           - (int)($lostCounts[$purchase->id] ?? 0);
+                if ($remaining <= 0) continue;
+                $key = $purchase->product_id . '|' . ($purchase->product_size ?? '');
+                if (!isset($costMap[$key])) {
+                    $costMap[$key] = ['total_qty' => 0, 'total_cost' => 0.0, 'prices' => []];
+                }
+                $costMap[$key]['total_qty']  += $remaining;
+                $costMap[$key]['total_cost'] += $remaining * (float)$purchase->cost_price;
+                $costMap[$key]['prices'][]    = round((float)$purchase->cost_price, 2);
             }
-            $costMap[$key]['total_qty']  += $remaining;
-            $costMap[$key]['total_cost'] += $remaining * (float)$purchase->cost_price;
-            $costMap[$key]['prices'][]    = round((float)$purchase->cost_price, 2);
         }
 
         return $costMap;

@@ -1078,7 +1078,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                                     <select name="product_id" id="change_product_id" class="form-control" required>
                                         <option value="">— აირჩიე —</option>
                                         @foreach($all_products as $product)
-                                            <option value="{{ $product->id }}" data-sizes="{{ $product->sizes }}" data-price-ge="{{ $product->price_geo }}">
+                                            <option value="{{ $product->id }}" data-sizes="{{ $product->sizes }}" data-price-ge="{{ $product->price_geo }}" data-divisible="{{ $product->category?->is_divisible ? '1' : '0' }}">
                                                 {{ $product->name }}@if($product->product_code) ({{ $product->product_code }})@endif
                                             </option>
                                         @endforeach
@@ -1091,6 +1091,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                                     <select name="product_size" id="change_size" class="form-control" required>
                                         <option value="">— ზომა —</option>
                                     </select>
+                                    <input type="number" id="change-ml-input" name="product_size" class="form-control" min="1" step="1" placeholder="მ/ლ" style="display:none;" disabled>
                                 </div>
                             </div>
                         </div>
@@ -1405,7 +1406,7 @@ function addSaleLine(defaults) {
         + '<div class="row g-2 align-items-end">'
         + '<div class="col-12 col-sm-5"><div class="sale-col-label">პროდუქტი <span class="sale-bundle-icon"></span></div>'
         + '<select name="items['+idx+'][product_id]" class="form-select form-select-sm sale-product-select" required '+lockProd+' style="border-radius:8px;border:1.5px solid #e0e4f0;">'+optHtml+'</select></div>'
-        + '<div class="col-6 col-sm-2"><div class="sale-col-label">ზომა</div>'
+        + '<div class="col-6 col-sm-2 sale-size-wrap"><div class="sale-col-label sale-size-label">ზომა</div>'
         + '<select name="items['+idx+'][product_size]" class="form-select form-select-sm sale-size-select" '+lockSize+' style="border-radius:8px;border:1.5px solid #e0e4f0;"><option value="">— ზომა —</option></select></div>'
         + '<div class="col-6 col-sm-2"><div class="sale-col-label">ფასდაკლება</div>'
         + '<div class="input-group input-group-sm"><span class="input-group-text" style="background:#fdf0f8;border:1.5px solid #e0e4f0;border-right:0;border-radius:8px 0 0 8px;color:#9b59b6;font-weight:700;">🏷</span>'
@@ -1448,15 +1449,30 @@ function addSaleLine(defaults) {
     if (defaults.product_id) {
         $row.find('.sale-product-select').val(defaults.product_id).trigger('change');
         if (defaults.product_size) {
-            var checkSize = setInterval(function() {
-                if ($row.find('.sale-size-select option').length > 1) {
-                    clearInterval(checkSize);
-                    $row.find('.sale-size-select').val(defaults.product_size);
-                    if (defaults.price_georgia) { $row.find('.sale-price-gel').text(defaults.price_georgia+' ₾'); $row.find('.sale-hidden-gel').val(defaults.price_georgia); }
-                    if (defaults.price_usa)     { $row.find('.sale-price-usd').text('$'+defaults.price_usa);      $row.find('.sale-hidden-usd').val(defaults.price_usa); }
-                }
-            }, 100);
-            setTimeout(function() { clearInterval(checkSize); }, 3000);
+            var tplOpt    = $('#product-options-template option[value="'+defaults.product_id+'"]');
+            var isDefDiv  = tplOpt.data('divisible') == '1';
+            if (isDefDiv) {
+                var mlVal = parseFloat(defaults.product_size) || 0;
+                var checkMl = setInterval(function() {
+                    if ($row.find('.sale-ml-input').length) {
+                        clearInterval(checkMl);
+                        $row.find('.sale-ml-input').val(mlVal);
+                        if (defaults.price_georgia) { $row.find('.sale-price-gel').text(defaults.price_georgia+' ₾'); $row.find('.sale-hidden-gel').val(defaults.price_georgia); }
+                        if (defaults.price_usa)     { $row.find('.sale-price-usd').text('$'+defaults.price_usa);      $row.find('.sale-hidden-usd').val(defaults.price_usa); }
+                    }
+                }, 100);
+                setTimeout(function() { clearInterval(checkMl); }, 3000);
+            } else {
+                var checkSize = setInterval(function() {
+                    if ($row.find('.sale-size-select option').length > 1) {
+                        clearInterval(checkSize);
+                        $row.find('.sale-size-select').val(defaults.product_size);
+                        if (defaults.price_georgia) { $row.find('.sale-price-gel').text(defaults.price_georgia+' ₾'); $row.find('.sale-hidden-gel').val(defaults.price_georgia); }
+                        if (defaults.price_usa)     { $row.find('.sale-price-usd').text('$'+defaults.price_usa);      $row.find('.sale-hidden-usd').val(defaults.price_usa); }
+                    }
+                }, 100);
+                setTimeout(function() { clearInterval(checkSize); }, 3000);
+            }
         }
     }
     if (defaults.discount !== undefined) $row.find('.sale-discount').val(defaults.discount);
@@ -1522,31 +1538,51 @@ function editForm(id) {
 var isEditMode = false;
 
 $(document).on('change', '.sale-product-select', function() {
-    var $row = $(this).closest('.sale-item-row');
+    var $row     = $(this).closest('.sale-item-row');
     var selected = $(this).find('option:selected');
+    var productId = selected.val();
+    var isDivProd = selected.data('divisible') == '1';
+    var rowIdx    = $row.data('idx');
+    var $wrap     = $row.find('.sale-size-wrap');
+
     if (!isEditMode) {
-        $row.find('.sale-price-gel').text((selected.data('price-ge')||0)+' ₾');
-        $row.find('.sale-hidden-gel').val(selected.data('price-ge')||0);
-        $row.find('.sale-price-usd').text('$'+(selected.data('price-us')||0));
-        $row.find('.sale-hidden-usd').val(selected.data('price-us')||0);
+        $row.find('.sale-price-gel').text('0 ₾');
+        $row.find('.sale-hidden-gel').val(0);
+        $row.find('.sale-price-usd').text('$0');
+        $row.find('.sale-hidden-usd').val(0);
     }
+
     var imageUrl = selected.data('image');
     if (imageUrl) { $('#target_image').attr('src', imageUrl).show(); $('#no_image_text').hide(); }
     else { $('#target_image').hide(); $('#no_image_text').show(); }
-    var sizesRaw = selected.data('sizes');
-    var $sizeSelect = $row.find('.sale-size-select');
-    $sizeSelect.empty();
-    if (sizesRaw && sizesRaw.toString().trim() !== '') {
-        $sizeSelect.append('<option value="">— ზომა —</option>');
-        sizesRaw.toString().split(',').forEach(function(s) { s = s.trim(); if (s) $sizeSelect.append('<option value="'+s+'">'+s+'</option>'); });
-        $sizeSelect.prop('required', true);
+
+    if (isDivProd) {
+        $wrap.find('.sale-size-label').text('მლ (რაოდენობა)');
+        $wrap.find('.sale-size-select').remove();
+        if (!$wrap.find('.sale-ml-input').length) {
+            $wrap.append('<input type="number" name="items['+rowIdx+'][product_size]" class="form-control form-control-sm sale-ml-input" min="1" step="1" placeholder="მაგ: 10" required style="border-radius:8px;border:1.5px solid #e0e4f0;">');
+        }
+        $row.find('.sale-row-stock').hide();
     } else {
-        $sizeSelect.append('<option value="">— არ არის —</option>');
-        $sizeSelect.prop('required', false);
+        if ($wrap.find('.sale-ml-input').length) {
+            $wrap.find('.sale-ml-input').remove();
+            $wrap.append('<select name="items['+rowIdx+'][product_size]" class="form-select form-select-sm sale-size-select" style="border-radius:8px;border:1.5px solid #e0e4f0;"><option value="">— ზომა —</option></select>');
+        }
+        $wrap.find('.sale-size-label').text('ზომა');
+        var sizesRaw   = selected.data('sizes');
+        var $sizeSelect = $wrap.find('.sale-size-select');
+        $sizeSelect.empty();
+        if (sizesRaw && sizesRaw.toString().trim() !== '') {
+            $sizeSelect.append('<option value="">— ზომა —</option>');
+            sizesRaw.toString().split(',').forEach(function(s) { s = s.trim(); if (s) $sizeSelect.append('<option value="'+s+'">'+s+'</option>'); });
+            $sizeSelect.prop('required', true);
+        } else {
+            $sizeSelect.append('<option value="">— არ არის —</option>');
+            $sizeSelect.prop('required', false);
+        }
+        if (productId) $.get("{{ route('warehouse.stockInfo') }}", { product_id: productId }, function(data) { _updateRowStock($row, data, productId, null); });
+        else $row.find('.sale-row-stock').hide();
     }
-    var productId = selected.val();
-    if (productId) $.get("{{ route('warehouse.stockInfo') }}", { product_id: productId }, function(data) { _updateRowStock($row, data, productId, null); });
-    else $row.find('.sale-row-stock').hide();
     updateBundleIcons();
 });
 
@@ -1607,19 +1643,48 @@ function updateBundleIcons() {
 }
 
 $(document).on('change', '.sale-size-select', function() {
-    var $row = $(this).closest('.sale-item-row');
+    var $row      = $(this).closest('.sale-item-row');
     var productId = $row.find('.sale-product-select').val();
-    var size = $(this).val();
+    var size      = $(this).val();
     if (!isEditMode && productId && size) {
         $.get("{{ url('api/fifo-prices') }}", { product_id: productId, size: size }, function(fifo) {
-            $row.find('.sale-price-gel').text((fifo.price_georgia||0)+' ₾');
-            $row.find('.sale-hidden-gel').val(fifo.price_georgia||0);
-            $row.find('.sale-price-usd').text('$'+(fifo.cost_price||0));
-            $row.find('.sale-hidden-usd').val(fifo.cost_price||0);
+            if ((fifo.price_georgia || 0) > 0) {
+                $row.find('.sale-price-gel').text(fifo.price_georgia + ' ₾');
+                $row.find('.sale-hidden-gel').val(fifo.price_georgia);
+            }
+            $row.find('.sale-price-usd').text('$' + (fifo.cost_price || 0));
+            $row.find('.sale-hidden-usd').val(fifo.cost_price || 0);
         });
     }
     if (productId && size) $.get("{{ route('warehouse.stockInfo') }}", { product_id: productId, size: size }, function(data) { _updateRowStock($row, data, productId, size); });
     else $row.find('.sale-row-stock').hide();
+});
+
+$(document).on('input change', '.sale-ml-input', function() {
+    var $row      = $(this).closest('.sale-item-row');
+    var $prodOpt  = $row.find('.sale-product-select option:selected');
+    var productId = $row.find('.sale-product-select').val();
+    var ml        = parseFloat($(this).val()) || 0;
+    var ppu       = parseFloat($prodOpt.data('price-ge') || 0);
+    if (ppu > 0 && ml > 0) {
+        var p = Math.round(ppu * ml * 100) / 100;
+        $row.find('.sale-price-gel').text(p + ' ₾');
+        $row.find('.sale-hidden-gel').val(p);
+    } else {
+        $row.find('.sale-price-gel').text('0 ₾');
+        $row.find('.sale-hidden-gel').val(0);
+    }
+    if (productId && ml > 0) {
+        $.get("{{ url('api/fifo-prices') }}", { product_id: productId, size: ml }, function(fifo) {
+            $row.find('.sale-price-usd').text('$' + (fifo.cost_price || 0));
+            $row.find('.sale-hidden-usd').val(fifo.cost_price || 0);
+        });
+        $.get("{{ route('warehouse.stockInfo') }}", { product_id: productId, size: 'divisible' }, function(data) {
+            _updateRowStock($row, data, productId, 'divisible');
+        });
+    } else {
+        $row.find('.sale-row-stock').hide();
+    }
 });
 
 function _updateRowStock($row, data, productId, size) {
@@ -1688,7 +1753,8 @@ function submitSaleForm(form, updateCustomer) {
     if (save_method === 'edit') {
         var $firstRow = $('#sale-items-container .sale-item-row').first();
         formData.set('product_id',    $firstRow.find('.sale-product-select').val()||'');
-        formData.set('product_size',  $firstRow.find('.sale-size-select').val()||'');
+        var $mlInput = $firstRow.find('.sale-ml-input');
+        formData.set('product_size',  $mlInput.length ? ($mlInput.val()||'') : ($firstRow.find('.sale-size-select').val()||''));
         formData.set('price_georgia', $firstRow.find('.sale-hidden-gel').val()||0);
         formData.set('price_usa',     $firstRow.find('.sale-hidden-usd').val()||0);
         formData.set('discount',      $firstRow.find('.sale-discount').val()||0);
@@ -2238,7 +2304,9 @@ window.openChangeModal = function(saleId) {
     $('#courier-refund-block').hide(); $('#courier-refund-custom').hide();
     $('#courier_refund_hidden').val(0);
     $('input[name="courier_refund_type"][value="none"]').prop('checked', true);
-    $('#change_size').empty().append('<option value="">— ზომა —</option>');
+    $('#change_size').show().prop('required',true).empty().append('<option value="">— ზომა —</option>');
+    $('#change-ml-input').hide().prop('disabled',true).val('');
+    $('#form-change').data('is-div-size', false).data('price-geo-per-ml', 0);
     $.get("{{ url('productsOut') }}/"+saleId+"/edit", function(data) {
         $('#change-orig-id').text(data.id); $('#change-orig-product').text(data.current_product ? data.current_product.name : '');
         $('#change-orig-size').text(data.product_size||''); $('#change_product_id').val(data.product_id);
@@ -2257,6 +2325,9 @@ window.openChangeModal = function(saleId) {
         var sizes = $('#change_product_id option[value="'+data.product_id+'"]').data('sizes') || '';
         var $sel = $('#change_size'); $sel.empty().prop('disabled',true);
         if (sizes) { sizes.toString().split(',').forEach(function(s) { s = s.trim(); if (s) $sel.append('<option value="'+s+'">'+s+'</option>'); }); }
+        if (data.product_size && !$sel.find('option[value="'+data.product_size+'"]').length) {
+            $sel.append('<option value="'+data.product_size+'">'+data.product_size+'</option>');
+        }
         $sel.val(data.product_size);
     });
     $('#modal-change').modal('show');
@@ -2295,7 +2366,14 @@ function updateChangePriceDiff() {
     var changeType = $('input[name="change_type"]:checked').val();
     if (changeType === 'return') { $('#change-price-diff-block').hide(); return; }
     var origPrice = parseFloat($('#form-change').data('orig-price')||0);
-    var newPrice  = parseFloat($('#change_product_id option:selected').data('price-ge')||0);
+    var newPrice;
+    if ($('#form-change').data('is-div-size')) {
+        var ml = parseFloat($('#change-ml-input').val()) || 0;
+        var ppm = parseFloat($('#form-change').data('price-geo-per-ml')) || 0;
+        newPrice = ppm * ml;
+    } else {
+        newPrice = parseFloat($('#change_product_id option:selected').data('price-ge')||0);
+    }
     var diff = newPrice - origPrice; var diffEl = $('#change-price-diff');
     if (Math.abs(diff) < 0.01) diffEl.text('სხვაობა არ არის').css('color','#888');
     else if (diff > 0) diffEl.text('+'+diff.toFixed(2)+' ₾ (კლიენტმა უნდა გადაიხადოს)').css('color','#e74c3c');
@@ -2308,30 +2386,66 @@ $(document).on('change', 'input[name="change_type"]', function() {
     $('#change-courier-note').text(type === 'return' ? '↩ დაბრუნებისას — კურიერი შესყიდვაზე ჩაიწერება' : '🔄 გაცვლისას — კურიერი ახალ sale ორდერზე ჩაიწერება');
     if (type === 'return') {
         $('#change-product-group').hide(); $('#change-price-diff-block').hide(); $('#change-stock-info').hide();
+        $('#change-ml-input').hide().prop('disabled',true).prop('required',false).val('');
+        $('#form-change').data('is-div-size', false);
         $('#change_product_id').val(origProductId);
         var sizes = $('#change_product_id option[value="'+origProductId+'"]').data('sizes')||'';
-        var $sel = $('#change_size'); $sel.empty();
+        var $sel = $('#change_size'); $sel.show().prop('required',true).empty();
         if (sizes) { sizes.toString().split(',').forEach(function(s) { s=s.trim(); if(s) $sel.append('<option value="'+s+'">'+s+'</option>'); }); }
+        if (origSize && !$sel.find('option[value="'+origSize+'"]').length) {
+            $sel.append('<option value="'+origSize+'">'+origSize+'</option>');
+        }
         $sel.val(origSize).prop('disabled',true);
         // courier refund block — show if has courier
         var origCourier = parseFloat($('#form-change').data('orig-courier') || 0);
         if (origCourier > 0) { $('#courier-refund-block').show(); } else { $('#courier-refund-block').hide(); }
     } else if (type === 'size') {
         $('#change-product-group').hide(); $('#change_product_id').val(origProductId);
-        var $sel2 = $('#change_size'); $sel2.empty().append('<option value="">— ზომა —</option>').prop('disabled',false);
-        var sizes2 = $('#change_product_id option[value="'+origProductId+'"]').data('sizes')||'';
-        if (sizes2) { sizes2.toString().split(',').forEach(function(s) { s=s.trim(); if(s && s!==origSize) $sel2.append('<option value="'+s+'">'+s+'</option>'); }); }
+        var origOpt2  = $('#change_product_id option[value="'+origProductId+'"]');
+        var isDiv2    = origOpt2.data('divisible') == '1';
+        var priceGeo2 = parseFloat(origOpt2.data('price-ge')) || 0;
+        if (isDiv2) {
+            $('#change_size').hide().prop('disabled',true).prop('required',false);
+            $('#change-ml-input').show().prop('disabled',false).prop('required',true).val('');
+            $('#form-change').data('is-div-size', true).data('price-geo-per-ml', priceGeo2);
+        } else {
+            $('#change-ml-input').hide().prop('disabled',true).prop('required',false);
+            $('#change_size').show().prop('disabled',false).prop('required',true);
+            var $sel2 = $('#change_size'); $sel2.empty().append('<option value="">— ზომა —</option>');
+            var sizes2 = origOpt2.data('sizes')||'';
+            if (sizes2) { sizes2.toString().split(',').forEach(function(s) { s=s.trim(); if(s && s!==origSize) $sel2.append('<option value="'+s+'">'+s+'</option>'); }); }
+            $('#form-change').data('is-div-size', false);
+        }
         $('#change-stock-info').hide(); updateChangePriceDiff();
         $('#courier-refund-block').hide(); $('#courier_refund_hidden').val(0);
     } else {
+        $('#change-ml-input').hide().prop('disabled',true).prop('required',false).val('');
+        $('#form-change').data('is-div-size', false);
         $('#change-product-group').show(); $('#change_product_id').val('');
-        $('#change_size').empty().append('<option value="">— ზომა —</option>').prop('disabled',false);
+        $('#change_size').show().prop('required',true).empty().append('<option value="">— ზომა —</option>').prop('disabled',false);
         $('#change-stock-info').hide(); updateChangePriceDiff();
         $('#courier-refund-block').hide(); $('#courier_refund_hidden').val(0);
     }
 });
-$(document).on('change', '#change_product_id', function() { populateChangeSizes($(this).find('option:selected').data('sizes')||'', null); $('#change-stock-info').hide(); updateChangePriceDiff(); });
+$(document).on('change', '#change_product_id', function() {
+    var $opt     = $(this).find('option:selected');
+    var isDiv    = $opt.data('divisible') == '1';
+    var priceGeo = parseFloat($opt.data('price-ge')) || 0;
+    if (isDiv) {
+        $('#change_size').hide().prop('disabled',true).prop('required',false).empty();
+        $('#change-ml-input').show().prop('disabled',false).prop('required',true).val('');
+        $('#form-change').data('is-div-size', true).data('price-geo-per-ml', priceGeo);
+        $('#change-stock-info').hide();
+    } else {
+        $('#change-ml-input').hide().prop('disabled',true).prop('required',false).val('');
+        $('#change_size').show().prop('disabled',false).prop('required',true);
+        $('#form-change').data('is-div-size', false);
+        populateChangeSizes($opt.data('sizes')||'', null);
+    }
+    updateChangePriceDiff();
+});
 $(document).on('change', '#change_size', function() { loadChangeStockInfo(); updateChangePriceDiff(); });
+$(document).on('input', '#change-ml-input', function() { updateChangePriceDiff(); });
 
 // ── საკურიერო დაბრუნების radio handler ──────────────────────
 $(document).on('change', 'input[name="courier_refund_type"]', function() {
@@ -2358,10 +2472,13 @@ $('#form-change').on('submit', function(e) {
     e.preventDefault();
     var $saveBtn = $('#btn-change-save');
     if ($saveBtn.prop('disabled')) return;
-    var productId = $('#change_product_id').val(); var size = $('#change_size').val();
+    var productId = $('#change_product_id').val();
+    var isDivSize = $('#form-change').data('is-div-size');
+    var size = isDivSize ? $('#change-ml-input').val() : $('#change_size').val();
     if (!productId || !size) { swal('შეცდომა', 'პროდუქტი და ზომა სავალდებულოა', 'error'); return; }
     $saveBtn.prop('disabled', true).css('opacity', '0.65');
-    var $disabledSize = $('#change_size').filter(':disabled'); $disabledSize.prop('disabled',false);
+    var $disabledSize = isDivSize ? $() : $('#change_size').filter(':disabled');
+    $disabledSize.prop('disabled',false);
     var formData = $(this).serialize(); $disabledSize.prop('disabled',true);
     $.ajax({
         url:"{{ url('productsOut/change') }}", type:'POST', data:formData,
