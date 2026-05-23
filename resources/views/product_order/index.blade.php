@@ -1462,6 +1462,7 @@ function addSaleLine(defaults) {
                     if ($row.find('.sale-ml-input').length) {
                         clearInterval(checkMl);
                         $row.find('.sale-ml-input').val(mlVal);
+                        if (defaults.lockProduct) $row.find('.sale-ml-input').prop('disabled', true);
                         if (defaults.price_georgia) { $row.find('.sale-price-gel').text(defaults.price_georgia+' ₾'); $row.find('.sale-hidden-gel').val(defaults.price_georgia); }
                         if (defaults.price_usa)     { $row.find('.sale-price-usd').text('$'+defaults.price_usa);      $row.find('.sale-hidden-usd').val(defaults.price_usa); }
                     }
