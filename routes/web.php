@@ -107,7 +107,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('productsOut/{id}/send-to-courier', [ProductOrderController::class, 'singleUpdateStatus'])->name('productsOut.sendToCourier');
     Route::post('productsOut/send-all-to-courier',  [ProductOrderController::class, 'sendAllReadyToCourier'])->name('productsOut.sendAllToCourier');
     Route::post('productsOut/{id}/revert-from-courier', [ProductOrderController::class, 'revertFromCourier'])->name('productsOut.revertFromCourier');
-    Route::post('exportPDF/productOrder/filtered', [ProductOrderController::class, 'exportFilteredOrders'])->name('exportPDF.productOrderFiltered');
+    Route::post('exportPDF/productOrder/filtered',   [ProductOrderController::class, 'exportFilteredOrders'])->name('exportPDF.productOrderFiltered');
+    Route::post('exportExcel/productOrder/filtered', [ProductOrderController::class, 'exportFilteredOrdersExcel'])->name('exportExcel.productOrderFiltered');
     Route::get('productsOut/courier-today-ids',   [ProductOrderController::class, 'courierTodayIds'])->name('productsOut.courierTodayIds');
     Route::get('/apiProductsOut', [ProductOrderController::class, 'apiProductsOut'])->name('api.productsOut');
     Route::get('/productsOut/stats', [ProductOrderController::class, 'stats'])->name('productsOut.stats');

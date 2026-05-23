@@ -685,6 +685,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                 </button>
                 <div id="po-export-menu" style="display:none;position:absolute;top:calc(100% + 4px);right:0;z-index:9999;background:var(--c-surface);border:1px solid var(--c-border-md);border-radius:var(--r-md);box-shadow:var(--sh-lg);min-width:180px;overflow:hidden;">
                     <a onclick="exportFilteredPDF();" class="po-drop-item"><i class="fa fa-file-pdf" style="color:var(--c-red);"></i> Filtered PDF</a>
+                    <a onclick="exportFilteredExcel();" class="po-drop-item"><i class="fa fa-file-excel" style="color:#16a34a;"></i> Filtered Excel</a>
                     <a href="{{ route('exportPDF.productOrderAll') }}" class="po-drop-item"><i class="fa fa-file-pdf" style="color:#aaa;"></i> All PDF</a>
                 </div>
             </div>
@@ -840,6 +841,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
         <span id="po-bulk-count">0 მონიშნული</span>
         <button class="po-bulk-btn" onclick="mergeSelected()"><i class="fa fa-link"></i> გაერთიანება</button>
         <button class="po-bulk-btn" onclick="exportFilteredPDF()"><i class="fa fa-file-pdf"></i> PDF</button>
+        <button class="po-bulk-btn" onclick="exportFilteredExcel()" style="background:#16a34a;color:#fff;"><i class="fa fa-file-excel"></i> Excel</button>
         <span style="margin-left:auto;opacity:.75;cursor:pointer;font-size:15px;line-height:1;" onclick="clearPoSelection()">✕</span>
     </div>
 
@@ -1258,7 +1260,9 @@ var columns = [
         data: null, orderable: false, searchable: false, responsivePriority: 5,
         render: function(data) {
             if (data.is_primary && data.children_count > 1) return '<div style="font-size:12.5px;">'+(data.payment || '')+'</div>';
-            var geo  = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
+            var orig = parseFloat(data.price_georgia || 0);
+            var disc = parseFloat(data.discount || 0);
+            var geo  = orig - disc;
             var paid = parseFloat(data.paid_tbc || 0) + parseFloat(data.paid_bog || 0) + parseFloat(data.paid_lib || 0) + parseFloat(data.paid_cash || 0);
             var diff   = geo - paid;
             var pct    = geo > 0 ? Math.min(paid/geo, 1) : 1;
@@ -1271,8 +1275,9 @@ var columns = [
             } else {
                 tag = '<span class="po-debt-tag"><i class="fa fa-circle-exclamation" style="font-size:9px;"></i> '+diff.toFixed(2)+' ₾</span>';
             }
-            return '<div class="po-finance-total">'+geo.toFixed(2)+' ₾</div>'
-                + (parseFloat(data.discount||0) > 0 ? '<div style="font-size:10px;color:var(--c-text-3);">🏷️ -'+data.discount+'₾</div>' : '')
+            return '<div class="po-finance-total">'+orig.toFixed(2)+' ₾</div>'
+                + (disc > 0.01 ? '<div style="font-size:10px;color:#8e44ad;">🏷️ -'+disc.toFixed(2)+' ₾</div>' : '')
+                + (disc > 0.01 ? '<div style="font-size:12px;color:var(--c-text-2);">'+geo.toFixed(2)+' ₾</div>' : '')
                 + '<div class="po-paid-row"><div class="po-paid-bar"><div class="po-paid-fill" style="width:'+(pct*100).toFixed(0)+'%;background:'+pColor+';"></div></div></div>'
                 + '<div style="margin-top:3px;">'+tag+'</div>'
                 + (isAdmin && parseFloat(data.price_usa||0) > 0 ? '<div style="font-size:10px;color:#888;margin-top:2px;">თვითღ: $'+parseFloat(data.price_usa||0).toFixed(2)+'</div>' : '');
@@ -1875,6 +1880,16 @@ function exportFilteredPDF() {
     $('body').append(form); form.submit(); form.remove();
 }
 
+function exportFilteredExcel() {
+    var ids = [];
+    table.rows({ search: 'applied' }).data().each(function(row) { ids.push(row.id); });
+    if (ids.length === 0) { swal("ინფო", "გაფილტრული ორდერი არ მოიძებნა", "info"); return; }
+    var form = $('<form method="POST" action="{{ route('exportExcel.productOrderFiltered') }}" target="_blank">');
+    form.append('<input type="hidden" name="_token" value="{{ csrf_token() }}">');
+    ids.forEach(function(id) { form.append('<input type="hidden" name="ids[]" value="'+id+'">'); });
+    $('body').append(form); form.submit(); form.remove();
+}
+
 $(document).on('change', '#toggle-ready-ship', function() {
     $('#btn-send-all-courier').toggle($(this).is(':checked'));
     reloadTableWithFilters();
@@ -2208,11 +2223,17 @@ $(document).on('click', '.expand-btn', function() {
         }
         var pairIcon = order.is_paired ? ' <i class="fa fa-link" style="color:#198754;font-size:9px;" title="კომპლექტი შედგა"></i>' : '';
         var colB = '<div style="display:flex;align-items:center;gap:8px;">'+thumbHtml+'<div style="font-size:12px;line-height:1.4;"><div style="font-weight:600;color:var(--c-text-1);">'+(order.product_name||'')+'</div>'+(order.product_size ? '<span class="label label-info" style="font-size:10px;">'+order.product_size+'</span>' : '')+pairIcon+'</div></div>';
-        var chGeo  = parseFloat(order.price_georgia||0) - parseFloat(order.discount||0);
+        var chOrig = parseFloat(order.price_georgia||0);
+        var chDisc = parseFloat(order.discount||0);
+        var chGeo  = chOrig - chDisc;
         var chPaid = parseFloat(order.paid_tbc||0) + parseFloat(order.paid_bog||0) + parseFloat(order.paid_lib||0) + parseFloat(order.paid_cash||0);
         var chIsPaid = (chGeo - chPaid) <= 0.01; var chPct = chGeo > 0 ? Math.min(chPaid/chGeo,1) : 1;
         var chTag = chIsPaid ? '<span class="po-paid-tag" style="font-size:10px;"><i class="fa fa-check" style="font-size:9px;"></i> გადახდ.</span>' : '<span class="po-debt-tag" style="font-size:10px;">-'+(chGeo-chPaid).toFixed(2)+'₾</span>';
-        var colC = '<div style="font-size:13px;font-weight:700;color:var(--c-text-1);">'+chGeo.toFixed(2)+' ₾</div><div style="margin-top:2px;">'+chTag+'</div>'
+        var chDiscBadge = chDisc > 0.01 ? '<div style="font-size:11px;color:#8e44ad;">🏷️ -'+chDisc.toFixed(2)+'₾</div>' : '';
+        var chNetLine   = chDisc > 0.01 ? '<div style="font-size:12px;color:var(--c-text-2);">'+chGeo.toFixed(2)+' ₾</div>' : '';
+        var colC = '<div style="font-size:13px;font-weight:700;color:var(--c-text-1);">'+chOrig.toFixed(2)+' ₾</div>'
+                 + chDiscBadge + chNetLine
+                 + '<div style="margin-top:2px;">'+chTag+'</div>'
                  + (isAdmin && parseFloat(order.cost_price||0) > 0 ? '<div style="font-size:10px;color:#888;margin-top:2px;">თვითღ: $'+parseFloat(order.cost_price||0).toFixed(2)+'</div>' : '');
         var chPayClass = chIsPaid ? 'po-pay-paid' : (chPct > 0 ? 'po-pay-partial' : 'po-pay-debt');
         var chPayBtn = '';

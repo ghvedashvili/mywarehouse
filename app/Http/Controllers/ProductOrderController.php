@@ -1371,66 +1371,48 @@ class ProductOrderController extends Controller
                 return $html;
             })
             ->addColumn('payment', function ($item) use ($isAdmin) {
-                // Group header: show total across all orders
+                $fn = function ($original, $discount, $geo, $paid, $costUsd) use ($isAdmin) {
+                    $diff        = $geo - $paid;
+                    $line1       = '<div style="font-size:13px;font-weight:700;color:var(--c-text-1);">' . number_format($original, 2) . ' ₾</div>';
+                    $line2       = $discount > 0.01
+                        ? '<small style="color:#8e44ad;display:block;">🏷️ -' . number_format($discount, 2) . ' ₾</small>'
+                        : '';
+                    $line3       = $discount > 0.01
+                        ? '<div style="font-size:12px;color:var(--c-text-2);">' . number_format($geo, 2) . ' ₾</div>'
+                        : '';
+                    if ($diff < -0.01) {
+                        $pay = '<span style="color:green;font-weight:700;font-size:11px;"><i class="fa fa-plus-circle"></i> +' . number_format(abs($diff), 2) . ' ₾</span>';
+                    } elseif (abs($diff) <= 0.01) {
+                        $pay = '<span style="color:green;font-size:11px;"><i class="fa fa-check-circle"></i> გადახდილია</span>';
+                    } else {
+                        $pay = '<span style="color:red;font-weight:700;font-size:11px;"><i class="fa fa-exclamation-circle"></i> -' . number_format($diff, 2) . ' ₾</span>';
+                    }
+                    $cost = ($isAdmin && $costUsd > 0)
+                        ? '<br><small style="color:#888;">თვითღ: $' . number_format($costUsd, 2) . '</small>'
+                        : '';
+                    return $line1 . $line2 . $line3 . $pay . $cost;
+                };
+
+                // Group header: sum across all members
                 if ($item->is_primary && $item->children->isNotEmpty()) {
-                    $all       = collect([$item])->merge($item->children);
-                    $totalDue  = $all->sum(fn($o) => (float)$o->price_georgia - (float)($o->discount ?? 0));
-                    $totalPaid = $all->sum(fn($o) =>
+                    $all          = collect([$item])->merge($item->children);
+                    $totalOrig    = $all->sum(fn($o) => (float)$o->price_georgia);
+                    $totalDisc    = $all->sum(fn($o) => (float)($o->discount ?? 0));
+                    $totalGeo     = $totalOrig - $totalDisc;
+                    $totalPaid    = $all->sum(fn($o) =>
                         (float)($o->paid_tbc ?? 0) + (float)($o->paid_bog ?? 0) +
                         (float)($o->paid_lib ?? 0) + (float)($o->paid_cash ?? 0));
-                    $diff = $totalDue - $totalPaid;
-
-                    if ($diff < -0.01) {
-                        $statusHtml = '<span style="color:green; font-weight:700;"><i class="fa fa-plus-circle"></i> +' . number_format(abs($diff), 2) . ' ₾</span>';
-                    } elseif ($diff <= 0.01) {
-                        $statusHtml = '<span style="color:green; font-weight:700;"><i class="fa fa-check-circle"></i> გადახდილია</span>';
-                    } else {
-                        $statusHtml = '<span style="color:red; font-weight:700;"><i class="fa fa-exclamation-circle"></i> -' . number_format($diff, 2) . ' ₾</span>';
-                    }
-                    $costTotal = $isAdmin
-                        ? '<br><small style="color:#888;">თვითღ: $' . number_format($all->sum(fn($o) => (float)($o->price_usa ?? 0)), 2) . '</small>'
-                        : '';
-                    return $statusHtml
-                        . '<hr style="margin:4px 0;">'
-                        . '<small>ჯამი: <b>' . number_format($totalDue, 2) . ' ₾</b></small>'
-                        . $costTotal;
+                    $totalCostUsd = $all->sum(fn($o) => (float)($o->price_usa ?? 0));
+                    return $fn($totalOrig, $totalDisc, $totalGeo, $totalPaid, $totalCostUsd);
                 }
 
-                $geo      = (float)$item->price_georgia - (float)($item->discount ?? 0);
+                $original = (float)$item->price_georgia;
+                $discount = (float)($item->discount ?? 0);
+                $geo      = $original - $discount;
                 $paid     = (float)($item->paid_tbc ?? 0) + (float)($item->paid_bog ?? 0) +
                             (float)($item->paid_lib ?? 0) + (float)($item->paid_cash ?? 0);
-                $diff     = $geo - $paid;
-                $discount = (float) ($item->discount ?? 0);
-
-                $discountBadge = $discount > 0.01
-                    ? '<small style="color:#8e44ad; display:block;">🏷️ ფასდაკლება: -' . number_format($discount, 2) . ' ₾</small>'
-                    : '';
-
-                if ($diff < -0.01) {
-                    $statusHtml = $discountBadge . '<span style="color:green; font-weight:bold;">
-                                <i class="fa fa-plus-circle"></i> +' . number_format(abs($diff), 2) . ' ₾
-                            </span>';
-                } elseif (abs($diff) <= 0.01) {
-                    $statusHtml = $discountBadge . '<span style="color:green;">
-                                <i class="fa fa-check-circle"></i> გადახდილია
-                            </span>';
-                } else {
-                    $statusHtml = $discountBadge . '<span style="color:red; font-weight:bold;">
-                            <i class="fa fa-exclamation-circle"></i> -' . number_format($diff, 2) . ' ₾
-                        </span>';
-                }
-
-                $pricesHtml = '<hr style="margin:4px 0;">'
-                    . '<small><b>GE:</b> ' . number_format($item->price_georgia, 2) . ' ₾';
-                if ($isAdmin) {
-                    $pricesHtml .= ' &nbsp; <b>US:</b> ' . number_format($item->price_usa, 2) . ' $';
-                }
-                $pricesHtml .= '</small>';
-                if ($isAdmin) {
-                    $pricesHtml .= '<br><small style="color:#888;">თვითღ: $' . number_format((float)($item->price_usa ?? 0), 2) . '</small>';
-                }
-
-                return $statusHtml . $pricesHtml;
+                $costUsd  = (float)($item->price_usa ?? 0);
+                return $fn($original, $discount, $geo, $paid, $costUsd);
             })
             ->addColumn('status_label', function ($item) use ($isAdmin) {
                 $color = $item->orderStatus->color ?? 'default';
@@ -2309,6 +2291,18 @@ class ProductOrderController extends Controller
             ]);
 
         return $pdf->download('filtered_orders.pdf');
+    }
+
+    public function exportFilteredOrdersExcel(Request $request)
+    {
+        $ids = $request->input('ids', []);
+        if (empty($ids)) {
+            abort(400, 'No orders selected');
+        }
+        $ids = array_filter(array_map('intval', $ids));
+
+        $filename = 'orders_' . now()->format('Y-m-d') . '.xlsx';
+        return (new \App\Exports\ExportFilteredOrders($ids))->download($filename);
     }
 
     public function sendMail(Request $request, $id)
