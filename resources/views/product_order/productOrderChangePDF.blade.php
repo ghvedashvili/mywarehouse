@@ -81,7 +81,7 @@
             </div>
         </div>
         <div class="cust-right">
-            <div>@if($isPaid)<span class="badge-paid">გადახდილია</span>@else<span class="badge-unpaid">გადასახდელია</span>@endif</div>
+            <div>@if($isPaid)<span class="badge-paid">საკურიერო გადახდილია</span>@else<span class="badge-unpaid">საკურიერო გადასახდელია</span>@endif</div>
             <div class="cust-num">{{ $orderNum }}</div>
         </div>
     </div>

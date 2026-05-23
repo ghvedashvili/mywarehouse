@@ -87,14 +87,16 @@
 <body>
 
 @php
-    $singles   = $groups->filter(fn($g) => !$g['is_exchange'] && !$g['is_return'] && $g['children']->isEmpty())->values();
+    $singles     = $groups->filter(fn($g) => !$g['is_exchange'] && !$g['is_return'] && $g['children']->isEmpty())->values();
     $multiGroups = $groups
         ->filter(fn($g) => !$g['is_exchange'] && !$g['is_return'] && $g['children']->isNotEmpty())
         ->groupBy(fn($g) => $g['children']->count() + 1)
         ->sortKeys();
-    $returns   = $groups->filter(fn($g) => $g['is_return'])->values();
-    $exchanges = $groups->filter(fn($g) => $g['is_exchange'])->values();
-    $totalCount = $groups->count();
+    $returns     = $groups->filter(fn($g) => $g['is_return'])->values();
+    $exchanges   = $groups->filter(fn($g) => $g['is_exchange'])->values();
+    $totalCount  = $groups->count();
+    // პირველი არაცარიელი სექცია page-break-ის გარეშე
+    $firstSectionPrinted = false;
 @endphp
 
 <div class="doc-header">
@@ -118,6 +120,7 @@
         $isPaid = ((float)($primary->courier_price_tbilisi ?? 0) > 0)
                || ((float)($primary->courier_price_region   ?? 0) > 0)
                || ((float)($primary->courier_price_village  ?? 0) > 0);
+        $firstSectionPrinted = true;
     @endphp
     <div class="order-wrap">
         @if($i > 0)
@@ -153,7 +156,7 @@
                 </div>
             </div>
             <div class="col-order-num">
-                @if($isPaid)<span class="badge-paid">გადახდილია</span>@else<span class="badge-unpaid">გადასახდელია</span>@endif
+                @if($isPaid)<span class="badge-paid">საკურიერო გადახდილია</span>@else<span class="badge-unpaid">საკურიერო გადასახდელია</span>@endif
                 <div style="margin-top:3px;">{{ $orderNum }}</div>
             </div>
         </div>
@@ -173,7 +176,8 @@
                    || ((float)($primary->courier_price_village  ?? 0) > 0);
             $allMembers = collect([$primary])->merge($children);
         @endphp
-        <div class="order-wrap {{ $i === 0 ? 'section-break' : '' }}">
+        @php $needBreak = $i === 0 && $firstSectionPrinted; if ($i === 0) $firstSectionPrinted = true; @endphp
+        <div class="order-wrap {{ $needBreak ? 'section-break' : '' }}">
             @if($i > 0)
                 <div class="cut-line">
                     <div class="cut-icon">&#9986;</div>
@@ -193,7 +197,7 @@
                         </div>
                     </div>
                     <div class="cust-right">
-                        <div>@if($isPaid)<span class="badge-paid">გადახდილია</span>@else<span class="badge-unpaid">გადასახდელია</span>@endif</div>
+                        <div>@if($isPaid)<span class="badge-paid">საკურიერო გადახდილია</span>@else<span class="badge-unpaid">საკურიერო გადასახდელია</span>@endif</div>
                         <div class="cust-num">{{ $orderNum }}</div>
                     </div>
                 </div>
@@ -231,8 +235,10 @@
         $isPaid = ((float)($primary->courier_price_tbilisi ?? 0) > 0)
                || ((float)($primary->courier_price_region   ?? 0) > 0)
                || ((float)($primary->courier_price_village  ?? 0) > 0);
+        $breakClass = $firstSectionPrinted ? 'section-break' : '';
+        $firstSectionPrinted = true;
     @endphp
-    <div class="section-break">
+    <div class="{{ $breakClass }}">
         <div class="return-block">
             <div class="return-watermark">დაბრუნება</div>
             <div class="cust-header">
@@ -247,7 +253,7 @@
                     </div>
                 </div>
                 <div class="cust-right">
-                    <div>@if($isPaid)<span class="badge-paid">გადახდილია</span>@else<span class="badge-unpaid">გადასახდელია</span>@endif</div>
+                    <div>@if($isPaid)<span class="badge-paid">საკურიერო გადახდილია</span>@else<span class="badge-unpaid">საკურიერო გადასახდელია</span>@endif</div>
                     <div class="cust-num">{{ $orderNum }}</div>
                 </div>
             </div>
@@ -284,8 +290,10 @@
         $isPaid = ((float)($primary->courier_price_tbilisi ?? 0) > 0)
                || ((float)($primary->courier_price_region   ?? 0) > 0)
                || ((float)($primary->courier_price_village  ?? 0) > 0);
+        $breakClass = $firstSectionPrinted ? 'section-break' : '';
+        $firstSectionPrinted = true;
     @endphp
-    <div class="section-break">
+    <div class="{{ $breakClass }}">
         <div class="exchange-block">
             <div class="exchange-watermark">გადაცვლა</div>
             <div class="cust-header">
@@ -300,7 +308,7 @@
                     </div>
                 </div>
                 <div class="cust-right">
-                    <div>@if($isPaid)<span class="badge-paid">გადახდილია</span>@else<span class="badge-unpaid">გადასახდელია</span>@endif</div>
+                    <div>@if($isPaid)<span class="badge-paid">საკურიერო გადახდილია</span>@else<span class="badge-unpaid">საკურიერო გადასახდელია</span>@endif</div>
                     <div class="cust-num">{{ $orderNum }}</div>
                 </div>
             </div>
