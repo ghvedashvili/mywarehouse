@@ -58,25 +58,19 @@ class CitySeeder extends Seeder
    
 ];
 
-        // დუბლიკატების მოხსნა
         $cities = array_values(array_unique($cities));
 
-        // არსებული ჩანაწერები — IDs-ებს ვინახავთ (FK references)
-        $existing = DB::table('cities')->pluck('name')->toArray();
+        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        DB::table('cities')->truncate();
+        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
-        $toInsert = array_values(array_filter($cities, fn($name) => !in_array($name, $existing)));
+        $rows = array_map(fn($name) => [
+            'name'       => $name,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], $cities);
 
-        if (!empty($toInsert)) {
-            $rows = array_map(fn($name) => [
-                'name'       => $name,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ], $toInsert);
-
-            DB::table('cities')->insert($rows);
-            $this->command->info('დაემატა ' . count($rows) . ' ქალაქი.');
-        } else {
-            $this->command->info('ახალი ქალაქი არ არის — ყველა უკვე არსებობს.');
-        }
+        DB::table('cities')->insert($rows);
+        $this->command->info('დაემატა ' . count($rows) . ' ქალაქი (ID 1-დან).');
     }
 }

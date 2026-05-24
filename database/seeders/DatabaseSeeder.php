@@ -10,6 +10,12 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        // ცხრილების გასუფთავება + auto-increment-ის reset
+        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        DB::table('users')->truncate();
+        DB::table('couriers')->truncate();
+        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+
         // 1. მომხმარებლები (Users)
         DB::table('users')->insert([
             [
