@@ -19,13 +19,17 @@ class ExportCourierOrders implements FromCollection, WithHeadings, WithStyles, S
     use Exportable;
 
     private int $total = 0;
+    private Carbon $date;
+
+    public function __construct(?Carbon $date = null)
+    {
+        $this->date = $date ?? Carbon::today();
+    }
 
     public function collection()
     {
-        $today = Carbon::today();
-
         $logIds = StatusChangeLog::where('status_id_to', 4)
-            ->whereDate('changed_at', $today)
+            ->whereDate('changed_at', $this->date)
             ->pluck('changed_at', 'order_id');
 
         // მხოლოდ primary ან ungrouped ორდერები (ჯგუფი = 1 ორდერი)

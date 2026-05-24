@@ -673,10 +673,10 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                 <i class="fa fa-plus" style="font-size:11px;"></i>
                 <span>ახალი გაყიდვა</span>
             </button>
-            <a href="{{ route('exportExcel.courierOrders') }}" class="po-btn po-btn-success">
+            <button onclick="openDatePickerReport('courier')" class="po-btn po-btn-success">
                 <i class="fa fa-file-excel" style="font-size:11px;"></i>
                 <span>კურიერი დღეს</span>
-            </a>
+            </button>
             <div style="position:relative;" id="po-export-wrap">
                 <button id="po-export-btn" class="po-btn po-btn-ghost">
                     <i class="fa fa-download" style="font-size:11px;"></i>
@@ -818,8 +818,8 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
         <button id="btn-send-all-courier" onclick="sendAllReadyToCourier()" class="po-btn po-btn-success" style="display:none;">
             <i class="fa fa-truck"></i> ყველას გაგზავნა
         </button>
-        <button onclick="printCourierToday()" class="po-btn" style="background:#f0f9ff;border-color:#0ea5e9;color:#0369a1;">
-            <i class="fa fa-print"></i> დღეს გაგზავნილი
+        <button onclick="openDatePickerReport('sent')" class="po-btn" style="background:#f0f9ff;border-color:#0ea5e9;color:#0369a1;">
+            <i class="fa fa-print"></i> გაგზავნილი
         </button>
         <div class="po-toggle-wrap">
             <label for="toggle-deleted">დავ.</label>
@@ -1170,6 +1170,26 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                     <button type="submit" id="btn-change-save" class="btn btn-warning"><i class="fa fa-refresh"></i> დარეგისტრირება</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+{{-- Date Picker Modal for courier/sent reports --}}
+<div class="modal fade" id="modal-date-report" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:340px;">
+        <div class="modal-content" style="border-radius:12px;">
+            <div class="modal-header" style="border-bottom:1px solid #f0f0f0;padding:14px 18px;">
+                <h6 class="modal-title fw-bold" id="date-report-title" style="font-size:14px;"></h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:18px;">
+                <label class="form-label fw-semibold" style="font-size:12px;color:#555;">თარიღი</label>
+                <input type="date" id="date-report-input" class="form-control" style="font-size:14px;">
+            </div>
+            <div class="modal-footer" style="border-top:1px solid #f0f0f0;padding:12px 18px;gap:8px;">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">გაუქმება</button>
+                <button type="button" class="btn btn-primary btn-sm" id="date-report-confirm">გამოტანა</button>
+            </div>
         </div>
     </div>
 </div>
@@ -1898,29 +1918,51 @@ $(document).on('change', '#toggle-ready-ship', function() {
 $(document).on('change', '#toggle-deleted',      function() { reloadTableWithFilters(); });
 $(document).on('change', '#toggle-show-deleted', function() { reloadTableWithFilters(); });
 
-window.printCourierToday = function() {
-    $.get('{{ route('productsOut.courierTodayIds') }}', function(res) {
-        if (!res.ids || res.ids.length === 0) {
-            swal('ინფო', 'დღეს კურიერს გადაცემული ორდერი არ მოიძებნა.', 'info');
-            return;
-        }
-        swal({
-            title: 'დღეს გაგზავნილი',
-            text: res.count + ' ორდერი გადაეცა კურიერს დღეს. დაბეჭდვა?',
-            type: 'info',
-            showCancelButton: true,
-            confirmButtonText: 'დაბეჭდვა',
-            cancelButtonText: 'გაუქმება'
-        }).then(function(result) {
-            if (!result.isConfirmed) return;
-            var form = $('<form method="POST" action="{{ route('exportPDF.productOrderFiltered') }}" target="_blank">');
-            form.append('<input type="hidden" name="_token" value="{{ csrf_token() }}">');
-            form.append('<input type="hidden" name="courier_layout" value="1">');
-            res.ids.forEach(function(id) { form.append('<input type="hidden" name="ids[]" value="'+id+'">'); });
-            $('body').append(form); form.submit(); form.remove();
-        });
-    });
+var _dateReportType = '';
+
+window.openDatePickerReport = function(type) {
+    _dateReportType = type;
+    var title = type === 'courier' ? 'კურიერი — თარიღის არჩევა' : 'გაგზავნილი — თარიღის არჩევა';
+    $('#date-report-title').text(title);
+    $('#date-report-input').val(new Date().toISOString().split('T')[0]);
+    new bootstrap.Modal(document.getElementById('modal-date-report')).show();
 };
+
+$('#date-report-confirm').on('click', function() {
+    var date = $('#date-report-input').val();
+    if (!date) {
+        $('#date-report-input').addClass('is-invalid');
+        return;
+    }
+    $('#date-report-input').removeClass('is-invalid');
+    bootstrap.Modal.getInstance(document.getElementById('modal-date-report')).hide();
+
+    if (_dateReportType === 'courier') {
+        window.location.href = '{{ route('exportExcel.courierOrders') }}?date=' + date;
+    } else {
+        $.get('{{ route('productsOut.courierTodayIds') }}?date=' + date, function(res) {
+            if (!res.ids || res.ids.length === 0) {
+                Swal.fire('ინფო', 'ამ თარიღში კურიერს გადაცემული ორდერი არ მოიძებნა.', 'info');
+                return;
+            }
+            Swal.fire({
+                title: 'გაგზავნილი',
+                text: res.count + ' ორდერი გადაეცა კურიერს. დაბეჭდვა?',
+                icon: 'info',
+                showCancelButton: true,
+                confirmButtonText: 'დაბეჭდვა',
+                cancelButtonText: 'გაუქმება'
+            }).then(function(result) {
+                if (!result.isConfirmed) return;
+                var form = $('<form method="POST" action="{{ route('exportPDF.productOrderFiltered') }}" target="_blank">');
+                form.append('<input type="hidden" name="_token" value="{{ csrf_token() }}">');
+                form.append('<input type="hidden" name="courier_layout" value="1">');
+                res.ids.forEach(function(id) { form.append('<input type="hidden" name="ids[]" value="'+id+'">'); });
+                $('body').append(form); form.submit(); form.remove();
+            });
+        });
+    }
+});
 
 window.sendAllReadyToCourier = function() {
     var ids = [];
