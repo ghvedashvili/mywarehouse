@@ -60,6 +60,10 @@ class PurchaseOrderController extends Controller
     {
         $type = $request->input('type', 'regular');
 
+        if (auth()->user()->role === 'warehouse_operator' && $type !== 'returns') {
+            return response()->json(['data' => [], 'recordsTotal' => 0, 'recordsFiltered' => 0]);
+        }
+
         $statusFilter = $request->input('status_filter', '2');
 
         $query = Product_Order::with(['product', 'orderStatus'])

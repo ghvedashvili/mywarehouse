@@ -17,10 +17,13 @@
             .nav-label { padding: 15px 25px 5px; font-size: 11px; color: #5a6170; text-transform: uppercase; font-weight: bold; }
         </style>
 
+        @php $role = Auth::user()->role; @endphp
+
         <a href="{{ url('/home') }}" class="sidebar-link {{ request()->is('home') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-gauge"></i> მთავარი
         </a>
-        @if(Auth::user()->role !== 'sale_operator')
+
+        @if(!in_array($role, ['sale_operator', 'warehouse_operator']))
         <a href="{{ route('categories.index') }}" class="sidebar-link {{ request()->is('categories*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-tags"></i> კატეგორიები
         </a>
@@ -28,6 +31,8 @@
             <i class="fa fa-copyright"></i> ბრენდები
         </a>
         @endif
+
+        @if($role !== 'warehouse_operator')
         <a href="{{ route('products.index') }}" class="sidebar-link {{ request()->is('products') || request()->is('products/*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-cubes"></i> პროდუქტები
         </a>
@@ -37,18 +42,27 @@
         <a href="{{ route('customers.index') }}" class="sidebar-link {{ request()->is('customers*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-users"></i> მომხმარებლები
         </a>
+        @endif
 
         <div class="nav-label">Operations</div>
+
+        @if($role !== 'warehouse_operator')
         <a href="{{ route('productsOut.index') }}" class="sidebar-link {{ request()->is('productsOut*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-right-from-bracket"></i> გაყიდვები
         </a>
+        @endif
+
         <a href="{{ route('warehouse.index') }}" class="sidebar-link {{ request()->is('warehouse*') && !request()->is('warehouse/logs*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-warehouse"></i> საწყობი
         </a>
-        @if(Auth::user()->role !== 'sale_operator')
+
+        @if(!in_array($role, ['sale_operator', 'warehouse_operator']))
         <a href="{{ route('warehouse.logs') }}" class="sidebar-link {{ request()->is('warehouse/logs*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-history"></i> საწყობის ლოგი
         </a>
+        @endif
+
+        @if($role !== 'sale_operator')
         <a href="{{ route('purchases.index') }}" class="sidebar-link {{ request()->is('purchases*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-cart-shopping"></i> შესყიდვები
         </a>

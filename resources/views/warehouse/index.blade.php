@@ -54,6 +54,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
             <h2 class="mod-title"><i class="fa fa-warehouse me-2" style="color:#8e44ad;"></i>საწყობი</h2>
             <p class="mod-subtitle">ნაშთების მართვა და კონტროლი</p>
         </div>
+        @if(!in_array(auth()->user()->role, ['sale_operator', 'warehouse_operator']))
         <div class="mod-actions">
             <button class="btn btn-warning btn-sm" onclick="openWriteOffModal()">
                 <i class="fa fa-minus-circle me-1"></i><span class="d-none d-sm-inline"> ჩამოწერა</span>
@@ -65,6 +66,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
                 <i class="fa fa-cart-shopping me-1"></i><span class="d-none d-sm-inline"> შესყიდვები</span>
             </a>
         </div>
+        @endif
     </div>
 
     {{-- Stat cards --}}
@@ -278,8 +280,8 @@ window.whZoom = function(url) {
 };
 
 $(function() {
-    var logTable = null;
-    var isAdmin  = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
+    var logTable        = null;
+    var isAdmin         = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
 
     // ─── Financial summary bar (admin only) ──────────────────────────
     if (isAdmin) {

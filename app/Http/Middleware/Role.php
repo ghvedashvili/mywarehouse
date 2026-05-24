@@ -16,13 +16,16 @@ class Role
      */
     public function handle($request, Closure $next, ...$roles)
     {
-        if (is_array($roles)) {
-            foreach ($roles as $role) {
-                if (Auth::user()->role == $role) {
-                    return $next($request);
-                }
+        foreach ($roles as $role) {
+            if (Auth::user()->role == $role) {
+                return $next($request);
             }
-            return abort(401, 'Unauthorized');
         }
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'შეზღუდულია'], 403);
+        }
+
+        return redirect()->route('home')->with('role_restricted', true);
     }
 }

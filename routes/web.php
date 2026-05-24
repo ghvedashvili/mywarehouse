@@ -131,26 +131,28 @@ Route::middleware(['auth'])->group(function () {
     Route::get('warehouse/stock-info',  [WarehouseController::class, 'stockInfo'])->name('warehouse.stockInfo');
     Route::get('api/fifo-prices',       [WarehouseController::class, 'fifoPrices'])->name('warehouse.fifoPrices');
 Route::get('warehouse',            [WarehouseController::class, 'index'])     ->name('warehouse.index');
-Route::get('warehouse/logs',       [WarehouseController::class, 'logsPage'])  ->name('warehouse.logs');
+Route::get('warehouse/logs',       [WarehouseController::class, 'logsPage'])  ->name('warehouse.logs')       ->middleware('role:admin');
 Route::get('warehouse/api-stock',  [WarehouseController::class, 'apiStock'])  ->name('warehouse.apiStock');
-Route::get('warehouse/api-logs',   [WarehouseController::class, 'apiLogs'])   ->name('warehouse.apiLogs');
+Route::get('warehouse/api-logs',   [WarehouseController::class, 'apiLogs'])   ->name('warehouse.apiLogs')    ->middleware('role:admin');
 Route::get('warehouse/stock-info', [WarehouseController::class, 'stockInfo']) ->name('warehouse.stockInfo');
 Route::get('warehouse/fifo-prices',[WarehouseController::class, 'fifoPrices'])->name('warehouse.fifoPrices');
 Route::get('warehouse/available-stock', [WarehouseController::class, 'availableStock'])->name('warehouse.availableStock');
-Route::get('warehouse/financials',      [WarehouseController::class, 'financials'])     ->name('warehouse.financials');
-Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff'])      ->name('warehouse.writeOff');
+Route::get('warehouse/financials',      [WarehouseController::class, 'financials'])     ->name('warehouse.financials') ->middleware('role:admin');
+Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff'])      ->name('warehouse.writeOff')   ->middleware('role:admin');
 
-    // ── Purchase Orders (შესყიდვები) ──────────────────────────────────
-    Route::get('purchases',                       [PurchaseOrderController::class, 'index'])->name('purchases.index');
-    Route::get('purchases/api',                   [PurchaseOrderController::class, 'apiPurchases'])->name('purchases.api');
-    Route::get('purchases/in-transit-sales',      [PurchaseOrderController::class, 'inTransitSales'])->name('purchases.inTransitSales');
-    Route::post('purchases',                      [PurchaseOrderController::class, 'store'])->name('purchases.store');
-    Route::get('purchases/{id}/edit',             [PurchaseOrderController::class, 'edit'])->name('purchases.edit');
-    Route::patch('purchases/{id}',                [PurchaseOrderController::class, 'update'])->name('purchases.update');
-    Route::delete('purchases/{id}',               [PurchaseOrderController::class, 'destroy'])->name('purchases.destroy');
-    Route::get('purchases/group/{groupId}/items',           [PurchaseOrderController::class, 'getGroupItems'])->name('purchases.groupItems');
-    Route::post('purchases/group/{groupId}/partial-receive',[PurchaseOrderController::class, 'groupPartialReceive'])->name('purchases.groupPartialReceive');
-Route::get('purchases/stats', [PurchaseOrderController::class, 'stats'])->name('purchases.stats');
+    // ── Purchase Orders (შესყიდვები) ─────────────────────────────────
+    Route::middleware('role:admin,warehouse_operator')->group(function () {
+        Route::get('purchases',                       [PurchaseOrderController::class, 'index'])->name('purchases.index');
+        Route::get('purchases/api',                   [PurchaseOrderController::class, 'apiPurchases'])->name('purchases.api');
+        Route::get('purchases/in-transit-sales',      [PurchaseOrderController::class, 'inTransitSales'])->name('purchases.inTransitSales');
+        Route::post('purchases',                      [PurchaseOrderController::class, 'store'])->name('purchases.store');
+        Route::get('purchases/{id}/edit',             [PurchaseOrderController::class, 'edit'])->name('purchases.edit');
+        Route::patch('purchases/{id}',                [PurchaseOrderController::class, 'update'])->name('purchases.update');
+        Route::delete('purchases/{id}',               [PurchaseOrderController::class, 'destroy'])->name('purchases.destroy');
+        Route::get('purchases/group/{groupId}/items',           [PurchaseOrderController::class, 'getGroupItems'])->name('purchases.groupItems');
+        Route::post('purchases/group/{groupId}/partial-receive',[PurchaseOrderController::class, 'groupPartialReceive'])->name('purchases.groupPartialReceive');
+        Route::get('purchases/stats', [PurchaseOrderController::class, 'stats'])->name('purchases.stats');
+    });
     // ── Users ─────────────────────────────────────────────────────────
     Route::get('/user/change-password', [UserController::class, 'changePasswordForm'])->name('user.change-password');
     Route::post('/user/change-password', [UserController::class, 'changePassword'])->name('user.change-password');

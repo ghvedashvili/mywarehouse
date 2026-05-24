@@ -698,6 +698,19 @@ $(function() {
 });
 </script>
 
+@if(session('role_restricted'))
+<script>
+$(function() {
+    Swal.fire({
+        icon: 'warning',
+        title: 'შეზღუდულია',
+        text: 'ეს მოქმედება შეზღუდულია. მიმართეთ ადმინისტრატორს.',
+        confirmButtonText: 'კარგი',
+    });
+});
+</script>
+@endif
+
 @yield('bot')
 </body>
 </html>

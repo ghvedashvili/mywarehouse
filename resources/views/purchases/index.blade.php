@@ -266,6 +266,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
             <h2 class="mod-title"><i class="fa fa-cart-shopping me-2" style="color:#2980b9;"></i>შესყიდვები</h2>
             <p class="mod-subtitle">შესყიდვებისა და დაბრუნება/გაცვლის მართვა</p>
         </div>
+        @if(auth()->user()->role !== 'warehouse_operator')
         <div class="mod-actions">
             <button onclick="openInTransitSalesModal()" class="btn btn-info btn-sm">
                 <i class="fa fa-list me-1"></i><span class="d-none d-sm-inline">ახალი გაყიდვები</span>
@@ -274,6 +275,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                 <i class="fa fa-plus me-1"></i><span class="d-none d-sm-inline">ახალი შესყიდვა</span>
             </button>
         </div>
+        @endif
     </div>
 
     {{-- ── Stats ── --}}
@@ -320,10 +322,12 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 
     {{-- ── Tabs ── --}}
     <div class="pu-tabs">
+        @if(auth()->user()->role !== 'warehouse_operator')
         <button class="pu-tab active" id="tab-btn-regular" onclick="switchPurchaseTab('regular')" type="button">
             <i class="fa fa-cart-shopping" style="font-size:12px;"></i> შესყიდვები
         </button>
-        <button class="pu-tab" id="tab-btn-returns" onclick="switchPurchaseTab('returns')" type="button">
+        @endif
+        <button class="pu-tab {{ auth()->user()->role === 'warehouse_operator' ? 'active' : '' }}" id="tab-btn-returns" onclick="switchPurchaseTab('returns')" type="button">
             <i class="fa fa-rotate-left" style="font-size:12px;"></i> დაბრუნება / გაცვლა
             @if($returnsInTransit > 0)
                 <span class="tab-badge">{{ $returnsInTransit }}</span>
@@ -335,7 +339,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     <div class="pu-tab-panel">
 
         {{-- ══ ჩვეულებრივი შესყიდვები ══ --}}
-        <div id="tab-regular">
+        <div id="tab-regular" style="{{ auth()->user()->role === 'warehouse_operator' ? 'display:none;' : '' }}">
             {{-- Filter bar --}}
             <div class="pu-filter-bar">
                 <span class="pu-filter-label">სტატუსი</span>
@@ -382,7 +386,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
         </div>
 
         {{-- ══ დაბრუნება / გაცვლა ══ --}}
-        <div id="tab-returns" style="display:none;">
+        <div id="tab-returns" style="{{ auth()->user()->role === 'warehouse_operator' ? '' : 'display:none;' }}">
             {{-- Returns filter bar --}}
             <div class="pu-filter-bar mb-2">
                 <span class="pu-filter-label">დაბრუნება / გაცვლა</span>
@@ -572,8 +576,10 @@ $(function() {
         new bootstrap.Modal(document.getElementById('modal-img-zoom')).show();
     };
 
+    var isWarehouseOperator = {{ auth()->user()->role === 'warehouse_operator' ? 'true' : 'false' }};
+
     // ══ TAB SWITCHING ══
-    var currentTab = 'regular';
+    var currentTab = isWarehouseOperator ? 'returns' : 'regular';
 
     window.switchPurchaseTab = function(tab) {
         currentTab = tab;
@@ -658,7 +664,7 @@ $(function() {
              + '<th class="text-center">შეკვეთა</th>'
              + '<th class="text-center">გზაშია</th>'
              + '<th class="text-center">დაკარგ.</th>'
-             + '<th class="text-end" style="color:#7c3aed;">თვიტ.($)</th>'
+             + (isWarehouseOperator ? '' : '<th class="text-end" style="color:#7c3aed;">თვიტ.($)</th>')
              + '</tr></thead><tbody>';
 
             items.forEach(function(it) {
@@ -691,7 +697,7 @@ $(function() {
                      +  '<td class="text-center fw-bold align-middle">' + orig + '</td>'
                      +  '<td class="text-center align-middle">' + remainCell + '</td>'
                      +  '<td class="text-center align-middle">' + lostCell + '</td>'
-                     +  '<td class="text-end align-middle">' + costCell + '</td>'
+                     +  (isWarehouseOperator ? '' : '<td class="text-end align-middle">' + costCell + '</td>')
                      +  '</tr>';
             });
 
@@ -718,8 +724,8 @@ $(function() {
             { data: 'product_code',    name: 'product_code',    responsivePriority: 9 },
             { data: 'product_size',    name: 'product_size',    responsivePriority: 4 },
             { data: 'quantity',        name: 'quantity',        responsivePriority: 5 },
-            { data: 'payment',         name: 'payment',         orderable: false, responsivePriority: 7 },
-            { data: 'price_paid',      name: 'price_paid',      orderable: false, responsivePriority: 8 },
+            { data: 'payment',         name: 'payment',         orderable: false, responsivePriority: 7, visible: !isWarehouseOperator },
+            { data: 'price_paid',      name: 'price_paid',      orderable: false, responsivePriority: 8, visible: !isWarehouseOperator },
             { data: 'status_name',     name: 'status_name',     orderable: false, responsivePriority: 6 },
             { data: 'created_at',      name: 'created_at',      responsivePriority: 9 },
             { data: 'action',          name: 'action',          orderable: false, responsivePriority: 2 },
@@ -1391,6 +1397,11 @@ $(function() {
                 $rh.remove();
             }
         });
+    }
+
+    // warehouse_operator-სთვის auto-switch returns tab-ზე
+    if (isWarehouseOperator) {
+        switchPurchaseTab('returns');
     }
 
 });
