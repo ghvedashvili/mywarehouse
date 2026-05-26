@@ -27,7 +27,7 @@
                 </div>
             </div>
             <div class="cust-right">
-                <div>@if($isPaid)<span class="badge-paid">გადახდილია</span>@else<span class="badge-unpaid">გადასახდელია</span>@endif</div>
+                <div>@if($isPaid)<span class="badge-paid">საკურიეროს გადახდილია</span>@else<span class="badge-unpaid">საკურიეროს გადასახდელია</span>@endif</div>
                 <div class="cust-num">{{ $orderNum }}</div>
             </div>
         </div>
@@ -40,6 +40,7 @@
                 <div class="pr-info">
                     <div class="pr-name">{{ $primary->product->name ?? '—' }}</div>
                     <div class="pr-meta">
+                        @if($primary->product?->product_code)<span style="color:#888;font-size:10px;">{{ $primary->product->product_code }}</span><br>@endif
                         @if($primary->product_size)ზომა: {{ $primary->product_size }}@endif
                         @if($primary->comment)<br>{{ $primary->comment }}@endif
                     </div>
@@ -54,7 +55,10 @@
                 </div>
                 <div class="pr-info">
                     <div class="pr-name">{{ $origOrd->product->name ?? '—' }}</div>
-                    <div class="pr-meta">@if($origOrd->product_size)ზომა: {{ $origOrd->product_size }}@endif</div>
+                    <div class="pr-meta">
+                        @if($origOrd->product?->product_code)<span style="color:#888;font-size:10px;">{{ $origOrd->product->product_code }}</span><br>@endif
+                        @if($origOrd->product_size)ზომა: {{ $origOrd->product_size }}@endif
+                    </div>
                 </div>
                 <div class="pr-action"><span class="badge-pickup">&#8617; წამოიღე</span></div>
             </div>
@@ -76,7 +80,7 @@
                 </div>
             </div>
             <div class="cust-right">
-                <div>@if($isPaid)<span class="badge-paid">გადახდილია</span>@else<span class="badge-unpaid">გადასახდელია</span>@endif</div>
+                <div>@if($isPaid)<span class="badge-paid">საკურიეროს გადახდილია</span>@else<span class="badge-unpaid">საკურიეროს გადასახდელია</span>@endif</div>
                 <div class="cust-num">{{ $orderNum }}</div>
             </div>
         </div>
@@ -89,6 +93,7 @@
                 <div class="pr-info">
                     <div class="pr-name">{{ $primary->product->name ?? '—' }}</div>
                     <div class="pr-meta">
+                        @if($primary->product?->product_code)<span style="color:#888;font-size:10px;">{{ $primary->product->product_code }}</span><br>@endif
                         @if($primary->product_size)ზომა: {{ $primary->product_size }}@endif
                         @if($primary->comment) · {{ $primary->comment }}@endif
                     </div>
@@ -111,7 +116,7 @@
                 </div>
             </div>
             <div class="cust-right">
-                <div>@if($isPaid)<span class="badge-paid">გადახდილია</span>@else<span class="badge-unpaid">გადასახდელია</span>@endif</div>
+                <div>@if($isPaid)<span class="badge-paid">საკურიეროს გადახდილია</span>@else<span class="badge-unpaid">საკურიეროს გადასახდელია</span>@endif</div>
                 <div class="cust-num">{{ $orderNum }}</div>
             </div>
         </div>
@@ -125,6 +130,7 @@
                     <div class="pr-info">
                         <div class="pr-name">{{ $member->product->name ?? '—' }}</div>
                         <div class="pr-meta">
+                            @if($member->product?->product_code)<span style="color:#888;font-size:10px;">{{ $member->product->product_code }}</span><br>@endif
                             @if($member->product_size)ზომა: {{ $member->product_size }}@endif
                             @if($member->comment) · {{ $member->comment }}@endif
                         </div>
@@ -146,6 +152,7 @@
         <div class="pr-info">
             <div class="pr-name">{{ $primary->product->name ?? '—' }}</div>
             <div class="pr-meta">
+                @if($primary->product?->product_code)<span style="color:#888;font-size:10px;">{{ $primary->product->product_code }}</span><br>@endif
                 @if($primary->product_size)ზომა: {{ $primary->product_size }}@endif
                 @if($primary->comment)<br>{{ $primary->comment }}@endif
             </div>
@@ -160,7 +167,7 @@
             </div>
         </div>
         <div class="col-order-num">
-            @if($isPaid)<span class="badge-paid">გადახდილია</span>@else<span class="badge-unpaid">გადასახდელია</span>@endif
+            @if($isPaid)<span class="badge-paid">საკურიეროს გადახდილია</span>@else<span class="badge-unpaid">საკურიეროს გადასახდელია</span>@endif
             <div style="margin-top:3px;">{{ $orderNum }}</div>
         </div>
     </div>

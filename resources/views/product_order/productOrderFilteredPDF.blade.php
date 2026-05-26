@@ -141,6 +141,7 @@
             <div class="pr-info">
                 <div class="pr-name">{{ $primary->product->name ?? '—' }}</div>
                 <div class="pr-meta">
+                    @if($primary->product?->product_code)<span style="color:#888;font-size:10px;">{{ $primary->product->product_code }}</span><br>@endif
                     @if($primary->product_size)ზომა: {{ $primary->product_size }}@endif
                     @if($primary->comment)<br>{{ $primary->comment }}@endif
                 </div>
@@ -214,6 +215,7 @@
                             <div class="pr-info">
                                 <div class="pr-name">{{ $member->product->name ?? '—' }}</div>
                                 <div class="pr-meta">
+                                    @if($member->product?->product_code)<span style="color:#888;font-size:10px;">{{ $member->product->product_code }}</span><br>@endif
                                     @if($member->product_size)ზომა: {{ $member->product_size }}@endif
                                     @if($member->comment) · {{ $member->comment }}@endif
                                 </div>
@@ -269,6 +271,7 @@
                     <div class="pr-info">
                         <div class="pr-name">{{ $primary->product->name ?? '—' }}</div>
                         <div class="pr-meta">
+                            @if($primary->product?->product_code)<span style="color:#888;font-size:10px;">{{ $primary->product->product_code }}</span><br>@endif
                             @if($primary->product_size)ზომა: {{ $primary->product_size }}@endif
                             @if($primary->comment) · {{ $primary->comment }}@endif
                         </div>
@@ -324,6 +327,7 @@
                     <div class="pr-info">
                         <div class="pr-name">{{ $primary->product->name ?? '—' }}</div>
                         <div class="pr-meta">
+                            @if($primary->product?->product_code)<span style="color:#888;font-size:10px;">{{ $primary->product->product_code }}</span><br>@endif
                             @if($primary->product_size)ზომა: {{ $primary->product_size }}@endif
                             @if($primary->comment)<br>{{ $primary->comment }}@endif
                         </div>
@@ -342,6 +346,7 @@
                     <div class="pr-info">
                         <div class="pr-name">{{ $origOrd->product->name ?? '—' }}</div>
                         <div class="pr-meta">
+                            @if($origOrd->product?->product_code)<span style="color:#888;font-size:10px;">{{ $origOrd->product->product_code }}</span><br>@endif
                             @if($origOrd->product_size)ზომა: {{ $origOrd->product_size }}@endif
                         </div>
                     </div>

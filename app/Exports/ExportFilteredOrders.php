@@ -266,8 +266,13 @@ class ExportFilteredOrders implements FromArray, WithHeadings, WithStyles, WithE
                 }
             }
             if (!$contents) return null;
-            $gd = @imagecreatefromstring($contents);
-            return ($gd !== false) ? $gd : null;
+            $src = @imagecreatefromstring($contents);
+            if ($src === false) return null;
+            // Resize to thumbnail immediately to keep memory usage low
+            $thumb = imagecreatetruecolor(80, 80);
+            imagecopyresampled($thumb, $src, 0, 0, 0, 0, 80, 80, imagesx($src), imagesy($src));
+            imagedestroy($src);
+            return $thumb;
         } catch (\Throwable) {
             return null;
         }

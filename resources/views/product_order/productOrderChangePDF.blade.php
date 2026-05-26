@@ -99,6 +99,7 @@
             <div class="pr-info">
                 <div class="pr-name">{{ $changeOrder->product->name ?? '—' }}</div>
                 <div class="pr-meta">
+                    @if($changeOrder->product?->product_code)<span style="color:#888;font-size:10px;">{{ $changeOrder->product->product_code }}</span><br>@endif
                     @if($changeOrder->product_size)ზომა: {{ $changeOrder->product_size }}@endif
                     @if($changeOrder->comment)<br>{{ $changeOrder->comment }}@endif
                 </div>
@@ -118,6 +119,7 @@
             <div class="pr-info">
                 <div class="pr-name">{{ $originalSale->product->name ?? '—' }}</div>
                 <div class="pr-meta">
+                    @if($originalSale->product?->product_code)<span style="color:#888;font-size:10px;">{{ $originalSale->product->product_code }}</span><br>@endif
                     @if($originalSale->product_size)ზომა: {{ $originalSale->product_size }}@endif
                 </div>
             </div>
