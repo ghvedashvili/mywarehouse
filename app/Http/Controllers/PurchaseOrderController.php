@@ -454,21 +454,33 @@ class PurchaseOrderController extends Controller
             ->get();
 
         if ($siblings->count() > 1) {
-            $items = $siblings->map(function ($item) {
+            // group by (product_id, product_size) — partial receives create duplicate rows
+            $merged = $siblings->groupBy(fn($r) => $r->product_id . '_' . ($r->product_size ?? ''));
+
+            $items = $merged->map(function ($group) {
+                $inTransit    = $group->firstWhere('status_id', 2);
+                $rep          = $inTransit ?? $group->first();
+                $receivedQty  = (int) $group->where('status_id', 3)->sum('quantity');
+                $originalQty  = (int) ($group->max('original_qty') ?: $group->sum('quantity'));
+
                 $courierCount = Product_Order::withoutGlobalScope('active')
-                    ->where('purchase_order_id', $item->id)
+                    ->whereIn('purchase_order_id', $group->pluck('id'))
                     ->whereIn('status_id', [4, 5, 6])
                     ->count();
+
                 return [
-                    'id'                          => $item->id,
-                    'product_id'                  => $item->product_id,
-                    'product_name'                => $item->product?->name ?? 'N/A',
-                    'product_size'                => $item->product_size,
-                    'quantity'                    => $item->quantity,
-                    'price_usa'                   => $item->price_usa,
-                    'courier_price_international' => $item->courier_price_international,
-                    'price_georgia'               => $item->price_georgia,
+                    'id'                          => $rep->id,
+                    'product_id'                  => $rep->product_id,
+                    'product_name'                => $rep->product?->name ?? 'N/A',
+                    'product_size'                => $rep->product_size,
+                    'quantity'                    => $inTransit ? (int)$inTransit->quantity : 0,
+                    'original_qty'                => $originalQty,
+                    'received_qty'                => $receivedQty,
+                    'price_usa'                   => $rep->price_usa,
+                    'courier_price_international' => $rep->courier_price_international,
+                    'price_georgia'               => $rep->price_georgia,
                     'courier_count'               => $courierCount,
+                    'fully_received'              => $inTransit === null,
                 ];
             })->values();
 

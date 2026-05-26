@@ -965,6 +965,20 @@ $(function() {
                 // ── ჯგუფური რედაქტირება ──────────────────────────────
                 var anyLocked = false;
                 data.items.forEach(function(item) {
+                    if (item.fully_received) {
+                        // მიღებული ჩანაწერი — read-only info row
+                        var infoRow = $('<tr class="purchase-line table-success">').append(
+                            $('<td colspan="5">').html(
+                                '<span style="font-size:12px;color:#155724;">✅ <strong>' + item.product_name + '</strong>' +
+                                (item.product_size ? ' · ' + item.product_size : '') +
+                                ' — მიღებულია ' + item.received_qty + ' ც.</span>'
+                            ),
+                            $('<td>').html('<span style="font-size:11px;color:#888;">' + (item.price_usa ? '$'+parseFloat(item.price_usa).toFixed(2) : '') + '</span>'),
+                            $('<td>')
+                        );
+                        $('#purchase-lines-body').append(infoRow);
+                        return;
+                    }
                     var locked = (item.courier_count || 0) > 0;
                     if (locked) anyLocked = true;
                     addPurchaseLine({
@@ -1076,6 +1090,7 @@ $(function() {
         // ── ვალიდაცია: ფასი ($) და ტრანსპ. ($) > 0 ──────────────────
         var hasError = false;
         $('#purchase-lines-body .purchase-line').each(function() {
+            if (!$(this).data('order-id') && isGroupEdit) return; // skip info rows
             var price     = parseFloat($(this).find('.line-price-usa').val()) || 0;
             var transport = parseFloat($(this).find('.line-transport').val()) || 0;
             if (price <= 0 || transport <= 0) { hasError = true; return false; }
@@ -1095,6 +1110,7 @@ $(function() {
             var groupRows = [];
             $('#purchase-lines-body .purchase-line').each(function() {
                 var $r = $(this);
+                if (!$r.data('order-id')) return; // skip read-only info rows
                 groupRows.push({
                     orderId:   $r.data('order-id'),
                     data: {
