@@ -267,6 +267,11 @@ public function apiDeletedProducts(Request $request)
         $products->where('in_warehouse', $request->in_warehouse);
     }
 
+    // 4. ფილტრაცია warehouse_only-ით
+    if ($request->has('warehouse_only') && strlen($request->warehouse_only) > 0) {
+        $products->where('warehouse_only', $request->warehouse_only);
+    }
+
     // --- DataTable-ის ფორმირება ---
 
     return \DataTables::of($products->get())
@@ -288,6 +293,11 @@ public function apiDeletedProducts(Request $request)
                 return '<span class="label label-default">No Image</span>';
             }
             return '<img src="'.$product->image_url.'" class="img-thumbnail img-thumb" style="width:50px; height:50px; object-fit:cover;">';
+        })
+        ->addColumn('warehouse_only_badge', function ($product) {
+            return $product->warehouse_only
+                ? '<span class="badge bg-primary" style="font-size:11px;">✓ საწყობიდან</span>'
+                : '<span class="text-muted" style="font-size:11px;">—</span>';
         })
         ->addColumn('status_stock', function ($product) {
     $label = $product->product_status == 1 ? 'Active' : 'Inactive';
@@ -318,7 +328,7 @@ public function apiDeletedProducts(Request $request)
     return '';
 })
         // მივუთითებთ რომელ სვეტებშია HTML კოდი
-        ->rawColumns(['category_name', 'brand_name', 'bundle_name', 'show_photo', 'status_stock', 'format_sizes', 'action'])
+        ->rawColumns(['category_name', 'brand_name', 'bundle_name', 'show_photo', 'warehouse_only_badge', 'status_stock', 'format_sizes', 'action'])
         ->make(true);
 }
 

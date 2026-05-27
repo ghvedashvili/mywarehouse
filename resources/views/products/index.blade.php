@@ -54,6 +54,11 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control { cursor: poi
                 <i class="fa fa-search search-icon"></i>
                 <input id="dt-search" type="search" class="form-control form-control-sm" placeholder="ძებნა...">
             </div>
+            <select id="filter-warehouse-only" class="form-select form-select-sm" style="width:auto;">
+                <option value="">ყველა</option>
+                <option value="1">მხოლოდ საწყობიდან</option>
+                <option value="0">ჩვეულებრივი</option>
+            </select>
             <div class="mod-spacer"></div>
             @if(Auth::user()->role === 'admin')
             <div class="d-flex align-items-center gap-2">
@@ -76,6 +81,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control { cursor: poi
                         <th class="text-end">ფასი</th>
                         <th class="text-center" style="width:56px;">Img</th>
                         <th>ზომები</th>
+                        <th class="text-center" style="width:100px;">საწყობი</th>
                         <th class="text-center" style="width:62px;">სტატუსი</th>
                         <th class="text-center" style="width:70px;">მოქმედება</th>
                     </tr>
@@ -139,7 +145,12 @@ $(function() {
         responsive: { details: { type: 'column', target: 0 } },
         autoWidth: false,
         order: [],
-        ajax: "{{ route('api.products') }}",
+        ajax: {
+            url: "{{ route('api.products') }}",
+            data: function(d) {
+                d.warehouse_only = $('#filter-warehouse-only').val();
+            }
+        },
         columns: [
             { data: 'name',                                                                                          responsivePriority: 1 },
             { data: 'product_code',                                                width: '90px',                   responsivePriority: 5 },
@@ -148,9 +159,10 @@ $(function() {
             { data: 'bundle_name',   orderable: false, searchable: false,          width: '110px',                  responsivePriority: 8 },
             { data: 'price_geo',     className: 'text-end',                        width: '70px',                   responsivePriority: 2 },
             { data: 'show_photo',    orderable: false, searchable: false, className: 'text-center', width: '56px',  responsivePriority: 4 },
-            { data: 'format_sizes',  orderable: false, searchable: false,          width: '90px',                   responsivePriority: 8 },
-            { data: 'status_stock',  orderable: false, searchable: false, className: 'text-center', width: '62px',  responsivePriority: 3 },
-            { data: 'action',        orderable: false, searchable: false, className: 'text-center', width: '70px',  responsivePriority: 1 }
+            { data: 'format_sizes',        orderable: false, searchable: false,          width: '90px',                    responsivePriority: 8 },
+            { data: 'warehouse_only_badge', orderable: false, searchable: false, className: 'text-center', width: '100px', responsivePriority: 4 },
+            { data: 'status_stock',        orderable: false, searchable: false, className: 'text-center', width: '62px',  responsivePriority: 3 },
+            { data: 'action',              orderable: false, searchable: false, className: 'text-center', width: '70px',  responsivePriority: 1 }
         ],
         language: {
             processing: '<div class="spinner-border spinner-border-sm text-primary" role="status"></div>',
@@ -162,10 +174,19 @@ $(function() {
     });
 
     $('#toggle-deleted').on('change', function() {
-        var url = $(this).is(':checked')
-            ? "{{ route('api.deleted-products') }}"
-            : "{{ route('api.products') }}";
-        table.ajax.url(url).load();
+        if ($(this).is(':checked')) {
+            table.ajax.url("{{ route('api.deleted-products') }}").load();
+        } else {
+            table.ajax.settings()[0].ajax = {
+                url: "{{ route('api.products') }}",
+                data: function(d) { d.warehouse_only = $('#filter-warehouse-only').val(); }
+            };
+            table.ajax.reload();
+        }
+    });
+
+    $('#filter-warehouse-only').on('change', function() {
+        table.ajax.reload();
     });
 
     $('#dt-page-length').on('change', function() {
