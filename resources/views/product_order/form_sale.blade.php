@@ -130,6 +130,7 @@
                                 data-sizes="{{ $product->sizes }}"
                                 data-image="{{ $product->image_url ?? '' }}"
                                 data-bundle-id="{{ $product->bundle_id ?? '' }}"
+                                data-code="{{ $product->product_code ?? '' }}"
                                 data-divisible="{{ $product->category?->is_divisible ? '1' : '0' }}">
                                 {{ $product->name }}
                             </option>

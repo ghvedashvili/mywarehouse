@@ -1433,13 +1433,23 @@ function addSaleLine(defaults) {
     $('#sale-items-container').append($row);
     $row.find('.sale-product-select').select2({
         dropdownParent: $('#modal-sale'), placeholder: '— პროდუქტი —', allowClear: true, width: '100%',
+        matcher: function(params, data) {
+            if (!params.term || params.term.trim() === '') return data;
+            var term = params.term.toLowerCase();
+            var name = (data.text || '').toLowerCase();
+            var code = ($(data.element).data('code') || '').toString().toLowerCase();
+            return (name.indexOf(term) > -1 || code.indexOf(term) > -1) ? data : null;
+        },
         templateResult: function(opt) {
             if (!opt.id) return $('<span>'+opt.text+'</span>');
-            var img = $(opt.element).data('image');
-            var $el = $('<span style="display:flex;align-items:center;gap:8px;"></span>');
+            var img  = $(opt.element).data('image');
+            var code = $(opt.element).data('code');
+            var $el  = $('<span style="display:flex;align-items:center;gap:8px;"></span>');
             if (img) $el.append('<img src="'+img+'" style="width:32px;height:32px;object-fit:cover;border-radius:3px;flex-shrink:0;">');
             else $el.append('<span style="width:32px;height:32px;background:#f0f0f0;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa fa-image" style="color:#ccc;font-size:13px;"></i></span>');
-            $el.append('<span>'+opt.text+'</span>');
+            var $info = $('<span></span>').append('<span>'+opt.text+'</span>');
+            if (code) $info.append('<span style="display:block;font-size:10px;color:#999;">'+code+'</span>');
+            $el.append($info);
             return $el;
         },
         templateSelection: function(opt) {
