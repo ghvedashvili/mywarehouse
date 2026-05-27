@@ -51,8 +51,9 @@ public function store(Request $request)
     // ველების სინქრონიზაცია ბაზის სვეტებთან
     $input['price_geo'] = $request->price_geo;
     $input['bundle_id'] = $request->bundle_id ?: null;
-    $input['product_status'] = $request->has('product_status') ? 1 : 0;
-    $input['in_warehouse']   = $request->has('in_warehouse') ? 1 : 0;
+    $input['product_status']  = $request->has('product_status') ? 1 : 0;
+    $input['warehouse_only']  = $request->has('warehouse_only') ? 1 : 0;
+    $input['in_warehouse']    = $request->has('in_warehouse') ? 1 : 0;
 
     // ზომების დამუშავება (Blade-დან მოდის product_sizes სახელით)
     $input['sizes'] = $request->has('product_sizes') ? implode(',', $request->product_sizes) : null;
@@ -113,8 +114,9 @@ public function store(Request $request)
     $input = $request->all();
     $input['price_geo'] = $request->price_geo;
     $input['bundle_id'] = $request->bundle_id ?: null;
-    $input['product_status'] = $request->has('product_status') ? 1 : 0;
-    $input['in_warehouse']   = $request->has('in_warehouse') ? 1 : 0;
+    $input['product_status']  = $request->has('product_status') ? 1 : 0;
+    $input['warehouse_only']  = $request->has('warehouse_only') ? 1 : 0;
+    $input['in_warehouse']    = $request->has('in_warehouse') ? 1 : 0;
     $input['sizes'] = $request->has('product_sizes') ? implode(',', $request->product_sizes) : null;
 
     if ($request->hasFile('image')) {

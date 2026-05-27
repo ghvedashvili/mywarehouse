@@ -10,7 +10,7 @@ class Product extends Model
     protected $fillable = [
         'category_id', 'brand_id', 'bundle_id', 'product_code', 'name',
         'price_geo', 'price_usa', 'image',
-        'product_status', 'in_warehouse', 'sizes', 'status'
+        'product_status', 'warehouse_only', 'in_warehouse', 'sizes', 'status'
     ];
 
     protected $hidden = ['created_at', 'updated_at'];

@@ -99,12 +99,19 @@
                             </div>
 
                             {{-- SWITCHES --}}
-                            <div class="mt-2">
+                            <div class="mt-2 d-flex gap-4">
                                 <div class="form-check form-switch">
                                     <input class="form-check-input" type="checkbox"
                                            name="product_status" id="product_status" checked>
                                     <label class="form-check-label small" for="product_status">
                                         Active
+                                    </label>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox"
+                                           name="warehouse_only" id="warehouse_only" value="1">
+                                    <label class="form-check-label small" for="warehouse_only">
+                                        მხოლოდ საწყობიდან
                                     </label>
                                 </div>
                             </div>

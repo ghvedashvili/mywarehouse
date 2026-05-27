@@ -200,6 +200,17 @@ class WarehouseController extends Controller
         ]);
     }
 
+    // ─── AJAX: product-ის ხელმისაწვდომი ზომები (sale ფორმის ფილტრისთვის) ──
+    public function availableSizes(Request $request)
+    {
+        $sizes = Warehouse::where('product_id', $request->product_id)
+            ->whereRaw('(physical_qty + incoming_qty - defect_qty - reserved_qty) > 0')
+            ->pluck('size')
+            ->filter()
+            ->values();
+        return response()->json($sizes);
+    }
+
     // ─── AJAX: ხელმისაწვდომი ნაშთი (ჩამოწერის modal-ისთვის) ──────────
     public function availableStock()
     {

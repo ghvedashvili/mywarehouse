@@ -1497,6 +1497,7 @@ function addSaleLine(defaults) {
 $(document).on('click', '.remove-sale-line', function() { $(this).closest('.sale-item-row').remove(); updateBundleIcons(); });
 $('#add-sale-line').on('click', function() { addSaleLine({}); });
 
+
 function editForm(id) {
     save_method = 'edit'; isEditMode = true; saleRowIndex = 0;
     $('#form-sale-content input[name=_method]').val('PATCH');
@@ -1585,16 +1586,35 @@ $(document).on('change', '.sale-product-select', function() {
             $wrap.append('<select name="items['+rowIdx+'][product_size]" class="form-select form-select-sm sale-size-select" style="border-radius:8px;border:1.5px solid #e0e4f0;"><option value="">— ზომა —</option></select>');
         }
         $wrap.find('.sale-size-label').text('ზომა');
-        var sizesRaw   = selected.data('sizes');
-        var $sizeSelect = $wrap.find('.sale-size-select');
-        $sizeSelect.empty();
-        if (sizesRaw && sizesRaw.toString().trim() !== '') {
-            $sizeSelect.append('<option value="">— ზომა —</option>');
-            sizesRaw.toString().split(',').forEach(function(s) { s = s.trim(); if (s) $sizeSelect.append('<option value="'+s+'">'+s+'</option>'); });
-            $sizeSelect.prop('required', true);
+        var sizesRaw      = selected.data('sizes');
+        var warehouseOnly = selected.data('warehouse-only') == '1' || selected.data('warehouse-only') === true;
+        var $sizeSelect   = $wrap.find('.sale-size-select');
+
+        function fillSizeOptions(availSet) {
+            $sizeSelect.empty();
+            if (sizesRaw && sizesRaw.toString().trim() !== '') {
+                var allSizes = sizesRaw.toString().split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+                var filtered = availSet ? allSizes.filter(function(s){ return availSet.indexOf(s) > -1; }) : allSizes;
+                if (filtered.length) {
+                    $sizeSelect.append('<option value="">— ზომა —</option>');
+                    filtered.forEach(function(s){ $sizeSelect.append('<option value="'+s+'">'+s+'</option>'); });
+                    $sizeSelect.prop('required', true);
+                } else {
+                    $sizeSelect.append('<option value="">— საწყობში არ არის —</option>');
+                    $sizeSelect.prop('required', false);
+                }
+            } else {
+                $sizeSelect.append('<option value="">— არ არის —</option>');
+                $sizeSelect.prop('required', false);
+            }
+        }
+
+        if (warehouseOnly && productId) {
+            $.get("{{ route('warehouse.availableSizes') }}", { product_id: productId }, function(avail) {
+                fillSizeOptions(avail);
+            });
         } else {
-            $sizeSelect.append('<option value="">— არ არის —</option>');
-            $sizeSelect.prop('required', false);
+            fillSizeOptions(null);
         }
         if (productId) $.get("{{ route('warehouse.stockInfo') }}", { product_id: productId }, function(data) { _updateRowStock($row, data, productId, null); });
         else $row.find('.sale-row-stock').hide();

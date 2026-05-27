@@ -226,6 +226,7 @@ function editForm(id) {
             $('#product_code').val(data.product_code);
             $('#price_geo').val(data.price_geo || data.Price_geo);
             $('#product_status').prop('checked', data.product_status == 1);
+            $('#warehouse_only').prop('checked', data.warehouse_only == 1);
             $('#in_warehouse').prop('checked', data.in_warehouse == 1);
             $('#category_id').val(data.category_id);
             updatePriceHint();
