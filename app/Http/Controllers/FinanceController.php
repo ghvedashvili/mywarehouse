@@ -138,11 +138,13 @@ class FinanceController extends Controller
         if ($to)   $cancelQ->whereDate('cancelled_at', '<=', $to);
         $cancelledOrders = $cancelQ->get($cols);
 
-        $cancelCount = 0; $cancelAmount = $cancelCostRecovery = 0;
+        $cancelCount = 0;
+        $cancelAmount = $cancelCostRecovery = $cancelCourierRecovery = 0;
         foreach ($cancelledOrders as $s) {
-            [$rev, $cost] = $extract($s);
-            $cancelAmount       += $rev;
-            $cancelCostRecovery += $cost;
+            [$rev, $cost, $courier] = $extract($s);
+            $cancelAmount          += $rev;
+            $cancelCostRecovery    += $cost;
+            $cancelCourierRecovery += $courier;
             $cancelCount++;
         }
 
@@ -162,6 +164,30 @@ class FinanceController extends Controller
             if ($s->order_type === 'sale') {
                 if (!in_array($s->id, $returnedSaleIds)) $saleCount++;
             } else { $changeCount++; }
+        }
+
+        // ─── Merged group courier: primary holds courier cost; count it when any child paid in period ──
+        $alreadyInPaid = $paidOrders->pluck('id')->toArray();
+        $mergedCourierQ = Product_Order::withoutGlobalScope('active')
+            ->where('order_type', 'sale')
+            ->where('is_primary', 1)
+            ->where(function ($q) {
+                $q->where('courier_price_tbilisi', '>', 0)
+                  ->orWhere('courier_price_region',  '>', 0)
+                  ->orWhere('courier_price_village', '>', 0);
+            })
+            ->whereHas('children', function ($q) use ($from, $to) {
+                $q->whereNotNull('fully_paid_at');
+                if ($from) $q->whereDate('fully_paid_at', '>=', $from);
+                if ($to)   $q->whereDate('fully_paid_at', '<=', $to);
+            });
+        if (!empty($alreadyInPaid)) {
+            $mergedCourierQ->whereNotIn('id', $alreadyInPaid);
+        }
+        foreach ($mergedCourierQ->get(['id', 'courier_price_tbilisi', 'courier_price_region', 'courier_price_village']) as $p) {
+            $grossCourier += (float)($p->courier_price_tbilisi ?? 0)
+                           + (float)($p->courier_price_region  ?? 0)
+                           + (float)($p->courier_price_village ?? 0);
         }
 
         $returnCount = count($returnedSaleIds);
@@ -192,7 +218,7 @@ class FinanceController extends Controller
         // ─── net ──────────────────────────────────────────────────────
         $saleRevenue   = $grossRevenue - $returnAmount - $cancelAmount;
         $saleCostPrice = $grossCost    - $returnCostRecovery - $cancelCostRecovery;
-        $netCourier    = $grossCourier + $returnCourierExpense - $courierRefundTotal;
+        $netCourier    = $grossCourier + $returnCourierExpense - $courierRefundTotal - $cancelCourierRecovery;
 
         $extraIncome  = (float) FinanceEntry::income()->forPeriod($from, $to)->sum('amount');
         $extraExpense = (float) FinanceEntry::expense()->forPeriod($from, $to)->sum('amount');
@@ -326,7 +352,34 @@ class FinanceController extends Controller
                 $rev  -= (float)($s->paid_tbc ?? 0) + (float)($s->paid_bog  ?? 0)
                        + (float)($s->paid_lib ?? 0) + (float)($s->paid_cash ?? 0);
                 $cost -= (float)($s->price_usa ?? 0)
-                       + (float)($s->courier_price_international ?? 0);
+                       + (float)($s->courier_price_international ?? 0)
+                       + (float)($s->courier_price_tbilisi ?? 0)
+                       + (float)($s->courier_price_region  ?? 0)
+                       + (float)($s->courier_price_village ?? 0);
+            }
+
+            // Merged group courier: primary holds courier, count when any child paid in period
+            $paidIds = $salesRaw->pluck('id')->toArray();
+            $mergedCourierPrimaries = Product_Order::withoutGlobalScope('active')
+                ->where('order_type', 'sale')
+                ->where('is_primary', 1)
+                ->where(function ($q) {
+                    $q->where('courier_price_tbilisi', '>', 0)
+                      ->orWhere('courier_price_region',  '>', 0)
+                      ->orWhere('courier_price_village', '>', 0);
+                })
+                ->whereHas('children', function ($q) use ($from, $to) {
+                    $q->whereNotNull('fully_paid_at')
+                      ->whereDate('fully_paid_at', '>=', $from)
+                      ->whereDate('fully_paid_at', '<=', $to);
+                });
+            if (!empty($paidIds)) {
+                $mergedCourierPrimaries->whereNotIn('id', $paidIds);
+            }
+            foreach ($mergedCourierPrimaries->get(['courier_price_tbilisi', 'courier_price_region', 'courier_price_village']) as $p) {
+                $cost += (float)($p->courier_price_tbilisi ?? 0)
+                       + (float)($p->courier_price_region  ?? 0)
+                       + (float)($p->courier_price_village ?? 0);
             }
 
             // დაბრუნების courier ხარჯი (trip) + კლიენტზე დაბრუნებული საკურიერო (refund)

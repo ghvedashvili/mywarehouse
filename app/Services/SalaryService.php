@@ -16,19 +16,22 @@ class SalaryService
         $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $end   = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
 
-        // +: ამ თვეში შექმნილი ყველა ორდერი (status-ის მიუხედავად)
+        // +: ამ თვეში სრულად გადახდილი ორდერები (fully_paid_at-ის მიხედვით)
         $positiveOrders = Product_Order::withoutGlobalScope('active')
             ->with('product:id,bundle_id')
             ->where('user_id', $userId)
             ->where('order_type', 'sale')
-            ->whereBetween('created_at', [$start, $end])
+            ->whereNotNull('fully_paid_at')
+            ->whereBetween('fully_paid_at', [$start, $end])
             ->get();
 
-        // -: ამ თვეში გაუქმებული/დაბრუნებული/გაცვლილი (created_at-ის მიუხედავად)
+        // -: ამ თვეში გაუქმებული/დაბრუნებული/გაცვლილი, მაგრამ მხოლოდ ისეთები
+        //    რომლებიც ადრე გადახდილი იყო (fully_paid_at NOT NULL) — ანუ კომისია ერიცხებოდა
         $deductionOrders = Product_Order::withoutGlobalScope('active')
             ->with('product:id,bundle_id')
             ->where('user_id', $userId)
             ->where('order_type', 'sale')
+            ->whereNotNull('fully_paid_at')
             ->whereBetween('cancelled_at', [$start, $end])
             ->where(function ($q) {
                 $q->where('status', 'deleted')
@@ -151,14 +154,14 @@ class SalaryService
             ->where('order_type', 'sale')
             ->whereNull('merged_id')
             ->where(function ($q) use ($start, $end) {
-                $q->whereBetween('created_at', [$start, $end])
+                $q->whereBetween('fully_paid_at', [$start, $end])
                   ->orWhereBetween('cancelled_at', [$start, $end]);
             })
-            ->get(['id', 'created_at', 'status', 'status_id', 'cancelled_at']);
+            ->get(['id', 'created_at', 'fully_paid_at', 'status', 'status_id', 'cancelled_at']);
 
         foreach ($soloOrders as $order) {
-            if (Carbon::parse($order->created_at)->between($start, $end)) $newCount++;
-            if ($cancelledInMonth($order)) {
+            if ($order->fully_paid_at && Carbon::parse($order->fully_paid_at)->between($start, $end)) $newCount++;
+            if ($cancelledInMonth($order) && $order->fully_paid_at) {
                 $cancelledCount++;
                 $addCancelledMonth(Carbon::parse($order->created_at));
             }
@@ -168,14 +171,14 @@ class SalaryService
         $mergedPrimaries = Product_Order::withoutGlobalScope('active')
             ->where('order_type', 'sale')
             ->where('is_primary', 1)
-            ->get(['id', 'created_at', 'status', 'status_id', 'cancelled_at']);
+            ->get(['id', 'created_at', 'fully_paid_at', 'status', 'status_id', 'cancelled_at']);
 
         if ($mergedPrimaries->isNotEmpty()) {
             $primaryIds = $mergedPrimaries->pluck('id')->toArray();
 
             $allMembers     = Product_Order::withoutGlobalScope('active')
                 ->whereIn('merged_id', $primaryIds)
-                ->get(['id', 'merged_id', 'created_at', 'status', 'status_id', 'cancelled_at']);
+                ->get(['id', 'merged_id', 'created_at', 'fully_paid_at', 'status', 'status_id', 'cancelled_at']);
             $membersByGroup = $allMembers->groupBy(fn($m) => (int)$m->merged_id);
 
             foreach ($mergedPrimaries as $primary) {
@@ -185,10 +188,27 @@ class SalaryService
                     ? $members->map(fn($m) => Carbon::parse($m->created_at))->min()
                     : Carbon::parse($primary->created_at);
 
-                if ($effectiveDate->between($start, $end)) $newCount++;
-                if ($members->every($cancelledInMonth)) {
-                    $cancelledCount++;
-                    $addCancelledMonth($effectiveDate);
+                if ($members->isNotEmpty()) {
+                    // საწყობი იღებს ჯამს მხოლოდ მაშინ, თუ ყველა შვილი სრულად გადახდილია
+                    $paidDates = $members->filter(fn($m) => !is_null($m->fully_paid_at))
+                                        ->map(fn($m) => Carbon::parse($m->fully_paid_at));
+                    $allPaid = $paidDates->count() === $members->count();
+                    if ($allPaid) {
+                        $lastPaidAt = $paidDates->max();
+                        if ($lastPaidAt->between($start, $end)) $newCount++;
+                    }
+                    if ($members->every($cancelledInMonth) && $allPaid) {
+                        $cancelledCount++;
+                        $addCancelledMonth($effectiveDate);
+                    }
+                } else {
+                    // შვილები არ არის — primary ჩვეულებრივ solo ორდერივით ითვლება
+                    $paidAt = $primary->fully_paid_at ? Carbon::parse($primary->fully_paid_at) : null;
+                    if ($paidAt && $paidAt->between($start, $end)) $newCount++;
+                    if ($cancelledInMonth($primary) && $primary->fully_paid_at) {
+                        $cancelledCount++;
+                        $addCancelledMonth($effectiveDate);
+                    }
                 }
             }
         }
