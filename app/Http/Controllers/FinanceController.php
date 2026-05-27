@@ -91,7 +91,10 @@ class FinanceController extends Controller
                  'courier_price_region', 'courier_price_village'];
 
         // ─── 1. სრულად გადახდილი ორდერები (fully_paid_at პერიოდში) ───
-        $paidQ = Product_Order::whereIn('order_type', ['sale', 'change'])
+        // deleted ჩართულია — წაშლილი ორდერი მაინც ჩანს იმ თვეში სადაც გადაიხადა
+        $paidQ = Product_Order::withoutGlobalScope('active')
+            ->whereIn('status', ['active', 'deleted'])
+            ->whereIn('order_type', ['sale', 'change'])
             ->whereNotNull('fully_paid_at')
             ->whereIn('status_id', [1, 2, 3, 4, 5]);
         if ($from) $paidQ->whereDate('fully_paid_at', '>=', $from);
@@ -125,6 +128,23 @@ class FinanceController extends Controller
                      + (float)($s->courier_price_village ?? 0);
             return [$paid, $cost, $courier];
         };
+
+        // ─── გაუქმებული სრულად გადახდილი ორდერები (cancelled_at პერიოდში) ──
+        $cancelQ = Product_Order::withoutGlobalScope('active')
+            ->where('status', 'deleted')
+            ->whereIn('order_type', ['sale', 'change'])
+            ->whereNotNull('fully_paid_at');
+        if ($from) $cancelQ->whereDate('cancelled_at', '>=', $from);
+        if ($to)   $cancelQ->whereDate('cancelled_at', '<=', $to);
+        $cancelledOrders = $cancelQ->get($cols);
+
+        $cancelCount = 0; $cancelAmount = $cancelCostRecovery = 0;
+        foreach ($cancelledOrders as $s) {
+            [$rev, $cost] = $extract($s);
+            $cancelAmount       += $rev;
+            $cancelCostRecovery += $cost;
+            $cancelCount++;
+        }
 
         $grossRevenue = $grossCost = $grossCourier = 0;
         $grossPaidTbc = $grossPaidBog = $grossPaidLib = $grossPaidCash = 0;
@@ -170,8 +190,8 @@ class FinanceController extends Controller
         $courierRefundTotal   = (float)($retCourRows->refund_total ?? 0);
 
         // ─── net ──────────────────────────────────────────────────────
-        $saleRevenue   = $grossRevenue - $returnAmount;
-        $saleCostPrice = $grossCost    - $returnCostRecovery;
+        $saleRevenue   = $grossRevenue - $returnAmount - $cancelAmount;
+        $saleCostPrice = $grossCost    - $returnCostRecovery - $cancelCostRecovery;
         $netCourier    = $grossCourier + $returnCourierExpense - $courierRefundTotal;
 
         $extraIncome  = (float) FinanceEntry::income()->forPeriod($from, $to)->sum('amount');
@@ -204,6 +224,9 @@ class FinanceController extends Controller
             'return_count'            => $returnCount,
             'return_amount'           => round($returnAmount,         2),
             'return_cost_recovery'    => round($returnCostRecovery,   2),
+            'cancel_count'            => $cancelCount,
+            'cancel_amount'           => round($cancelAmount,         2),
+            'cancel_cost_recovery'    => round($cancelCostRecovery,   2),
             'return_courier_expense'  => round($returnCourierExpense, 2),
             'courier_refund_total'    => round($courierRefundTotal,   2),
             'change_count'            => $changeCount,
@@ -247,16 +270,19 @@ class FinanceController extends Controller
             $from = "{$ym}-01";
             $to   = Carbon::create($year, $month)->endOfMonth()->toDateString();
 
-            // სრულად გადახდილი ორდერები — fully_paid_at პერიოდში
-            $salesRaw = Product_Order::whereIn('order_type', ['sale', 'change'])
+            // სრულად გადახდილი ორდერები — fully_paid_at პერიოდში (deleted ჩართულია)
+            $trendCols = ['id', 'order_type', 'price_georgia', 'price_usa', 'discount',
+                          'paid_tbc', 'paid_bog', 'paid_lib', 'paid_cash',
+                          'courier_price_international', 'courier_price_tbilisi',
+                          'courier_price_region', 'courier_price_village'];
+            $salesRaw = Product_Order::withoutGlobalScope('active')
+                ->whereIn('status', ['active', 'deleted'])
+                ->whereIn('order_type', ['sale', 'change'])
                 ->whereNotNull('fully_paid_at')
                 ->whereIn('status_id', [1, 2, 3, 4, 5])
                 ->whereDate('fully_paid_at', '>=', $from)
                 ->whereDate('fully_paid_at', '<=', $to)
-                ->get(['id', 'order_type', 'price_georgia', 'price_usa', 'discount',
-                       'paid_tbc', 'paid_bog', 'paid_lib', 'paid_cash',
-                       'courier_price_international', 'courier_price_tbilisi',
-                       'courier_price_region', 'courier_price_village']);
+                ->get($trendCols);
 
             $retIds = Product_Order::where('order_type', 'purchase')
                 ->whereNotNull('original_sale_id')
@@ -266,11 +292,17 @@ class FinanceController extends Controller
                 ->pluck('original_sale_id')
                 ->filter()->toArray();
 
-            $retData = Product_Order::whereIn('id', $retIds)
-                ->get(['id', 'price_georgia', 'price_usa', 'discount',
-                       'paid_tbc', 'paid_bog', 'paid_lib', 'paid_cash',
-                       'courier_price_international', 'courier_price_tbilisi',
-                       'courier_price_region', 'courier_price_village']);
+            $retData = Product_Order::withoutGlobalScope('active')
+                ->whereIn('id', $retIds)
+                ->get($trendCols);
+
+            $cancelData = Product_Order::withoutGlobalScope('active')
+                ->where('status', 'deleted')
+                ->whereIn('order_type', ['sale', 'change'])
+                ->whereNotNull('fully_paid_at')
+                ->whereDate('cancelled_at', '>=', $from)
+                ->whereDate('cancelled_at', '<=', $to)
+                ->get($trendCols);
 
             $rev = 0; $cost = 0;
             foreach ($salesRaw as $s) {
@@ -284,6 +316,13 @@ class FinanceController extends Controller
             }
 
             foreach ($retData as $s) {
+                $rev  -= (float)($s->paid_tbc ?? 0) + (float)($s->paid_bog  ?? 0)
+                       + (float)($s->paid_lib ?? 0) + (float)($s->paid_cash ?? 0);
+                $cost -= (float)($s->price_usa ?? 0)
+                       + (float)($s->courier_price_international ?? 0);
+            }
+
+            foreach ($cancelData as $s) {
                 $rev  -= (float)($s->paid_tbc ?? 0) + (float)($s->paid_bog  ?? 0)
                        + (float)($s->paid_lib ?? 0) + (float)($s->paid_cash ?? 0);
                 $cost -= (float)($s->price_usa ?? 0)

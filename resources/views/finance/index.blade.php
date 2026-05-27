@@ -342,6 +342,11 @@
             <div class="kpi-value" id="kpi-return-count">{{ $stats['return_count'] }}</div>
             <div class="kpi-sub" id="kpi-return-amount" style="color:var(--red);">-{{ number_format($stats['return_amount'],2) }} ₾</div>
         </div>
+        <div class="kpi-card" style="--accent: var(--gray);">
+            <div class="kpi-label">🗑 გაუქმება</div>
+            <div class="kpi-value" id="kpi-cancel-count">{{ $stats['cancel_count'] }}</div>
+            <div class="kpi-sub" id="kpi-cancel-amount" style="color:var(--red);">-{{ number_format($stats['cancel_amount'],2) }} ₾</div>
+        </div>
         <div class="kpi-card" style="--accent: var(--purple);">
             <div class="kpi-label">🔄 გაცვლა</div>
             <div class="kpi-value" id="kpi-change-count">{{ $stats['change_count'] }}</div>
@@ -364,6 +369,12 @@
                     <div class="kpi-detail-row" style="color:var(--red);">
                         <span>↩ დაბრუნება</span>
                         <span id="kpi-rev-d-ret">-{{ number_format($stats['return_amount'],2) }} ₾</span>
+                    </div>
+                    @endif
+                    @if($stats['cancel_amount'] > 0)
+                    <div class="kpi-detail-row" style="color:var(--red);">
+                        <span>🗑 გაუქმება</span>
+                        <span id="kpi-rev-d-cancel">-{{ number_format($stats['cancel_amount'],2) }} ₾</span>
                     </div>
                     @endif
                     @if($stats['extra_income'] > 0)
@@ -1015,6 +1026,13 @@ function updateUI(s) {
         debtEl.textContent = fmt(s.customer_debt);
         debtEl.style.color = s.customer_debt > 0 ? 'var(--red)' : 'var(--green)';
     }
+
+    const cancelCountEl = document.getElementById('kpi-cancel-count');
+    if (cancelCountEl) cancelCountEl.textContent = s.cancel_count;
+    const cancelAmountEl = document.getElementById('kpi-cancel-amount');
+    if (cancelAmountEl) cancelAmountEl.textContent = '-' + fmt(s.cancel_amount);
+    const cancelDetailEl = document.getElementById('kpi-rev-d-cancel');
+    if (cancelDetailEl) cancelDetailEl.textContent = '-' + fmt(s.cancel_amount);
 
     const advEl = document.getElementById('kpi-advance-total');
     if (advEl) advEl.textContent = fmt(s.advance_total);

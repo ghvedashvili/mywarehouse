@@ -66,11 +66,14 @@
     $totalUsers      = User::count();
     $totalStock      = (int) Warehouse::sum('physical_qty');
 
-    // სრულად გადახდილი ორდერები — finance გვერდის ლოგიკასთან შესაბამისი
-    $grossRevenue = (float) $baseOrders()
+    // სრულად გადახდილი ორდერები — finance გვერდის ლოგიკასთან შესაბამისი (deleted ჩართულია)
+    $grossRevenue = (float) Product_Order::withoutGlobalScope('active')
+        ->whereIn('status', ['active', 'deleted'])
+        ->whereIn('order_type', ['sale', 'change'])
         ->whereNotNull('fully_paid_at')
         ->whereIn('status_id', [1, 2, 3, 4, 5])
-        ->selectRaw('SUM(COALESCE(paid_tbc,0) + COALESCE(paid_bog,0) + COALESCE(paid_lib,0) + COALESCE(paid_cash,0)) as total')
+        ->when($isSaleOp, fn($q) => $q->where('user_id', $uid))
+        ->selectRaw('SUM(COALESCE(paid_tbc,0)+COALESCE(paid_bog,0)+COALESCE(paid_lib,0)+COALESCE(paid_cash,0)) as total')
         ->value('total');
     $returnedSaleIds = Product_Order::where('order_type', 'purchase')
         ->whereNotNull('original_sale_id')
@@ -82,7 +85,14 @@
             ->selectRaw('SUM(COALESCE(paid_tbc,0)+COALESCE(paid_bog,0)+COALESCE(paid_lib,0)+COALESCE(paid_cash,0)) as total')
             ->value('total')
         : 0;
-    $totalRevenue = $grossRevenue - $returnAmount;
+    $cancelledRevenue = (float) Product_Order::withoutGlobalScope('active')
+        ->where('status', 'deleted')
+        ->whereIn('order_type', ['sale', 'change'])
+        ->whereNotNull('fully_paid_at')
+        ->when($isSaleOp, fn($q) => $q->where('user_id', $uid))
+        ->selectRaw('SUM(COALESCE(paid_tbc,0)+COALESCE(paid_bog,0)+COALESCE(paid_lib,0)+COALESCE(paid_cash,0)) as total')
+        ->value('total');
+    $totalRevenue = $grossRevenue - $returnAmount - $cancelledRevenue;
 
     $advanceTotal = (float) $baseOrders()
         ->whereNull('fully_paid_at')
