@@ -2002,12 +2002,29 @@ class ProductOrderController extends Controller
         ]);
 
         $order = Product_Order::findOrFail($id);
+
+        $paidTbc  = (float) $request->input('paid_tbc',  0);
+        $paidBog  = (float) $request->input('paid_bog',  0);
+        $paidLib  = (float) $request->input('paid_lib',  0);
+        $paidCash = (float) $request->input('paid_cash', 0);
+        $discount = (float) $request->input('discount',  $order->discount ?? 0);
+        $totalPaid = $paidTbc + $paidBog + $paidLib + $paidCash;
+        $fullPrice = (float)($order->price_georgia ?? 0) - $discount;
+
+        // preserve original fully_paid_at date; clear it if payment drops below full
+        if ($totalPaid >= $fullPrice && $fullPrice > 0) {
+            $fullyPaidAt = $order->fully_paid_at ?? now();
+        } else {
+            $fullyPaidAt = null;
+        }
+
         $order->update([
-            'paid_tbc'  => $request->input('paid_tbc',  0),
-            'paid_bog'  => $request->input('paid_bog',  0),
-            'paid_lib'  => $request->input('paid_lib',  0),
-            'paid_cash' => $request->input('paid_cash', 0),
-            'discount'  => $request->input('discount',  $order->discount ?? 0),
+            'paid_tbc'      => $paidTbc,
+            'paid_bog'      => $paidBog,
+            'paid_lib'      => $paidLib,
+            'paid_cash'     => $paidCash,
+            'discount'      => $discount,
+            'fully_paid_at' => $fullyPaidAt,
         ]);
 
         return response()->json(['success' => true, 'message' => 'გადახდა განახლდა ✅']);

@@ -418,6 +418,13 @@
             </div>
             <div class="kpi-sub">ყველა გადაუხდელი ორდერი</div>
         </div>
+        <div class="kpi-card" style="--accent: #f39c12;">
+            <div class="kpi-label">⏳ ავანსები</div>
+            <div class="kpi-value" id="kpi-advance-total" style="color:#f39c12;">
+                {{ number_format($stats['advance_total'],2) }} ₾
+            </div>
+            <div class="kpi-sub">ნაწილობრივი გადახდები (სულ)</div>
+        </div>
     </div>
 
     {{-- ══ CHART + COST BREAKDOWN ══ --}}
@@ -1008,6 +1015,9 @@ function updateUI(s) {
         debtEl.textContent = fmt(s.customer_debt);
         debtEl.style.color = s.customer_debt > 0 ? 'var(--red)' : 'var(--green)';
     }
+
+    const advEl = document.getElementById('kpi-advance-total');
+    if (advEl) advEl.textContent = fmt(s.advance_total);
 
     const profitCard = document.getElementById('kpi-profit-card');
     profitCard.classList.toggle('profit-positive', s.profit >= 0);

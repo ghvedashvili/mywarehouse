@@ -66,9 +66,29 @@
     $totalUsers      = User::count();
     $totalStock      = (int) Warehouse::sum('physical_qty');
 
-    $totalRevenue = (float) $baseOrders()
+    // სრულად გადახდილი ორდერები — finance გვერდის ლოგიკასთან შესაბამისი
+    $grossRevenue = (float) $baseOrders()
+        ->whereNotNull('fully_paid_at')
+        ->whereIn('status_id', [1, 2, 3, 4, 5])
         ->selectRaw('SUM(COALESCE(paid_tbc,0) + COALESCE(paid_bog,0) + COALESCE(paid_lib,0) + COALESCE(paid_cash,0)) as total')
         ->value('total');
+    $returnedSaleIds = Product_Order::where('order_type', 'purchase')
+        ->whereNotNull('original_sale_id')
+        ->where('comment', 'like', '↩ დაბრუნება%')
+        ->pluck('original_sale_id')->filter()->toArray();
+    $returnAmount = count($returnedSaleIds) > 0
+        ? (float) Product_Order::withoutGlobalScope('active')
+            ->whereIn('id', $returnedSaleIds)
+            ->selectRaw('SUM(COALESCE(paid_tbc,0)+COALESCE(paid_bog,0)+COALESCE(paid_lib,0)+COALESCE(paid_cash,0)) as total')
+            ->value('total')
+        : 0;
+    $totalRevenue = $grossRevenue - $returnAmount;
+
+    $advanceTotal = (float) $baseOrders()
+        ->whereNull('fully_paid_at')
+        ->whereIn('status_id', [1, 2, 3, 4])
+        ->selectRaw('SUM(COALESCE(paid_tbc,0)+COALESCE(paid_bog,0)+COALESCE(paid_lib,0)+COALESCE(paid_cash,0)) as t')
+        ->value('t');
 
     $recentOrders = Product_Order::with(['customer','product','orderStatus'])
         ->whereIn('order_type',['sale','change'])
@@ -423,7 +443,12 @@
     <div class="revenue-card mb-4">
         <div>
             <div class="rev-label">{{ $isSaleOp ? 'ჩემი შემოსავალი' : 'სულ შემოსავალი' }}</div>
-            <div class="rev-value">{{ number_format($totalRevenue, 2) }} ₾</div>
+            <div class="rev-value">
+                {{ number_format($totalRevenue, 2) }} ₾
+                @if($advanceTotal > 0)
+                    <span style="font-size:16px;font-weight:600;color:rgba(255,255,255,.45);margin-left:6px;">(+{{ number_format($advanceTotal, 2) }} ₾ ავანსი)</span>
+                @endif
+            </div>
             <div class="rev-sub">{{ $totalSales }} გაყიდვა სულ &middot; <span style="color:#4ade80;">{{ $todaySales }} დღეს</span></div>
         </div>
         <div class="rev-stats">
