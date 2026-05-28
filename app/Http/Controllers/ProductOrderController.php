@@ -802,8 +802,6 @@ class ProductOrderController extends Controller
             $order->update([
                 'status'            => 'deleted',
                 'purchase_order_id' => null,
-                'price_usa'         => 0,
-                'price_georgia'     => 0,
                 'cancelled_at'      => now(),
             ]);
 

@@ -15,7 +15,7 @@ return new class extends Migration
             $table->timestamp('fully_paid_at')->nullable()->after('paid_cash');
         });
 
-        // Backfill: ყველა ორდერი სადაც sum(paid) >= price - discount → დღევანდელი თარიღი
+        // Backfill: ყველა ორდერი სადაც sum(paid) >= price - discount → NOW()
         \DB::statement("
             UPDATE product_Order
             SET fully_paid_at = NOW()
@@ -25,6 +25,19 @@ return new class extends Migration
                   COALESCE(paid_tbc, 0) + COALESCE(paid_bog, 0)
                 + COALESCE(paid_lib, 0) + COALESCE(paid_cash, 0)
               ) >= (COALESCE(price_georgia, 0) - COALESCE(discount, 0))
+              AND fully_paid_at IS NULL
+        ");
+
+        // Backfill (deleted): production-ზე price_georgia=0 ყველა წაშლილ ორდერზე
+        \DB::statement("
+            UPDATE product_Order
+            SET fully_paid_at = NOW()
+            WHERE order_type IN ('sale', 'change')
+              AND status = 'deleted'
+              AND (
+                  COALESCE(paid_tbc, 0) + COALESCE(paid_bog, 0)
+                + COALESCE(paid_lib, 0) + COALESCE(paid_cash, 0)
+              ) > 0
               AND fully_paid_at IS NULL
         ");
     }
