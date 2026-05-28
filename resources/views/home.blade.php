@@ -709,6 +709,24 @@
 </div>
 @endsection
 
+@if(!empty($motivational))
+<div class="modal fade" id="modal-motivational" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:460px;">
+        <div class="modal-content" style="border-radius:16px;border:none;box-shadow:0 8px 40px rgba(0,0,0,.18);">
+            <div class="modal-body" style="padding:36px 32px 28px;text-align:center;">
+                <div style="font-size:36px;margin-bottom:16px;">💡</div>
+                <p style="font-size:15px;line-height:1.7;color:#2d3436;font-weight:500;margin:0;">
+                    {{ $motivational['text'] }}
+                </p>
+            </div>
+            <div class="modal-footer" style="border:none;justify-content:center;padding-bottom:24px;">
+                <button type="button" class="btn btn-primary px-4" id="btn-motivational-close">აბა რა 💪</button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
 @section('bot')
 <script>
 // animate progress bars on load
@@ -718,6 +736,20 @@ document.addEventListener('DOMContentLoaded', function() {
         el.style.width = '0';
         setTimeout(function() { el.style.width = w; }, 120);
     });
+
+@if(!empty($motivational))
+    var motivationalModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-motivational'));
+    motivationalModal.show();
+
+    document.getElementById('btn-motivational-close').addEventListener('click', function() {
+        motivationalModal.hide();
+        fetch('{{ route("motivational.seen") }}', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ index: {{ $motivational['index'] }} })
+        });
+    });
+@endif
 });
 </script>
 @endsection

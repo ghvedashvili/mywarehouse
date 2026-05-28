@@ -33,6 +33,7 @@ Route::get('/', function () {
 Auth::routes();
 
 Route::get('/home', [HomeController::class, 'index'])->name('home');
+Route::post('/motivational/seen', [HomeController::class, 'markMotivationalSeen'])->name('motivational.seen');
 
 Route::get('dashboard', function () {
     return view('layouts.master');
