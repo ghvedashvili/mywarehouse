@@ -1468,6 +1468,9 @@ function addSaleLine(defaults) {
         }
     });
     if (defaults.product_id) {
+        if (defaults.product_size) {
+            $row.find('.sale-size-wrap').data('edit-size', defaults.product_size);
+        }
         $row.find('.sale-product-select').val(defaults.product_id).trigger('change');
         if (defaults.product_size) {
             var tplOpt    = $('#product-options-template option[value="'+defaults.product_id+'"]');
@@ -1488,7 +1491,6 @@ function addSaleLine(defaults) {
                 var checkSize = setInterval(function() {
                     if ($row.find('.sale-size-select option').length > 1) {
                         clearInterval(checkSize);
-                        $row.find('.sale-size-select').val(defaults.product_size);
                         if (defaults.price_georgia) { $row.find('.sale-price-gel').text(defaults.price_georgia+' ₾'); $row.find('.sale-hidden-gel').val(defaults.price_georgia); }
                         if (defaults.price_usa)     { $row.find('.sale-price-usd').text('$'+defaults.price_usa);      $row.find('.sale-hidden-usd').val(defaults.price_usa); }
                     }
@@ -1606,12 +1608,21 @@ $(document).on('change', '.sale-product-select', function() {
                     filtered.forEach(function(s){ $sizeSelect.append('<option value="'+s+'">'+s+'</option>'); });
                     $sizeSelect.prop('required', true);
                 } else {
-                    $sizeSelect.append('<option value="">— საწყობში არ არის —</option>');
+                    var placeholder = $wrap.data('edit-size') ? '— ზომა —' : '— საწყობში არ არის —';
+                    $sizeSelect.append('<option value="">'+placeholder+'</option>');
                     $sizeSelect.prop('required', false);
                 }
             } else {
                 $sizeSelect.append('<option value="">— არ არის —</option>');
                 $sizeSelect.prop('required', false);
+            }
+            // edit mode: ორდერის ზომა ყოველთვის option-ში უნდა იყოს
+            var editSize = $wrap.data('edit-size');
+            if (editSize) {
+                if (!$sizeSelect.find('option[value="'+editSize+'"]').length) {
+                    $sizeSelect.append('<option value="'+editSize+'">'+editSize+'</option>');
+                }
+                $sizeSelect.val(editSize);
             }
         }
 
