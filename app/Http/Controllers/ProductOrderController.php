@@ -988,6 +988,7 @@ class ProductOrderController extends Controller
                          ->orWhere('alternative_tel', 'like', "%{$search}%");
                   })
                   ->orWhere('comment', 'like', "%{$search}%")
+                  ->orWhere('payment_comment', 'like', "%{$search}%")
                   ->orWhereHas('siblings', function($sq) use ($search) {
                       $sq->whereHas('product', function($pq) use ($search) {
                           $pq->where('name', 'like', "%{$search}%")
@@ -1275,6 +1276,7 @@ class ProductOrderController extends Controller
                         'merged_id'        => $order->merged_id,
                         'is_admin'         => $isAdmin,
                         'comment'          => $order->comment,
+                        'payment_comment'  => $order->payment_comment,
                         'is_paired'        => isset($pairedOrderIds[$order->id]),
                         'cost_price'       => (float)($order->price_usa ?? 0),
                     ];
@@ -1364,6 +1366,11 @@ class ProductOrderController extends Controller
                 if ($item->comment && !$isGroupHeader) {
                     $html .= '<br><small style="color:#1a5276;background:#eaf4fb;border-radius:3px;padding:1px 4px;display:inline-block;margin-top:2px;">'
                            . '<i class="fa fa-cube"></i> ' . e($item->comment) . '</small>';
+                }
+
+                if ($item->payment_comment && !$isGroupHeader) {
+                    $html .= '<br><small style="color:#1e8449;background:#eafaf1;border-radius:3px;padding:1px 4px;display:inline-block;margin-top:2px;">'
+                           . '<i class="fa fa-money-bill"></i> ' . e($item->payment_comment) . '</small>';
                 }
 
                 return $html;
@@ -1992,11 +1999,12 @@ class ProductOrderController extends Controller
     public function updatePayment(Request $request, $id)
     {
         $request->validate([
-            'paid_tbc'  => 'nullable|numeric|min:0',
-            'paid_bog'  => 'nullable|numeric|min:0',
-            'paid_lib'  => 'nullable|numeric|min:0',
-            'paid_cash' => 'nullable|numeric|min:0',
-            'discount'  => 'nullable|numeric|min:0',
+            'paid_tbc'        => 'nullable|numeric|min:0',
+            'paid_bog'        => 'nullable|numeric|min:0',
+            'paid_lib'        => 'nullable|numeric|min:0',
+            'paid_cash'       => 'nullable|numeric|min:0',
+            'discount'        => 'nullable|numeric|min:0',
+            'payment_comment' => 'nullable|string|max:500',
         ]);
 
         $order = Product_Order::findOrFail($id);
@@ -2017,12 +2025,13 @@ class ProductOrderController extends Controller
         }
 
         $order->update([
-            'paid_tbc'      => $paidTbc,
-            'paid_bog'      => $paidBog,
-            'paid_lib'      => $paidLib,
-            'paid_cash'     => $paidCash,
-            'discount'      => $discount,
-            'fully_paid_at' => $fullyPaidAt,
+            'paid_tbc'        => $paidTbc,
+            'paid_bog'        => $paidBog,
+            'paid_lib'        => $paidLib,
+            'paid_cash'       => $paidCash,
+            'discount'        => $discount,
+            'fully_paid_at'   => $fullyPaidAt,
+            'payment_comment' => $request->input('payment_comment') ?: null,
         ]);
 
         return response()->json(['success' => true, 'message' => 'გადახდა განახლდა ✅']);

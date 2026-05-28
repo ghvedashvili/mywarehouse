@@ -1036,6 +1036,10 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                     <input type="number" id="pay_cash" class="form-control" step="0.01" min="0" value="0" oninput="calcPaySummary()">
                 </div>
                 <div id="pay_summary" style="text-align:center;font-size:13px;font-weight:700;padding:6px;border-radius:6px;background:#f8f9fa;"></div>
+                <div class="form-group mt-2">
+                    <label style="font-size:12px;font-weight:600;color:#636e72;"><i class="fa fa-money-bill" style="color:#1e8449;"></i> გადახდის კომენტარი</label>
+                    <textarea id="pay_comment" class="form-control form-control-sm" rows="2" placeholder="კომენტარი..."></textarea>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">გაუქმება</button>
@@ -1300,6 +1304,8 @@ var columns = [
             var pct    = geo > 0 ? paid/geo : 1;
             var isPaid = (geo - paid) <= 0.01;
             var payClass = isPaid ? 'po-pay-paid' : (pct > 0 ? 'po-pay-partial' : 'po-pay-debt');
+            window._payComments = window._payComments || {};
+            window._payComments[data.id] = data.payment_comment || '';
             var payBtn = '';
             if (!isSaleOperator) {
                 payBtn = '<a onclick="openPayModal('+data.id+','+(data.price_georgia||0)+','+(data.discount||0)+','+(data.paid_tbc||0)+','+(data.paid_bog||0)+','+(data.paid_lib||0)+','+(data.paid_cash||0)+')" class="btn btn-xs '+payClass+'" title="გადახდა"><i class="fa fa-credit-card"></i></a>';
@@ -2112,6 +2118,7 @@ function openPayModal(id, price, discount, tbc, bog, lib, cash) {
     document.getElementById('pay_bog').value  = bog||0;
     document.getElementById('pay_lib').value  = lib||0;
     document.getElementById('pay_cash').value = cash||0;
+    document.getElementById('pay_comment').value = (window._payComments && window._payComments[id]) || '';
     calcPaySummary();
     bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-quick-pay')).show();
 }
@@ -2135,7 +2142,7 @@ function savePayment() {
     fetch('{{ url("productsOut") }}/'+id+'/payment', {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN':'{{ csrf_token() }}', 'Content-Type':'application/json', 'Accept':'application/json' },
-        body: JSON.stringify({ _method:'PATCH', paid_tbc:parseFloat(document.getElementById('pay_tbc').value||0), paid_bog:parseFloat(document.getElementById('pay_bog').value||0), paid_lib:parseFloat(document.getElementById('pay_lib').value||0), paid_cash:parseFloat(document.getElementById('pay_cash').value||0), discount:parseFloat(document.getElementById('pay_discount').value||0) })
+        body: JSON.stringify({ _method:'PATCH', paid_tbc:parseFloat(document.getElementById('pay_tbc').value||0), paid_bog:parseFloat(document.getElementById('pay_bog').value||0), paid_lib:parseFloat(document.getElementById('pay_lib').value||0), paid_cash:parseFloat(document.getElementById('pay_cash').value||0), discount:parseFloat(document.getElementById('pay_discount').value||0), payment_comment:document.getElementById('pay_comment').value||'' })
     })
     .then(function(r) { return r.json(); })
     .then(function(res) { if (res.success) { bootstrap.Modal.getInstance(document.getElementById('modal-quick-pay')).hide(); table.ajax.reload(function() { restoreOpenRows(); }, false); } else { alert(res.message||'შეცდომა'); } })
@@ -2238,7 +2245,11 @@ $(document).on('click', '.expand-btn', function() {
     allOrders.forEach(function(order) {
         var orderNo = order.order_number || ('S'+order.id);
         var commentHtml = order.comment
-            ? '<div style="margin-top:3px;"><small style="color:var(--c-blue);background:var(--c-blue-dim);border-radius:3px;padding:1px 5px;font-size:10px;"><i class="fa fa-user" style="font-size:9px;"></i> '+$('<div>').text(order.comment).html()+'</small></div>' : '';
+            ? '<div style="margin-top:3px;"><small style="color:#1a5276;background:#eaf4fb;border-radius:3px;padding:1px 5px;font-size:10px;"><i class="fa fa-cube" style="font-size:9px;"></i> '+$('<div>').text(order.comment).html()+'</small></div>'
+            : '';
+        commentHtml += order.payment_comment
+            ? '<div style="margin-top:3px;"><small style="color:#1e8449;background:#eafaf1;border-radius:3px;padding:1px 5px;font-size:10px;"><i class="fa fa-money-bill" style="font-size:9px;"></i> '+$('<div>').text(order.payment_comment).html()+'</small></div>'
+            : '';
         var crossRefHtml = '';
         if (order.cross_ref) {
             crossRefHtml = '<div style="margin-top:3px;"><span style="font-size:10px;color:var(--c-text-3);">'+order.cross_ref+'</span></div>';
@@ -2268,6 +2279,8 @@ $(document).on('click', '.expand-btn', function() {
                  + (isAdmin && parseFloat(order.cost_price||0) > 0 ? '<div style="font-size:10px;color:#888;margin-top:2px;">თვითღ: $'+parseFloat(order.cost_price||0).toFixed(2)+'</div>' : '');
         var chPayClass = chIsPaid ? 'po-pay-paid' : (chPct > 0 ? 'po-pay-partial' : 'po-pay-debt');
         var chPayBtn = '';
+        window._payComments = window._payComments || {};
+        window._payComments[order.id] = order.payment_comment || '';
         if (!isSaleOperator) chPayBtn = '<a onclick="openPayModal('+order.id+','+(order.price_georgia||0)+','+(order.discount||0)+','+(order.paid_tbc||0)+','+(order.paid_bog||0)+','+(order.paid_lib||0)+','+(order.paid_cash||0)+')" class="btn btn-xs '+chPayClass+'" title="გადახდა"><i class="fa fa-credit-card"></i></a>';
         var splitBtn = '<a onclick="splitFromGroup('+order.id+')" class="btn btn-xs btn-warning" title="ჯგუფიდან გამოყოფა"><i class="fa fa-scissors"></i></a>';
         var chExchangeBtn = '';
