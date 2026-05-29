@@ -519,7 +519,7 @@ class PurchaseOrderController extends Controller
         $this->validate($request, [
             'product_id'   => 'required',
             'product_size' => 'required',
-            'quantity'     => 'required|integer|min:1',
+            'quantity'     => 'required|integer|min:0',
         ]);
 
         return \DB::transaction(function () use ($request, $id) {
@@ -527,6 +527,16 @@ class PurchaseOrderController extends Controller
             $order        = Product_Order::where('order_type', 'purchase')->findOrFail($id);
             $oldQty       = $order->quantity;
             $newQty       = (int) $request->quantity;
+
+            // სრულად მიღებული ორდერი (status=3) + qty=0 → არარაფრის შეცვლა არ სჭირდება
+            if ($order->status_id === 3 && $newQty === 0) {
+                return response()->json(['success' => true, 'message' => 'შესყიდვა განახლდა!']);
+            }
+
+            // სრულად მიღებული ორდერი + qty>0 → "X დამატება" ნიშნავს: newQty = oldQty + X
+            if ($order->status_id === 3 && $newQty > 0) {
+                $newQty = $oldQty + $newQty;
+            }
             $oldSize      = $order->product_size;
             $newSize      = $request->product_size;
             $oldProduct   = (int) $order->product_id;
