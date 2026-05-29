@@ -36,7 +36,7 @@ class ExportCourierOrders implements FromCollection, WithHeadings, WithStyles, S
 
         // მხოლოდ primary ან ungrouped ორდერები (ჯგუფი = 1 ორდერი)
         $orders = Product_Order::withoutGlobalScope('active')
-            ->with(['customer'])
+            ->with(['customer.city', 'orderCity'])
             ->whereIn('id', $logIds->keys())
             ->where('status_id', 4)
             ->where(function ($q) {
@@ -46,15 +46,17 @@ class ExportCourierOrders implements FromCollection, WithHeadings, WithStyles, S
 
         $this->total = $orders->count();
 
-        return $orders->map(function ($order) use ($logIds) {
+        return $orders->map(function ($order) {
             $orderNo = $order->order_number ?? ('S' . $order->id);
             $tel     = $order->order_alt_tel ?: ($order->customer->tel ?? '');
+            $city    = $order->orderCity->name ?? $order->customer->city->name ?? '';
             $address = $order->order_address ?: ($order->customer->address ?? '');
 
             return [
                 $orderNo,
                 $order->customer->name ?? '',
                 $tel,
+                $city,
                 $address,
             ];
         });
@@ -66,6 +68,7 @@ class ExportCourierOrders implements FromCollection, WithHeadings, WithStyles, S
             'ორდერის ნომერი',
             'სახელი გვარი',
             'ტელეფონი',
+            'ქალაქი',
             'მისამართი',
         ];
     }
