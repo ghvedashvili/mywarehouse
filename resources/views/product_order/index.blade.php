@@ -673,10 +673,10 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                 <i class="fa fa-plus" style="font-size:11px;"></i>
                 <span>ახალი გაყიდვა</span>
             </button>
-            <a href="{{ route('exportExcel.courierOrders') }}" class="po-btn po-btn-success">
+            <button onclick="openReportDateModal('courier')" class="po-btn po-btn-success">
                 <i class="fa fa-file-excel" style="font-size:11px;"></i>
                 <span>კურიერი დღეს</span>
-            </a>
+            </button>
             <div style="position:relative;" id="po-export-wrap">
                 <button id="po-export-btn" class="po-btn po-btn-ghost">
                     <i class="fa fa-download" style="font-size:11px;"></i>
@@ -818,8 +818,8 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
         <button id="btn-send-all-courier" onclick="sendAllReadyToCourier()" class="po-btn po-btn-success" style="display:none;">
             <i class="fa fa-truck"></i> ყველას გაგზავნა
         </button>
-        <button onclick="printCourierToday()" class="po-btn" style="background:#f0f9ff;border-color:#0ea5e9;color:#0369a1;">
-            <i class="fa fa-print"></i> დღეს გაგზავნილი
+        <button onclick="openReportDateModal('sent')" class="po-btn" style="background:#f0f9ff;border-color:#0ea5e9;color:#0369a1;">
+            <i class="fa fa-print"></i> გაგზავნილი
         </button>
         <div class="po-toggle-wrap">
             <label for="toggle-deleted">დავ.</label>
@@ -999,6 +999,27 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 </div>
 
 @include('product_order.form_sale')
+
+{{-- რეპორტის თარიღის არჩევის მოდალი --}}
+<div class="modal fade" id="modal-report-date" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content" style="border-radius:12px;">
+            <div class="modal-header" style="background:#f8f9fa;">
+                <h5 class="modal-title" id="report-date-title"><i class="fa fa-calendar me-1"></i> თარიღის არჩევა</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="date" id="report-date-input" class="form-control">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">გაუქმება</button>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-report-date-ok">
+                    <i class="fa fa-download"></i> <span id="report-date-ok-label">ჩამოტვირთვა</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="modal-quick-pay" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-sm modal-dialog-centered">
@@ -1944,6 +1965,56 @@ $(document).on('change', '#toggle-ready-ship', function() {
 });
 $(document).on('change', '#toggle-deleted',      function() { reloadTableWithFilters(); });
 $(document).on('change', '#toggle-show-deleted', function() { reloadTableWithFilters(); });
+
+var _reportDateType = null;
+
+window.openReportDateModal = function(type) {
+    _reportDateType = type;
+    var today = new Date().toISOString().slice(0, 10);
+    document.getElementById('report-date-input').value = today;
+    var titles  = { sent: 'გაგზავნილი — თარიღი', courier: 'კურიერის სია — თარიღი' };
+    var labels  = { sent: 'დაბეჭდვა', courier: 'Excel-ად ჩამოტვირთვა' };
+    document.getElementById('report-date-title').innerHTML = '<i class="fa fa-calendar me-1"></i> ' + (titles[type] || 'თარიღის არჩევა');
+    document.getElementById('report-date-ok-label').textContent = labels[type] || 'ჩამოტვირთვა';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-report-date')).show();
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('btn-report-date-ok').addEventListener('click', function() {
+        var date = document.getElementById('report-date-input').value;
+        if (!date) return;
+        bootstrap.Modal.getInstance(document.getElementById('modal-report-date')).hide();
+        if (_reportDateType === 'sent') {
+            runSentReport(date);
+        } else if (_reportDateType === 'courier') {
+            window.location.href = '{{ route('exportExcel.courierOrders') }}?date=' + date;
+        }
+    });
+});
+
+function runSentReport(date) {
+    $.get('{{ route('productsOut.courierTodayIds') }}', { date: date }, function(res) {
+        if (!res.ids || res.ids.length === 0) {
+            swal('ინფო', date + ' — კურიერს გადაცემული ორდერი არ მოიძებნა.', 'info');
+            return;
+        }
+        swal({
+            title: 'გაგზავნილი — ' + date,
+            text: res.count + ' ორდერი. დაბეჭდვა?',
+            type: 'info',
+            showCancelButton: true,
+            confirmButtonText: 'დაბეჭდვა',
+            cancelButtonText: 'გაუქმება'
+        }).then(function(result) {
+            if (!result.isConfirmed) return;
+            var form = $('<form method="POST" action="{{ route('exportPDF.productOrderFiltered') }}" target="_blank">');
+            form.append('<input type="hidden" name="_token" value="{{ csrf_token() }}">');
+            form.append('<input type="hidden" name="courier_layout" value="1">');
+            res.ids.forEach(function(id) { form.append('<input type="hidden" name="ids[]" value="'+id+'">'); });
+            $('body').append(form); form.submit(); form.remove();
+        });
+    });
+}
 
 window.printCourierToday = function() {
     $.get('{{ route('productsOut.courierTodayIds') }}', function(res) {

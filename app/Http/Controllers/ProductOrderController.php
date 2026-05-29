@@ -1824,10 +1824,11 @@ class ProductOrderController extends Controller
         });
     }
 
-    public function courierTodayIds()
+    public function courierTodayIds(Request $request)
     {
-        $startUtc = now()->startOfDay()->utc();
-        $endUtc   = now()->endOfDay()->utc();
+        $date     = $request->input('date', now()->toDateString());
+        $startUtc = \Carbon\Carbon::parse($date)->startOfDay()->utc();
+        $endUtc   = \Carbon\Carbon::parse($date)->endOfDay()->utc();
 
         $ids = StatusChangeLog::where('status_id_to', 4)
             ->whereBetween('changed_at', [$startUtc, $endUtc])
@@ -2212,10 +2213,11 @@ class ProductOrderController extends Controller
         return (new ExportProdukOrder)->download('orders.xlsx');
     }
 
-    public function exportCourierOrders()
+    public function exportCourierOrders(Request $request)
     {
-        $filename = 'courier-orders-' . now()->format('Y-m-d') . '.xlsx';
-        return (new ExportCourierOrders)->download($filename);
+        $date     = $request->input('date', now()->toDateString());
+        $filename = 'courier-orders-' . $date . '.xlsx';
+        return (new ExportCourierOrders($date))->download($filename);
     }
 
     public function exportFilteredOrders(Request $request)

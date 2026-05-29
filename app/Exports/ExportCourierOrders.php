@@ -19,10 +19,16 @@ class ExportCourierOrders implements FromCollection, WithHeadings, WithStyles, S
     use Exportable;
 
     private int $total = 0;
+    private Carbon $date;
+
+    public function __construct(?string $date = null)
+    {
+        $this->date = $date ? Carbon::parse($date) : Carbon::today();
+    }
 
     public function collection()
     {
-        $today = Carbon::today();
+        $today = $this->date;
 
         $logIds = StatusChangeLog::where('status_id_to', 4)
             ->whereDate('changed_at', $today)
