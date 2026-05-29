@@ -454,21 +454,35 @@ class PurchaseOrderController extends Controller
             ->get();
 
         if ($siblings->count() > 1) {
-            $items = $siblings->map(function ($item) {
+            // split orders-ის გამო ერთი product/size შეიძლება რამდენიმე row-ში იყოს.
+            // ვაერთიანებთ: in-transit (status=2) გვიჩვენებს; received (status=3) ბლოკავს.
+            $grouped = $siblings->groupBy(fn($r) => $r->product_id . '_' . ($r->product_size ?? ''));
+
+            $items = $grouped->map(function ($group) {
+                // in-transit row უპირატესობით, თუ არ არის — received
+                $rep = $group->first(fn($r) => $r->status_id === 2) ?? $group->first();
+
                 $courierCount = Product_Order::withoutGlobalScope('active')
-                    ->where('purchase_order_id', $item->id)
+                    ->whereIn('purchase_order_id', $group->pluck('id'))
                     ->whereIn('status_id', [4, 5, 6])
                     ->count();
+
+                $receivedQty = (int) $group->where('status_id', 3)->sum('quantity');
+                $isFullyReceived = $rep->status_id === 3;
+
                 return [
-                    'id'                          => $item->id,
-                    'product_id'                  => $item->product_id,
-                    'product_name'                => $item->product?->name ?? 'N/A',
-                    'product_size'                => $item->product_size,
-                    'quantity'                    => $item->quantity,
-                    'price_usa'                   => $item->price_usa,
-                    'courier_price_international' => $item->courier_price_international,
-                    'price_georgia'               => $item->price_georgia,
+                    'id'                          => $rep->id,
+                    'product_id'                  => $rep->product_id,
+                    'product_name'                => $rep->product?->name ?? 'N/A',
+                    'product_size'                => $rep->product_size,
+                    'quantity'                    => $isFullyReceived ? 0 : $rep->quantity,
+                    'price_usa'                   => $rep->price_usa,
+                    'courier_price_international' => $rep->courier_price_international,
+                    'price_georgia'               => $rep->price_georgia,
                     'courier_count'               => $courierCount,
+                    'status_id'                   => $rep->status_id,
+                    'received_qty'                => $receivedQty,
+                    'is_fully_received'           => $isFullyReceived,
                 ];
             })->values();
 
@@ -483,13 +497,18 @@ class PurchaseOrderController extends Controller
             ]);
         }
 
-        // Single item (existing behaviour)
+        // Single item
         $order->courier_count      = Product_Order::withoutGlobalScope('active')
             ->where('purchase_order_id', $id)
             ->whereIn('status_id', [4, 5, 6])
             ->count();
         $order->product_name       = $order->product?->name ?? 'Purchase #' . $id;
         $order->is_return_purchase = $order->original_sale_id !== null ? 1 : 0;
+        $order->is_fully_received  = $order->status_id === 3;
+        $order->received_qty       = $order->status_id === 3 ? $order->quantity : 0;
+        if ($order->is_fully_received) {
+            $order->quantity = 0;
+        }
 
         return response()->json($order);
     }

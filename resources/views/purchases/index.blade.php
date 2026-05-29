@@ -738,9 +738,10 @@ $(function() {
     });
 
     // ══ MULTI-LINE PURCHASE FORM ══
-    var purchaseLineIndex = 0;
-    var isGroupEdit       = false;
-    var productOptionsTpl = document.getElementById('tpl-product-options').innerHTML;
+    var purchaseLineIndex    = 0;
+    var isGroupEdit          = false;
+    var isPurchaseLineInit   = false;   // suppresses change handler during addPurchaseLine init
+    var productOptionsTpl    = document.getElementById('tpl-product-options').innerHTML;
 
     window.addPurchaseLine = function(defaults) {
         var idx = purchaseLineIndex++;
@@ -815,36 +816,56 @@ $(function() {
         });
 
         if (defaults) {
+            isPurchaseLineInit = true;
             $prodSel.val(defaults.product_id || '').trigger('change.select2');
+            isPurchaseLineInit = false;
+
             var opt         = $prodSel.find(':selected');
             var sizes       = (opt.attr('data-sizes') || '').toString();
             var isDivisible = opt.attr('data-divisible') === '1';
+            var szName      = $sizeSel.attr('name') || '';
 
             if (isDivisible) {
-                // replace size select with a number (ml) input
                 var $mlInput = $('<input type="number" required>')
                     .addClass('form-control form-control-sm line-size')
-                    .attr({ name: $sizeSel.attr('name'), min: 1, step: 1, placeholder: 'მლ' })
+                    .attr({ name: szName, min: 1, step: 1, placeholder: 'მლ' })
                     .val(defaults.product_size || '');
                 $sizeSel.replaceWith($mlInput);
             } else {
+                // rebuild size select with all sizes, pre-selected
+                var $sz = $('<select required>')
+                    .addClass('form-select form-select-sm line-size')
+                    .attr('name', szName)
+                    .append('<option value="">— ზომა —</option>');
                 if (sizes) {
                     sizes.split(',').forEach(function(s) {
                         s = s.trim();
-                        if (s) $sizeSel.append('<option value="' + s + '">' + s + '</option>');
+                        if (s) $sz.append('<option value="' + s + '">' + s + '</option>');
                     });
                 }
-                $sizeSel.val(defaults.product_size || '');
+                $sizeSel.replaceWith($sz);
+                $sz.val(defaults.product_size || '');
             }
 
-            $qty.val(defaults.quantity || 1);
+            $qty.val(defaults.quantity != null ? defaults.quantity : 1);
             $priceUsa.val(defaults.price_usa || '');
             if (defaults.transport != null && defaults.transport !== '' && defaults.transport !== undefined) {
                 $transport.val(defaults.transport);
             }
             $priceGeo.val(defaults.price_georgia ? parseFloat(defaults.price_georgia).toFixed(2) : '');
 
-            if (defaults.locked) {
+            if (defaults.is_fully_received) {
+                // სრულად მიღებული: 0 ჩანს, მწვანე V, მხოლოდ გაზრდა შეიძლება
+                $qty.attr('min', 0);
+                var $check = $('<span style="color:#16a34a;font-weight:800;font-size:15px;margin-left:5px;white-space:nowrap;" title="სრულად მიღებულია">✓</span>');
+                var $wrap = $('<div style="display:flex;align-items:center;"></div>');
+                $qty.wrap($wrap);
+                $qty.after($check);
+                $tr.find('.line-product, .line-size, .line-price-usa, .line-transport')
+                   .prop('disabled', true).css('background', '#d1fae5');
+                $tr.find('td').css('background', '#d1fae5');
+                $tr.css('border-left', '3px solid #16a34a');
+            } else if (defaults.locked) {
                 $tr.find('.line-product, .line-size, .line-price-usa, .line-transport')
                    .prop('disabled', true).css('background', '#f5f5f5');
                 $tr.find('.line-qty').attr('min', defaults.courier_count || 1).css('background', '#fff8e1');
@@ -860,6 +881,7 @@ $(function() {
     }
 
     $(document).on('change', '#purchase-lines-body .line-product', function() {
+        if (isPurchaseLineInit) return;
         var $tr         = $(this).closest('tr');
         var prodId      = $(this).val();
         var opt         = $(this).find(':selected');
@@ -965,18 +987,19 @@ $(function() {
                 // ── ჯგუფური რედაქტირება ──────────────────────────────
                 var anyLocked = false;
                 data.items.forEach(function(item) {
-                    var locked = (item.courier_count || 0) > 0;
+                    var locked = (item.courier_count || 0) > 0 && !item.is_fully_received;
                     if (locked) anyLocked = true;
                     addPurchaseLine({
-                        order_id:      item.id,
-                        product_id:    item.product_id,
-                        product_size:  item.product_size,
-                        quantity:      item.quantity,
-                        price_usa:     item.price_usa,
-                        transport:     item.courier_price_international || 0,
-                        price_georgia: item.price_georgia || 0,
-                        courier_count: item.courier_count || 0,
-                        locked:        locked,
+                        order_id:          item.id,
+                        product_id:        item.product_id,
+                        product_size:      item.product_size,
+                        quantity:          item.quantity,
+                        price_usa:         item.price_usa,
+                        transport:         item.courier_price_international || 0,
+                        price_georgia:     item.price_georgia || 0,
+                        courier_count:     item.courier_count || 0,
+                        locked:            locked,
+                        is_fully_received: item.is_fully_received || false,
                     });
                 });
                 if (anyLocked) {
@@ -998,12 +1021,14 @@ $(function() {
                 }
 
                 addPurchaseLine({
-                    product_id:    data.product_id,
-                    product_size:  data.product_size,
-                    quantity:      data.quantity,
-                    price_usa:     data.price_usa,
-                    transport:     data.is_return_purchase ? 0 : (data.courier_price_international || 0),
-                    price_georgia: data.price_georgia || 0,
+                    product_id:         data.product_id,
+                    product_size:       data.product_size,
+                    quantity:           data.quantity,
+                    price_usa:          data.price_usa,
+                    transport:          data.is_return_purchase ? 0 : (data.courier_price_international || 0),
+                    price_georgia:      data.price_georgia || 0,
+                    is_fully_received:  data.is_fully_received || false,
+                    received_qty:       data.received_qty || 0,
                 });
 
                 var courierCount = data.courier_count || 0;
