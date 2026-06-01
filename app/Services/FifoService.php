@@ -231,9 +231,10 @@ class FifoService
             ];
         }
 
+        $product = \App\Models\Product::withoutGlobalScope('active')->find($productId);
         return [
             'cost_price'        => (float) $purchase->cost_price,
-            'price_georgia'     => (float) $purchase->price_georgia,
+            'price_georgia'     => (float) ($product->price_geo ?? $purchase->price_georgia),
             'purchase_order_id' => $purchase->id,
         ];
     }
