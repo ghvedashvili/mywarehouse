@@ -490,11 +490,16 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   border-radius: var(--r-xs); padding: 2px 6px;
 }
 
-.po-merge-hint {
-  color: var(--c-amber); font-size: 10px; cursor: pointer;
-  opacity: .5; transition: opacity var(--t-fast); margin-left: 2px;
+@keyframes po-merge-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .25; }
 }
-.po-merge-hint:hover { opacity: 1; }
+.po-merge-hint {
+  color: var(--c-red, #dc2626); font-size: 11px; cursor: pointer;
+  animation: po-merge-blink 1.2s ease-in-out infinite;
+  margin-left: 2px;
+}
+.po-merge-hint:hover { animation: none; opacity: 1; }
 
 .po-expand-btn {
   display: inline-flex; align-items: center; gap: 4px;
