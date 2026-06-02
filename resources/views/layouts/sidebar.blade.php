@@ -32,25 +32,23 @@
         </a>
         @endif
 
-        @if($role !== 'warehouse_operator')
         <a href="{{ route('products.index') }}" class="sidebar-link {{ request()->is('products') || request()->is('products/*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-cubes"></i> პროდუქტები
         </a>
+        @if($role !== 'warehouse_operator')
         <a href="{{ route('product-bundles.index') }}" class="sidebar-link {{ request()->is('product-bundles*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-object-group"></i> კომპლექტები
         </a>
+        @endif
         <a href="{{ route('customers.index') }}" class="sidebar-link {{ request()->is('customers*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-users"></i> მომხმარებლები
         </a>
-        @endif
 
         <div class="nav-label">Operations</div>
 
-        @if($role !== 'warehouse_operator')
         <a href="{{ route('productsOut.index') }}" class="sidebar-link {{ request()->is('productsOut*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-right-from-bracket"></i> გაყიდვები
         </a>
-        @endif
 
         <a href="{{ route('warehouse.index') }}" class="sidebar-link {{ request()->is('warehouse*') && !request()->is('warehouse/logs*') ? 'active' : '' }}" onclick="closeSidebar()">
             <i class="fa fa-warehouse"></i> საწყობი

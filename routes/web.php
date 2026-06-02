@@ -56,11 +56,14 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('categories', CategoryController::class);
 
     // ── Customers ─────────────────────────────────────────────────────
-    Route::resource('customers', CustomerController::class);
-    Route::get('/apiCustomers', [CustomerController::class, 'apiCustomers'])->name('api.customers');
-    Route::post('/importCustomers', [CustomerController::class, 'ImportExcel'])->name('import.customers');
-    Route::get('/exportCustomersAll', [CustomerController::class, 'exportCustomersAll'])->name('exportPDF.customersAll');
+    Route::resource('customers', CustomerController::class)->only(['index', 'show']);
+    Route::get('/apiCustomers',            [CustomerController::class, 'apiCustomers'])->name('api.customers');
+    Route::get('/exportCustomersAll',      [CustomerController::class, 'exportCustomersAll'])->name('exportPDF.customersAll');
     Route::get('/exportCustomersAllExcel', [CustomerController::class, 'exportExcel'])->name('exportExcel.customersAll');
+    Route::middleware('role:admin,sale_operator')->group(function () {
+        Route::resource('customers', CustomerController::class)->only(['create', 'store', 'edit', 'update', 'destroy']);
+        Route::post('/importCustomers', [CustomerController::class, 'ImportExcel'])->name('import.customers');
+    });
 
    
     // ── Finance ───────────────────────────────────────────────────────
@@ -100,31 +103,39 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/get-sizes/{category_id}', [ProductController::class, 'getSizes']);
 
     // ── Products Out (Sale Orders) ────────────────────────────────────
-    Route::post('productsOut/change', [ProductOrderController::class, 'storeChange'])->name('productsOut.change');
-    Route::post('productsOut/merge', [ProductOrderController::class, 'mergeOrders'])->name('productsOut.merge');
-    Route::post('productsOut/mergeStatus', [ProductOrderController::class, 'mergeUpdateStatus'])->name('productsOut.mergeStatus');
-    Route::post('productsOut/{id}/unmerge', [ProductOrderController::class, 'unmergeOrder'])->name('productsOut.unmerge');
-    Route::post('productsOut/{id}/split',   [ProductOrderController::class, 'splitOrder'])->name('productsOut.split');
-    Route::post('productsOut/{id}/send-to-courier', [ProductOrderController::class, 'singleUpdateStatus'])->name('productsOut.sendToCourier');
-    Route::post('productsOut/send-all-to-courier',  [ProductOrderController::class, 'sendAllReadyToCourier'])->name('productsOut.sendAllToCourier');
-    Route::post('productsOut/{id}/revert-from-courier', [ProductOrderController::class, 'revertFromCourier'])->name('productsOut.revertFromCourier');
-    Route::post('exportPDF/productOrder/filtered',   [ProductOrderController::class, 'exportFilteredOrders'])->name('exportPDF.productOrderFiltered');
-    Route::post('exportExcel/productOrder/filtered', [ProductOrderController::class, 'exportFilteredOrdersExcel'])->name('exportExcel.productOrderFiltered');
-    Route::get('productsOut/courier-today-ids',   [ProductOrderController::class, 'courierTodayIds'])->name('productsOut.courierTodayIds');
-    Route::get('/apiProductsOut', [ProductOrderController::class, 'apiProductsOut'])->name('api.productsOut');
-    Route::get('/productsOut/stats', [ProductOrderController::class, 'stats'])->name('productsOut.stats');
-    Route::resource('productsOut', ProductOrderController::class);
-    Route::get('/exportProductOrderAll', [ProductOrderController::class, 'exportProductOrderAll'])->name('exportPDF.productOrderAll');
-    Route::get('/exportProductOrderAllExcel', [ProductOrderController::class, 'exportExcel'])->name('exportExcel.productOrderAll');
-    Route::get('/exportCourierOrders', [ProductOrderController::class, 'exportCourierOrders'])->name('exportExcel.courierOrders');
-    Route::get('/exportProductOrder/{id}', [ProductOrderController::class, 'exportProductOrder'])->name('exportPDF.productOrder');
-    Route::get('productsOut/{id}/export-change-pdf', [ProductOrderController::class, 'exportChangePDF'])->name('exportPDF.changeOrder');
-    Route::post('productsOut/{id}/restore', [ProductOrderController::class, 'restore'])->name('productsOut.restore');
-    Route::post('productsOut/{id}/sendMail', [ProductOrderController::class, 'sendMail']);
-    Route::get('product-order/{id}/status-log', [ProductOrderController::class, 'statusLog'])->name('productOrder.statusLog');
-    Route::patch('productsOut/{id}/status',  [ProductOrderController::class, 'updateStatus'])->name('productsOut.updateStatus');
-    Route::patch('productsOut/{id}/payment', [ProductOrderController::class, 'updatePayment'])->name('productsOut.updatePayment');
-    Route::patch('productsOut/{id}/comment', [ProductOrderController::class, 'updateComment'])->name('productsOut.updateComment');
+    // read-only: ყველა auth მომხმარებელი (warehouse_operator-ჩათვლით)
+    Route::get('productsOut/courier-today-ids',        [ProductOrderController::class, 'courierTodayIds'])->name('productsOut.courierTodayIds');
+    Route::get('/apiProductsOut',                      [ProductOrderController::class, 'apiProductsOut'])->name('api.productsOut');
+    Route::get('/productsOut/stats',                   [ProductOrderController::class, 'stats'])->name('productsOut.stats');
+    Route::get('/exportProductOrderAll',               [ProductOrderController::class, 'exportProductOrderAll'])->name('exportPDF.productOrderAll');
+    Route::get('/exportProductOrderAllExcel',          [ProductOrderController::class, 'exportExcel'])->name('exportExcel.productOrderAll');
+    Route::get('/exportCourierOrders',                 [ProductOrderController::class, 'exportCourierOrders'])->name('exportExcel.courierOrders');
+    Route::get('/exportProductOrder/{id}',             [ProductOrderController::class, 'exportProductOrder'])->name('exportPDF.productOrder');
+    Route::get('productsOut/{id}/export-change-pdf',   [ProductOrderController::class, 'exportChangePDF'])->name('exportPDF.changeOrder');
+    Route::get('product-order/{id}/status-log',        [ProductOrderController::class, 'statusLog'])->name('productOrder.statusLog');
+    Route::resource('productsOut', ProductOrderController::class)->only(['index', 'show']);
+
+    // write: admin და sale_operator მხოლოდ
+    Route::middleware('role:admin,sale_operator')->group(function () {
+        Route::post('productsOut/change',                   [ProductOrderController::class, 'storeChange'])->name('productsOut.change');
+        Route::post('productsOut/merge',                    [ProductOrderController::class, 'mergeOrders'])->name('productsOut.merge');
+        Route::post('productsOut/mergeStatus',              [ProductOrderController::class, 'mergeUpdateStatus'])->name('productsOut.mergeStatus');
+        Route::post('productsOut/{id}/unmerge',             [ProductOrderController::class, 'unmergeOrder'])->name('productsOut.unmerge');
+        Route::post('productsOut/{id}/split',               [ProductOrderController::class, 'splitOrder'])->name('productsOut.split');
+        Route::post('productsOut/{id}/send-to-courier',     [ProductOrderController::class, 'singleUpdateStatus'])->name('productsOut.sendToCourier');
+        Route::post('productsOut/send-all-to-courier',      [ProductOrderController::class, 'sendAllReadyToCourier'])->name('productsOut.sendAllToCourier');
+        Route::post('productsOut/{id}/revert-from-courier', [ProductOrderController::class, 'revertFromCourier'])->name('productsOut.revertFromCourier');
+        Route::post('productsOut/{id}/restore',             [ProductOrderController::class, 'restore'])->name('productsOut.restore');
+        Route::post('productsOut/{id}/sendMail',            [ProductOrderController::class, 'sendMail']);
+        Route::patch('productsOut/{id}/status',             [ProductOrderController::class, 'updateStatus'])->name('productsOut.updateStatus');
+        Route::patch('productsOut/{id}/payment',            [ProductOrderController::class, 'updatePayment'])->name('productsOut.updatePayment');
+        Route::patch('productsOut/{id}/comment',            [ProductOrderController::class, 'updateComment'])->name('productsOut.updateComment');
+        Route::resource('productsOut', ProductOrderController::class)->only(['store', 'update', 'destroy']);
+    });
+
+    // export (POST): warehouse_operator-ს შეუძლია რეპორტები
+    Route::post('exportPDF/productOrder/filtered',    [ProductOrderController::class, 'exportFilteredOrders'])->name('exportPDF.productOrderFiltered');
+    Route::post('exportExcel/productOrder/filtered',  [ProductOrderController::class, 'exportFilteredOrdersExcel'])->name('exportExcel.productOrderFiltered');
 
     // ── Warehouse (ნაშთი) ─────────────────────────────────────────────
     Route::get('warehouse',             [WarehouseController::class, 'index'])->name('warehouse.index');

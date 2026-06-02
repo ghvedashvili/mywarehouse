@@ -32,9 +32,11 @@
             <p class="mod-subtitle">კლიენტების მართვა</p>
         </div>
         <div class="mod-actions">
+            @if(Auth::user()->role !== 'warehouse_operator')
             <button onclick="addForm()" class="btn btn-success btn-sm">
                 <i class="fa fa-plus me-1"></i><span class="d-none d-sm-inline">დამატება</span>
             </button>
+            @endif
             <a href="{{ route('exportPDF.customersAll') }}" class="btn btn-sm" style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;">
                 <i class="fa fa-file-pdf me-1"></i><span class="d-none d-sm-inline">PDF</span>
             </a>

@@ -16,7 +16,7 @@ class ProductController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
-        $this->middleware('role:admin,staff,sale_operator');
+        $this->middleware('role:admin,staff,sale_operator')->except(['index', 'show', 'apiProducts', 'apiDeletedProducts', 'getSizes']);
     }
 
     /**

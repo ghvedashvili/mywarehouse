@@ -674,10 +674,12 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
             <p class="mod-subtitle">გაყიდვის ორდერების მართვა</p>
         </div>
         <div class="mod-actions">
+            @if(Auth::user()->role !== 'warehouse_operator')
             <button onclick="addSaleForm()" class="po-btn po-btn-primary">
                 <i class="fa fa-plus" style="font-size:11px;"></i>
                 <span>ახალი გაყიდვა</span>
             </button>
+            @endif
             <button onclick="openReportDateModal('courier')" class="po-btn po-btn-success">
                 <i class="fa fa-file-excel" style="font-size:11px;"></i>
                 <span>კურიერი დღეს</span>
@@ -820,9 +822,11 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                 <input class="form-check-input" type="checkbox" id="toggle-ready-ship" role="switch" style="cursor:pointer;">
             </div>
         </div>
+        @if(Auth::user()->role !== 'warehouse_operator')
         <button id="btn-send-all-courier" onclick="sendAllReadyToCourier()" class="po-btn po-btn-success" style="display:none;">
             <i class="fa fa-truck"></i> ყველას გაგზავნა
         </button>
+        @endif
         <button onclick="openReportDateModal('sent')" class="po-btn" style="background:#f0f9ff;border-color:#0ea5e9;color:#0369a1;">
             <i class="fa fa-print"></i> გაგზავნილი
         </button>
@@ -1214,8 +1218,9 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 <script type="text/javascript">
 
 var save_method;
-var isAdmin        = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
-var isSaleOperator = {{ auth()->user()->role == 'sale_operator' ? 'true' : 'false' }};
+var isAdmin             = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
+var isSaleOperator      = {{ auth()->user()->role == 'sale_operator' ? 'true' : 'false' }};
+var isWarehouseOperator = {{ auth()->user()->role == 'warehouse_operator' ? 'true' : 'false' }};
 var mergeMode      = false;
 window._openParentIds = new Set();
 
@@ -2378,7 +2383,8 @@ $(document).on('click', '.expand-btn', function() {
                 chExchangeBtn = '<span class="btn btn-xs btn-warning" style="opacity:0.4;cursor:not-allowed;" title="გაცვლა უკვე არსებობს"><i class="fa fa-arrow-right-arrow-left"></i></span>';
             }
         }
-        var colD = '<div class="po-actions" style="justify-content:flex-start;">'+chPayBtn+splitBtn+chExchangeBtn;
+        var colD = '<div class="po-actions" style="justify-content:flex-start;">';
+        if (!isWarehouseOperator) colD += chPayBtn+splitBtn+chExchangeBtn;
         if (isAdmin) {
             var canDel = order.status_id != 4;
             colD += '<a onclick="editForm('+order.id+')" class="btn btn-xs btn-primary" title="რედაქტირება"><i class="fa fa-pen"></i></a>';

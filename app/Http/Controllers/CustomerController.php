@@ -15,8 +15,7 @@ class CustomerController extends Controller
 {
     public function __construct()
     {
-        // Middleware როლებისთვის
-        $this->middleware('role:admin,staff,sale_operator');
+        $this->middleware('role:admin,staff,sale_operator')->except(['index', 'show', 'apiCustomers', 'exportCustomersAll', 'exportExcel']);
     }
 
     /**
@@ -124,9 +123,10 @@ public function update(Request $request, $id)
                    ($customer->alternative_tel ? "<b>Alt:</b> {$customer->alternative_tel}" : "");
         })
         ->addColumn('action', function($customer){
+            $role = auth()->user()->role;
+            if ($role === 'warehouse_operator') return '';
             $edit = '<a onclick="editForm('. $customer->id .')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i> Edit</a> ';
             $del  = '<a onclick="deleteData('. $customer->id .')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i> Delete</a>';
-            $role = auth()->user()->role;
             return '<center>' . $edit . ($role !== 'sale_operator' ? $del : '') . '</center>';
         })
         ->rawColumns(['contact_info', 'action'])
