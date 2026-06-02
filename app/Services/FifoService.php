@@ -281,7 +281,7 @@ class FifoService
         $nullSales = Product_Order::where('order_type', 'sale')
             ->where('product_id', $productId)
             ->where('product_size', $size)
-            ->whereIn('status_id', [1, 2, 3, 4])
+            ->whereIn('status_id', [2, 3, 4])
             ->whereNull('purchase_order_id')
             ->orderBy('created_at', 'asc')
             ->get();
@@ -291,8 +291,11 @@ class FifoService
             if ($nextPurchase) {
                 $sale->purchase_order_id = $nextPurchase->id;
                 $sale->price_usa         = (float) $nextPurchase->cost_price;
-                $sale->save();
+            } else {
+                $sale->purchase_order_id = null;
+                $sale->price_usa         = 0;
             }
+            $sale->save();
         }
     }
 

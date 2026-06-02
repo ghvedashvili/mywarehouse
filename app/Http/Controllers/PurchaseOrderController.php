@@ -619,6 +619,7 @@ class PurchaseOrderController extends Controller
                     } else {
                         if ($oldStock) $oldStock->decrement('reserved_qty', 1);
                         $sale->purchase_order_id = null;
+                        $sale->price_usa         = 0;
                         $sale->status_id         = 1;
                         $sale->save();
 
@@ -647,6 +648,7 @@ class PurchaseOrderController extends Controller
                     } else {
                         if ($oldStock) $oldStock->decrement('reserved_qty', 1);
                         $sale->purchase_order_id = null;
+                        $sale->price_usa         = 0;
                         $sale->status_id         = 1;
                         $sale->save();
                     }
@@ -779,6 +781,7 @@ class PurchaseOrderController extends Controller
                                     $stock->decrement('reserved_qty', 1);
                                     $oldStatus               = $sale->status_id;
                                     $sale->purchase_order_id = null;
+                                    $sale->price_usa         = 0;
                                     $sale->status_id         = 1;
                                     $sale->save();
 
@@ -914,6 +917,7 @@ class PurchaseOrderController extends Controller
                         : 1;
                     if ($stock) $stock->decrement('reserved_qty', $resQty);
                     $sale->purchase_order_id = null;
+                    $sale->price_usa         = 0;
                     $sale->status_id         = 1;
                     $sale->save();
                     StatusChangeLog::create([

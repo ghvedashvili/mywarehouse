@@ -1,0 +1,14 @@
+node_modules/
+vendor/
+storage/
+storage/logs/
+storage/framework/
+storage/app/
+public/
+.git/
+*.log
+*.sql
+*.zip
+database/
+resources/views/
+bootstrap/cache/
