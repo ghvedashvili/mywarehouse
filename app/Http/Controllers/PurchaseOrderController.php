@@ -172,12 +172,8 @@ class PurchaseOrderController extends Controller
                     if ($statusFilter === '2') {
                         return $items->filter(fn($i) => $i['status_id'] === 2)->sum('quantity');
                     }
-                    // status=3 tab: show original total ordered qty
-                    $sumQty = $items->sum('quantity');
-                    return $row->original_qty ?? ($sumQty ?: $row->quantity);
-                }
-                if ($statusFilter === '3' && $row->original_qty) {
-                    return $row->original_qty;
+                    // status=3 tab: actual sum of received quantities
+                    return $items->sum('quantity') ?: $row->quantity;
                 }
                 return $row->quantity;
             })
@@ -342,8 +338,8 @@ class PurchaseOrderController extends Controller
         $received     = $group->where('status_id', 3);
         $inTransitQty = (int) $inTransit->sum('quantity');
         $rep          = $inTransit->first() ?? $first;
-        $originalQty  = (int) ($group->max('original_qty') ?: $group->sum('quantity'));
         $totalLost    = $group->reduce(fn($c, $r) => $c + (int) ($lostMap[$r->id] ?? 0), 0);
+        $originalQty  = (int) $group->sum('quantity') + $totalLost;
 
         return [
             'id'            => $rep->id,
@@ -475,7 +471,7 @@ class PurchaseOrderController extends Controller
                     'product_id'                  => $rep->product_id,
                     'product_name'                => $rep->product?->name ?? 'N/A',
                     'product_size'                => $rep->product_size,
-                    'quantity'                    => $isFullyReceived ? 0 : $rep->quantity,
+                    'quantity'                    => $isFullyReceived ? $receivedQty : $rep->quantity,
                     'price_usa'                   => $rep->price_usa,
                     'courier_price_international' => $rep->courier_price_international,
                     'price_georgia'               => $rep->price_georgia,
@@ -506,9 +502,6 @@ class PurchaseOrderController extends Controller
         $order->is_return_purchase = $order->original_sale_id !== null ? 1 : 0;
         $order->is_fully_received  = $order->status_id === 3;
         $order->received_qty       = $order->status_id === 3 ? $order->quantity : 0;
-        if ($order->is_fully_received) {
-            $order->quantity = 0;
-        }
 
         return response()->json($order);
     }
@@ -519,24 +512,29 @@ class PurchaseOrderController extends Controller
         $this->validate($request, [
             'product_id'   => 'required',
             'product_size' => 'required',
-            'quantity'     => 'required|integer|min:0',
+            'quantity'     => 'required|integer|min:1',
         ]);
 
         return \DB::transaction(function () use ($request, $id) {
 
-            $order        = Product_Order::where('order_type', 'purchase')->findOrFail($id);
-            $oldQty       = $order->quantity;
-            $newQty       = (int) $request->quantity;
+            $order      = Product_Order::where('order_type', 'purchase')->findOrFail($id);
+            $repOrigQty = $order->quantity;
+            $newQty     = (int) $request->quantity;
 
-            // სრულად მიღებული ორდერი (status=3) + qty=0 → არარაფრის შეცვლა არ სჭირდება
-            if ($order->status_id === 3 && $newQty === 0) {
-                return response()->json(['success' => true, 'message' => 'შესყიდვა განახლდა!']);
+            // status=3 + split: newQty მომხმარებლისგან არის ჯამი (rep + siblings)
+            $siblingQty = 0;
+            if ($order->status_id === 3 && $order->purchase_group_id) {
+                $siblingQty = (int) Product_Order::where('order_type', 'purchase')
+                    ->where('purchase_group_id', $order->purchase_group_id)
+                    ->where('product_id', $order->product_id)
+                    ->where('product_size', $order->product_size ?? '')
+                    ->where('status_id', 3)
+                    ->where('id', '!=', $order->id)
+                    ->sum('quantity');
             }
+            $oldQty    = $repOrigQty + $siblingQty;
+            $repNewQty = $repOrigQty + ($newQty - $oldQty); // rep-ის ახალი qty
 
-            // სრულად მიღებული ორდერი + qty>0 → "X დამატება" ნიშნავს: newQty = oldQty + X
-            if ($order->status_id === 3 && $newQty > 0) {
-                $newQty = $oldQty + $newQty;
-            }
             $oldSize      = $order->product_size;
             $newSize      = $request->product_size;
             $oldProduct   = (int) $order->product_id;
@@ -560,7 +558,7 @@ class PurchaseOrderController extends Controller
             }
 
             $newCostPrice = ($request->price_usa ?? 0) + $cInternational;
-            $autoCash     = round($newCostPrice * $newQty - (float)($request->discount ?? 0), 2);
+            $autoCash     = round($newCostPrice * $repNewQty - (float)($request->discount ?? 0), 2);
 
             // ─── ამ purchase-დან ოდესმე გაყიდვა მოხდა? ───────────────────
             $courierCount = Product_Order::withoutGlobalScope('active')
@@ -580,10 +578,10 @@ class PurchaseOrderController extends Controller
                         'message' => 'ფასი/ტრანსპ. ვერ შეიცვლება: ამ შესყიდვიდან ' . $courierCount . ' გაყიდვა უკვე განხორციელდა.'
                     ], 422);
                 }
-                if ($newQty < $courierCount) {
+                if ($repNewQty < $courierCount) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'რაოდენობა ვერ შემცირდება ' . $newQty . '-ზე: ' . $courierCount . ' ერთეული უკვე გაყიდულია, მინიმუმი ' . $courierCount . '.'
+                        'message' => 'რაოდენობა ვერ შემცირდება: ' . $courierCount . ' ერთეული უკვე გაყიდულია, მინიმუმი ' . ($siblingQty + $courierCount) . '.'
                     ], 422);
                 }
             }
@@ -655,7 +653,7 @@ class PurchaseOrderController extends Controller
                 }
 
                 if ($oldStock) {
-                    $oldStockQty = $this->pStockQty($oldProduct, $oldSize, $oldQty);
+                    $oldStockQty = $this->pStockQty($oldProduct, $oldSize, $repOrigQty);
                     if ($order->status_id == 2) $oldStock->decrement('incoming_qty', $oldStockQty);
                     elseif ($order->status_id == 3) $oldStock->decrement('physical_qty', $oldStockQty);
                     $oldStock->save();
@@ -664,7 +662,7 @@ class PurchaseOrderController extends Controller
                 $order->update([
                     'product_id'                  => $newProduct,
                     'product_size'                => $newSize,
-                    'quantity'                    => $newQty,
+                    'quantity'                    => $repNewQty,
                     'price_georgia'               => $request->price_georgia ?? $order->price_georgia,
                     'price_usa'                   => $request->price_usa ?? 0,
                     'cost_price'                  => $newCostPrice,
@@ -681,7 +679,7 @@ class PurchaseOrderController extends Controller
                 ]);
 
                 $newKey      = $this->pStockKey($newProduct, $newSize);
-                $newStockQty = $this->pStockQty($newProduct, $newSize, $newQty);
+                $newStockQty = $this->pStockQty($newProduct, $newSize, $repNewQty);
                 $newStock = Warehouse::firstOrCreate(
                     ['product_id' => $newProduct, 'size' => $newKey],
                     ['physical_qty' => 0, 'incoming_qty' => 0, 'reserved_qty' => 0]
@@ -698,7 +696,7 @@ class PurchaseOrderController extends Controller
                 $order->update([
                     'product_id'                  => $newProduct,
                     'product_size'                => $newSize,
-                    'quantity'                    => $newQty,
+                    'quantity'                    => $repNewQty,
                     'price_georgia'               => $request->price_georgia ?? $order->price_georgia,
                     'price_usa'                   => $request->price_usa ?? 0,
                     'cost_price'                  => $newCostPrice,
@@ -751,7 +749,7 @@ class PurchaseOrderController extends Controller
                         // ──────────────────────────────────────────────────────
 
                         if ($qtyDiff < 0) {
-                            $capacity         = $newQty - $courierCount;
+                            $capacity         = $repNewQty - $courierCount;
                             $reservedFromThis = Product_Order::where('purchase_order_id', $order->id)
                                 ->whereIn('status_id', [2, 3])
                                 ->orderBy('created_at', 'asc')

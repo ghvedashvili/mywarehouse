@@ -359,13 +359,9 @@ class PurchaseService
         foreach ($pendingSales as $sale) {
             $stock->refresh();
 
-            if ($purchaseStatus == 2) {
-                $available = $isReturn
-                    ? $stock->return_incoming_qty - $stock->reserved_qty
-                    : $stock->incoming_qty - $stock->reserved_qty;
-            } else {
-                $available = $stock->physical_qty - ($stock->defect_qty ?? 0) - $stock->reserved_qty;
-            }
+            $available = ($stock->physical_qty - ($stock->defect_qty ?? 0))
+                       + $stock->incoming_qty
+                       - $stock->reserved_qty;
 
             if ($available <= 0) break;
 

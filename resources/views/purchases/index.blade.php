@@ -855,9 +855,9 @@ $(function() {
             $priceGeo.val(defaults.price_georgia ? parseFloat(defaults.price_georgia).toFixed(2) : '');
 
             if (defaults.is_fully_received) {
-                // სრულად მიღებული: 0 ჩანს, მწვანე V, მხოლოდ გაზრდა შეიძლება
-                $qty.attr('min', 0);
-                var $check = $('<span style="color:#16a34a;font-weight:800;font-size:15px;margin-left:5px;white-space:nowrap;" title="სრულად მიღებულია">✓</span>');
+                // საწყობში მიღებული: ნამდვილი qty ჩანს, min = courier_count
+                $qty.attr('min', defaults.courier_count || 1);
+                var $check = $('<span style="color:#16a34a;font-weight:800;font-size:15px;margin-left:5px;white-space:nowrap;" title="საწყობში მიღებულია">✓</span>');
                 var $wrap = $('<div style="display:flex;align-items:center;"></div>');
                 $qty.wrap($wrap);
                 $qty.after($check);
