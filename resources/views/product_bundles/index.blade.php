@@ -10,9 +10,11 @@
             <p class="mod-subtitle">პროდუქტების კომპლექტების მართვა</p>
         </div>
         <div class="mod-actions">
+            @if(\App\Models\RolePermission::check(auth()->user()->role, 'product_bundles', 'can_create'))
             <button onclick="openCreateModal()" class="btn btn-success btn-sm">
                 <i class="fa fa-plus me-1"></i> ახალი კომპლექტი
             </button>
+            @endif
         </div>
     </div>
 

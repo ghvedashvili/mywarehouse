@@ -33,7 +33,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control { cursor: poi
             <p class="mod-subtitle">პროდუქტების კატალოგის მართვა</p>
         </div>
         <div class="mod-actions">
-            @if(Auth::user()->role === 'admin')
+            @if(\App\Models\RolePermission::check(auth()->user()->role, 'products', 'can_create'))
             <button onclick="addForm()" class="btn btn-success btn-sm">
                 <i class="fa fa-plus me-1"></i><span class="d-none d-sm-inline">ახალი</span>
             </button>

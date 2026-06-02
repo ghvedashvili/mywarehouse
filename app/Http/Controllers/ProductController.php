@@ -16,7 +16,9 @@ class ProductController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
-        $this->middleware('role:admin,staff,sale_operator');
+        $this->middleware('permission:products');
+        $this->middleware('permission:products,can_create')->only(['store']);
+        $this->middleware('permission:products,can_edit')->only(['update', 'destroy', 'restore', 'updateStatus']);
     }
 
     /**
@@ -318,14 +320,12 @@ public function apiDeletedProducts(Request $request)
         })
         // მოქმედების ღილაკები
         ->addColumn('action', function ($product) {
-    $role = auth()->user()->role;
-    if ($role === 'admin') {
-        return '<div class="d-flex gap-1 justify-content-center">' .
-               '<a onclick="editForm(' . $product->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a>' .
-               '<a onclick="deleteData(' . $product->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a>' .
-               '</div>';
-    }
-    return '';
+    $canEdit = \App\Models\RolePermission::check(auth()->user()->role, 'products', 'can_edit');
+    if (!$canEdit) return '';
+    return '<div class="d-flex gap-1 justify-content-center">' .
+           '<a onclick="editForm(' . $product->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a>' .
+           '<a onclick="deleteData(' . $product->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a>' .
+           '</div>';
 })
         // მივუთითებთ რომელ სვეტებშია HTML კოდი
         ->rawColumns(['category_name', 'brand_name', 'bundle_name', 'show_photo', 'warehouse_only_badge', 'status_stock', 'format_sizes', 'action'])

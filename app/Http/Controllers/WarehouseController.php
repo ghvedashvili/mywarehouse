@@ -20,6 +20,8 @@ class WarehouseController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
+        $this->middleware('permission:warehouse')->except(['logsPage', 'apiLogs', 'financials', 'writeOff']);
+        $this->middleware('permission:warehouse,can_edit')->only(['writeOff']);
     }
 
     // ─── მთავარი გვერდი (ნაშთი) ──────────────────────────────────────

@@ -28,7 +28,7 @@
             <p class="mod-subtitle">პროდუქტების კატეგორიების მართვა</p>
         </div>
         <div class="mod-actions">
-            @if(Auth::user()->role === 'admin')
+            @if(\App\Models\RolePermission::check(auth()->user()->role, 'categories', 'can_create'))
             <button onclick="addForm()" class="btn btn-success btn-sm">
                 <i class="fa fa-plus me-1"></i> ახალი
             </button>

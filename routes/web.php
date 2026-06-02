@@ -19,6 +19,7 @@ use App\Http\Controllers\SalaryController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\ProductBundleController;
 use App\Http\Controllers\CourierController;
+use App\Http\Controllers\RolePermissionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -143,7 +144,7 @@ Route::get('warehouse/financials',      [WarehouseController::class, 'financials
 Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff'])      ->name('warehouse.writeOff')   ->middleware('role:admin');
 
     // ── Purchase Orders (შესყიდვები) ─────────────────────────────────
-    Route::middleware('role:admin,warehouse_operator')->group(function () {
+    Route::middleware('permission:purchases')->group(function () {
         Route::get('purchases',                       [PurchaseOrderController::class, 'index'])->name('purchases.index');
         Route::get('purchases/api',                   [PurchaseOrderController::class, 'apiPurchases'])->name('purchases.api');
         Route::get('purchases/in-transit-sales',      [PurchaseOrderController::class, 'inTransitSales'])->name('purchases.inTransitSales');
@@ -161,5 +162,9 @@ Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff']
     Route::resource('user', UserController::class);
     Route::get('/apiUser', [UserController::class, 'apiUsers'])->name('api.users');
     Route::post('/user/{id}/role', [UserController::class, 'updateRole'])->name('user.updateRole');
+
+    // ── Roles & Permissions ───────────────────────────────────────────
+    Route::get('/roles', [RolePermissionController::class, 'index'])->name('roles.index');
+    Route::post('/roles/{role}', [RolePermissionController::class, 'update'])->name('roles.update');
 
 });

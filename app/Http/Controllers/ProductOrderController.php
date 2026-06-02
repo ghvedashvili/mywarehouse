@@ -27,6 +27,9 @@ class ProductOrderController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
+        $this->middleware('permission:sales');
+        $this->middleware('permission:sales,can_create')->only(['store', 'storeChange']);
+        $this->middleware('permission:sales,can_edit')->only(['update', 'destroy', 'restore', 'updateStatus', 'updatePayment', 'updateComment', 'mergeOrders', 'mergeUpdateStatus', 'unmergeOrder', 'splitOrder', 'singleUpdateStatus', 'sendAllReadyToCourier', 'revertFromCourier']);
     }
 
     private function stockKey(int $productId, string $size): string
@@ -864,7 +867,8 @@ class ProductOrderController extends Controller
 
     public function apiProductsOut(Request $request)
     {
-        $isAdmin = auth()->user()->role === 'admin';
+        $isAdmin  = auth()->user()->role === 'admin';
+        $canEdit  = \App\Models\RolePermission::check(auth()->user()->role, 'sales', 'can_edit');
 
         /*
          * ⚠️ Product_Order მოდელში საჭიროა siblings() relation:
@@ -1200,10 +1204,10 @@ class ProductOrderController extends Controller
                     ];
                 })->values()->toArray();
             })
-            ->addColumn('children_json', function ($item) use ($isAdmin, $pairedOrderIds) {
+            ->addColumn('children_json', function ($item) use ($isAdmin, $canEdit, $pairedOrderIds) {
                 if (!$item->is_primary) return [];
 
-                $buildRow = function ($order) use ($isAdmin, $pairedOrderIds) {
+                $buildRow = function ($order) use ($isAdmin, $canEdit, $pairedOrderIds) {
                     $geo  = (float)$order->price_georgia - (float)($order->discount ?? 0);
                     $paid = (float)($order->paid_tbc ?? 0) + (float)($order->paid_bog ?? 0) +
                             (float)($order->paid_lib ?? 0) + (float)($order->paid_cash ?? 0);
@@ -1275,6 +1279,7 @@ class ProductOrderController extends Controller
                         'has_change_orders'=> $hasChangeOrders,
                         'merged_id'        => $order->merged_id,
                         'is_admin'         => $isAdmin,
+                        'can_edit'         => $canEdit,
                         'comment'          => $order->comment,
                         'payment_comment'  => $order->payment_comment,
                         'is_paired'        => isset($pairedOrderIds[$order->id]),
@@ -1483,9 +1488,8 @@ class ProductOrderController extends Controller
                             ' . $name . '
                         </span>';
             })
-            ->addColumn('action', function ($item) use ($isAdmin) {
-                $role = auth()->user()->role;
-                if (!$isAdmin && $role !== 'sale_operator') return '';
+            ->addColumn('action', function ($item) use ($isAdmin, $canEdit) {
+                if (!$canEdit) return '';
 
                 if ($item->status === 'deleted') {
                     return '<div class="d-flex justify-content-center">' .

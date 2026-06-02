@@ -15,8 +15,10 @@ class CustomerController extends Controller
 {
     public function __construct()
     {
-        // Middleware როლებისთვის
-        $this->middleware('role:admin,staff,sale_operator');
+        $this->middleware('auth');
+        $this->middleware('permission:customers');
+        $this->middleware('permission:customers,can_create')->only(['store']);
+        $this->middleware('permission:customers,can_edit')->only(['update', 'destroy']);
     }
 
     /**
@@ -124,10 +126,11 @@ public function update(Request $request, $id)
                    ($customer->alternative_tel ? "<b>Alt:</b> {$customer->alternative_tel}" : "");
         })
         ->addColumn('action', function($customer){
+            $canEdit = \App\Models\RolePermission::check(auth()->user()->role, 'customers', 'can_edit');
+            if (!$canEdit) return '';
             $edit = '<a onclick="editForm('. $customer->id .')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i> Edit</a> ';
             $del  = '<a onclick="deleteData('. $customer->id .')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i> Delete</a>';
-            $role = auth()->user()->role;
-            return '<center>' . $edit . ($role !== 'sale_operator' ? $del : '') . '</center>';
+            return '<center>' . $edit . $del . '</center>';
         })
         ->rawColumns(['contact_info', 'action'])
         ->make(true);

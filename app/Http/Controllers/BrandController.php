@@ -13,7 +13,9 @@ class BrandController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
-        $this->middleware('role:admin,staff,sale_operator');
+        $this->middleware('permission:brands');
+        $this->middleware('permission:brands,can_create')->only(['store']);
+        $this->middleware('permission:brands,can_edit')->only(['update', 'destroy', 'restore']);
     }
 
     public function index()
@@ -95,17 +97,12 @@ class BrandController extends Controller
             ->addColumn('logo_display', fn($b) => $this->logoHtml($b))
             ->addColumn('status_display', fn($b) => '<span class="label label-success">active</span>')
             ->addColumn('action', function ($b) {
-                $role = auth()->user()->role;
-                if ($role === 'admin') {
-                    return '<div class="d-flex gap-1">' .
-                        '<a onclick="editForm(' . $b->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a>' .
-                        '<a onclick="deleteData(' . $b->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a>' .
-                        '</div>';
-                }
-                if ($role === 'sale_operator') {
-                    return '<a onclick="editForm(' . $b->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a>';
-                }
-                return '';
+                $canEdit = \App\Models\RolePermission::check(auth()->user()->role, 'brands', 'can_edit');
+                if (!$canEdit) return '';
+                return '<div class="d-flex gap-1">' .
+                    '<a onclick="editForm(' . $b->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a>' .
+                    '<a onclick="deleteData(' . $b->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a>' .
+                    '</div>';
             })
             ->rawColumns(['logo_display', 'status_display', 'action'])
             ->make(true);

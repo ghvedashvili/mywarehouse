@@ -674,10 +674,12 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
             <p class="mod-subtitle">გაყიდვის ორდერების მართვა</p>
         </div>
         <div class="mod-actions">
+            @if(\App\Models\RolePermission::check(auth()->user()->role, 'sales', 'can_create'))
             <button onclick="addSaleForm()" class="po-btn po-btn-primary">
                 <i class="fa fa-plus" style="font-size:11px;"></i>
                 <span>ახალი გაყიდვა</span>
             </button>
+            @endif
             <button onclick="openReportDateModal('courier')" class="po-btn po-btn-success">
                 <i class="fa fa-file-excel" style="font-size:11px;"></i>
                 <span>კურიერი დღეს</span>
@@ -1216,6 +1218,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 var save_method;
 var isAdmin        = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
 var isSaleOperator = {{ auth()->user()->role == 'sale_operator' ? 'true' : 'false' }};
+var canEdit        = {{ \App\Models\RolePermission::check(auth()->user()->role, 'sales', 'can_edit') ? 'true' : 'false' }};
 var mergeMode      = false;
 window._openParentIds = new Set();
 
@@ -1333,7 +1336,7 @@ var columns = [
             window._payComments = window._payComments || {};
             window._payComments[data.id] = data.payment_comment || '';
             var payBtn = '';
-            if (!isSaleOperator) {
+            if (isAdmin) {
                 payBtn = '<a onclick="openPayModal('+data.id+','+(data.price_georgia||0)+','+(data.discount||0)+','+(data.paid_tbc||0)+','+(data.paid_bog||0)+','+(data.paid_lib||0)+','+(data.paid_cash||0)+')" class="btn btn-xs '+payClass+'" title="გადახდა"><i class="fa fa-credit-card"></i></a>';
             }
             var actionHtml = (data.action || '').replace(/^<div/, '<div class="po-actions"');
@@ -2368,7 +2371,7 @@ $(document).on('click', '.expand-btn', function() {
         var chPayBtn = '';
         window._payComments = window._payComments || {};
         window._payComments[order.id] = order.payment_comment || '';
-        if (!isSaleOperator) chPayBtn = '<a onclick="openPayModal('+order.id+','+(order.price_georgia||0)+','+(order.discount||0)+','+(order.paid_tbc||0)+','+(order.paid_bog||0)+','+(order.paid_lib||0)+','+(order.paid_cash||0)+')" class="btn btn-xs '+chPayClass+'" title="გადახდა"><i class="fa fa-credit-card"></i></a>';
+        if (order.is_admin) chPayBtn = '<a onclick="openPayModal('+order.id+','+(order.price_georgia||0)+','+(order.discount||0)+','+(order.paid_tbc||0)+','+(order.paid_bog||0)+','+(order.paid_lib||0)+','+(order.paid_cash||0)+')" class="btn btn-xs '+chPayClass+'" title="გადახდა"><i class="fa fa-credit-card"></i></a>';
         var splitBtn = '<a onclick="splitFromGroup('+order.id+')" class="btn btn-xs btn-warning" title="ჯგუფიდან გამოყოფა"><i class="fa fa-scissors"></i></a>';
         var chExchangeBtn = '';
         if (order.status_id == 4 && (order.order_type === 'sale' || order.order_type === 'change')) {
@@ -2379,7 +2382,7 @@ $(document).on('click', '.expand-btn', function() {
             }
         }
         var colD = '<div class="po-actions" style="justify-content:flex-start;">'+chPayBtn+splitBtn+chExchangeBtn;
-        if (isAdmin) {
+        if (order.can_edit) {
             var canDel = order.status_id != 4;
             colD += '<a onclick="editForm('+order.id+')" class="btn btn-xs btn-primary" title="რედაქტირება"><i class="fa fa-pen"></i></a>';
             colD += canDel ? '<a onclick="deleteData('+order.id+')" class="btn btn-xs btn-danger" title="წაშლა"><i class="fa fa-trash"></i></a>' : '<span class="btn btn-xs btn-danger" style="opacity:.35;cursor:not-allowed;"><i class="fa fa-trash"></i></span>';

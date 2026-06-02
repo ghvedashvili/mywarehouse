@@ -11,7 +11,9 @@ class ProductBundleController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
-        $this->middleware('role:admin,staff,sale_operator');
+        $this->middleware('permission:product_bundles');
+        $this->middleware('permission:product_bundles,can_create')->only(['store']);
+        $this->middleware('permission:product_bundles,can_edit')->only(['update', 'destroy']);
     }
 
     public function index()
@@ -34,7 +36,7 @@ class ProductBundleController extends Controller
                 return $row->products->map(fn($p) => '<span class="badge ' . $bg . ' me-1">' . e($p->name) . '</span>')->implode('');
             })
             ->addColumn('action', function ($row) {
-                if (auth()->user()->role === 'sale_operator') return '';
+                if (!\App\Models\RolePermission::check(auth()->user()->role, 'product_bundles', 'can_edit')) return '';
                 return '
                     <button class="btn btn-xs btn-warning btn-edit"
                             data-id="' . $row->id . '"
