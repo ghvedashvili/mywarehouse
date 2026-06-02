@@ -359,17 +359,15 @@ class PurchaseService
         foreach ($pendingSales as $sale) {
             $stock->refresh();
 
-            if ($purchaseStatus == 2) {
-                $available = $isReturn
-                    ? $stock->return_incoming_qty - $stock->reserved_qty
-                    : $stock->incoming_qty - $stock->reserved_qty;
-            } else {
-                $available = $stock->physical_qty - ($stock->defect_qty ?? 0) - $stock->reserved_qty;
-            }
+            $available = ($stock->physical_qty - ($stock->defect_qty ?? 0))
+                       + $stock->incoming_qty
+                       - $stock->reserved_qty;
 
             if ($available <= 0) break;
 
-            $alreadyLinked = Product_Order::where('purchase_order_id', $purchase->id)->count();
+            $alreadyLinked = Product_Order::where('purchase_order_id', $purchase->id)
+                ->whereIn('status_id', [2, 3, 4, 5, 6])
+                ->count();
             if ($alreadyLinked >= $purchase->quantity) break;
 
             $stock->increment('reserved_qty', 1);
