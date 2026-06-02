@@ -225,17 +225,16 @@ class PurchaseOrderController extends Controller
                 return json_encode($groupItemsMap[$row->id] ?? []);
             })
             ->addColumn('action', function ($row) use ($groupCountMap, $groupItemsMap) {
-                $count          = $groupCountMap[$row->id] ?? 1;
-                $uniqueProducts = $count > 1 ? collect($groupItemsMap[$row->id] ?? [])->pluck('product_id')->unique()->count() : 1;
+                $canEdit   = \App\Models\RolePermission::check(auth()->user()->role, 'purchases', 'can_edit');
+                $canCreate = \App\Models\RolePermission::check(auth()->user()->role, 'purchases', 'can_create');
                 $gid     = $row->purchase_group_id ?? $row->id;
                 $view = '<a onclick="openGroupView('.$gid.')" class="btn btn-info btn-xs" title="დათვალიერება"><i class="fa fa-eye"></i></a>';
-                // show receive button if any status=2 item exists in the group
                 $hasInTransit = collect($groupItemsMap[$row->id] ?? [])->contains(fn($i) => $i['status_id'] == 2);
-                $receive = $hasInTransit
+                $receive = ($canEdit && $hasInTransit)
                     ? '<a onclick="openGroupReceive('.$gid.')" class="btn btn-warning btn-xs" title="საწყობში მიღება"><i class="fa fa-inbox"></i></a>'
                     : '';
-                $edit = '<a onclick="editPurchase('.$row->id.')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i></a>';
-                $del = '<a onclick="deletePurchase('.$row->id.')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i></a>';
+                $edit = $canEdit ? '<a onclick="editPurchase('.$row->id.')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i></a>' : '';
+                $del  = $canEdit ? '<a onclick="deletePurchase('.$row->id.')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i></a>' : '';
                 return '<div class="d-flex gap-1 justify-content-center">'.$view.$receive.$edit.$del.'</div>';
             })
             ->rawColumns(['order_number', 'product_name', 'product_size', 'show_photo', 'status_name', 'payment', 'action'])
