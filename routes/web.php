@@ -113,7 +113,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/exportProductOrder/{id}',             [ProductOrderController::class, 'exportProductOrder'])->name('exportPDF.productOrder');
     Route::get('productsOut/{id}/export-change-pdf',   [ProductOrderController::class, 'exportChangePDF'])->name('exportPDF.changeOrder');
     Route::get('product-order/{id}/status-log',        [ProductOrderController::class, 'statusLog'])->name('productOrder.statusLog');
-    Route::resource('productsOut', ProductOrderController::class)->only(['index', 'show']);
+    Route::resource('productsOut', ProductOrderController::class)->only(['index', 'show', 'edit']);
 
     // write: admin და sale_operator მხოლოდ
     Route::middleware('role:admin,sale_operator')->group(function () {

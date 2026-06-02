@@ -2701,7 +2701,7 @@ class ProductOrderController extends Controller
             'original_sale_id' => 'required|exists:product_Order,id',
             'change_type'      => 'required|in:return,size,product',
             'product_id'       => 'required|exists:products,id',
-            'product_size'     => 'required|string',
+            'product_size'     => $request->change_type === 'return' ? 'nullable' : 'required|string',
         ]);
 
         return \DB::transaction(function () use ($request) {

@@ -2481,12 +2481,12 @@ window.openChangeModal = function(saleId) {
         }
 
         var sizes = $('#change_product_id option[value="'+data.product_id+'"]').data('sizes') || '';
-        var $sel = $('#change_size'); $sel.empty().prop('disabled',true);
+        var $sel = $('#change_size'); $sel.empty().prop('disabled', false);
         if (sizes) { sizes.toString().split(',').forEach(function(s) { s = s.trim(); if (s) $sel.append('<option value="'+s+'">'+s+'</option>'); }); }
         if (data.product_size && !$sel.find('option[value="'+data.product_size+'"]').length) {
             $sel.append('<option value="'+data.product_size+'">'+data.product_size+'</option>');
         }
-        $sel.val(data.product_size);
+        $sel.val(data.product_size).css({'pointer-events':'none', 'background':'#f0f0f0'});
     });
     $('#modal-change').modal('show');
 };
@@ -2553,7 +2553,7 @@ $(document).on('change', 'input[name="change_type"]', function() {
         if (origSize && !$sel.find('option[value="'+origSize+'"]').length) {
             $sel.append('<option value="'+origSize+'">'+origSize+'</option>');
         }
-        $sel.val(origSize).prop('disabled',true);
+        $sel.val(origSize).prop('disabled', false).css({'pointer-events':'none', 'background':'#f0f0f0'});
         // courier refund block — show if has courier
         var origCourier = parseFloat($('#form-change').data('orig-courier') || 0);
         if (origCourier > 0) { $('#courier-refund-block').show(); } else { $('#courier-refund-block').hide(); }
@@ -2580,7 +2580,7 @@ $(document).on('change', 'input[name="change_type"]', function() {
         $('#change-ml-input').hide().prop('disabled',true).prop('required',false).val('');
         $('#form-change').data('is-div-size', false);
         $('#change-product-group').show(); $('#change_product_id').val('');
-        $('#change_size').show().prop('required',true).empty().append('<option value="">— ზომა —</option>').prop('disabled',false);
+        $('#change_size').show().prop('required',true).prop('disabled',false).css({'pointer-events':'','background':''}).empty().append('<option value="">— ზომა —</option>');
         $('#change-stock-info').hide(); updateChangePriceDiff();
         $('#courier-refund-block').hide(); $('#courier_refund_hidden').val(0);
     }
