@@ -820,9 +820,8 @@ class PurchaseOrderController extends Controller
                 $groupOrders = collect([$order]);
             }
 
-            // ─── ბლოკი: ჯგუფის ნებისმიერ ორდერზე შემოტანა ან გაყიდვა ──
+            // ─── ბლოკი: გაყიდვა მოხდა ───────────────────────────────────
             foreach ($groupOrders as $o) {
-                // გაყიდვა მოხდა
                 $soldSales = Product_Order::withoutGlobalScope('active')
                     ->where('purchase_order_id', $o->id)
                     ->whereIn('status_id', [4, 5, 6])
@@ -834,22 +833,15 @@ class PurchaseOrderController extends Controller
                         'message' => 'წაშლა შეუძლებელია: ' . ($o->product?->name ?? '#'.$o->id) . ' — ' . $soldSales . ' გაყიდვა უკვე განხორციელდა.'
                     ], 422);
                 }
+            }
 
-                // საწყობში უკვე შემოტანილია (status=3 ან ნაწილობრივი მიღება)
-                if ($o->status_id == 3) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'წაშლა შეუძლებელია: ' . ($o->product?->name ?? '#'.$o->id) . ' — საწყობში უკვე შემოტანილია.'
-                    ], 422);
-                }
-
-                $alreadyReceived = ($o->original_qty > 0) ? ($o->original_qty - $o->quantity) : 0;
-                if ($o->status_id == 2 && $alreadyReceived > 0) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'წაშლა შეუძლებელია: ' . ($o->product?->name ?? '#'.$o->id) . ' — ' . $alreadyReceived . ' ერთ. უკვე საწყობში შემოტანილია.'
-                    ], 422);
-                }
+            // ─── ბლოკი: საწყობში შემოტანილი ნაშთი > 0 ─────────────────
+            $totalReceived = $groupOrders->where('status_id', 3)->sum('quantity');
+            if ($totalReceived > 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'წაშლა შეუძლებელია: ' . (int) $totalReceived . ' ერთ. საწყობშია შემოტანილი.'
+                ], 422);
             }
 
             // ─── ყველა ორდერის წაშლა ─────────────────────────────────────
