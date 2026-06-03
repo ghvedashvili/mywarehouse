@@ -1137,6 +1137,8 @@ class ProductOrderController extends Controller
             ->addColumn('cross_ref_html', function ($item) {
                 $html = '';
 
+                $linkStyle = 'cursor:pointer;text-decoration:underline dotted;';
+
                 // გაცვლილი sale (status=6) — change ორდერის სრული ნომერი
                 if ($item->status_id == 6 && $item->changed_to_order_id) {
                     $changeOrder = \App\Models\Product_Order::withoutGlobalScope('active')
@@ -1145,7 +1147,7 @@ class ProductOrderController extends Controller
                     $changeNum = $changeOrder
                         ? ($changeOrder->order_number ?? ('#' . $changeOrder->id))
                         : ('#' . $item->changed_to_order_id);
-                    $html .= '<small style="color:#8e44ad; display:block; margin-top:2px;">'
+                    $html .= '<small class="po-cross-ref" data-order-num="' . e($changeNum) . '" style="color:#8e44ad;display:block;margin-top:2px;' . $linkStyle . '">'
                            . '🔄 → <b>' . e($changeNum) . '</b></small>';
                 }
 
@@ -1157,7 +1159,7 @@ class ProductOrderController extends Controller
                     $retNum = $retPurchase
                         ? ($retPurchase->order_number ?? ('#' . $retPurchase->id))
                         : ('#' . $item->returned_purchase_id);
-                    $html .= '<small style="color:#c0392b; display:block; margin-top:2px;">'
+                    $html .= '<small class="po-cross-ref" data-order-num="' . e($retNum) . '" style="color:#c0392b;display:block;margin-top:2px;' . $linkStyle . '">'
                            . '↩ → <b>' . e($retNum) . '</b></small>';
                 }
 
@@ -1169,7 +1171,7 @@ class ProductOrderController extends Controller
                     $origNum = $origSale
                         ? ($origSale->order_number ?? ('#' . $origSale->id))
                         : ('#' . $item->original_sale_id);
-                    $html .= '<small style="color:#2471a3; display:block; margin-top:2px;">'
+                    $html .= '<small class="po-cross-ref" data-order-num="' . e($origNum) . '" style="color:#2471a3;display:block;margin-top:2px;' . $linkStyle . '">'
                            . '🔄 ' . e($origNum) . '</small>';
                 }
 
@@ -1181,7 +1183,7 @@ class ProductOrderController extends Controller
                     $origNum = $origSale
                         ? ($origSale->order_number ?? ('#' . $origSale->id))
                         : ('#' . $item->original_sale_id);
-                    $html .= '<small style="color:#c0392b; display:block; margin-top:2px;">'
+                    $html .= '<small class="po-cross-ref" data-order-num="' . e($origNum) . '" style="color:#c0392b;display:block;margin-top:2px;' . $linkStyle . '">'
                            . '↩ ' . e($origNum) . '</small>';
                 }
 

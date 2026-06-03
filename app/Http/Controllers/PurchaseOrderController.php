@@ -66,7 +66,7 @@ class PurchaseOrderController extends Controller
 
         $statusFilter = $request->input('status_filter', '2');
 
-        $query = Product_Order::with(['product', 'orderStatus'])
+        $query = Product_Order::with(['product', 'orderStatus', 'customer'])
             ->where('order_type', 'purchase');
 
         if ($type === 'returns') {
@@ -133,7 +133,8 @@ class PurchaseOrderController extends Controller
                     $origSale = Product_Order::withoutGlobalScope('active')->select('id','order_number')->find($row->original_sale_id);
                     $origNum  = $origSale ? ($origSale->order_number ?? ('#'.$origSale->id)) : ('#'.$row->original_sale_id);
                     $prefix   = str_starts_with($row->comment ?? '', '↩ გაცვლა') ? '🔄' : '↩';
-                    $badge    = '<br><small style="color:#31708f;font-style:italic;">'.$prefix.' '.e($origNum).'</small>';
+                    $url      = route('productsOut.index') . '?search=' . urlencode($origNum);
+                    $badge    = '<br><a href="'.e($url).'" style="color:#31708f;font-style:italic;font-size:11px;text-decoration:underline dotted;" title="გაყიდვაზე გადასვლა">'.$prefix.' '.e($origNum).'</a>';
                 }
                 return e($num) . $badge;
             })
@@ -237,7 +238,23 @@ class PurchaseOrderController extends Controller
                 $del  = $canEdit ? '<a onclick="deletePurchase('.$row->id.')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i></a>' : '';
                 return '<div class="d-flex gap-1 justify-content-center">'.$view.$receive.$edit.$del.'</div>';
             })
-            ->rawColumns(['order_number', 'product_name', 'product_size', 'show_photo', 'status_name', 'payment', 'action'])
+            ->addColumn('customer_info', function ($row) {
+                if (!$row->original_sale_id) return '—';
+                $customer = $row->customer;
+                if (!$customer) {
+                    $origSale = Product_Order::withoutGlobalScope('active')
+                        ->with('customer')
+                        ->select('id', 'customer_id')
+                        ->find($row->original_sale_id);
+                    $customer = $origSale?->customer;
+                }
+                if (!$customer) return '—';
+                $name  = e($customer->name ?? '');
+                $phone = e($customer->tel  ?? '');
+                return '<div style="font-size:12px;font-weight:600;">'.$name.'</div>'
+                     . ($phone ? '<div style="font-size:11px;color:#64748b;">'.$phone.'</div>' : '');
+            })
+            ->rawColumns(['order_number', 'product_name', 'product_size', 'show_photo', 'status_name', 'payment', 'action', 'customer_info'])
             ->make(true);
     }
 

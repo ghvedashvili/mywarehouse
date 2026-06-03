@@ -425,6 +425,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                 <thead>
                     <tr>
                         <th>ნომერი</th>
+                        <th>კლიენტი</th>
                         <th style="width:52px"></th>
                         <th>პროდუქტი</th>
                         <th>კოდი</th>
@@ -721,8 +722,9 @@ $(function() {
         order: [[9, 'desc']],
         columns: [
             { data: 'order_number',    name: 'order_number',    responsivePriority: 2 },
-            { data: 'show_photo',      name: 'show_photo',      orderable: false, responsivePriority: 3 },
-            { data: 'product_name',    name: 'product_name',    responsivePriority: 1, orderable: false },
+            { data: 'customer_info',   name: 'customer_info',   orderable: false, responsivePriority: 1 },
+            { data: 'show_photo',      name: 'show_photo',      orderable: false, responsivePriority: 5 },
+            { data: 'product_name',    name: 'product_name',    responsivePriority: 3, orderable: false },
             { data: 'product_code',    name: 'product_code',    responsivePriority: 9 },
             { data: 'product_size',    name: 'product_size',    responsivePriority: 4 },
             { data: 'quantity',        name: 'quantity',        responsivePriority: 5 },

@@ -1375,6 +1375,26 @@ var table = $('#products-out-table').DataTable({
 $('#dt-page-length').on('change', function() { table.page.len(parseInt($(this).val())).draw(); });
 $('#dt-search').on('input', function() { table.search($(this).val()).draw(); });
 
+// შესყიდვებიდან ?search= პარამეტრი
+(function() {
+    var params = new URLSearchParams(window.location.search);
+    var s = params.get('search');
+    if (s) {
+        $('#dt-search').val(s);
+        table.search(s).draw();
+        history.replaceState(null, '', window.location.pathname);
+    }
+})();
+
+$(document).on('click', '.po-cross-ref', function(e) {
+    e.stopPropagation();
+    var num = $(this).data('order-num');
+    if (!num) return;
+    $('#dt-search').val(num);
+    table.search(num).draw();
+    $('html, body').animate({ scrollTop: $('#products-out-table').offset().top - 80 }, 200);
+});
+
 $('#filter-product').select2({
     placeholder: '— ყველა პროდუქტი —',
     allowClear: true,
