@@ -1112,7 +1112,11 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                                     <select name="product_id" id="change_product_id" class="form-control" required>
                                         <option value="">— აირჩიე —</option>
                                         @foreach($all_products as $product)
-                                            <option value="{{ $product->id }}" data-sizes="{{ $product->sizes }}" data-price-ge="{{ $product->price_geo }}" data-divisible="{{ $product->category?->is_divisible ? '1' : '0' }}">
+                                            <option value="{{ $product->id }}"
+                                                data-sizes="{{ $product->sizes }}"
+                                                data-price-ge="{{ $product->price_geo }}"
+                                                data-divisible="{{ $product->category?->is_divisible ? '1' : '0' }}"
+                                                data-warehouse-only="{{ $product->warehouse_only ? '1' : '0' }}">
                                                 {{ $product->name }}@if($product->product_code) ({{ $product->product_code }})@endif
                                             </option>
                                         @endforeach
@@ -2488,9 +2492,13 @@ window.openChangeModal = function(saleId) {
     $('#modal-change').modal('show');
 };
 
-function populateChangeSizes(sizesRaw, selectedSize) {
+function populateChangeSizes(sizesRaw, selectedSize, availSet) {
     var $sel = $('#change_size'); $sel.empty().append('<option value="">— ზომა —</option>');
-    if (sizesRaw) { sizesRaw.toString().split(',').forEach(function(s) { s=s.trim(); if(s) $sel.append('<option value="'+s+'">'+s+'</option>'); }); }
+    if (sizesRaw) {
+        var all = sizesRaw.toString().split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+        var filtered = availSet ? all.filter(function(s){ return availSet.indexOf(s) > -1; }) : all;
+        filtered.forEach(function(s){ $sel.append('<option value="'+s+'">'+s+'</option>'); });
+    }
     if (selectedSize) { $sel.val(selectedSize); loadChangeStockInfo(); }
     $('#change-stock-info').hide();
 }
@@ -2556,9 +2564,10 @@ $(document).on('change', 'input[name="change_type"]', function() {
         if (origCourier > 0) { $('#courier-refund-block').show(); } else { $('#courier-refund-block').hide(); }
     } else if (type === 'size') {
         $('#change-product-group').hide(); $('#change_product_id').val(origProductId);
-        var origOpt2  = $('#change_product_id option[value="'+origProductId+'"]');
-        var isDiv2    = origOpt2.data('divisible') == '1';
-        var priceGeo2 = parseFloat(origOpt2.data('price-ge')) || 0;
+        var origOpt2      = $('#change_product_id option[value="'+origProductId+'"]');
+        var isDiv2        = origOpt2.data('divisible') == '1';
+        var priceGeo2     = parseFloat(origOpt2.data('price-ge')) || 0;
+        var warehouseOnly2 = origOpt2.data('warehouse-only') == '1';
         if (isDiv2) {
             $('#change_size').hide().prop('disabled',true).prop('required',false);
             $('#change-ml-input').show().prop('disabled',false).prop('required',true).val('');
@@ -2566,9 +2575,17 @@ $(document).on('change', 'input[name="change_type"]', function() {
         } else {
             $('#change-ml-input').hide().prop('disabled',true).prop('required',false);
             $('#change_size').show().prop('disabled',false).prop('required',true);
-            var $sel2 = $('#change_size'); $sel2.empty().append('<option value="">— ზომა —</option>');
+            var $sel2  = $('#change_size'); $sel2.empty().append('<option value="">— ზომა —</option>');
             var sizes2 = origOpt2.data('sizes')||'';
-            if (sizes2) { sizes2.toString().split(',').forEach(function(s) { s=s.trim(); if(s && s!==origSize) $sel2.append('<option value="'+s+'">'+s+'</option>'); }); }
+            if (warehouseOnly2 && origProductId) {
+                $.get("{{ route('warehouse.availableSizes') }}", { product_id: origProductId }, function(avail) {
+                    var all = sizes2.toString().split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+                    all.filter(function(s){ return avail.indexOf(s) > -1 && s !== origSize; })
+                       .forEach(function(s){ $sel2.append('<option value="'+s+'">'+s+'</option>'); });
+                });
+            } else {
+                if (sizes2) { sizes2.toString().split(',').forEach(function(s){ s=s.trim(); if(s && s!==origSize) $sel2.append('<option value="'+s+'">'+s+'</option>'); }); }
+            }
             $('#form-change').data('is-div-size', false);
         }
         $('#change-stock-info').hide(); updateChangePriceDiff();
@@ -2583,9 +2600,11 @@ $(document).on('change', 'input[name="change_type"]', function() {
     }
 });
 $(document).on('change', '#change_product_id', function() {
-    var $opt     = $(this).find('option:selected');
-    var isDiv    = $opt.data('divisible') == '1';
-    var priceGeo = parseFloat($opt.data('price-ge')) || 0;
+    var $opt          = $(this).find('option:selected');
+    var isDiv         = $opt.data('divisible') == '1';
+    var priceGeo      = parseFloat($opt.data('price-ge')) || 0;
+    var warehouseOnly = $opt.data('warehouse-only') == '1';
+    var productId     = $(this).val();
     if (isDiv) {
         $('#change_size').hide().prop('disabled',true).prop('required',false).empty();
         $('#change-ml-input').show().prop('disabled',false).prop('required',true).val('');
@@ -2595,7 +2614,13 @@ $(document).on('change', '#change_product_id', function() {
         $('#change-ml-input').hide().prop('disabled',true).prop('required',false).val('');
         $('#change_size').show().prop('disabled',false).prop('required',true);
         $('#form-change').data('is-div-size', false);
-        populateChangeSizes($opt.data('sizes')||'', null);
+        if (warehouseOnly && productId) {
+            $.get("{{ route('warehouse.availableSizes') }}", { product_id: productId }, function(avail) {
+                populateChangeSizes($opt.data('sizes')||'', null, avail);
+            });
+        } else {
+            populateChangeSizes($opt.data('sizes')||'', null);
+        }
     }
     updateChangePriceDiff();
 });
