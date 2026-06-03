@@ -10,8 +10,10 @@
     use App\Models\Warehouse;
     use Illuminate\Support\Facades\DB;
 
+    $isAdmin  = auth()->user()->role === 'admin';
     $isSaleOp = auth()->user()->role === 'sale_operator';
     $uid      = auth()->id();
+    $perm     = fn(string $page) => \App\Models\RolePermission::check(auth()->user()->role, $page);
 
     $baseOrders = fn() => Product_Order::whereIn('order_type',['sale','change'])
         ->when($isSaleOp, fn($q) => $q->where('user_id', $uid));
@@ -66,39 +68,41 @@
     $totalUsers      = User::count();
     $totalStock      = (int) Warehouse::sum('physical_qty');
 
-    // სრულად გადახდილი ორდერები — finance გვერდის ლოგიკასთან შესაბამისი (deleted ჩართულია)
-    $grossRevenue = (float) Product_Order::withoutGlobalScope('active')
-        ->whereIn('status', ['active', 'deleted'])
-        ->whereIn('order_type', ['sale', 'change'])
-        ->whereNotNull('fully_paid_at')
-        ->whereIn('status_id', [1, 2, 3, 4, 5])
-        ->when($isSaleOp, fn($q) => $q->where('user_id', $uid))
-        ->selectRaw('SUM(COALESCE(paid_tbc,0)+COALESCE(paid_bog,0)+COALESCE(paid_lib,0)+COALESCE(paid_cash,0)) as total')
-        ->value('total');
-    $returnedSaleIds = Product_Order::where('order_type', 'purchase')
-        ->whereNotNull('original_sale_id')
-        ->where('comment', 'like', '↩ დაბრუნება%')
-        ->pluck('original_sale_id')->filter()->toArray();
-    $returnAmount = count($returnedSaleIds) > 0
-        ? (float) Product_Order::withoutGlobalScope('active')
-            ->whereIn('id', $returnedSaleIds)
+    // Revenue — მხოლოდ admin-ისთვის
+    $totalRevenue = 0;
+    $advanceTotal = 0;
+    if ($isAdmin) {
+        $grossRevenue = (float) Product_Order::withoutGlobalScope('active')
+            ->whereIn('status', ['active', 'deleted'])
+            ->whereIn('order_type', ['sale', 'change'])
+            ->whereNotNull('fully_paid_at')
+            ->whereIn('status_id', [1, 2, 3, 4, 5])
             ->selectRaw('SUM(COALESCE(paid_tbc,0)+COALESCE(paid_bog,0)+COALESCE(paid_lib,0)+COALESCE(paid_cash,0)) as total')
-            ->value('total')
-        : 0;
-    $cancelledRevenue = (float) Product_Order::withoutGlobalScope('active')
-        ->where('status', 'deleted')
-        ->whereIn('order_type', ['sale', 'change'])
-        ->whereNotNull('fully_paid_at')
-        ->when($isSaleOp, fn($q) => $q->where('user_id', $uid))
-        ->selectRaw('SUM(COALESCE(paid_tbc,0)+COALESCE(paid_bog,0)+COALESCE(paid_lib,0)+COALESCE(paid_cash,0)) as total')
-        ->value('total');
-    $totalRevenue = $grossRevenue - $returnAmount - $cancelledRevenue;
+            ->value('total');
+        $returnedSaleIds = Product_Order::where('order_type', 'purchase')
+            ->whereNotNull('original_sale_id')
+            ->where('comment', 'like', '↩ დაბრუნება%')
+            ->pluck('original_sale_id')->filter()->toArray();
+        $returnAmount = count($returnedSaleIds) > 0
+            ? (float) Product_Order::withoutGlobalScope('active')
+                ->whereIn('id', $returnedSaleIds)
+                ->selectRaw('SUM(COALESCE(paid_tbc,0)+COALESCE(paid_bog,0)+COALESCE(paid_lib,0)+COALESCE(paid_cash,0)) as total')
+                ->value('total')
+            : 0;
+        $cancelledRevenue = (float) Product_Order::withoutGlobalScope('active')
+            ->where('status', 'deleted')
+            ->whereIn('order_type', ['sale', 'change'])
+            ->whereNotNull('fully_paid_at')
+            ->selectRaw('SUM(COALESCE(paid_tbc,0)+COALESCE(paid_bog,0)+COALESCE(paid_lib,0)+COALESCE(paid_cash,0)) as total')
+            ->value('total');
+        $totalRevenue = $grossRevenue - $returnAmount - $cancelledRevenue;
 
-    $advanceTotal = (float) $baseOrders()
-        ->whereNull('fully_paid_at')
-        ->whereIn('status_id', [1, 2, 3, 4])
-        ->selectRaw('SUM(COALESCE(paid_tbc,0)+COALESCE(paid_bog,0)+COALESCE(paid_lib,0)+COALESCE(paid_cash,0)) as t')
-        ->value('t');
+        $advanceTotal = (float) $baseOrders()
+            ->whereNull('fully_paid_at')
+            ->whereIn('status_id', [1, 2, 3, 4])
+            ->selectRaw('SUM(COALESCE(paid_tbc,0)+COALESCE(paid_bog,0)+COALESCE(paid_lib,0)+COALESCE(paid_cash,0)) as t')
+            ->value('t');
+    }
 
     $recentOrders = Product_Order::with(['customer','product','orderStatus'])
         ->whereIn('order_type',['sale','change'])
@@ -449,10 +453,11 @@
         <p>{{ now()->format('d F, Y') }} &middot; ყველა მიმდინარე ინფორმაცია</p>
     </div>
 
-    {{-- ── Revenue Banner ── --}}
+    {{-- ── Revenue Banner — მხოლოდ admin ── --}}
+    @if($isAdmin)
     <div class="revenue-card mb-4">
         <div>
-            <div class="rev-label">{{ $isSaleOp ? 'ჩემი შემოსავალი' : 'სულ შემოსავალი' }}</div>
+            <div class="rev-label">სულ შემოსავალი</div>
             <div class="rev-value">
                 {{ number_format($totalRevenue, 2) }} ₾
                 @if($advanceTotal > 0)
@@ -492,11 +497,13 @@
             </div>
         </div>
     </div>
+    @endif
 
     {{-- ── KPI Cards ── --}}
     <p class="db-section-title">მიმოხილვა</p>
-    <div class="kpi-grid{{ $isSaleOp ? ' kpi-saleop' : '' }}">
+    <div class="kpi-grid">
 
+        @if($perm('sales'))
         <a href="{{ route('productsOut.index') }}" class="kpi-card" style="--kpi-color:#2d7dd2;--kpi-bg:#eff6ff;">
             <div class="kpi-top">
                 <div class="kpi-icon"><i class="fa fa-right-from-bracket"></i></div>
@@ -513,8 +520,9 @@
                 <div style="font-size:10px;color:#94a3b8;"><span style="color:#8b5cf6;font-weight:700;">{{ $courierOrders }}</span> კურიერთან</div>
             </div>
         </a>
+        @endif
 
-        @if(!$isSaleOp)
+        @if($perm('purchases'))
         <a href="{{ route('purchases.index') }}" class="kpi-card" style="--kpi-color:#7c3aed;--kpi-bg:#f5f3ff;">
             <div class="kpi-top">
                 <div class="kpi-icon"><i class="fa fa-cart-shopping"></i></div>
@@ -528,6 +536,7 @@
         </a>
         @endif
 
+        @if($perm('customers'))
         <a href="{{ route('customers.index') }}" class="kpi-card" style="--kpi-color:#059669;--kpi-bg:#f0fdf4;">
             <div class="kpi-top">
                 <div class="kpi-icon"><i class="fa fa-users"></i></div>
@@ -536,8 +545,9 @@
             <div class="kpi-label">მომხმარებლები</div>
             <div class="kpi-sub"><i class="fa fa-user" style="font-size:9px;color:#059669;"></i> {{ $totalUsers }} სისტ. მომხ.</div>
         </a>
+        @endif
 
-        @if(!$isSaleOp)
+        @if($perm('categories'))
         <a href="{{ route('categories.index') }}" class="kpi-card" style="--kpi-color:#0891b2;--kpi-bg:#ecfeff;">
             <div class="kpi-top">
                 <div class="kpi-icon"><i class="fa fa-tags"></i></div>
@@ -548,6 +558,7 @@
         </a>
         @endif
 
+        @if($perm('warehouse'))
         <a href="{{ route('warehouse.index') }}" class="kpi-card" style="--kpi-color:#dc2626;--kpi-bg:#fef2f2;">
             <div class="kpi-top">
                 <div class="kpi-icon"><i class="fa fa-warehouse"></i></div>
@@ -556,43 +567,50 @@
             <div class="kpi-label">საწყობი (ერთ.)</div>
             <div class="kpi-sub"><i class="fa fa-cubes" style="font-size:9px;color:#dc2626;"></i> {{ $activeProducts }}/{{ $totalProducts }} აქტიური</div>
         </a>
+        @endif
 
     </div>
 
     {{-- ── Quick Actions ── --}}
     <p class="db-section-title">სწრაფი მოქმედებები</p>
     <div class="quick-actions mb-4">
+        @if($perm('sales'))
         <a href="{{ route('productsOut.index') }}" class="qa-btn">
             <div class="qa-icon" style="background:#eff6ff;color:#2d7dd2;"><i class="fa fa-plus"></i></div>
             <span class="qa-label">ახალი<br>ორდერი</span>
         </a>
-        @if(!$isSaleOp)
+        @endif
+        @if($perm('purchases'))
         <a href="{{ route('purchases.index') }}" class="qa-btn">
             <div class="qa-icon" style="background:#f5f3ff;color:#7c3aed;"><i class="fa fa-cart-shopping"></i></div>
             <span class="qa-label">შესყიდვა</span>
         </a>
         @endif
+        @if($perm('customers'))
         <a href="{{ route('customers.index') }}" class="qa-btn">
             <div class="qa-icon" style="background:#f0fdf4;color:#059669;"><i class="fa fa-user-plus"></i></div>
             <span class="qa-label">კლიენტი</span>
         </a>
-        @if(!$isSaleOp)
+        @endif
+        @if($perm('products'))
         <a href="{{ route('products.index') }}" class="qa-btn">
             <div class="qa-icon" style="background:#fff7ed;color:#ea580c;"><i class="fa fa-cubes"></i></div>
             <span class="qa-label">პროდუქტი</span>
         </a>
         @endif
+        @if($perm('warehouse'))
         <a href="{{ route('warehouse.index') }}" class="qa-btn">
             <div class="qa-icon" style="background:#fef2f2;color:#dc2626;"><i class="fa fa-warehouse"></i></div>
             <span class="qa-label">საწყობი</span>
         </a>
-        @if(!$isSaleOp)
+        @endif
+        @if($perm('warehouse_logs'))
         <a href="{{ route('warehouse.logs') }}" class="qa-btn">
             <div class="qa-icon" style="background:#f0f9ff;color:#0284c7;"><i class="fa fa-history"></i></div>
             <span class="qa-label">ლოგები</span>
         </a>
         @endif
-        @if(Auth::user()->role === 'admin')
+        @if($isAdmin)
         <a href="{{ route('finance.index') }}" class="qa-btn">
             <div class="qa-icon" style="background:#fefce8;color:#ca8a04;"><i class="fa fa-chart-line"></i></div>
             <span class="qa-label">ფინანსები</span>

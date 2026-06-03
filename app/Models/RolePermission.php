@@ -52,9 +52,9 @@ class RolePermission extends Model
     public static function roles(): array
     {
         return [
-            'staff'              => 'Staff',
             'sale_operator'      => 'Sale Operator',
             'warehouse_operator' => 'Warehouse Operator',
+            'staff'              => 'Staff',
         ];
     }
 }
