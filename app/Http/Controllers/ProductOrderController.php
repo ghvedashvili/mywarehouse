@@ -1159,8 +1159,9 @@ class ProductOrderController extends Controller
                     $retNum = $retPurchase
                         ? ($retPurchase->order_number ?? ('#' . $retPurchase->id))
                         : ('#' . $item->returned_purchase_id);
-                    $html .= '<small class="po-cross-ref" data-order-num="' . e($retNum) . '" style="color:#c0392b;display:block;margin-top:2px;' . $linkStyle . '">'
-                           . '↩ → <b>' . e($retNum) . '</b></small>';
+                    $url = route('purchases.index') . '?tab=returns&search=' . urlencode($retNum);
+                    $html .= '<small style="color:#c0392b;display:block;margin-top:2px;">'
+                           . '<a href="' . e($url) . '" style="color:#c0392b;' . $linkStyle . '" title="შესყიდვაზე გადასვლა">↩ → <b>' . e($retNum) . '</b></a></small>';
                 }
 
                 // change ორდერი — original sale-ის სრული ნომერი
@@ -1233,9 +1234,11 @@ class ProductOrderController extends Controller
                         $crossRef .= '🔄 → ' . ($ref ? ($ref->order_number ?? ('#'.$ref->id)) : ('#'.$order->changed_to_order_id));
                     }
                     if ($order->status_id == 5 && $order->returned_purchase_id) {
-                        $ref = \App\Models\Product_Order::withoutGlobalScope('active')
+                        $ref    = \App\Models\Product_Order::withoutGlobalScope('active')
                             ->select('id','order_number')->find($order->returned_purchase_id);
-                        $crossRef .= '↩ → ' . ($ref ? ($ref->order_number ?? ('#'.$ref->id)) : ('#'.$order->returned_purchase_id));
+                        $refNum = $ref ? ($ref->order_number ?? ('#'.$ref->id)) : ('#'.$order->returned_purchase_id);
+                        $url    = route('purchases.index') . '?tab=returns&search=' . urlencode($refNum);
+                        $crossRef .= '<a href="'.e($url).'" style="color:#c0392b;text-decoration:underline dotted;" title="შესყიდვაზე გადასვლა">↩ → '.e($refNum).'</a>';
                     }
                     if ($order->order_type === 'change' && $order->original_sale_id) {
                         $ref = \App\Models\Product_Order::withoutGlobalScope('active')

@@ -580,6 +580,7 @@ $(function() {
     };
 
     var isWarehouseOperator = {{ auth()->user()->role === 'warehouse_operator' ? 'true' : 'false' }};
+    var isAdmin             = {{ auth()->user()->role === 'admin' ? 'true' : 'false' }};
 
     // ══ TAB SWITCHING ══
     var currentTab = isWarehouseOperator ? 'returns' : 'regular';
@@ -623,8 +624,8 @@ $(function() {
             { data: 'product_code',    name: 'product_code',    responsivePriority: 9 },
             { data: 'product_size',    name: 'product_size',    responsivePriority: 4 },
             { data: 'quantity',        name: 'quantity',        responsivePriority: 5 },
-            { data: 'payment',         name: 'payment',         orderable: false, responsivePriority: 7 },
-            { data: 'price_paid',      name: 'price_paid',      orderable: false, responsivePriority: 8 },
+            { data: 'payment',         name: 'payment',         orderable: false, responsivePriority: 7, visible: isAdmin },
+            { data: 'price_paid',      name: 'price_paid',      orderable: false, responsivePriority: 8, visible: isAdmin },
             { data: 'status_name',     name: 'status_name',     orderable: false, responsivePriority: 6 },
             { data: 'created_at',      name: 'created_at',      responsivePriority: 9 },
             { data: 'action',          name: 'action',          orderable: false, responsivePriority: 2 },
@@ -667,7 +668,7 @@ $(function() {
              + '<th class="text-center">შეკვეთა</th>'
              + '<th class="text-center">გზაშია</th>'
              + '<th class="text-center">დაკარგ.</th>'
-             + (isWarehouseOperator ? '' : '<th class="text-end" style="color:#7c3aed;">თვიტ.($)</th>')
+             + (isAdmin ? '<th class="text-end" style="color:#7c3aed;">თვიტ.($)</th>' : '')
              + '</tr></thead><tbody>';
 
             items.forEach(function(it) {
@@ -700,7 +701,7 @@ $(function() {
                      +  '<td class="text-center fw-bold align-middle">' + orig + '</td>'
                      +  '<td class="text-center align-middle">' + remainCell + '</td>'
                      +  '<td class="text-center align-middle">' + lostCell + '</td>'
-                     +  (isWarehouseOperator ? '' : '<td class="text-end align-middle">' + costCell + '</td>')
+                     +  (isAdmin ? '<td class="text-end align-middle">' + costCell + '</td>' : '')
                      +  '</tr>';
             });
 
@@ -728,8 +729,8 @@ $(function() {
             { data: 'product_code',    name: 'product_code',    responsivePriority: 9 },
             { data: 'product_size',    name: 'product_size',    responsivePriority: 4 },
             { data: 'quantity',        name: 'quantity',        responsivePriority: 5 },
-            { data: 'payment',         name: 'payment',         orderable: false, responsivePriority: 7, visible: !isWarehouseOperator },
-            { data: 'price_paid',      name: 'price_paid',      orderable: false, responsivePriority: 8, visible: !isWarehouseOperator },
+            { data: 'payment',         name: 'payment',         orderable: false, responsivePriority: 7, visible: isAdmin },
+            { data: 'price_paid',      name: 'price_paid',      orderable: false, responsivePriority: 8, visible: isAdmin },
             { data: 'status_name',     name: 'status_name',     orderable: false, responsivePriority: 6 },
             { data: 'created_at',      name: 'created_at',      responsivePriority: 9 },
             { data: 'action',          name: 'action',          orderable: false, responsivePriority: 2 },
@@ -740,6 +741,20 @@ $(function() {
             $(row).css('background-color', '#d9edf7');
         }
     });
+
+    // გაყიდვებიდან ?tab=returns&search= პარამეტრი
+    (function() {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('tab') === 'returns') {
+            switchPurchaseTab('returns');
+            var s = params.get('search');
+            if (s) {
+                $('#pu-search-returns').val(s);
+                returnsTable.search(s).draw();
+            }
+            history.replaceState(null, '', window.location.pathname);
+        }
+    })();
 
     // ══ MULTI-LINE PURCHASE FORM ══
     var purchaseLineIndex    = 0;
