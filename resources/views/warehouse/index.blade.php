@@ -352,23 +352,24 @@ window.copyImageUrl = function(url) {
 };
 
 // ── MULTI-SELECT ─────────────────────────────────────────────
-var whSelectedUrls = new Set();
+var whSelected = new Map(); // url → price
 
 function whUpdateBulkBar() {
-    var n = whSelectedUrls.size;
+    var n = whSelected.size;
     document.getElementById('wh-bulk-count').textContent = n;
     document.getElementById('wh-bulk-bar').classList.toggle('show', n > 0);
 }
 window.whClearSelection = function() {
-    whSelectedUrls.clear();
+    whSelected.clear();
     document.querySelectorAll('.wh-cb').forEach(function(cb){ cb.checked = false; });
     document.getElementById('wh-select-all').checked = false;
     whUpdateBulkBar();
 };
 $(document).on('change', '.wh-cb', function() {
-    var url = $(this).data('url');
+    var url   = $(this).data('url');
+    var price = $(this).data('price') || '';
     if (!url) return;
-    if (this.checked) { whSelectedUrls.add(url); } else { whSelectedUrls.delete(url); }
+    if (this.checked) { whSelected.set(url, price); } else { whSelected.delete(url); }
     whUpdateBulkBar();
 });
 $('#wh-select-all').on('change', function() {
@@ -376,20 +377,23 @@ $('#wh-select-all').on('change', function() {
     document.querySelectorAll('.wh-cb').forEach(function(cb) {
         var url = cb.dataset.url; if (!url) return;
         cb.checked = checked;
-        if (checked) { whSelectedUrls.add(url); } else { whSelectedUrls.delete(url); }
+        if (checked) { whSelected.set(url, cb.dataset.price || ''); } else { whSelected.delete(url); }
     });
     whUpdateBulkBar();
 });
 $(document).on('draw.dt', '#stock-table', function() {
     document.getElementById('wh-select-all').checked = false;
-    whSelectedUrls.clear();
+    whSelected.clear();
     whUpdateBulkBar();
 });
 window.whBulkCopy = function() {
-    if (!whSelectedUrls.size) return;
-    var text = Array.from(whSelectedUrls).join('\n\n---\n\n');
-    navigator.clipboard.writeText(text).then(function() {
-        Swal.fire({ icon:'success', title: whSelectedUrls.size + ' ლინკი კოპირდა', timer:1800, showConfirmButton:false });
+    if (!whSelected.size) return;
+    var parts = [];
+    whSelected.forEach(function(price, url) {
+        parts.push(url + (price ? '\n' + price + ' ₾' : ''));
+    });
+    navigator.clipboard.writeText(parts.join('\n\n')).then(function() {
+        Swal.fire({ icon:'success', title: whSelected.size + ' ლინკი კოპირდა', timer:1800, showConfirmButton:false });
     });
 };
 var whShareQueue = [];
@@ -425,8 +429,8 @@ document.getElementById('wh-share-next-btn').addEventListener('click', function(
 });
 
 window.whBulkMessenger = function() {
-    if (!whSelectedUrls.size) return;
-    whShareQueue = Array.from(whSelectedUrls);
+    if (!whSelected.size) return;
+    whShareQueue = Array.from(whSelected.keys());
     whShareIndex = 0;
     whShareShowCurrent();
     bootstrap.Modal.getOrCreateInstance(document.getElementById('wh-share-modal')).show();
@@ -463,7 +467,8 @@ $(function() {
               render: function(data) {
                   var url = data.image_url_raw || '';
                   if (!url) return '';
-                  return '<input type="checkbox" class="wh-cb" data-url="'+url+'">';
+                  var price = data.price_raw || '';
+                  return '<input type="checkbox" class="wh-cb" data-url="'+url+'" data-price="'+price+'">';
               }
             },
             {data:'product_image', orderable:false, searchable:false, responsivePriority: 3, width:'46px'},
@@ -484,6 +489,7 @@ $(function() {
             {data:'status_badge', orderable:false, responsivePriority: 6},
             {data:'action',       orderable:false, responsivePriority: 4},
             {data:'image_url_raw', visible:false},
+            {data:'price_raw',     visible:false},
         ],
         drawCallback: function() {
             var d=this.api().rows().data(), ph=0,inc=0,ret=0,res=0,low=0;

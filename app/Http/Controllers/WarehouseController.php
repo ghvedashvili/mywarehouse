@@ -114,6 +114,7 @@ class WarehouseController extends Controller
                 return '<div class="d-flex gap-1 justify-content-center">' . $histBtn . '</div>';
             })
             ->addColumn('image_url_raw', fn($row) => $row->product?->image_url ?? '')
+            ->addColumn('price_raw', fn($row) => $row->product?->price_geo ? number_format((float)$row->product->price_geo, 2) : '')
             ->rawColumns(['product_image', 'fifo_cost', 'status_badge', 'action'])
             ->make(true);
     }
