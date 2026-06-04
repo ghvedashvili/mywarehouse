@@ -334,6 +334,7 @@ public function apiDeletedProducts(Request $request)
            '</div>';
 })
         // მივუთითებთ რომელ სვეტებშია HTML კოდი
+        ->addColumn('image_url_raw', fn($p) => $p->image_url ?? '')
         ->rawColumns(['category_name', 'brand_name', 'bundle_name', 'show_photo', 'warehouse_only_badge', 'status_stock', 'format_sizes', 'action'])
         ->make(true);
 }
