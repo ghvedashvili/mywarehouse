@@ -16,22 +16,11 @@
 .img-thumb:hover { transform: scale(1.1); }
 /* Table */
 #products-table td { vertical-align: middle; }
-#products-table td:nth-child(6) { padding: 4px 3px; cursor: zoom-in; }
+#products-table td:nth-child(5) { padding: 4px 3px; cursor: zoom-in; }
 /* Responsive — hide "+" icon, expand on name click */
 table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before { display: none !important; }
 table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control { cursor: pointer; padding-left: 8px !important; }
-#products-table tbody tr td:nth-child(2) { cursor: pointer; }
-/* Bulk bar */
-#bulk-bar {
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-    background: #1e293b; color: #fff; border-radius: 12px;
-    padding: 10px 18px; display: none; align-items: center; gap: 12px;
-    box-shadow: 0 8px 32px rgba(0,0,0,.3); z-index: 9999; white-space: nowrap;
-}
-#bulk-bar.show { display: flex; }
-#bulk-bar .bulk-count { font-size: 13px; font-weight: 600; }
-#bulk-bar button { border: none; border-radius: 8px; padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; }
-.bulk-clear { background: transparent; color: #94a3b8; font-size: 18px; padding: 0 4px !important; }
+#products-table tbody tr td:nth-child(1) { cursor: pointer; }
 </style>
 @endsection
 
@@ -84,7 +73,6 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control { cursor: poi
             <table id="products-table" class="table table-hover align-middle w-100">
                 <thead>
                     <tr>
-                        <th style="width:36px;"><input type="checkbox" id="select-all-products" title="ყველა"></th>
                         <th>სახელი</th>
                         <th>კოდი</th>
                         <th>კატეგორია</th>
@@ -104,18 +92,6 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control { cursor: poi
     </div>
 
 </div>{{-- /mod-wrap --}}
-
-{{-- BULK ACTION BAR --}}
-<div id="bulk-bar">
-    <span class="bulk-count"><span id="bulk-count-num">0</span> მონიშნული</span>
-    <button onclick="bulkMessenger()" style="background:#0099ff;color:#fff;">
-        <i class="fab fa-facebook-messenger me-1"></i> Messenger
-    </button>
-    <button onclick="bulkCopy()" style="background:#475569;color:#fff;">
-        <i class="fa fa-copy me-1"></i> კოპირება
-    </button>
-    <button onclick="clearSelection()" class="bulk-clear">✕</button>
-</div>
 
 @include('products.form')
 
@@ -176,13 +152,6 @@ $(function() {
             }
         },
         columns: [
-            { data: null, orderable: false, searchable: false, width: '36px', className: 'text-center',
-              render: function(data) {
-                  var url = data.image_url_raw || '';
-                  if (!url) return '';
-                  return '<input type="checkbox" class="product-cb" data-url="'+url+'">';
-              }
-            },
             { data: 'name',                                                                                          responsivePriority: 1 },
             { data: 'product_code',                                                width: '90px',                   responsivePriority: 5 },
             { data: 'category_name', orderable: false, searchable: false,          width: '110px',                  responsivePriority: 6 },
@@ -193,8 +162,7 @@ $(function() {
             { data: 'format_sizes',        orderable: false, searchable: false,          width: '90px',                    responsivePriority: 8 },
             { data: 'warehouse_only_badge', orderable: false, searchable: false, className: 'text-center', width: '100px', responsivePriority: 4 },
             { data: 'status_stock',        orderable: false, searchable: false, className: 'text-center', width: '62px',  responsivePriority: 3 },
-            { data: 'action',              orderable: false, searchable: false, className: 'text-center', width: '70px',  responsivePriority: 1 },
-            { data: 'image_url_raw', visible: false }
+            { data: 'action',              orderable: false, searchable: false, className: 'text-center', width: '70px',  responsivePriority: 1 }
         ],
         language: {
             processing: '<div class="spinner-border spinner-border-sm text-primary" role="status"></div>',
@@ -439,90 +407,6 @@ function saveStatus() {
     });
 }
 
-// ── MULTI-SELECT ─────────────────────────────────────────────
-var selectedUrls = new Set();
-
-function updateBulkBar() {
-    var n = selectedUrls.size;
-    document.getElementById('bulk-count-num').textContent = n;
-    document.getElementById('bulk-bar').classList.toggle('show', n > 0);
-}
-
-function clearSelection() {
-    selectedUrls.clear();
-    document.querySelectorAll('.product-cb').forEach(function(cb) { cb.checked = false; });
-    document.getElementById('select-all-products').checked = false;
-    updateBulkBar();
-}
-
-$(document).on('change', '.product-cb', function() {
-    var url = $(this).data('url');
-    if (!url) return;
-    if (this.checked) { selectedUrls.add(url); } else { selectedUrls.delete(url); }
-    updateBulkBar();
-});
-
-$('#select-all-products').on('change', function() {
-    var checked = this.checked;
-    document.querySelectorAll('.product-cb').forEach(function(cb) {
-        var url = cb.dataset.url;
-        if (!url) return;
-        cb.checked = checked;
-        if (checked) { selectedUrls.add(url); } else { selectedUrls.delete(url); }
-    });
-    updateBulkBar();
-});
-
-// deselect all on table redraw
-$(document).on('draw.dt', '#products-table', function() {
-    document.getElementById('select-all-products').checked = false;
-    selectedUrls.clear();
-    updateBulkBar();
-});
-
-window.bulkCopy = function() {
-    if (!selectedUrls.size) return;
-    var urls = Array.from(selectedUrls).join('\n');
-    navigator.clipboard.writeText(urls).then(function() {
-        Swal.fire({ icon: 'success', title: selectedUrls.size + ' ლინკი კოპირდა', timer: 1800, showConfirmButton: false });
-    });
-};
-
-window.bulkMessenger = function() {
-    if (!selectedUrls.size) return;
-    var arr = Array.from(selectedUrls);
-    var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-        window.location.href = 'fb-messenger://share/?link=' + encodeURIComponent(arr[0]);
-    } else {
-        window.open('https://www.facebook.com/dialog/send?link=' + encodeURIComponent(arr[0]) + '&app_id=966242223397117&redirect_uri=' + encodeURIComponent(arr[0]), '_blank', 'width=600,height=400');
-    }
-    if (arr.length > 1) {
-        navigator.clipboard.writeText(arr.slice(1).join('\n'));
-        if (arr.length > 1) {
-            setTimeout(function() {
-                Swal.fire({ icon: 'info', title: 'დანარჩენი ' + (arr.length - 1) + ' ლინკი კოპირდა', text: 'ჩასვი Messenger-ში', timer: 2500, showConfirmButton: false });
-            }, 600);
-        }
-    }
-};
-
-// ── MESSENGER / COPY ─────────────────────────────────────────
-window.openMessenger = function(imageUrl) {
-    var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-        window.location.href = 'fb-messenger://share/?link=' + encodeURIComponent(imageUrl);
-    } else {
-        window.open('https://www.facebook.com/dialog/send?link=' + encodeURIComponent(imageUrl) + '&app_id=966242223397117&redirect_uri=' + encodeURIComponent(imageUrl), '_blank', 'width=600,height=400');
-    }
-};
-window.copyImageUrl = function(imageUrl) {
-    navigator.clipboard.writeText(imageUrl).then(function() {
-        Swal.fire({ icon: 'success', title: 'კოპირებულია', text: 'ჩასვი სადაც გინდა', timer: 1800, showConfirmButton: false });
-    }).catch(function() {
-        prompt('სურათის ლინკი:', imageUrl);
-    });
-};
 
 // ── LIGHTBOX ─────────────────────────────────────────────────
 $(document).on('click', '.img-thumb', function() {

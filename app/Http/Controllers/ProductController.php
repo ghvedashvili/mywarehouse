@@ -320,21 +320,14 @@ public function apiDeletedProducts(Request $request)
         })
         // მოქმედების ღილაკები
         ->addColumn('action', function ($product) {
-    $canEdit    = \App\Models\RolePermission::check(auth()->user()->role, 'products', 'can_edit');
-    $shareBtn = '';
-    if ($product->image_url) {
-        $shareBtn = '<a onclick="openMessenger(\'' . e($product->image_url) . '\')" class="btn btn-xs" title="Messenger-ში გაზიარება" style="background:#0099ff;color:#fff;"><i class="fab fa-facebook-messenger"></i></a>'
-                  . '<a onclick="copyImageUrl(\'' . e($product->image_url) . '\')" class="btn btn-xs btn-secondary" title="სურათის ლინკის კოპირება"><i class="fa fa-copy"></i></a>';
-    }
-    if (!$canEdit) return '<div class="d-flex gap-1 justify-content-center">' . $shareBtn . '</div>';
+    $canEdit = \App\Models\RolePermission::check(auth()->user()->role, 'products', 'can_edit');
+    if (!$canEdit) return '';
     return '<div class="d-flex gap-1 justify-content-center">' .
-           $shareBtn .
            '<a onclick="editForm(' . $product->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a>' .
            '<a onclick="deleteData(' . $product->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a>' .
            '</div>';
 })
         // მივუთითებთ რომელ სვეტებშია HTML კოდი
-        ->addColumn('image_url_raw', fn($p) => $p->image_url ?? '')
         ->rawColumns(['category_name', 'brand_name', 'bundle_name', 'show_photo', 'warehouse_only_badge', 'status_stock', 'format_sizes', 'action'])
         ->make(true);
 }

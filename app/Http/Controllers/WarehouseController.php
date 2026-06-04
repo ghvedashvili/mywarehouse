@@ -102,12 +102,18 @@ class WarehouseController extends Controller
                 return '<span class="label label-success">ხელმისაწვდომია</span>';
             })
             ->addColumn('action', function ($row) {
-                return '<button class="btn btn-xs btn-default"
+                // share ღილაკები — დროებით გამორთული
+                // if ($row->product?->image_url) {
+                //     $url = e($row->product->image_url);
+                //     $shareBtn = '<a onclick="openMessenger(\''.$url.'\')" class="btn btn-xs" style="background:#0099ff;color:#fff;" title="Messenger"><i class="fab fa-facebook-messenger"></i></a>'
+                //               . '<a onclick="copyImageUrl(\''.$url.'\')" class="btn btn-xs btn-secondary" title="ლინკის კოპირება"><i class="fa fa-copy"></i></a>';
+                // }
+                $histBtn = '<button class="btn btn-xs btn-default"
                     onclick="openStockLog(' . $row->product_id . ', \'' . addslashes($row->product->name ?? '') . '\', \'' . addslashes($row->size ?? '') . '\')"
-                    title="ისტორია">
-                    <i class="fa fa-history"></i>
-                </button>';
+                    title="ისტორია"><i class="fa fa-history"></i></button>';
+                return '<div class="d-flex gap-1 justify-content-center">' . $histBtn . '</div>';
             })
+            ->addColumn('image_url_raw', fn($row) => $row->product?->image_url ?? '')
             ->rawColumns(['product_image', 'fifo_cost', 'status_badge', 'action'])
             ->make(true);
     }

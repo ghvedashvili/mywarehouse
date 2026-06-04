@@ -43,6 +43,17 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
     background-color: var(--wh-green);
     border-radius: 50%;
 }
+/* Bulk bar */
+#wh-bulk-bar {
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:#1e293b; color:#fff; border-radius:12px;
+    padding:10px 18px; display:none; align-items:center; gap:12px;
+    box-shadow:0 8px 32px rgba(0,0,0,.3); z-index:9999; white-space:nowrap;
+}
+#wh-bulk-bar.show { display:flex; }
+#wh-bulk-bar .bulk-count { font-size:13px; font-weight:600; }
+#wh-bulk-bar button { border:none; border-radius:8px; padding:6px 14px; font-size:12px; font-weight:600; cursor:pointer; }
+.wh-bulk-clear { background:transparent; color:#94a3b8; font-size:18px; padding:0 4px !important; }
 </style>
 @endsection
 
@@ -154,6 +165,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
             <table id="stock-table" class="table wh-table table-hover table-bordered w-100">
                 <thead>
                     <tr>
+                        <th style="width:32px;"><input type="checkbox" id="wh-select-all" title="ყველა"></th>
                         <th></th><th>პროდუქტი</th><th>კოდი</th><th>ზომა</th>
                         <th>📦 ფიზ.</th><th>🚚 გზაში</th><th>↩ დაბრ. გზაში</th><th>🔒 დაჯავშნ.</th>
                         <th>✅ ხელმისაწვდ.</th><th>🧮 FIFO</th><th>სტატუსი</th><th></th>
@@ -165,6 +177,19 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
     </div>
 
 </div>{{-- /mod-wrap --}}
+
+{{-- BULK ACTION BAR --}}
+<div id="wh-bulk-bar">
+    <span class="bulk-count"><span id="wh-bulk-count">0</span> მონიშნული</span>
+    <button onclick="whBulkMessenger()" style="background:#0099ff;color:#fff;">
+        <i class="fab fa-facebook-messenger me-1"></i> Messenger
+    </button>
+    <button onclick="whBulkCopy()" style="background:#475569;color:#fff;">
+        <i class="fa fa-copy me-1"></i> კოპირება
+    </button>
+    <button onclick="whClearSelection()" class="wh-bulk-clear">✕</button>
+</div>
+
 {{-- Image Zoom Modal --}}
 <div class="modal fade" id="modal-img-zoom" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered" style="max-width:90vw;width:auto;">
@@ -279,6 +304,73 @@ window.whZoom = function(url) {
     new bootstrap.Modal(document.getElementById('modal-img-zoom')).show();
 };
 
+// ── MESSENGER / COPY ─────────────────────────────────────────
+window.openMessenger = function(url) {
+    var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+        window.location.href = 'fb-messenger://share/?link=' + encodeURIComponent(url);
+    } else {
+        window.open('https://www.facebook.com/dialog/send?link=' + encodeURIComponent(url) + '&app_id=966242223397117&redirect_uri=' + encodeURIComponent(url), '_blank', 'width=600,height=400');
+    }
+};
+window.copyImageUrl = function(url) {
+    navigator.clipboard.writeText(url).then(function() {
+        Swal.fire({ icon:'success', title:'კოპირებულია', text:'ჩასვი სადაც გინდა', timer:1800, showConfirmButton:false });
+    }).catch(function() { prompt('სურათის ლინკი:', url); });
+};
+
+// ── MULTI-SELECT ─────────────────────────────────────────────
+var whSelectedUrls = new Set();
+
+function whUpdateBulkBar() {
+    var n = whSelectedUrls.size;
+    document.getElementById('wh-bulk-count').textContent = n;
+    document.getElementById('wh-bulk-bar').classList.toggle('show', n > 0);
+}
+window.whClearSelection = function() {
+    whSelectedUrls.clear();
+    document.querySelectorAll('.wh-cb').forEach(function(cb){ cb.checked = false; });
+    document.getElementById('wh-select-all').checked = false;
+    whUpdateBulkBar();
+};
+$(document).on('change', '.wh-cb', function() {
+    var url = $(this).data('url');
+    if (!url) return;
+    if (this.checked) { whSelectedUrls.add(url); } else { whSelectedUrls.delete(url); }
+    whUpdateBulkBar();
+});
+$('#wh-select-all').on('change', function() {
+    var checked = this.checked;
+    document.querySelectorAll('.wh-cb').forEach(function(cb) {
+        var url = cb.dataset.url; if (!url) return;
+        cb.checked = checked;
+        if (checked) { whSelectedUrls.add(url); } else { whSelectedUrls.delete(url); }
+    });
+    whUpdateBulkBar();
+});
+$(document).on('draw.dt', '#stock-table', function() {
+    document.getElementById('wh-select-all').checked = false;
+    whSelectedUrls.clear();
+    whUpdateBulkBar();
+});
+window.whBulkCopy = function() {
+    if (!whSelectedUrls.size) return;
+    navigator.clipboard.writeText(Array.from(whSelectedUrls).join('\n')).then(function() {
+        Swal.fire({ icon:'success', title: whSelectedUrls.size + ' ლინკი კოპირდა', timer:1800, showConfirmButton:false });
+    });
+};
+window.whBulkMessenger = function() {
+    if (!whSelectedUrls.size) return;
+    var arr = Array.from(whSelectedUrls);
+    openMessenger(arr[0]);
+    if (arr.length > 1) {
+        navigator.clipboard.writeText(arr.slice(1).join('\n'));
+        setTimeout(function() {
+            Swal.fire({ icon:'info', title:'დანარჩენი '+(arr.length-1)+' ლინკი კოპირდა', text:'ჩასვი Messenger-ში', timer:2500, showConfirmButton:false });
+        }, 600);
+    }
+};
+
 $(function() {
     var logTable        = null;
     var isAdmin         = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
@@ -306,7 +398,13 @@ $(function() {
             data: function(d) { d.category_id = $('#filter-category').val(); d.sizes = $('#filter-size').val() || []; }
         },
         columns: [
-            // priority: დაბალი რიცხვი = პირველი რჩება ეკრანზე, მაღალი = პირველი იმალება
+            { data: null, orderable:false, searchable:false, width:'32px', className:'text-center',
+              render: function(data) {
+                  var url = data.image_url_raw || '';
+                  if (!url) return '';
+                  return '<input type="checkbox" class="wh-cb" data-url="'+url+'">';
+              }
+            },
             {data:'product_image', orderable:false, searchable:false, responsivePriority: 3, width:'46px'},
             {data:'product_name', responsivePriority: 1},
             {data:'product_code', responsivePriority: 9},
@@ -324,6 +422,7 @@ $(function() {
             {data:'fifo_cost', orderable:false, responsivePriority: 10, visible: isAdmin},
             {data:'status_badge', orderable:false, responsivePriority: 6},
             {data:'action',       orderable:false, responsivePriority: 4},
+            {data:'image_url_raw', visible:false},
         ],
         drawCallback: function() {
             var d=this.api().rows().data(), ph=0,inc=0,ret=0,res=0,low=0;
