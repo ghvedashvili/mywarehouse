@@ -366,10 +366,11 @@ window.whClearSelection = function() {
     whUpdateBulkBar();
 };
 $(document).on('change', '.wh-cb', function() {
-    var url   = $(this).data('url');
-    var price = $(this).data('price') || '';
+    var url = $(this).data('url');
     if (!url) return;
-    if (this.checked) { whSelected.set(url, price); } else { whSelected.delete(url); }
+    if (this.checked) {
+        whSelected.set(url, { price: $(this).data('price')||'', size: $(this).data('size')||'' });
+    } else { whSelected.delete(url); }
     whUpdateBulkBar();
 });
 $('#wh-select-all').on('change', function() {
@@ -377,7 +378,8 @@ $('#wh-select-all').on('change', function() {
     document.querySelectorAll('.wh-cb').forEach(function(cb) {
         var url = cb.dataset.url; if (!url) return;
         cb.checked = checked;
-        if (checked) { whSelected.set(url, cb.dataset.price || ''); } else { whSelected.delete(url); }
+        if (checked) { whSelected.set(url, { price: cb.dataset.price||'', size: cb.dataset.size||'' }); }
+        else { whSelected.delete(url); }
     });
     whUpdateBulkBar();
 });
@@ -389,8 +391,11 @@ $(document).on('draw.dt', '#stock-table', function() {
 window.whBulkCopy = function() {
     if (!whSelected.size) return;
     var parts = [];
-    whSelected.forEach(function(price, url) {
-        parts.push(url + (price ? '\n' + price + ' ₾' : ''));
+    whSelected.forEach(function(meta, url) {
+        var parts2 = [];
+        if (meta.size)  parts2.push('ზომა ' + meta.size);
+        if (meta.price) parts2.push('ფასი ' + meta.price + '₾');
+        parts.push(url + (parts2.length ? '\n' + parts2.join(' / ') : ''));
     });
     navigator.clipboard.writeText(parts.join('\n\n')).then(function() {
         Swal.fire({ icon:'success', title: whSelected.size + ' ლინკი კოპირდა', timer:1800, showConfirmButton:false });
@@ -467,8 +472,7 @@ $(function() {
               render: function(data) {
                   var url = data.image_url_raw || '';
                   if (!url) return '';
-                  var price = data.price_raw || '';
-                  return '<input type="checkbox" class="wh-cb" data-url="'+url+'" data-price="'+price+'">';
+                  return '<input type="checkbox" class="wh-cb" data-url="'+url+'" data-price="'+(data.price_raw||'')+'" data-size="'+(data.size||'')+'">';
               }
             },
             {data:'product_image', orderable:false, searchable:false, responsivePriority: 3, width:'46px'},
