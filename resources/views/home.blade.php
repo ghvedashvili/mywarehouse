@@ -1,5 +1,5 @@
 @extends('layouts.master')
-@section('page_title')<i class="fa fa-gauge me-2" style="color:#2d7dd2;"></i>Dashboard@endsection
+<!-- @section('page_title')<i class="fa fa-gauge me-2" style="color:#2d7dd2;"></i>Dashboard@endsection -->
 
 @php
     use App\Models\Product_Order;
