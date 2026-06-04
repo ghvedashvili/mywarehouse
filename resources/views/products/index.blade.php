@@ -407,14 +407,21 @@ function saveStatus() {
     });
 }
 
-// ── MESSENGER SHARE ──────────────────────────────────────────
-window.shareToMessenger = function(imageUrl) {
+// ── MESSENGER / COPY ─────────────────────────────────────────
+window.openMessenger = function(imageUrl) {
     var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (isMobile) {
         window.location.href = 'fb-messenger://share/?link=' + encodeURIComponent(imageUrl);
     } else {
         window.open('https://www.facebook.com/dialog/send?link=' + encodeURIComponent(imageUrl) + '&app_id=966242223397117&redirect_uri=' + encodeURIComponent(imageUrl), '_blank', 'width=600,height=400');
     }
+};
+window.copyImageUrl = function(imageUrl) {
+    navigator.clipboard.writeText(imageUrl).then(function() {
+        Swal.fire({ icon: 'success', title: 'კოპირებულია', text: 'ჩასვი სადაც გინდა', timer: 1800, showConfirmButton: false });
+    }).catch(function() {
+        prompt('სურათის ლინკი:', imageUrl);
+    });
 };
 
 // ── LIGHTBOX ─────────────────────────────────────────────────

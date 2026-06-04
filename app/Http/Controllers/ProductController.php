@@ -323,7 +323,8 @@ public function apiDeletedProducts(Request $request)
     $canEdit    = \App\Models\RolePermission::check(auth()->user()->role, 'products', 'can_edit');
     $shareBtn = '';
     if ($product->image_url) {
-        $shareBtn = '<a onclick="shareToMessenger(\'' . e($product->image_url) . '\')" class="btn btn-xs" title="Messenger-ში გაზიარება" style="background:#0099ff;color:#fff;"><i class="fab fa-facebook-messenger"></i></a>';
+        $shareBtn = '<a onclick="openMessenger(\'' . e($product->image_url) . '\')" class="btn btn-xs" title="Messenger-ში გაზიარება" style="background:#0099ff;color:#fff;"><i class="fab fa-facebook-messenger"></i></a>'
+                  . '<a onclick="copyImageUrl(\'' . e($product->image_url) . '\')" class="btn btn-xs btn-secondary" title="სურათის ლინკის კოპირება"><i class="fa fa-copy"></i></a>';
     }
     if (!$canEdit) return '<div class="d-flex gap-1 justify-content-center">' . $shareBtn . '</div>';
     return '<div class="d-flex gap-1 justify-content-center">' .
