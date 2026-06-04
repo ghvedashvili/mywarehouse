@@ -407,10 +407,21 @@ function saveStatus() {
     });
 }
 
+// ── MESSENGER SHARE ──────────────────────────────────────────
+window.shareToMessenger = function(imageUrl) {
+    var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+        window.location.href = 'fb-messenger://share/?link=' + encodeURIComponent(imageUrl);
+    } else {
+        window.open('https://www.facebook.com/dialog/send?link=' + encodeURIComponent(imageUrl) + '&app_id=966242223397117&redirect_uri=' + encodeURIComponent(imageUrl), '_blank', 'width=600,height=400');
+    }
+};
+
 // ── LIGHTBOX ─────────────────────────────────────────────────
 $(document).on('click', '.img-thumb', function() {
     document.getElementById('img-lightbox-img').src = $(this).data('src') || this.src;
     bootstrap.Modal.getOrCreateInstance(document.getElementById('img-lightbox')).show();
 });
+
 </script>
 @endsection

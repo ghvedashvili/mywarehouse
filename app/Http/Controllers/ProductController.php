@@ -218,9 +218,9 @@ public function apiDeletedProducts(Request $request)
         if (!$product->image_url) {
             return '<span class="label label-default">No Image</span>';
         }
-        return '<img src="'.$product->image_url.'" class="img-thumbnail img-thumb"
+        return '<img src="'.e($product->image_url).'" class="img-thumbnail img-thumb"
                  style="width:50px; height:50px; object-fit:cover; cursor:pointer;"
-                 data-src="'.$product->image_url.'">';
+                 data-src="'.e($product->image_url).'">';
     })
         ->addColumn('format_sizes', function ($product) {
             if (!$product->sizes) return '<span class="text-muted">-</span>';
@@ -320,9 +320,14 @@ public function apiDeletedProducts(Request $request)
         })
         // მოქმედების ღილაკები
         ->addColumn('action', function ($product) {
-    $canEdit = \App\Models\RolePermission::check(auth()->user()->role, 'products', 'can_edit');
-    if (!$canEdit) return '';
+    $canEdit    = \App\Models\RolePermission::check(auth()->user()->role, 'products', 'can_edit');
+    $shareBtn = '';
+    if ($product->image_url) {
+        $shareBtn = '<a onclick="shareToMessenger(\'' . e($product->image_url) . '\')" class="btn btn-xs" title="Messenger-ში გაზიარება" style="background:#0099ff;color:#fff;"><i class="fab fa-facebook-messenger"></i></a>';
+    }
+    if (!$canEdit) return '<div class="d-flex gap-1 justify-content-center">' . $shareBtn . '</div>';
     return '<div class="d-flex gap-1 justify-content-center">' .
+           $shareBtn .
            '<a onclick="editForm(' . $product->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a>' .
            '<a onclick="deleteData(' . $product->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a>' .
            '</div>';
