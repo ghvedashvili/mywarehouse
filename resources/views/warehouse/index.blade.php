@@ -190,6 +190,38 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
     <button onclick="whClearSelection()" class="wh-bulk-clear">✕</button>
 </div>
 
+{{-- Share Queue Modal --}}
+<div class="modal fade" id="wh-share-modal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:400px;">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title fw-bold mb-0">
+                    <i class="fab fa-facebook-messenger me-2" style="color:#0099ff;"></i>
+                    გაგზავნა — <span id="wh-share-current">1</span> / <span id="wh-share-total">1</span>
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <img id="wh-share-preview" src="" style="max-height:180px;max-width:100%;border-radius:8px;object-fit:contain;margin-bottom:16px;">
+                <div class="d-flex gap-2 justify-content-center">
+                    <a id="wh-share-messenger-btn" href="#" class="btn btn-sm px-4 fw-bold" style="background:#0099ff;color:#fff;" target="_blank">
+                        <i class="fab fa-facebook-messenger me-1"></i> Messenger-ში გაგზავნა
+                    </a>
+                    <button onclick="whShareCopyUrl()" class="btn btn-sm btn-secondary px-3" title="კოპირება">
+                        <i class="fa fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between py-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">დახურვა</button>
+                <button id="wh-share-next-btn" type="button" class="btn btn-primary btn-sm px-4">
+                    შემდეგი <i class="fa fa-arrow-right ms-1"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {{-- Image Zoom Modal --}}
 <div class="modal fade" id="modal-img-zoom" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered" style="max-width:90vw;width:auto;">
@@ -355,20 +387,49 @@ $(document).on('draw.dt', '#stock-table', function() {
 });
 window.whBulkCopy = function() {
     if (!whSelectedUrls.size) return;
-    navigator.clipboard.writeText(Array.from(whSelectedUrls).join('\n')).then(function() {
+    var text = Array.from(whSelectedUrls).join('\n\n---\n\n');
+    navigator.clipboard.writeText(text).then(function() {
         Swal.fire({ icon:'success', title: whSelectedUrls.size + ' ლინკი კოპირდა', timer:1800, showConfirmButton:false });
     });
 };
+var whShareQueue = [];
+var whShareIndex = 0;
+
+function whShareShowCurrent() {
+    var url = whShareQueue[whShareIndex];
+    document.getElementById('wh-share-preview').src = url;
+    document.getElementById('wh-share-current').textContent = whShareIndex + 1;
+    document.getElementById('wh-share-total').textContent   = whShareQueue.length;
+    var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    var messengerUrl = isMobile
+        ? 'fb-messenger://share/?link=' + encodeURIComponent(url)
+        : 'https://www.facebook.com/dialog/send?link=' + encodeURIComponent(url) + '&app_id=966242223397117&redirect_uri=' + encodeURIComponent(url);
+    document.getElementById('wh-share-messenger-btn').href = messengerUrl;
+    var nextBtn = document.getElementById('wh-share-next-btn');
+    var isLast  = whShareIndex >= whShareQueue.length - 1;
+    nextBtn.style.display = isLast ? 'none' : '';
+}
+
+window.whShareCopyUrl = function() {
+    var url = whShareQueue[whShareIndex] || '';
+    navigator.clipboard.writeText(url).then(function() {
+        Swal.fire({ icon:'success', title:'კოპირებულია', timer:1500, showConfirmButton:false });
+    });
+};
+
+document.getElementById('wh-share-next-btn').addEventListener('click', function() {
+    if (whShareIndex < whShareQueue.length - 1) {
+        whShareIndex++;
+        whShareShowCurrent();
+    }
+});
+
 window.whBulkMessenger = function() {
     if (!whSelectedUrls.size) return;
-    var arr = Array.from(whSelectedUrls);
-    openMessenger(arr[0]);
-    if (arr.length > 1) {
-        navigator.clipboard.writeText(arr.slice(1).join('\n'));
-        setTimeout(function() {
-            Swal.fire({ icon:'info', title:'დანარჩენი '+(arr.length-1)+' ლინკი კოპირდა', text:'ჩასვი Messenger-ში', timer:2500, showConfirmButton:false });
-        }, 600);
-    }
+    whShareQueue = Array.from(whSelectedUrls);
+    whShareIndex = 0;
+    whShareShowCurrent();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('wh-share-modal')).show();
 };
 
 $(function() {
