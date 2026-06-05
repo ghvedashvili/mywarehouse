@@ -96,19 +96,29 @@ class FinanceController extends Controller
             ->whereIn('status', ['active', 'deleted'])
             ->whereIn('order_type', ['sale', 'change'])
             ->whereNotNull('fully_paid_at')
-            ->whereIn('status_id', [1, 2, 3, 4, 5]);
+            ->whereIn('status_id', [1, 2, 3, 4, 5, 6]);
         if ($from) $paidQ->whereDate('fully_paid_at', '>=', $from);
         if ($to)   $paidQ->whereDate('fully_paid_at', '<=', $to);
         $paidOrders = $paidQ->get($cols);
 
-        // ─── 2. დაბრუნებები ამ პერიოდში ─────────────────────────────
-        $retQ = Product_Order::where('order_type', 'purchase')
+        // ─── 2. დაბრუნება / გაცვლა purchase ორდერები ─────────────────
+        // ხარჯი = price_georgia − discount (გაყიდვის ფასი − თვითღირებულება)
+        // original sale-ი რჩება შემოსავალში; ეს purchase ხარჯს ქმნის exchange-ის თვეში
+        $retExchQ = Product_Order::where('order_type', 'purchase')
             ->whereNotNull('original_sale_id')
-            ->where('comment', 'like', '↩ დაბრუნება%');
-        if ($from) $retQ->whereDate('created_at', '>=', $from);
-        if ($to)   $retQ->whereDate('created_at', '<=', $to);
-        $returnedSaleIds  = $retQ->pluck('original_sale_id')->filter()->toArray();
-        $returnedSaleData = Product_Order::whereIn('id', $returnedSaleIds)->get($cols)->keyBy('id');
+            ->where(function ($q) {
+                $q->where('comment', 'like', '↩ დაბრუნება%')
+                  ->orWhere('comment', 'like', '↩ გაცვლა%');
+            });
+        if ($from) $retExchQ->whereDate('created_at', '>=', $from);
+        if ($to)   $retExchQ->whereDate('created_at', '<=', $to);
+        $retExchRows = $retExchQ->get(['id', 'price_georgia', 'discount', 'comment']);
+
+        $returnCount = 0; $changeExpense = 0;
+        foreach ($retExchRows as $p) {
+            $changeExpense += max(0, (float)($p->price_georgia ?? 0) - (float)($p->discount ?? 0));
+            if (str_contains($p->comment ?? '', 'დაბრუნება')) $returnCount++;
+        }
 
         // ─── 3. ავანსი — ნაწილობრივ გადახდილი, ჯერ არ არის revenue ──
         // snapshot (პერიოდის გარეშე) — ამჟამად სისტემაში არსებული ავანსები
@@ -162,7 +172,7 @@ class FinanceController extends Controller
             $grossPaidLib  += (float)($s->paid_lib  ?? 0);
             $grossPaidCash += (float)($s->paid_cash ?? 0);
             if ($s->order_type === 'sale') {
-                if (!in_array($s->id, $returnedSaleIds)) $saleCount++;
+                $saleCount++;
             } else { $changeCount++; }
         }
 
@@ -190,19 +200,6 @@ class FinanceController extends Controller
                            + (float)($p->courier_price_village ?? 0);
         }
 
-        $returnCount = count($returnedSaleIds);
-        $returnAmount = $returnCostRecovery = 0;
-        $returnPaidTbc = $returnPaidBog = $returnPaidLib = $returnPaidCash = 0;
-        foreach ($returnedSaleData as $s) {
-            [$rev, $cost] = $extract($s);
-            $returnAmount       += $rev;
-            $returnCostRecovery += $cost;
-            $returnPaidTbc  += (float)($s->paid_tbc  ?? 0);
-            $returnPaidBog  += (float)($s->paid_bog  ?? 0);
-            $returnPaidLib  += (float)($s->paid_lib  ?? 0);
-            $returnPaidCash += (float)($s->paid_cash ?? 0);
-        }
-
         $retCourQ = Product_Order::where('order_type', 'purchase')
             ->whereNotNull('original_sale_id')
             ->where('comment', 'like', '↩ დაბრუნება%');
@@ -216,14 +213,14 @@ class FinanceController extends Controller
         $courierRefundTotal   = (float)($retCourRows->refund_total ?? 0);
 
         // ─── net ──────────────────────────────────────────────────────
-        $saleRevenue   = $grossRevenue - $returnAmount - $cancelAmount;
-        $saleCostPrice = $grossCost    - $returnCostRecovery - $cancelCostRecovery;
+        $saleRevenue   = $grossRevenue - $cancelAmount;
+        $saleCostPrice = $grossCost    - $cancelCostRecovery;
         $netCourier    = $grossCourier + $returnCourierExpense - $courierRefundTotal - $cancelCourierRecovery;
 
         $extraIncome  = (float) FinanceEntry::income()->forPeriod($from, $to)->sum('amount');
         $extraExpense = (float) FinanceEntry::expense()->forPeriod($from, $to)->sum('amount');
 
-        $totalExpenses = $netCourier  + $extraExpense;
+        $totalExpenses = $netCourier  + $extraExpense + $changeExpense;
         $totalRevenue  = $saleRevenue + $extraIncome;
         $totalCost     = $saleCostPrice + $totalExpenses;
         $profit        = $totalRevenue  - $totalCost;
@@ -248,8 +245,8 @@ class FinanceController extends Controller
         return [
             'sale_count'              => $saleCount,
             'return_count'            => $returnCount,
-            'return_amount'           => round($returnAmount,         2),
-            'return_cost_recovery'    => round($returnCostRecovery,   2),
+            'return_amount'           => round($changeExpense,         2),
+            'return_cost_recovery'    => 0,
             'cancel_count'            => $cancelCount,
             'cancel_amount'           => round($cancelAmount,         2),
             'cancel_cost_recovery'    => round($cancelCostRecovery,   2),
@@ -273,10 +270,10 @@ class FinanceController extends Controller
                                            ? round(($profit / $totalRevenue) * 100, 1) : 0,
             'customer_debt'           => round($customerDebt, 2),
             'advance_total'           => round($advanceTotal,  2),
-            'paid_tbc_total'          => round($grossPaidTbc  - $returnPaidTbc,  2),
-            'paid_bog_total'          => round($grossPaidBog  - $returnPaidBog,  2),
-            'paid_lib_total'          => round($grossPaidLib  - $returnPaidLib,  2),
-            'paid_cash_total'         => round($grossPaidCash - $returnPaidCash, 2),
+            'paid_tbc_total'          => round($grossPaidTbc,  2),
+            'paid_bog_total'          => round($grossPaidBog,  2),
+            'paid_lib_total'          => round($grossPaidLib,  2),
+            'paid_cash_total'         => round($grossPaidCash, 2),
             'expense_by_category'     => $expenseByCategory,
             'trend'                   => $trend,
         ];
@@ -305,22 +302,23 @@ class FinanceController extends Controller
                 ->whereIn('status', ['active', 'deleted'])
                 ->whereIn('order_type', ['sale', 'change'])
                 ->whereNotNull('fully_paid_at')
-                ->whereIn('status_id', [1, 2, 3, 4, 5])
+                ->whereIn('status_id', [1, 2, 3, 4, 5, 6])
                 ->whereDate('fully_paid_at', '>=', $from)
                 ->whereDate('fully_paid_at', '<=', $to)
                 ->get($trendCols);
 
-            $retIds = Product_Order::where('order_type', 'purchase')
+            $retExchTrend = Product_Order::where('order_type', 'purchase')
                 ->whereNotNull('original_sale_id')
-                ->where('comment', 'like', '↩ დაბრუნება%')
+                ->where(function ($q) {
+                    $q->where('comment', 'like', '↩ დაბრუნება%')
+                      ->orWhere('comment', 'like', '↩ გაცვლა%');
+                })
                 ->whereDate('created_at', '>=', $from)
                 ->whereDate('created_at', '<=', $to)
-                ->pluck('original_sale_id')
-                ->filter()->toArray();
-
-            $retData = Product_Order::withoutGlobalScope('active')
-                ->whereIn('id', $retIds)
-                ->get($trendCols);
+                ->get(['price_georgia', 'discount']);
+            $trendChangeExpense = $retExchTrend->sum(
+                fn($p) => max(0, (float)($p->price_georgia ?? 0) - (float)($p->discount ?? 0))
+            );
 
             $cancelData = Product_Order::withoutGlobalScope('active')
                 ->where('status', 'deleted')
@@ -339,13 +337,6 @@ class FinanceController extends Controller
                        + (float)($s->courier_price_tbilisi ?? 0)
                        + (float)($s->courier_price_region  ?? 0)
                        + (float)($s->courier_price_village ?? 0);
-            }
-
-            foreach ($retData as $s) {
-                $rev  -= (float)($s->paid_tbc ?? 0) + (float)($s->paid_bog  ?? 0)
-                       + (float)($s->paid_lib ?? 0) + (float)($s->paid_cash ?? 0);
-                $cost -= (float)($s->price_usa ?? 0)
-                       + (float)($s->courier_price_international ?? 0);
             }
 
             foreach ($cancelData as $s) {
@@ -393,6 +384,7 @@ class FinanceController extends Controller
                 ->first();
             $cost += (float)($retCourRow->trip_total  ?? 0);
             $cost -= (float)($retCourRow->refund_total ?? 0);
+            $cost += $trendChangeExpense;
 
             $extraIncome  = (float) FinanceEntry::income()->forPeriod($from, $to)->sum('amount');
             $extraExpense = (float) FinanceEntry::expense()->forPeriod($from, $to)->sum('amount');

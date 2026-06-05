@@ -2900,6 +2900,14 @@ class ProductOrderController extends Controller
                 'comment'                     => $request->comment ?? null,
             ]);
 
+            // fully_paid_at — თუ გადახდილი თანხა ფასს ფარავს, ახლავე ვუყენებთ
+            $changeTotalPaid = $paidTbc + $paidBog + $paidLib + $paidCash;
+            $changeFullPrice = $priceGeorgia - (float)($originalSale->discount ?? 0);
+            if ($changeTotalPaid >= $changeFullPrice && $changeFullPrice > 0) {
+                $changeOrder->fully_paid_at = now();
+                $changeOrder->saveQuietly();
+            }
+
             // ─── 4. გაცვლისას ახალი stock დარეზერვება ──────────────────
             if ($newStatus > 1) {
                 $newStock = \App\Models\Warehouse::where('product_id', $newProductId)

@@ -340,7 +340,7 @@
         <div class="kpi-card" style="--accent: var(--orange);">
             <div class="kpi-label">↩ დაბრუნება</div>
             <div class="kpi-value" id="kpi-return-count">{{ $stats['return_count'] }}</div>
-            <div class="kpi-sub" id="kpi-return-amount" style="color:var(--red);">-{{ number_format($stats['return_amount'],2) }} ₾</div>
+            <div class="kpi-sub" id="kpi-return-amount" style="color:var(--red);">{{ number_format($stats['return_amount'],2) }} ₾ ხარჯი</div>
         </div>
         <div class="kpi-card" style="--accent: var(--gray);">
             <div class="kpi-label">🗑 გაუქმება</div>
@@ -365,12 +365,6 @@
                         <span>📦 გაყიდვები</span>
                         <span id="kpi-rev-d-gross">{{ number_format($stats['gross_revenue'],2) }} ₾</span>
                     </div>
-                    @if($stats['return_amount'] > 0)
-                    <div class="kpi-detail-row" style="color:var(--red);">
-                        <span>↩ დაბრუნება</span>
-                        <span id="kpi-rev-d-ret">-{{ number_format($stats['return_amount'],2) }} ₾</span>
-                    </div>
-                    @endif
                     @if($stats['cancel_amount'] > 0)
                     <div class="kpi-detail-row" style="color:var(--red);">
                         <span>🗑 გაუქმება</span>
@@ -403,6 +397,12 @@
                         <span>🚚 საკურიერო (სუფთა)</span>
                         <span id="kpi-cost-d-courier">{{ number_format($stats['net_courier'],2) }} ₾</span>
                     </div>
+                    @if($stats['return_amount'] > 0)
+                    <div class="kpi-detail-row" style="color:var(--red);">
+                        <span>↩ დაბ./გაცვლა ხარჯი</span>
+                        <span id="kpi-cost-d-ret">{{ number_format($stats['return_amount'],2) }} ₾</span>
+                    </div>
+                    @endif
                     @if($stats['extra_expense'] > 0)
                     <div class="kpi-detail-row">
                         <span>📋 სხვა ხარჯები</span>
@@ -999,13 +999,12 @@ function setOrHide(id, value, prefix, color) {
 function updateUI(s) {
     document.getElementById('kpi-sale-count').textContent   = s.sale_count;
     document.getElementById('kpi-return-count').textContent  = s.return_count;
-    document.getElementById('kpi-return-amount').textContent = '-' + fmt(s.return_amount);
+    document.getElementById('kpi-return-amount').textContent = fmt(s.return_amount);
     document.getElementById('kpi-change-count').textContent  = s.change_count;
 
     // ── შემოსავალი ──────────────────────────────────────────────────
     document.getElementById('kpi-total-rev').textContent = fmt(s.total_revenue);
     setOrHide('kpi-rev-d-gross', s.gross_revenue);
-    setOrHide('kpi-rev-d-ret',   s.return_amount, '-', 'var(--red)');
     setOrHide('kpi-rev-d-extra', s.extra_income,  '',  'var(--green)');
     const revNet = document.getElementById('kpi-total-rev')?.closest('.kpi-expandable')
                            ?.querySelector('.net-row span:last-child');
@@ -1014,6 +1013,7 @@ function updateUI(s) {
     // ── გასავალი (total_expenses = courier + other) ─────────────────
     document.getElementById('kpi-total-cost').textContent = fmt(s.total_expenses);
     setOrHide('kpi-cost-d-courier', s.net_courier);
+    setOrHide('kpi-cost-d-ret',     s.return_amount, '', 'var(--red)');
     setOrHide('kpi-cost-d-extra',   s.extra_expense);
     const kpiCostNetEl = document.getElementById('kpi-cost-net-total');
     if (kpiCostNetEl) kpiCostNetEl.textContent = fmt(s.total_expenses);
