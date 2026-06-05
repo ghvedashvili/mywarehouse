@@ -114,10 +114,14 @@ class FinanceController extends Controller
         if ($to)   $retExchQ->whereDate('created_at', '<=', $to);
         $retExchRows = $retExchQ->get(['id', 'price_georgia', 'discount', 'comment']);
 
-        $returnCount = 0; $changeExpense = 0;
+        $returnCount = 0; $exchangeCount = 0; $changeExpense = 0;
         foreach ($retExchRows as $p) {
             $changeExpense += max(0, (float)($p->price_georgia ?? 0) - (float)($p->discount ?? 0));
-            if (str_contains($p->comment ?? '', 'დაბრუნება')) $returnCount++;
+            if (str_contains($p->comment ?? '', 'დაბრუნება')) {
+                $returnCount++;
+            } else {
+                $exchangeCount++;
+            }
         }
 
         // ─── 3. ავანსი — ნაწილობრივ გადახდილი, ჯერ არ არის revenue ──
@@ -252,7 +256,7 @@ class FinanceController extends Controller
             'cancel_cost_recovery'    => round($cancelCostRecovery,   2),
             'return_courier_expense'  => round($returnCourierExpense, 2),
             'courier_refund_total'    => round($courierRefundTotal,   2),
-            'change_count'            => $changeCount,
+            'change_count'            => $exchangeCount,
             'gross_revenue'           => round($grossRevenue,         2),
             'gross_courier'           => round($grossCourier + $returnCourierExpense, 2),
             'gross_sale_cost'         => round($grossCost + $grossCourier, 2),

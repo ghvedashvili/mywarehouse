@@ -350,7 +350,7 @@
         <div class="kpi-card" style="--accent: var(--purple);">
             <div class="kpi-label">🔄 გაცვლა</div>
             <div class="kpi-value" id="kpi-change-count">{{ $stats['change_count'] }}</div>
-            <div class="kpi-sub">ჩათვლილია შემოსავალში</div>
+            <div class="kpi-sub">ხარჯი ჩართულია გასავალში</div>
         </div>
         <div class="kpi-card kpi-expandable" style="--accent: var(--blue);" onclick="toggleKpiCard(this)">
             <div class="kpi-label">💵 შემოსავალი (სულ)</div>
