@@ -728,6 +728,25 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     flex-shrink: 0;
     margin-right: 10px;
     min-width: 68px;
+    align-self: flex-start;
+    padding-top: 2px;
+  }
+
+  /* ── product cell: photo left, text right ── */
+  #products-out-table tbody td[data-label="პროდუქტი"] .po-product-cell {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+  #products-out-table tbody td[data-label="პროდუქტი"] .po-product-thumb {
+    flex-shrink: 0;
+    width: 44px; height: 44px;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  #products-out-table tbody td[data-label="პროდუქტი"] .po-product-thumb img {
+    width: 100%; height: 100%; object-fit: cover;
   }
 
   /* ── checkbox col: hide on mobile ── */
@@ -1477,7 +1496,7 @@ var columns = [
 ];
 
 var table = $('#products-out-table').DataTable({
-    processing: true, serverSide: true, responsive: true,
+    processing: true, serverSide: true, responsive: false,
     ajax: "{{ route('api.productsOut') }}",
     columns: columns,
     order: [[2, 'desc']],
@@ -1492,12 +1511,12 @@ var table = $('#products-out-table').DataTable({
         var geo  = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
         var paid = parseFloat(data.paid_tbc || 0) + parseFloat(data.paid_bog || 0) + parseFloat(data.paid_lib || 0) + parseFloat(data.paid_cash || 0);
         if ((geo - paid) > 0.01) { $(row).addClass('po-row-debt'); }
-        // mobile data-labels
-        var labels = ['', '', '', 'პროდუქტი', 'კლიენტი', 'ფინანსები', 'თარიღი', ''];
+        // mobile data-labels (visible cols only: 0=checkbox,1=order,2=product,3=customer,4=payment,5=date,6=actions)
+        var labels = ['', '', 'პროდუქტი', 'კლიენტი', 'ფინანსები', 'თარიღი', ''];
         $('td', row).each(function(i) {
             if (labels[i]) $(this).attr('data-label', labels[i]);
             if (i === 0)   $(this).addClass('td-mob-hide');
-            if (i === 7)   $(this).addClass('td-actions');
+            if (i === 6)   $(this).addClass('td-actions');
         });
     },
 });
