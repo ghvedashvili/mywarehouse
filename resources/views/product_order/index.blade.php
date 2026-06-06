@@ -304,6 +304,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   border-radius: var(--r-sm);
   padding: 6px 10px;
   flex: 1; min-width: 140px; max-width: 240px;
+  order: -1;
   transition: border-color var(--t-base), box-shadow var(--t-base);
 }
 .po-search:focus-within { border-color: var(--c-blue); box-shadow: var(--sh-focus); background: var(--c-surface); }
@@ -332,6 +333,19 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 
 .po-filter-sep { width: 1px; height: 22px; background: var(--c-border-md); flex-shrink: 0; }
 @media (max-width: 600px) { .po-filter-sep { display: none; } }
+
+/* desktop: wrappers are layout-transparent or hidden */
+.po-filter-pills-row { display: contents; }
+.po-filter-adv { display: contents; }
+.mob-adv-header { display: none; }
+.mob-adv-body { display: contents; }
+#mob-filter-backdrop { display: none; }
+.mob-filter-badge {
+    background: var(--c-blue); color: #fff;
+    border-radius: 20px; font-size: 9.5px; font-weight: 700;
+    padding: 1px 4px; min-width: 15px; text-align: center; line-height: 1.5;
+    display: none;
+}
 
 .po-select {
   background: var(--c-surface2);
@@ -669,15 +683,115 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 
   /* ── page ── */
   .po-page { padding: 0 !important; }
-  .po-wrap { padding: 10px 10px 70px !important; }
+  .po-wrap { padding: 8px 16px 70px !important; }
   .po-stats { grid-template-columns: repeat(2,1fr); gap: 8px; margin-bottom: 10px; }
   .po-page .mod-header { padding: 12px 0 10px; gap: 8px; }
   .po-page .mod-title { font-size: 18px; }
   .po-page .mod-actions { width: 100%; justify-content: flex-end; }
-  .po-filter-bar { gap: 5px; padding: 8px 10px; }
-  .po-filter-bar .form-control,
-  .po-filter-bar .form-select { font-size: 13px !important; height: 36px; }
   .po-table-card .table-responsive { overflow: visible !important; }
+
+  /* ── FILTER BAR MOBILE ── */
+  .po-filter-bar {
+    flex-direction: column !important; align-items: stretch !important; gap: 0 !important;
+    padding: 0 !important; background: transparent !important;
+    border: none !important; box-shadow: none !important; margin-bottom: 8px !important;
+    position: relative !important;
+  }
+  /* Pills row card: column — search on top, pills on bottom */
+  .po-filter-pills-row {
+    display: flex !important; flex-direction: column !important; gap: 0;
+    background: var(--c-surface); border: 1px solid var(--c-border-md);
+    border-radius: 14px; padding: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,.07); overflow: hidden;
+  }
+  /* Search row — full width */
+  .po-filter-pills-row .po-search {
+    display: flex !important; flex-wrap: nowrap !important; order: -1;
+    align-items: center; gap: 6px; width: 100% !important;
+    max-width: none !important; min-width: 0 !important;
+    border: none !important; border-bottom: 1px solid var(--c-border-md) !important;
+    border-radius: 14px 14px 0 0 !important;
+    background: var(--c-surface2) !important;
+    padding: 10px 6px 10px 14px !important;
+    box-shadow: none !important; margin: 0 !important;
+    transition: none !important;
+  }
+  .po-filter-pills-row .po-search:focus-within {
+    background: var(--c-blue-dim) !important;
+    border-bottom-color: var(--c-blue) !important;
+  }
+  .po-filter-pills-row .po-search > i { font-size: 13px !important; flex-shrink: 0; }
+  .po-filter-pills-row .po-search input {
+    flex: 1 !important; min-width: 0 !important; width: 0 !important;
+    font-size: 14px !important;
+  }
+  .po-filter-pills-row .po-search input::placeholder { font-size: 13px !important; }
+  /* Pills row */
+  .po-filter-pills-row .po-pill-group {
+    flex: 1; min-width: 0; flex-wrap: nowrap !important; overflow-x: auto;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none; gap: 4px !important;
+    padding: 8px 10px;
+  }
+  .po-filter-pills-row .po-pill-group::-webkit-scrollbar { display: none; }
+  .po-filter-pills-row .po-pill { font-size: 12px !important; padding: 5px 12px !important; }
+  /* Custom dates */
+  .po-custom-dates.show {
+    flex-wrap: wrap !important; margin-top: 8px; width: 100%;
+    background: var(--c-surface); border: 1px solid var(--c-border-md);
+    border-radius: 14px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.07);
+  }
+  .po-custom-dates.show input[type=date] { flex: 1 !important; width: auto !important; min-width: 100px !important; }
+  /* Backdrop */
+  #mob-filter-backdrop {
+    display: none; position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 8997; background: rgba(0,0,0,.28);
+  }
+  #mob-filter-backdrop.show { display: block; animation: poFadeBackdrop .18s ease; }
+  @keyframes poFadeBackdrop { from { opacity:0; } to { opacity:1; } }
+  /* Top-down filter panel — drops below the filter bar */
+  .po-filter-adv { display: none !important; }
+  .po-filter-adv.open {
+    display: flex !important; flex-direction: column;
+    position: absolute !important;
+    top: 100%; left: 0; right: 0; z-index: 8998;
+    background: var(--c-surface);
+    border-radius: 0 0 14px 14px;
+    box-shadow: 0 6px 28px rgba(0,0,0,.16);
+    max-height: 70vh;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    animation: poSlideDownPanel .2s ease;
+  }
+  @keyframes poSlideDownPanel { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+  .po-filter-adv.open::before { display: none !important; }
+  .mob-adv-header { display: none !important; }
+  /* Drawer body */
+  .mob-adv-body {
+    display: flex !important; flex-direction: column; padding: 12px 16px 4px; gap: 8px;
+  }
+  .mob-adv-body .po-filter-sep { display: none !important; }
+  .mob-adv-body #po-status-wrap #status-filter-btn {
+    width: 100% !important; min-width: 0 !important;
+    height: 44px !important; font-size: 13.5px !important; border-radius: 12px !important;
+  }
+  .mob-adv-body .select2-container { width: 100% !important; }
+  .mob-adv-body .select2-container .select2-selection--single { height: 44px !important; border-radius: 12px !important; }
+  .mob-adv-body .select2-container .select2-selection__rendered { line-height: 44px !important; font-size: 13.5px !important; }
+  .mob-adv-body .select2-container .select2-selection__arrow { height: 44px !important; }
+  .mob-adv-body #dt-page-length {
+    width: 100% !important; height: 44px !important; font-size: 13.5px !important;
+    border-radius: 12px !important; border: 1px solid var(--c-border-md) !important;
+  }
+  .mob-adv-body .po-toggle-wrap {
+    display: flex !important; align-items: center;
+    justify-content: space-between; padding: 9px 0 !important;
+    border-top: 1px solid var(--c-border);
+  }
+  .mob-adv-body .po-toggle-wrap label { font-size: 13px !important; color: var(--c-text-2) !important; }
+  .mob-adv-body > button.po-btn {
+    width: 100% !important; justify-content: center !important;
+    height: 44px !important; border-radius: 12px !important;
+  }
 
   /* ── table → block ── */
   #products-out-table            { display: block !important; width: 100% !important; }
@@ -1048,16 +1162,22 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 
     {{-- ── FILTER BAR ── --}}
     <div class="po-filter-bar">
-        <div class="po-search">
-            <i class="fa fa-magnifying-glass"></i>
-            <input type="search" id="dt-search" placeholder="ძებნა ორდერი, კლიენტი...">
-        </div>
-        <div class="po-pill-group">
-            <button class="po-pill active" data-period="all">ყველა</button>
-            <button class="po-pill" data-period="today">დღეს</button>
-            <button class="po-pill" data-period="week">კვირა</button>
-            <button class="po-pill" data-period="month">თვე</button>
-            <button class="po-pill" data-period="custom">Custom</button>
+        <div class="po-filter-pills-row">
+            <div class="po-pill-group">
+                <button class="po-pill active" data-period="all">ყველა</button>
+                <button class="po-pill" data-period="today">დღეს</button>
+                <button class="po-pill" data-period="week">კვირა</button>
+                <button class="po-pill" data-period="month">თვე</button>
+                <button class="po-pill" data-period="custom">Custom</button>
+            </div>
+            <div class="po-search">
+                <i class="fa fa-magnifying-glass"></i>
+                <input type="search" id="dt-search" placeholder="ძებნა ორდერი, კლიენტი...">
+                <button type="button" class="mob-ts-filter-btn" id="mob-ts-filter-btn" onclick="toggleMobFilter()">
+                    <i class="fa fa-sliders"></i>
+                    <span class="mob-ts-filter-badge" id="mob-ts-filter-badge"></span>
+                </button>
+            </div>
         </div>
         <div class="po-custom-dates" id="customDates">
             <input type="date" id="filter-date-from">
@@ -1112,12 +1232,6 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
         <button onclick="openReportDateModal('sent')" class="po-btn" style="background:#f0f9ff;border-color:#0ea5e9;color:#0369a1;">
             <i class="fa fa-print"></i> გაგზავნილი
         </button>
-        <div class="po-toggle-wrap">
-            <label for="toggle-merged" style="color:#7c3aed;font-weight:700;"><i class="fa fa-layer-group" style="font-size:10px;"></i> გაერთ.</label>
-            <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" id="toggle-merged" role="switch" style="cursor:pointer;">
-            </div>
-        </div>
         <div class="po-toggle-wrap">
             <label for="toggle-deleted">დავ.</label>
             <div class="form-check form-switch mb-0">
@@ -3138,6 +3252,31 @@ $('#comment-edit-save').on('click', function() {
         }
     });
 });
+
+/* ── MOBILE FILTER DRAWER ── */
+function toggleMobFilter() {
+    var adv = $('#po-filter-adv');
+    var isOpen = adv.hasClass('open');
+    adv.toggleClass('open', !isOpen);
+    $('#mob-filter-backdrop').toggleClass('show', !isOpen);
+    $('body').css('overflow', isOpen ? '' : 'hidden');
+}
+
+function updateMobFilterBadge() {
+    var count = 0;
+    if ($('.status-filter-check:checked').length > 0) count++;
+    if ($('#filter-product').val()) count++;
+    if ($('#filter-customer').val()) count++;
+    if ($('#toggle-ready-ship').is(':checked')) count++;
+    if ($('#toggle-deleted').is(':checked')) count++;
+    if ($('#toggle-show-deleted').is(':checked')) count++;
+    var hasActive = count > 0;
+    $('#mob-ts-filter-badge').text(count || '');
+    $('#mob-ts-filter-btn').toggleClass('has-active', hasActive);
+}
+
+$(document).on('change', '.status-filter-check, #toggle-ready-ship, #toggle-deleted, #toggle-show-deleted', updateMobFilterBadge);
+$('#filter-product, #filter-customer').on('change', updateMobFilterBadge);
 
 </script>
 @endsection
