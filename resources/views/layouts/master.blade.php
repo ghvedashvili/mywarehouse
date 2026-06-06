@@ -292,6 +292,7 @@
         @keyframes mobFadeBackdrop { from { opacity:0; } to { opacity:1; } }
         @keyframes mobSlideDownPanel { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
 
+
         /* ════════════════════════════════════════════
            MOBILE CARD VIEW  (≤767px)
         ════════════════════════════════════════════ */
