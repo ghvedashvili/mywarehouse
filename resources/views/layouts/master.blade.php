@@ -7,6 +7,14 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Warehouse</title>
 
+    {{-- PWA --}}
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#2d7dd2">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Warehouse">
+    <link rel="apple-touch-icon" href="{{ asset('upload/favicon.png') }}">
+
     {{-- Bootstrap 5 --}}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     {{-- Font Awesome 6 --}}
@@ -15,6 +23,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     {{-- DataTables Bootstrap 5 --}}
     <link href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    {{-- DataTables Responsive --}}
+    <link href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css" rel="stylesheet">
     {{-- SweetAlert2 --}}
     <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
     <link rel="icon" type="image/png" href="{{ asset('upload/favicon.png') }}">
@@ -261,37 +271,161 @@
 
         /* ── RESPONSIVE ── */
         @media (max-width: 768px) {
-            #sidebar {
-                transform: translateX(-100%);
-            }
-            #sidebar.open {
-                transform: translateX(0);
-            }
+            #sidebar { transform: translateX(-100%); }
+            #sidebar.open { transform: translateX(0); }
             #sidebar-overlay.show { display: block; }
             #topbar, #main-content, #footer {
-                left: 0;
-                margin-left: 0;
-                width: 100%;
+                left: 0; margin-left: 0; width: 100%;
             }
             #topbar .topbar-toggle { display: block; }
-
-            /* მოდალები full-screen small-ზე უკეთ გამოიყურება */
-            .modal-dialog:not(.modal-sm):not(.modal-dialog-centered) {
-                margin: 0.5rem;
-            }
-
-            /* DataTables filter/length კომპაქტური */
+            .modal-dialog:not(.modal-sm):not(.modal-dialog-centered) { margin: 0.5rem; }
             .dataTables_wrapper .dataTables_length,
-            .dataTables_wrapper .dataTables_filter {
-                text-align: left;
-                margin-bottom: 6px;
+            .dataTables_wrapper .dataTables_filter { text-align: left; margin-bottom: 6px; }
+            .btn-xs { padding: 4px 10px; font-size: 12px; }
+        }
+
+        /* ════════════════════════════════════════════
+           MOBILE CARD VIEW  (≤767px)
+        ════════════════════════════════════════════ */
+        @media (max-width: 767px) {
+
+            /* Page padding */
+            .mod-wrap { padding: 12px 10px 60px; }
+            .mod-header { margin-bottom: 12px; }
+            .mod-toolbar { padding: 8px 10px; gap: 6px; }
+
+            /* Hide table wrapper overflow so cards don't scroll sideways */
+            .mod-card .table-responsive { overflow: visible !important; }
+
+            /* ── thead hidden ── */
+            .mod-card table.dataTable thead { display: none !important; }
+
+            /* ── tbody: no table layout ── */
+            .mod-card table.dataTable,
+            .mod-card table.dataTable tbody { display: block !important; width: 100% !important; }
+
+            /* ── Each row = card ── */
+            .mod-card table.dataTable tbody tr {
+                display: block !important;
+                background: #fff !important;
+                border-radius: 12px !important;
+                margin: 0 0 10px !important;
+                box-shadow: 0 2px 10px rgba(0,0,0,.07) !important;
+                border: 1px solid #e9edf3 !important;
+                overflow: hidden;
+                transition: box-shadow .15s;
+            }
+            .mod-card table.dataTable tbody tr:hover {
+                box-shadow: 0 4px 16px rgba(0,0,0,.10) !important;
+                background: #fff !important;
             }
 
-            /* btn-xs უფრო კარგი touch target */
-            .btn-xs {
-                padding: 4px 10px;
-                font-size: 12px;
+            /* ── Each cell = row inside card ── */
+            .mod-card table.dataTable tbody td {
+                display: flex !important;
+                align-items: center;
+                justify-content: space-between;
+                padding: 9px 14px !important;
+                border: none !important;
+                border-bottom: 1px solid #f1f5f9 !important;
+                font-size: 13px;
+                min-height: 40px;
+                vertical-align: middle !important;
             }
+            .mod-card table.dataTable tbody td:last-child {
+                border-bottom: none !important;
+            }
+
+            /* ── data-label as left side label ── */
+            .mod-card table.dataTable tbody td[data-label]::before {
+                content: attr(data-label);
+                font-size: 10px;
+                font-weight: 700;
+                color: #94a3b8;
+                text-transform: uppercase;
+                letter-spacing: .5px;
+                flex-shrink: 0;
+                margin-right: 12px;
+                min-width: 80px;
+            }
+
+            /* ── Actions cell: full width, centered buttons ── */
+            .mod-card table.dataTable tbody td.td-actions {
+                justify-content: flex-end;
+                gap: 6px;
+                padding: 10px 14px !important;
+                background: #fafbfd;
+                flex-wrap: wrap;
+            }
+            .mod-card table.dataTable tbody td.td-actions::before { display: none; }
+
+            /* ── DataTables Responsive child row ── */
+            .mod-card table.dataTable tbody tr.child td {
+                background: #f8fafc !important;
+                border-radius: 0 0 12px 12px !important;
+                padding: 0 !important;
+                border: none !important;
+            }
+            .mod-card table.dataTable tbody tr.child td ul.dtr-details {
+                margin: 0 !important;
+                padding: 6px 14px 10px !important;
+                list-style: none;
+            }
+            .mod-card table.dataTable tbody tr.child td ul.dtr-details li {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 6px 0;
+                border-bottom: 1px solid #edf2f7;
+                font-size: 13px;
+            }
+            .mod-card table.dataTable tbody tr.child td ul.dtr-details li:last-child {
+                border-bottom: none;
+            }
+            .mod-card table.dataTable tbody tr.child td ul.dtr-details li span.dtr-title {
+                font-size: 10px;
+                font-weight: 700;
+                color: #94a3b8;
+                text-transform: uppercase;
+                letter-spacing: .5px;
+                min-width: 80px;
+                flex-shrink: 0;
+            }
+
+            /* ── Responsive expand control ── */
+            table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before,
+            table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
+                background-color: var(--accent) !important;
+                border-color: var(--accent) !important;
+            }
+
+            /* ── Pagination compact ── */
+            .mod-card .dataTables_wrapper .dataTables_paginate {
+                padding: 8px 10px !important;
+            }
+            .mod-card .dataTables_wrapper .dataTables_paginate .paginate_button {
+                padding: 4px 8px !important;
+                font-size: 12px !important;
+            }
+            .mod-card .dataTables_info { padding: 6px 10px !important; font-size: 11px !important; }
+
+            /* ── Modals full-screen ── */
+            .modal-dialog { margin: 0 !important; max-width: 100% !important; }
+            .modal-content { border-radius: 0 !important; min-height: 100vh; }
+            .modal-dialog.modal-sm { margin: 1rem auto !important; max-width: 320px !important; }
+            .modal-dialog.modal-sm .modal-content { border-radius: 14px !important; min-height: unset; }
+
+            /* ── Buttons bigger touch targets ── */
+            .btn-sm { padding: 7px 14px !important; font-size: 13px !important; }
+            .btn-xs { padding: 5px 10px !important; font-size: 12px !important; }
+
+            /* ── Topbar title shorter ── */
+            #topbar .topbar-title { font-size: 14px; }
+            #topbar .uname { display: none; }
+
+            /* ── Footer mobile ── */
+            #footer { margin-left: 0; font-size: 11px; text-align: center; }
+            #footer .float-end { float: none !important; display: block; }
         }
 
         /* ── MODALS Bootstrap 5 ── */
@@ -618,6 +752,9 @@
 {{-- DataTables + Bootstrap 5 --}}
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
+{{-- DataTables Responsive --}}
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
 {{-- SweetAlert2 --}}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 
@@ -696,6 +833,21 @@ $(function() {
         }
     });
 });
+
+// ── DataTables global responsive default ──────────────────────────────
+$.extend(true, $.fn.dataTable.defaults, {
+    responsive: {
+        details: {
+            display: $.fn.dataTable.Responsive.display.childRow,
+            renderer: $.fn.dataTable.Responsive.renderer.listHiddenNodes()
+        }
+    }
+});
+
+// ── PWA Service Worker ─────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(function() {});
+}
 </script>
 
 @if(session('role_restricted'))
