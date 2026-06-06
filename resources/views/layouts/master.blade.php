@@ -284,6 +284,14 @@
             .btn-xs { padding: 4px 10px; font-size: 12px; }
         }
 
+        /* ── Topbar search (hidden on desktop, pages inject via blade sections) ── */
+        .mob-topbar-search { display: none; }
+        .mob-drawer-backdrop { display: none; }
+        .mob-drawer { display: none; }
+        .mob-ts-filter-btn { display: none; }
+        @keyframes mobFadeBackdrop { from { opacity:0; } to { opacity:1; } }
+        @keyframes mobSlideDownPanel { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+
         /* ════════════════════════════════════════════
            MOBILE CARD VIEW  (≤767px)
         ════════════════════════════════════════════ */
@@ -298,7 +306,9 @@
 
             /* Page padding */
             .mod-wrap { padding: 12px 10px 60px; }
-            .mod-header { margin-bottom: 12px; }
+            .mod-header .mod-title,
+            .mod-header .mod-subtitle,
+            .mod-header > div:first-child { display: none !important; }
             .mod-toolbar { padding: 8px 10px; gap: 6px; }
 
             /* Hide table wrapper overflow so cards don't scroll sideways */
@@ -437,6 +447,79 @@
             /* ── Footer mobile ── */
             #footer { margin-left: 0; font-size: 11px; text-align: center; }
             #footer .float-end { float: none !important; display: block; }
+
+            /* ── Topbar injected search ── */
+            .mob-topbar-search { display: flex; flex: 1; align-items: center; min-width: 0; }
+            .mob-ts-bar {
+                flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;
+                background: #f0f2f5; border-radius: 10px; padding: 8px 6px 8px 12px;
+                border: 1.5px solid transparent; transition: all .15s;
+            }
+            .mob-ts-bar:focus-within { border-color: #2d7dd2; background: #fff; }
+            .mob-ts-bar > i { font-size: 12px; color: #94a3b8; flex-shrink: 0; }
+            .mob-ts-bar input {
+                flex: 1; min-width: 0; background: none; border: none; outline: none;
+                font-size: 15px !important; color: #1e293b; font-family: inherit;
+            }
+            .mob-ts-bar input::placeholder { color: #94a3b8; }
+            /* Filter button sits INSIDE the search bar on the right */
+            .mob-ts-filter-btn {
+                position: relative; width: 34px; height: 34px; flex-shrink: 0;
+                border-radius: 8px; border: none; background: transparent; color: #94a3b8;
+                display: flex; align-items: center; justify-content: center;
+                cursor: pointer; font-family: inherit; transition: all .15s; font-size: 14px;
+            }
+            .mob-ts-filter-btn.active,
+            .mob-ts-filter-btn.has-active { color: #2d7dd2; background: rgba(45,125,210,.1); }
+            .mob-ts-filter-badge {
+                position: absolute; top: -4px; right: -4px;
+                background: #2d7dd2; color: #fff; border-radius: 7px;
+                font-size: 9px; font-weight: 700; padding: 0 3px;
+                min-width: 14px; height: 14px; line-height: 14px; text-align: center;
+                border: 2px solid #f0f2f5;
+                display: none; align-items: center; justify-content: center;
+            }
+            .mob-ts-filter-btn.has-active .mob-ts-filter-badge { display: flex; }
+            .mob-ts-bar:focus-within .mob-ts-filter-badge { border-color: #fff; }
+            /* collapse title + spacer when search slot is filled */
+            #topbar:has(.mob-topbar-search) .topbar-title { display: none !important; }
+            #topbar:has(.mob-topbar-search) .topbar-spacer { flex: 0 !important; min-width: 0 !important; }
+
+            /* ── Generic mobile top-down panel ── */
+            .mob-drawer-backdrop {
+                display: none; position: fixed;
+                top: var(--topbar-height, 56px); left: 0; right: 0; bottom: 0;
+                z-index: 8997; background: rgba(0,0,0,.28);
+            }
+            .mob-drawer-backdrop.show { display: block !important; animation: mobFadeBackdrop .18s ease; }
+            .mob-drawer {
+                display: none !important; flex-direction: column;
+                position: fixed; top: var(--topbar-height, 56px); left: 0; right: 0; z-index: 8998;
+                background: #fff; border-radius: 0 0 18px 18px;
+                box-shadow: 0 6px 24px rgba(0,0,0,.14);
+                max-height: calc(80vh - var(--topbar-height, 56px)); overflow-y: auto;
+            }
+            .mob-drawer.open { display: flex !important; animation: mobSlideDownPanel .2s ease; }
+            .mob-drawer-header {
+                display: flex; align-items: center; justify-content: space-between;
+                padding: 12px 16px 10px; border-bottom: 1px solid #f1f5f9; flex-shrink: 0;
+            }
+            .mob-drawer-title { font-size: 14px; font-weight: 700; color: #1e293b; }
+            .mob-drawer-close {
+                width: 28px; height: 28px; border-radius: 50%; border: none;
+                background: #f1f5f9; color: #64748b; font-size: 13px;
+                cursor: pointer; display: flex; align-items: center; justify-content: center; font-family: inherit;
+            }
+            .mob-drawer-body { display: flex; flex-direction: column; padding: 12px 16px 16px; gap: 9px; }
+            .mob-drawer-label { font-size: 11.5px; font-weight: 600; color: #64748b; margin-bottom: 2px; }
+            .mob-drawer-body select, .mob-drawer-body .form-select {
+                width: 100% !important; height: 42px !important; font-size: 13.5px !important;
+                border-radius: 10px !important; border: 1.5px solid #e2e8f0 !important; padding: 0 10px !important;
+            }
+            .mob-drawer-row {
+                display: flex; align-items: center; justify-content: space-between;
+                padding: 9px 0; border-top: 1px solid #f1f5f9; font-size: 13px; color: #475569;
+            }
         }
 
         /* ── MODALS Bootstrap 5 ── */
@@ -716,8 +799,10 @@
     </button>
 
     @hasSection('page_title')
-        <div class="topbar-title">@yield('page_title')</div>
+        <a class="topbar-title" href="javascript:location.reload()" style="text-decoration:none;color:inherit;">@yield('page_title')</a>
     @endif
+
+    @yield('topbar_search')
 
     <div class="topbar-spacer"></div>
 
