@@ -634,6 +634,9 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   margin-top: 3px;
 }
 
+/* mob-fin / mob-customer: visible only on mobile */
+.mob-fin, .mob-customer { display: none; }
+
 /* ── MOBILE ───────────────────────────────────────────────── */
 @media (max-width: 640px) {
   .po-page .mod-title { font-size: 17px; }
@@ -682,117 +685,173 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   #products-out-table tbody      { display: block !important; }
   #products-out-table tfoot      { display: none !important; }
 
-  /* ── cancel the ≤640px column-hiding rules inside card view ── */
-  #products-out-table thead th:nth-child(5),
-  #products-out-table tbody td:nth-child(5),
-  #products-out-table thead th:nth-child(6),
-  #products-out-table tbody td:nth-child(6) { display: flex !important; }
-
-  /* ── row = card ── */
+  /* ── row = card (CSS Grid: left content | right auto for footer split) ── */
   #products-out-table tbody tr {
-    display: block !important;
+    display: grid !important;
+    grid-template-columns: 1fr auto;
     background: var(--c-surface) !important;
     border-radius: var(--r-md) !important;
-    margin: 0 0 8px !important;
+    margin: 0 0 10px !important;
     box-shadow: var(--sh-sm) !important;
     border: 1px solid var(--c-border-md) !important;
     overflow: hidden;
   }
 
-  /* ── all cells base ── */
+  /* ── all cells base: full width by default ── */
   #products-out-table tbody td {
-    display: flex !important;
-    align-items: center;
-    padding: 7px 12px !important;
+    display: block !important;
+    grid-column: 1 / -1;
+    padding: 8px 12px !important;
     border: none !important;
-    border-bottom: 1px solid var(--c-border) !important;
     font-size: 13px;
-    min-height: 0;
   }
-  #products-out-table tbody td:last-child { border-bottom: none !important; }
 
-  /* ── checkbox: hide ── */
+  /* ── cancel ≤640px column-hiding ── */
+  #products-out-table tbody td:nth-child(5),
+  #products-out-table tbody td:nth-child(6) { display: block !important; }
+
+  /* ── HIDDEN ── */
   #products-out-table tbody td.td-mob-hide { display: none !important; }
 
-  /* ── ORDER cell: card header ── */
+  /* ── 1. ORDER: card header, full width ── */
   #products-out-table tbody td.td-order {
+    display: flex !important;
+    grid-column: 1 / -1;
+    grid-row: 1;
     background: var(--c-surface2) !important;
     padding: 9px 12px !important;
+    align-items: center;
     gap: 6px;
     flex-wrap: wrap;
     border-bottom: 1px solid var(--c-border-md) !important;
   }
 
-  /* ── PRODUCT cell ── */
+  /* ── 2. PRODUCT: photo circle on right, text left ── */
   #products-out-table tbody td.td-product {
-    padding: 8px 12px !important;
-    align-items: flex-start;
+    display: block !important;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    padding: 10px 12px 6px !important;
+    border-bottom: none !important;
   }
   #products-out-table tbody td.td-product .po-product-cell {
     display: flex !important;
     align-items: flex-start;
-    gap: 10px;
-    width: 100%;
+    gap: 12px;
   }
-  #products-out-table tbody td.td-product .po-product-thumb {
-    display: block !important; /* override the ≤640px display:none rule */
-    width: 44px !important;
-    height: 44px !important;
-    border-radius: 8px !important;
-    overflow: hidden;
-    flex-shrink: 0;
-  }
-  #products-out-table tbody td.td-product .po-product-thumb img {
-    width: 44px !important;
-    height: 44px !important;
-    object-fit: cover !important;
-    border-radius: 8px !important;
-    display: block !important;
-    min-width: 0 !important;
-    max-width: none !important;
-    padding: 0 !important;
-    border: none !important;
-  }
-  #products-out-table tbody td.td-product .po-product-cell > div {
+  /* po-prod-text: flex-1 container for name + finance + customer */
+  #products-out-table tbody td.td-product .po-product-cell > div:not(.po-product-thumb) {
     flex: 1;
     min-width: 0;
-    font-size: 12.5px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.45;
+  }
+  /* po-prod-name: only the product name/code/size row gets max 2 lines */
+  #products-out-table tbody td.td-product .po-prod-name {
+    overflow: hidden;
+    max-height: 2.9em;
+    line-height: 1.45;
+  }
+  /* inner divs (name, code, size) → inline with · separator */
+  #products-out-table tbody td.td-product .po-prod-name > div {
+    display: inline !important;
+    font-weight: 600;
+    white-space: normal;
+  }
+  #products-out-table tbody td.td-product .po-prod-name > div + div::before {
+    content: " · ";
+    color: var(--c-text-3);
+    font-weight: 400;
+    font-size: 11px;
+  }
+  /* photo: pushed right with order:2, large circle */
+  #products-out-table tbody td.td-product .po-product-thumb {
+    display: block !important;
+    order: 2;
+    flex-shrink: 0;
+    width: 80px !important;
+    height: 80px !important;
+    border-radius: var(--r-sm) !important;
+    overflow: hidden;
+    border: 1px solid var(--c-border-md);
+    margin-top: 2px;
+  }
+  #products-out-table tbody td.td-product .po-product-thumb img {
+    width: 80px !important;
+    height: 80px !important;
+    object-fit: cover !important;
+    border-radius: 0 !important;
+    display: block !important;
+    padding: 0 !important;
+    border: none !important;
+    min-width: 0 !important;
+    max-width: none !important;
   }
 
-  /* ── CUSTOMER cell ── */
-  #products-out-table tbody td.td-customer {
-    padding: 6px 12px !important;
-    font-size: 12.5px;
+  /* ── 3. PAYMENT: hidden (content moved into td-product) ── */
+  #products-out-table tbody td.td-payment { display: none !important; }
+
+  /* ── 3. CUSTOMER: hidden (moved into td-product) ── */
+  #products-out-table tbody td.td-customer { display: none !important; }
+
+  /* ── mob-customer: shown inside product cell ── */
+  .mob-customer {
+    display: block !important;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--c-border-md);
+    font-size: 11.5px;
     color: var(--c-text-2);
+    line-height: 1.4;
   }
+  .mob-customer hr { display: none !important; }
+  .mob-customer strong { font-size: 12px; color: var(--c-text-1); }
+  .mob-customer small  { font-size: 11px; display: block; }
 
-  /* ── PAYMENT cell ── */
-  #products-out-table tbody td.td-payment {
-    padding: 7px 12px !important;
-    align-items: flex-start;
-  }
-
-  /* ── DATE cell: minimal row ── */
+  /* ── footer: DATE left, ACTIONS right ── */
   #products-out-table tbody td.td-date {
-    padding: 4px 12px !important;
+    display: flex !important;
+    grid-column: 1;
+    align-items: center;
+    padding: 6px 12px !important;
     font-size: 11px;
     color: var(--c-text-3);
-    justify-content: flex-end;
-    min-height: 0;
+    background: var(--c-surface2) !important;
+    border-top: 1px solid var(--c-border-md) !important;
   }
-
-  /* ── ACTIONS cell ── */
   #products-out-table tbody td.td-actions {
-    justify-content: flex-end !important;
-    gap: 6px;
-    background: var(--c-surface2);
-    padding: 8px 12px !important;
+    display: flex !important;
+    grid-column: 2;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 6px 10px !important;
+    gap: 5px;
     flex-wrap: wrap;
-    border-bottom: none !important;
+    background: var(--c-surface2) !important;
+    border-top: 1px solid var(--c-border-md) !important;
   }
 
-  /* ── child rows (expandable) ── */
+  /* ── mob-fin: finance line inside product cell (show on mobile) ── */
+  .mob-fin {
+    display: flex !important;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: nowrap;
+    overflow: hidden;
+    white-space: nowrap;
+    margin-top: 5px;
+    font-size: 12px;
+    line-height: 1.3;
+  }
+  .mob-fin-price { font-weight: 700; color: var(--c-text-1); }
+  .mob-fin-disc  { color: #8e44ad; font-size: 11px; }
+  .mob-fin-net   { color: var(--c-text-2); font-size: 11px; }
+
+  /* ── child / expandable rows ── */
+  #products-out-table tbody tr.child { display: block !important; }
   #products-out-table tbody tr.child td {
+    display: block !important; grid-column: 1 / -1;
     background: var(--c-surface2) !important;
     padding: 0 !important; border: none !important;
   }
@@ -809,9 +868,8 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     text-transform: uppercase; letter-spacing: .5px; min-width: 68px; flex-shrink: 0;
   }
   #products-out-table tbody tr.po-child-row td {
-    display: block !important;
-    padding: 8px 10px !important;
-    background: var(--c-surface2) !important;
+    display: block !important; grid-column: 1 / -1;
+    padding: 8px 10px !important; background: var(--c-surface2) !important;
   }
 
   /* ── pagination compact ── */
@@ -1452,7 +1510,25 @@ var columns = [
         data: null, orderable: false, searchable: false, responsivePriority: 3,
         render: function(data) {
             var photo = data.show_photo ? '<div class="po-product-thumb">'+data.show_photo+'</div>' : '';
-            return '<div class="po-product-cell">'+photo+'<div style="font-size:12.5px;min-width:0;">'+(data.product_info || '')+'</div></div>';
+            // mobile-only finance line
+            var orig = parseFloat(data.price_georgia || 0);
+            var disc = parseFloat(data.discount || 0);
+            var geo  = orig - disc;
+            var paid = parseFloat(data.paid_tbc||0)+parseFloat(data.paid_bog||0)+parseFloat(data.paid_lib||0)+parseFloat(data.paid_cash||0);
+            var diff = geo - paid;
+            var finTag;
+            if (diff < -0.01)    finTag = '<span style="color:var(--c-green);font-weight:700;"><i class="fa fa-plus" style="font-size:9px;"></i> +'+Math.abs(diff).toFixed(2)+'₾</span>';
+            else if (diff<=0.01) finTag = '<span style="color:var(--c-green);"><i class="fa fa-check" style="font-size:9px;"></i> გადახდილი</span>';
+            else                 finTag = '<span style="color:var(--c-red);font-weight:700;"><i class="fa fa-circle-exclamation" style="font-size:9px;"></i> '+diff.toFixed(2)+'₾</span>';
+            var finLine = '<div class="mob-fin">'
+                + '<span class="mob-fin-price">'+orig.toFixed(2)+'₾</span>'
+                + (disc>0.01 ? '<span class="mob-fin-disc">🏷️−'+disc.toFixed(2)+'₾</span><span class="mob-fin-net">'+geo.toFixed(2)+'₾</span>' : '')
+                + finTag
+                + '</div>';
+            var custLine = data.customer_name
+                ? '<div class="mob-customer">'+(data.customer_name||'')+'</div>'
+                : '';
+            return '<div class="po-product-cell">'+photo+'<div class="po-prod-text" style="font-size:12.5px;min-width:0;"><div class="po-prod-name">'+(data.product_info||'')+'</div>'+finLine+custLine+'</div></div>';
         }
     },
     {
