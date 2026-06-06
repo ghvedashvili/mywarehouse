@@ -696,6 +696,10 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     border: 1px solid var(--c-border-md) !important;
     overflow: hidden;
   }
+  /* sale orders: blue left stripe */
+  #products-out-table tbody tr.po-row-sale {
+    border-left: 3px solid var(--c-blue) !important;
+  }
 
   /* ── all cells base: full width by default ── */
   #products-out-table tbody td {
@@ -1672,6 +1676,7 @@ var table = $('#products-out-table').DataTable({
         if (data.status_id == 6) { $(row).addClass('po-row-exchanged'); }
         if (data.status_id == 5) { $(row).addClass('po-row-returned');  }
         if (data.original_sale_id) { $(row).addClass('po-row-change'); }
+        if (data.order_type === 'sale' && !data.original_sale_id) { $(row).addClass('po-row-sale'); }
         var geo  = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
         var paid = parseFloat(data.paid_tbc || 0) + parseFloat(data.paid_bog || 0) + parseFloat(data.paid_lib || 0) + parseFloat(data.paid_cash || 0);
         if ((geo - paid) > 0.01) { $(row).addClass('po-row-debt'); }
