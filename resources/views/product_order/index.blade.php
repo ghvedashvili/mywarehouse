@@ -664,31 +664,31 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 ══════════════════════════════════════════════════════════ */
 @media (max-width: 767px) {
 
-  /* ── page padding ── */
+  /* ── page ── */
   .po-page { padding: 0 !important; }
   .po-wrap { padding: 10px 10px 70px !important; }
   .po-stats { grid-template-columns: repeat(2,1fr); gap: 8px; margin-bottom: 10px; }
-
-  /* ── header ── */
   .po-page .mod-header { padding: 12px 0 10px; gap: 8px; }
   .po-page .mod-title { font-size: 18px; }
   .po-page .mod-actions { width: 100%; justify-content: flex-end; }
-
-  /* ── filter bar compact ── */
   .po-filter-bar { gap: 5px; padding: 8px 10px; }
   .po-filter-bar .form-control,
   .po-filter-bar .form-select { font-size: 13px !important; height: 36px; }
-
-  /* ── table card container ── */
   .po-table-card .table-responsive { overflow: visible !important; }
 
-  /* ── table → block layout ── */
+  /* ── table → block ── */
   #products-out-table            { display: block !important; width: 100% !important; }
   #products-out-table thead      { display: none !important; }
   #products-out-table tbody      { display: block !important; }
   #products-out-table tfoot      { display: none !important; }
 
-  /* ── each row = card ── */
+  /* ── cancel the ≤640px column-hiding rules inside card view ── */
+  #products-out-table thead th:nth-child(5),
+  #products-out-table tbody td:nth-child(5),
+  #products-out-table thead th:nth-child(6),
+  #products-out-table tbody td:nth-child(6) { display: flex !important; }
+
+  /* ── row = card ── */
   #products-out-table tbody tr {
     display: block !important;
     background: var(--c-surface) !important;
@@ -697,76 +697,104 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     box-shadow: var(--sh-sm) !important;
     border: 1px solid var(--c-border-md) !important;
     overflow: hidden;
-    transition: box-shadow var(--t-base);
-  }
-  #products-out-table tbody tr:hover {
-    box-shadow: var(--sh-md) !important;
   }
 
-  /* ── each cell = flex row ── */
+  /* ── all cells base ── */
   #products-out-table tbody td {
     display: flex !important;
     align-items: center;
-    justify-content: space-between;
-    padding: 9px 12px !important;
+    padding: 7px 12px !important;
     border: none !important;
     border-bottom: 1px solid var(--c-border) !important;
     font-size: 13px;
-    min-height: 42px;
-    vertical-align: middle !important;
+    min-height: 0;
   }
   #products-out-table tbody td:last-child { border-bottom: none !important; }
 
-  /* ── data-label ── */
-  #products-out-table tbody td[data-label]::before {
-    content: attr(data-label);
-    font-size: 10px;
-    font-weight: 700;
-    color: var(--c-text-3);
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    flex-shrink: 0;
-    margin-right: 10px;
-    min-width: 68px;
-    align-self: flex-start;
-    padding-top: 2px;
-  }
-
-  /* ── product cell: photo left, text right ── */
-  #products-out-table tbody td[data-label="პროდუქტი"] .po-product-cell {
-    display: flex !important;
-    align-items: center;
-    gap: 8px;
-    flex: 1;
-  }
-  #products-out-table tbody td[data-label="პროდუქტი"] .po-product-thumb {
-    flex-shrink: 0;
-    width: 44px; height: 44px;
-    border-radius: 8px;
-    overflow: hidden;
-  }
-  #products-out-table tbody td[data-label="პროდუქტი"] .po-product-thumb img {
-    width: 100%; height: 100%; object-fit: cover;
-  }
-
-  /* ── checkbox col: hide on mobile ── */
+  /* ── checkbox: hide ── */
   #products-out-table tbody td.td-mob-hide { display: none !important; }
 
-  /* ── actions cell: right-aligned, no label ── */
+  /* ── ORDER cell: card header ── */
+  #products-out-table tbody td.td-order {
+    background: var(--c-surface2) !important;
+    padding: 9px 12px !important;
+    gap: 6px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--c-border-md) !important;
+  }
+
+  /* ── PRODUCT cell ── */
+  #products-out-table tbody td.td-product {
+    padding: 8px 12px !important;
+    align-items: flex-start;
+  }
+  #products-out-table tbody td.td-product .po-product-cell {
+    display: flex !important;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+  }
+  #products-out-table tbody td.td-product .po-product-thumb {
+    display: block !important; /* override the ≤640px display:none rule */
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 8px !important;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  #products-out-table tbody td.td-product .po-product-thumb img {
+    width: 44px !important;
+    height: 44px !important;
+    object-fit: cover !important;
+    border-radius: 8px !important;
+    display: block !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+  #products-out-table tbody td.td-product .po-product-cell > div {
+    flex: 1;
+    min-width: 0;
+    font-size: 12.5px;
+  }
+
+  /* ── CUSTOMER cell ── */
+  #products-out-table tbody td.td-customer {
+    padding: 6px 12px !important;
+    font-size: 12.5px;
+    color: var(--c-text-2);
+  }
+
+  /* ── PAYMENT cell ── */
+  #products-out-table tbody td.td-payment {
+    padding: 7px 12px !important;
+    align-items: flex-start;
+  }
+
+  /* ── DATE cell: minimal row ── */
+  #products-out-table tbody td.td-date {
+    padding: 4px 12px !important;
+    font-size: 11px;
+    color: var(--c-text-3);
+    justify-content: flex-end;
+    min-height: 0;
+  }
+
+  /* ── ACTIONS cell ── */
   #products-out-table tbody td.td-actions {
     justify-content: flex-end !important;
     gap: 6px;
     background: var(--c-surface2);
     padding: 8px 12px !important;
     flex-wrap: wrap;
+    border-bottom: none !important;
   }
-  #products-out-table tbody td.td-actions::before { display: none !important; }
 
-  /* ── Responsive child row (DataTables) ── */
+  /* ── child rows (expandable) ── */
   #products-out-table tbody tr.child td {
     background: var(--c-surface2) !important;
-    padding: 0 !important;
-    border: none !important;
+    padding: 0 !important; border: none !important;
   }
   #products-out-table tbody tr.child ul.dtr-details {
     margin: 0 !important; padding: 6px 12px 10px !important; list-style: none;
@@ -780,15 +808,13 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     font-size: 10px; font-weight: 700; color: var(--c-text-3);
     text-transform: uppercase; letter-spacing: .5px; min-width: 68px; flex-shrink: 0;
   }
-
-  /* ── group/expand child rows ── */
   #products-out-table tbody tr.po-child-row td {
     display: block !important;
     padding: 8px 10px !important;
     background: var(--c-surface2) !important;
   }
 
-  /* ── DataTables pagination compact ── */
+  /* ── pagination compact ── */
   .dataTables_wrapper .dataTables_paginate { padding: 8px 10px !important; }
   .dataTables_info { font-size: 11px !important; padding: 6px 10px !important; }
 }
@@ -1511,12 +1537,10 @@ var table = $('#products-out-table').DataTable({
         var geo  = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
         var paid = parseFloat(data.paid_tbc || 0) + parseFloat(data.paid_bog || 0) + parseFloat(data.paid_lib || 0) + parseFloat(data.paid_cash || 0);
         if ((geo - paid) > 0.01) { $(row).addClass('po-row-debt'); }
-        // mobile data-labels (visible cols only: 0=checkbox,1=order,2=product,3=customer,4=payment,5=date,6=actions)
-        var labels = ['', '', 'პროდუქტი', 'კლიენტი', 'ფინანსები', 'თარიღი', ''];
+        // mobile cell classes (visible cols: 0=chk,1=order,2=product,3=customer,4=payment,5=date,6=actions)
+        var cellClasses = ['td-mob-hide','td-order','td-product','td-customer','td-payment','td-date','td-actions'];
         $('td', row).each(function(i) {
-            if (labels[i]) $(this).attr('data-label', labels[i]);
-            if (i === 0)   $(this).addClass('td-mob-hide');
-            if (i === 6)   $(this).addClass('td-actions');
+            if (cellClasses[i]) $(this).addClass(cellClasses[i]);
         });
     },
 });
