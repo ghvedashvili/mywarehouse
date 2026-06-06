@@ -289,6 +289,13 @@
         ════════════════════════════════════════════ */
         @media (max-width: 767px) {
 
+            /* Prevent iOS auto-zoom on input focus (font-size must be ≥16px) */
+            input, select, textarea,
+            .form-control, .form-select,
+            .select2-search__field {
+                font-size: 16px !important;
+            }
+
             /* Page padding */
             .mod-wrap { padding: 12px 10px 60px; }
             .mod-header { margin-bottom: 12px; }
