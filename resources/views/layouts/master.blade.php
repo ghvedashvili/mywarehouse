@@ -292,6 +292,7 @@
         @keyframes mobFadeBackdrop { from { opacity:0; } to { opacity:1; } }
         @keyframes mobSlideDownPanel { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
 
+
         /* ════════════════════════════════════════════
            MOBILE CARD VIEW  (≤767px)
         ════════════════════════════════════════════ */
@@ -340,6 +341,7 @@
                 box-shadow: 0 4px 16px rgba(0,0,0,.10) !important;
                 background: #fff !important;
             }
+
 
             /* ── Each cell = row inside card ── */
             .mod-card table.dataTable tbody td {
@@ -520,6 +522,100 @@
                 display: flex; align-items: center; justify-content: space-between;
                 padding: 9px 0; border-top: 1px solid #f1f5f9; font-size: 13px; color: #475569;
             }
+            .mod-card table.dataTable tbody td:last-child {
+                border-bottom: none !important;
+            }
+
+            /* ── data-label as left side label ── */
+            .mod-card table.dataTable tbody td[data-label]::before {
+                content: attr(data-label);
+                font-size: 10px;
+                font-weight: 700;
+                color: #94a3b8;
+                text-transform: uppercase;
+                letter-spacing: .5px;
+                flex-shrink: 0;
+                margin-right: 12px;
+                min-width: 80px;
+            }
+
+            /* ── Actions cell: full width, centered buttons ── */
+            .mod-card table.dataTable tbody td.td-actions {
+                justify-content: flex-end;
+                gap: 6px;
+                padding: 10px 14px !important;
+                background: #fafbfd;
+                flex-wrap: wrap;
+            }
+            .mod-card table.dataTable tbody td.td-actions::before { display: none; }
+
+            /* ── DataTables Responsive child row ── */
+            .mod-card table.dataTable tbody tr.child td {
+                background: #f8fafc !important;
+                border-radius: 0 0 12px 12px !important;
+                padding: 0 !important;
+                border: none !important;
+            }
+            .mod-card table.dataTable tbody tr.child td ul.dtr-details {
+                margin: 0 !important;
+                padding: 6px 14px 10px !important;
+                list-style: none;
+            }
+            .mod-card table.dataTable tbody tr.child td ul.dtr-details li {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 6px 0;
+                border-bottom: 1px solid #edf2f7;
+                font-size: 13px;
+            }
+            .mod-card table.dataTable tbody tr.child td ul.dtr-details li:last-child {
+                border-bottom: none;
+            }
+            .mod-card table.dataTable tbody tr.child td ul.dtr-details li span.dtr-title {
+                font-size: 10px;
+                font-weight: 700;
+                color: #94a3b8;
+                text-transform: uppercase;
+                letter-spacing: .5px;
+                min-width: 80px;
+                flex-shrink: 0;
+            }
+
+            /* ── Responsive expand control ── */
+            table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before,
+            table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
+                background-color: var(--accent) !important;
+                border-color: var(--accent) !important;
+            }
+
+            /* ── Pagination compact ── */
+            .mod-card .dataTables_wrapper .dataTables_paginate {
+                padding: 8px 10px !important;
+            }
+            .mod-card .dataTables_wrapper .dataTables_paginate .paginate_button {
+                padding: 4px 8px !important;
+                font-size: 12px !important;
+            }
+            .mod-card .dataTables_info { padding: 6px 10px !important; font-size: 11px !important; }
+
+            /* ── Modals full-screen ── */
+            .modal-dialog { margin: 0 !important; max-width: 100% !important; }
+            .modal-content { border-radius: 0 !important; min-height: 100vh; }
+            .modal-dialog.modal-sm { margin: 1rem auto !important; max-width: 320px !important; }
+            .modal-dialog.modal-sm .modal-content { border-radius: 14px !important; min-height: unset; }
+
+            /* ── Buttons bigger touch targets ── */
+            .btn-sm { padding: 7px 14px !important; font-size: 13px !important; }
+            .btn-xs { padding: 5px 10px !important; font-size: 12px !important; }
+
+            /* ── Topbar title shorter ── */
+            #topbar .topbar-title { font-size: 14px; }
+            #topbar .uname { display: none; }
+
+            /* ── Footer mobile ── */
+            #footer { margin-left: 0; font-size: 11px; text-align: center; }
+            #footer .float-end { float: none !important; display: block; }
         }
 
         /* ── MODALS Bootstrap 5 ── */
