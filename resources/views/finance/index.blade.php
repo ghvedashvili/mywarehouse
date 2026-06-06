@@ -399,8 +399,14 @@
                     </div>
                     @if($stats['return_amount'] > 0)
                     <div class="kpi-detail-row" style="color:var(--red);">
-                        <span>↩ დაბ./გაცვლა ხარჯი</span>
+                        <span>↩ დაბრუნება ხარჯი</span>
                         <span id="kpi-cost-d-ret">{{ number_format($stats['return_amount'],2) }} ₾</span>
+                    </div>
+                    @endif
+                    @if($stats['exchange_expense'] > 0)
+                    <div class="kpi-detail-row" style="color:var(--red);">
+                        <span>🔄 გაცვლა ხარჯი</span>
+                        <span id="kpi-cost-d-exch">{{ number_format($stats['exchange_expense'],2) }} ₾</span>
                     </div>
                     @endif
                     @if($stats['extra_expense'] > 0)
@@ -1014,7 +1020,8 @@ function updateUI(s) {
     // ── გასავალი (total_expenses = courier + other) ─────────────────
     document.getElementById('kpi-total-cost').textContent = fmt(s.total_expenses);
     setOrHide('kpi-cost-d-courier', s.net_courier);
-    setOrHide('kpi-cost-d-ret',     s.return_amount, '', 'var(--red)');
+    setOrHide('kpi-cost-d-ret',     s.return_amount,    '', 'var(--red)');
+    setOrHide('kpi-cost-d-exch',    s.exchange_expense, '', 'var(--red)');
     setOrHide('kpi-cost-d-extra',   s.extra_expense);
     const kpiCostNetEl = document.getElementById('kpi-cost-net-total');
     if (kpiCostNetEl) kpiCostNetEl.textContent = fmt(s.total_expenses);
