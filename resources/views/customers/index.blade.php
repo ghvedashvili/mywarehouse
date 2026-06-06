@@ -1,28 +1,66 @@
 @extends('layouts.master')
 @section('page_title')<i class="fa fa-users me-2" style="color:#27ae60;"></i>მომხმარებლები@endsection
 
+@section('topbar_search')
+<div class="mob-topbar-search">
+    <div class="mob-ts-bar">
+        <i class="fa fa-magnifying-glass"></i>
+        <input type="search" id="mob-cust-search" placeholder="სახელი, ტელ, მისამართი..." autocomplete="off">
+        <button type="button" class="mob-ts-filter-btn" id="cust-filter-btn" onclick="toggleCustDrawer()">
+            <i class="fa fa-sliders"></i>
+            <span class="mob-ts-filter-badge" id="cust-filter-badge"></span>
+        </button>
+    </div>
+</div>
+@endsection
+
 @section('content')
 <style>
-    /* კომპაქტური სტილები */
     .app-container { font-size: 0.85rem !important; }
     .table { font-size: 0.82rem !important; }
     .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
     .form-control-sm, .form-select-sm { font-size: 0.82rem; }
-    
-    /* DataTables Pagination-ის გასწორება Bootstrap 5-ისთვის */
     .dataTables_wrapper .dataTables_paginate .paginate_button {
-        padding: 0 !important;
-        margin-left: 2px !important;
-        border: none !important;
+        padding: 0 !important; margin-left: 2px !important; border: none !important;
     }
     .page-link { padding: 0.3rem 0.6rem !important; font-size: 0.8rem !important; }
-    
-    /* ვალიდაციის სტილი */
-    .was-validated .form-control:invalid, .was-validated .form-select:invalid {
-        border-color: #dc3545 !important;
-    }
+    .was-validated .form-control:invalid, .was-validated .form-select:invalid { border-color: #dc3545 !important; }
     .invalid-feedback { font-size: 0.75rem; }
+
+    @media (max-width: 767px) {
+        /* hide desktop toolbar — search and city filter move to topbar/drawer */
+        .mod-toolbar { display: none !important; }
+    }
 </style>
+
+{{-- Mobile filter drawer --}}
+<div class="mob-drawer" id="cust-filter-drawer">
+    <div class="mob-drawer-header">
+        <span class="mob-drawer-title"><i class="fa fa-sliders" style="font-size:12px;margin-right:7px;opacity:.6;"></i>ფილტრები</span>
+        <button type="button" class="mob-drawer-close" onclick="toggleCustDrawer()"><i class="fa fa-xmark"></i></button>
+    </div>
+    <div class="mob-drawer-body">
+        <div>
+            <div class="mob-drawer-label">ქალაქი</div>
+            <select id="mob-filter-city">
+                <option value="">— ყველა ქალაქი —</option>
+                @foreach($cities as $city)
+                    <option value="{{ $city->id }}">{{ $city->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div>
+            <div class="mob-drawer-label">ჩანაწერების რაოდენობა</div>
+            <select id="mob-dt-page-length">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+    </div>
+</div>
+<div class="mob-drawer-backdrop" id="cust-filter-backdrop" onclick="toggleCustDrawer()"></div>
 
 <div class="mod-wrap">
 
@@ -111,8 +149,37 @@ var table = $('#customer-table').DataTable({
 
 $('#dt-search').on('keyup', function() { table.search(this.value).draw(); });
 $('#dt-page-length').on('change', function() { table.page.len(this.value).draw(); });
-
 $('#filter_city').change(function() { table.draw(); });
+
+/* ── MOBILE topbar search + filter drawer ── */
+$('#mob-cust-search').on('input', function() {
+    table.search(this.value).draw();
+    $('#dt-search').val(this.value);
+});
+
+function toggleCustDrawer() {
+    var drawer = $('#cust-filter-drawer');
+    var isOpen = drawer.hasClass('open');
+    drawer.toggleClass('open', !isOpen);
+    $('#cust-filter-backdrop').toggleClass('show', !isOpen);
+    $('#cust-filter-btn').toggleClass('active', !isOpen);
+    $('body').css('overflow', isOpen ? '' : 'hidden');
+}
+
+function updateCustFilterBadge() {
+    var count = $('#mob-filter-city').val() ? 1 : 0;
+    $('#cust-filter-badge').text(count || '');
+    $('#cust-filter-btn').toggleClass('has-active', count > 0);
+}
+
+$('#mob-filter-city').on('change', function() {
+    $('#filter_city').val($(this).val()).trigger('change');
+    updateCustFilterBadge();
+});
+$('#mob-dt-page-length').on('change', function() {
+    table.page.len($(this).val()).draw();
+    $('#dt-page-length').val($(this).val());
+});
 
 function addForm() {
     save_method = "add";
