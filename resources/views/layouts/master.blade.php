@@ -298,14 +298,18 @@
             .mod-card .table-responsive { overflow: visible !important; }
 
             /* ── thead hidden ── */
-            .mod-card table.dataTable thead { display: none !important; }
+            .mod-card table.dataTable thead,
+            .po-table-card table.dataTable thead { display: none !important; }
 
             /* ── tbody: no table layout ── */
             .mod-card table.dataTable,
-            .mod-card table.dataTable tbody { display: block !important; width: 100% !important; }
+            .mod-card table.dataTable tbody,
+            .po-table-card table.dataTable,
+            .po-table-card table.dataTable tbody { display: block !important; width: 100% !important; }
 
             /* ── Each row = card ── */
-            .mod-card table.dataTable tbody tr {
+            .mod-card table.dataTable tbody tr,
+            .po-table-card table.dataTable tbody tr {
                 display: block !important;
                 background: #fff !important;
                 border-radius: 12px !important;

@@ -658,6 +658,121 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   .po-stats { gap: 6px; }
   .po-stat-value { font-size: 15px; }
 }
+
+/* ══════════════════════════════════════════════════════════
+   MOBILE CARD VIEW  ≤767px
+══════════════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+
+  /* ── page padding ── */
+  .po-page { padding: 0 !important; }
+  .po-wrap { padding: 10px 10px 70px !important; }
+  .po-stats { grid-template-columns: repeat(2,1fr); gap: 8px; margin-bottom: 10px; }
+
+  /* ── header ── */
+  .po-page .mod-header { padding: 12px 0 10px; gap: 8px; }
+  .po-page .mod-title { font-size: 18px; }
+  .po-page .mod-actions { width: 100%; justify-content: flex-end; }
+
+  /* ── filter bar compact ── */
+  .po-filter-bar { gap: 5px; padding: 8px 10px; }
+  .po-filter-bar .form-control,
+  .po-filter-bar .form-select { font-size: 13px !important; height: 36px; }
+
+  /* ── table card container ── */
+  .po-table-card .table-responsive { overflow: visible !important; }
+
+  /* ── table → block layout ── */
+  #products-out-table            { display: block !important; width: 100% !important; }
+  #products-out-table thead      { display: none !important; }
+  #products-out-table tbody      { display: block !important; }
+  #products-out-table tfoot      { display: none !important; }
+
+  /* ── each row = card ── */
+  #products-out-table tbody tr {
+    display: block !important;
+    background: var(--c-surface) !important;
+    border-radius: var(--r-md) !important;
+    margin: 0 0 8px !important;
+    box-shadow: var(--sh-sm) !important;
+    border: 1px solid var(--c-border-md) !important;
+    overflow: hidden;
+    transition: box-shadow var(--t-base);
+  }
+  #products-out-table tbody tr:hover {
+    box-shadow: var(--sh-md) !important;
+  }
+
+  /* ── each cell = flex row ── */
+  #products-out-table tbody td {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 12px !important;
+    border: none !important;
+    border-bottom: 1px solid var(--c-border) !important;
+    font-size: 13px;
+    min-height: 42px;
+    vertical-align: middle !important;
+  }
+  #products-out-table tbody td:last-child { border-bottom: none !important; }
+
+  /* ── data-label ── */
+  #products-out-table tbody td[data-label]::before {
+    content: attr(data-label);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--c-text-3);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    flex-shrink: 0;
+    margin-right: 10px;
+    min-width: 68px;
+  }
+
+  /* ── checkbox col: hide on mobile ── */
+  #products-out-table tbody td.td-mob-hide { display: none !important; }
+
+  /* ── actions cell: right-aligned, no label ── */
+  #products-out-table tbody td.td-actions {
+    justify-content: flex-end !important;
+    gap: 6px;
+    background: var(--c-surface2);
+    padding: 8px 12px !important;
+    flex-wrap: wrap;
+  }
+  #products-out-table tbody td.td-actions::before { display: none !important; }
+
+  /* ── Responsive child row (DataTables) ── */
+  #products-out-table tbody tr.child td {
+    background: var(--c-surface2) !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+  #products-out-table tbody tr.child ul.dtr-details {
+    margin: 0 !important; padding: 6px 12px 10px !important; list-style: none;
+  }
+  #products-out-table tbody tr.child ul.dtr-details li {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 5px 0; border-bottom: 1px solid var(--c-border); font-size: 12.5px;
+  }
+  #products-out-table tbody tr.child ul.dtr-details li:last-child { border-bottom: none; }
+  #products-out-table tbody tr.child ul.dtr-details span.dtr-title {
+    font-size: 10px; font-weight: 700; color: var(--c-text-3);
+    text-transform: uppercase; letter-spacing: .5px; min-width: 68px; flex-shrink: 0;
+  }
+
+  /* ── group/expand child rows ── */
+  #products-out-table tbody tr.po-child-row td {
+    display: block !important;
+    padding: 8px 10px !important;
+    background: var(--c-surface2) !important;
+  }
+
+  /* ── DataTables pagination compact ── */
+  .dataTables_wrapper .dataTables_paginate { padding: 8px 10px !important; }
+  .dataTables_info { font-size: 11px !important; padding: 6px 10px !important; }
+}
 </style>
 @endsection
 
@@ -1370,13 +1485,20 @@ var table = $('#products-out-table').DataTable({
     pageLength: 100,
     language: { info: '_START_–_END_ / _TOTAL_', paginate: { previous: '‹', next: '›' } },
     createdRow: function(row, data) {
-        if (data.is_primary && data.children_count > 1) { $(row).addClass('po-group-row'); return; }
-        if (data.status_id == 6) { $(row).addClass('po-row-exchanged'); return; }
-        if (data.status_id == 5) { $(row).addClass('po-row-returned');  return; }
-        if (data.original_sale_id) { $(row).addClass('po-row-change'); return; }
+        if (data.is_primary && data.children_count > 1) { $(row).addClass('po-group-row'); }
+        if (data.status_id == 6) { $(row).addClass('po-row-exchanged'); }
+        if (data.status_id == 5) { $(row).addClass('po-row-returned');  }
+        if (data.original_sale_id) { $(row).addClass('po-row-change'); }
         var geo  = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
         var paid = parseFloat(data.paid_tbc || 0) + parseFloat(data.paid_bog || 0) + parseFloat(data.paid_lib || 0) + parseFloat(data.paid_cash || 0);
         if ((geo - paid) > 0.01) { $(row).addClass('po-row-debt'); }
+        // mobile data-labels
+        var labels = ['', '', '', 'პროდუქტი', 'კლიენტი', 'ფინანსები', 'თარიღი', ''];
+        $('td', row).each(function(i) {
+            if (labels[i]) $(this).attr('data-label', labels[i]);
+            if (i === 0)   $(this).addClass('td-mob-hide');
+            if (i === 7)   $(this).addClass('td-actions');
+        });
     },
 });
 
