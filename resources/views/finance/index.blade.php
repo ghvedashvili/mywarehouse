@@ -350,7 +350,7 @@
         <div class="kpi-card" style="--accent: var(--purple);">
             <div class="kpi-label">🔄 გაცვლა</div>
             <div class="kpi-value" id="kpi-change-count">{{ $stats['change_count'] }}</div>
-            <div class="kpi-sub">ხარჯი ჩართულია გასავალში</div>
+            <div class="kpi-sub" id="kpi-exchange-expense" style="color:var(--red);">{{ number_format($stats['exchange_expense'],2) }} ₾ ხარჯი</div>
         </div>
         <div class="kpi-card kpi-expandable" style="--accent: var(--blue);" onclick="toggleKpiCard(this)">
             <div class="kpi-label">💵 შემოსავალი (სულ)</div>
@@ -1000,7 +1000,8 @@ function updateUI(s) {
     document.getElementById('kpi-sale-count').textContent   = s.sale_count;
     document.getElementById('kpi-return-count').textContent  = s.return_count;
     document.getElementById('kpi-return-amount').textContent = fmt(s.return_amount);
-    document.getElementById('kpi-change-count').textContent  = s.change_count;
+    document.getElementById('kpi-change-count').textContent    = s.change_count;
+    document.getElementById('kpi-exchange-expense').textContent = fmt(s.exchange_expense) + ' ₾ ხარჯი';
 
     // ── შემოსავალი ──────────────────────────────────────────────────
     document.getElementById('kpi-total-rev').textContent = fmt(s.total_revenue);
