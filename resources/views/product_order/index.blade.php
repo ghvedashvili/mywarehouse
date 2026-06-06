@@ -726,12 +726,12 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     border-bottom: 1px solid var(--c-border-md) !important;
   }
 
-  /* ── 2. PRODUCT: photo circle on right, text left ── */
+  /* ── 2. PRODUCT: photo on right, text left ── */
   #products-out-table tbody td.td-product {
     display: block !important;
     grid-column: 1 / -1;
     grid-row: 2;
-    padding: 10px 12px 6px !important;
+    padding: 8px 12px 5px !important;
     border-bottom: none !important;
   }
   #products-out-table tbody td.td-product .po-product-cell {
@@ -770,16 +770,16 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     display: block !important;
     order: 2;
     flex-shrink: 0;
-    width: 80px !important;
-    height: 80px !important;
+    width: 68px !important;
+    height: 68px !important;
     border-radius: var(--r-sm) !important;
     overflow: hidden;
     border: 1px solid var(--c-border-md);
-    margin-top: 2px;
+    margin-top: 1px;
   }
   #products-out-table tbody td.td-product .po-product-thumb img {
-    width: 80px !important;
-    height: 80px !important;
+    width: 68px !important;
+    height: 68px !important;
     object-fit: cover !important;
     border-radius: 0 !important;
     display: block !important;
@@ -798,16 +798,56 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   /* ── mob-customer: shown inside product cell ── */
   .mob-customer {
     display: block !important;
-    margin-top: 6px;
-    padding-top: 6px;
+    margin-top: 5px;
+    padding-top: 5px;
     border-top: 1px solid var(--c-border-md);
     font-size: 11.5px;
     color: var(--c-text-2);
-    line-height: 1.4;
+    line-height: 1.35;
   }
   .mob-customer hr { display: none !important; }
   .mob-customer strong { font-size: 12px; color: var(--c-text-1); }
-  .mob-customer small  { font-size: 11px; display: block; }
+  .mob-customer small  { font-size: 10.5px; display: block; }
+
+  /* ── mob-children: accordion inside parent card ── */
+  .mob-children {
+    margin-top: 8px;
+    border-top: 1px solid var(--c-border-md);
+    padding-top: 6px;
+  }
+  .mob-child-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--c-border);
+  }
+  .mob-child-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .mob-ci-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+  .mob-ci-thumb {
+    width: 36px; height: 36px;
+    border-radius: 6px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .mob-ci-thumb img {
+    width: 36px !important; height: 36px !important;
+    object-fit: cover !important;
+    display: block !important;
+    padding: 0 !important; border: none !important;
+  }
+  .mob-ci-info { flex: 1; min-width: 0; }
+  .mob-ci-top  { display: flex; align-items: center; gap: 5px; margin-bottom: 2px; }
+  .mob-ci-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mob-ci-fin  { font-size: 11px; color: var(--c-text-2); margin-top: 1px; }
+  .mob-ci-actions { display: flex; gap: 3px; flex-shrink: 0; flex-wrap: wrap; }
 
   /* ── footer: DATE left, ACTIONS right ── */
   #products-out-table tbody td.td-date {
@@ -848,28 +888,50 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   .mob-fin-disc  { color: #8e44ad; font-size: 11px; }
   .mob-fin-net   { color: var(--c-text-2); font-size: 11px; }
 
-  /* ── child / expandable rows ── */
-  #products-out-table tbody tr.child { display: block !important; }
-  #products-out-table tbody tr.child td {
-    display: block !important; grid-column: 1 / -1;
+  /* ── child rows (expanded group members) ── */
+  #products-out-table tbody tr.po-child-row {
+    display: block !important;
     background: var(--c-surface2) !important;
-    padding: 0 !important; border: none !important;
-  }
-  #products-out-table tbody tr.child ul.dtr-details {
-    margin: 0 !important; padding: 6px 12px 10px !important; list-style: none;
-  }
-  #products-out-table tbody tr.child ul.dtr-details li {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 5px 0; border-bottom: 1px solid var(--c-border); font-size: 12.5px;
-  }
-  #products-out-table tbody tr.child ul.dtr-details li:last-child { border-bottom: none; }
-  #products-out-table tbody tr.child ul.dtr-details span.dtr-title {
-    font-size: 10px; font-weight: 700; color: var(--c-text-3);
-    text-transform: uppercase; letter-spacing: .5px; min-width: 68px; flex-shrink: 0;
+    border-top: 1px dashed var(--c-border-md) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
   }
   #products-out-table tbody tr.po-child-row td {
-    display: block !important; grid-column: 1 / -1;
-    padding: 8px 10px !important; background: var(--c-surface2) !important;
+    display: block !important;
+    grid-column: 1 / -1;
+    padding: 8px 12px 8px 20px !important;
+    background: transparent !important;
+    border: none !important;
+  }
+  /* override the inline fixed-width grid inside child td */
+  #products-out-table tbody tr.po-child-row td > div {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 5px !important;
+    grid-template-columns: unset !important;
+  }
+  /* child: order info row */
+  #products-out-table tbody tr.po-child-row td > div > div:nth-child(1) {
+    font-size: 12px;
+  }
+  /* child: product (thumb + name) */
+  #products-out-table tbody tr.po-child-row td > div > div:nth-child(2) {
+    font-size: 12px;
+  }
+  /* child: payment */
+  #products-out-table tbody tr.po-child-row td > div > div:nth-child(3) {
+    font-size: 12px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* child: date — show inline before actions */
+  #products-out-table tbody tr.po-child-row td > div > div:nth-child(4) {
+    font-size: 11px; color: var(--c-text-3);
+  }
+  /* child: actions */
+  #products-out-table tbody tr.po-child-row td > div > div:nth-child(5) {
+    display: flex !important; flex-direction: row !important;
+    flex-wrap: wrap; gap: 4px;
   }
 
   /* ── pagination compact ── */
@@ -2605,9 +2667,69 @@ $(document).on('click', '.expand-btn', function() {
     var btn = $(this); var parentId = btn.data('id');
     var allOrders = (window._childrenStore || {})[parentId] || [];
     var parentRow = btn.closest('tr');
-    if (btn.hasClass('open')) { btn.removeClass('open'); $('tr.child-row-'+parentId).remove(); window._openParentIds.delete(parentId); return; }
+    var isMobile = window.innerWidth <= 767;
+
+    if (btn.hasClass('open')) {
+        btn.removeClass('open');
+        window._openParentIds.delete(parentId);
+        if (isMobile) {
+            parentRow.find('.mob-children').slideUp(150, function(){ $(this).remove(); });
+        } else {
+            $('tr.child-row-'+parentId).remove();
+        }
+        return;
+    }
     btn.addClass('open'); window._openParentIds.add(parentId);
     if (!allOrders || allOrders.length === 0) return;
+
+    // ── MOBILE: accordion inside the card ──────────────────────
+    if (isMobile) {
+        var mobHtml = '<div class="mob-children">';
+        allOrders.forEach(function(order) {
+            var thumbHtml = '';
+            if (order.product_image) {
+                var decoded = $('<textarea/>').html(order.product_image).text();
+                thumbHtml = '<div class="mob-ci-thumb" style="cursor:zoom-in;" onclick="var s=$(this).find(\'img\').attr(\'src\');if(s){$(\'#preview-img-full\').attr(\'src\',s);$(\'#modal-image-preview\').modal(\'show\');}">'+decoded+'</div>';
+            }
+            var chOrig = parseFloat(order.price_georgia||0);
+            var chDisc = parseFloat(order.discount||0);
+            var chGeo  = chOrig - chDisc;
+            var chPaid = parseFloat(order.paid_tbc||0)+parseFloat(order.paid_bog||0)+parseFloat(order.paid_lib||0)+parseFloat(order.paid_cash||0);
+            var chDiff = chGeo - chPaid;
+            var chPct  = chGeo > 0 ? Math.min(chPaid/chGeo,1) : 1;
+            var chTag  = chDiff <= 0.01
+                ? '<span style="color:var(--c-green);"><i class="fa fa-check" style="font-size:9px;"></i> გადახდ.</span>'
+                : '<span style="color:var(--c-red);font-weight:700;">−'+chDiff.toFixed(2)+'₾</span>';
+            var chPayClass = chDiff <= 0.01 ? 'po-pay-paid' : (chPct > 0 ? 'po-pay-partial' : 'po-pay-debt');
+            window._payComments = window._payComments || {};
+            window._payComments[order.id] = order.payment_comment || '';
+            var actHtml = '';
+            if (order.is_admin) actHtml += '<a onclick="openPayModal('+order.id+','+(order.price_georgia||0)+','+(order.discount||0)+','+(order.paid_tbc||0)+','+(order.paid_bog||0)+','+(order.paid_lib||0)+','+(order.paid_cash||0)+')" class="btn btn-xs '+chPayClass+'" title="გადახდა"><i class="fa fa-credit-card"></i></a>';
+            actHtml += '<a onclick="splitFromGroup('+order.id+')" class="btn btn-xs btn-warning" title="გამოყოფა"><i class="fa fa-scissors"></i></a>';
+            if (order.can_edit) {
+                actHtml += '<a onclick="editForm('+order.id+')" class="btn btn-xs btn-primary" title="რედ."><i class="fa fa-pen"></i></a>';
+                if (order.status_id != 4) actHtml += '<a onclick="deleteData('+order.id+')" class="btn btn-xs btn-danger" title="წაშლა"><i class="fa fa-trash"></i></a>';
+            }
+            var statusBadge = '<span class="label label-'+order.status_color+'" style="font-size:10px;">'+order.status_name+'</span>';
+            mobHtml += '<div class="mob-child-item">'
+                + '<div class="mob-ci-left">'
+                + thumbHtml
+                + '<div class="mob-ci-info">'
+                + '<div class="mob-ci-top"><span class="po-order-num" style="font-size:11px;">'+(order.order_number||'S'+order.id)+'</span> '+statusBadge+'</div>'
+                + '<div class="mob-ci-name">'+(order.product_name||'')+(order.product_size ? ' · <span class="label label-info" style="font-size:10px;">'+order.product_size+'</span>' : '')+'</div>'
+                + '<div class="mob-ci-fin"><span style="font-weight:700;">'+chOrig.toFixed(2)+'₾</span>'+(chDisc>0.01 ? ' <span style="color:#8e44ad;font-size:10px;">🏷️−'+chDisc.toFixed(2)+'₾</span>' : '')+' '+chTag+'</div>'
+                + '</div>'
+                + '</div>'
+                + '<div class="mob-ci-actions">'+actHtml+'</div>'
+                + '</div>';
+        });
+        mobHtml += '</div>';
+        parentRow.find('.td-order').append(mobHtml);
+        parentRow.find('.mob-children').hide().slideDown(180);
+        return;
+    }
+
+    // ── DESKTOP: insert rows after parent ──────────────────────
     var totalCols = columns.length; var rowsHtml = '';
     allOrders.forEach(function(order) {
         var orderNo = order.order_number || ('S'+order.id);
