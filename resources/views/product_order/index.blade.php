@@ -2378,7 +2378,7 @@ $(document).on('click', '.expand-btn', function() {
             thumbHtml = '<div class="po-product-thumb" style="width:36px;height:36px;flex-shrink:0;cursor:zoom-in;" onclick="var s=$(this).find(\'img\').attr(\'src\');if(s){$(\'#preview-img-full\').attr(\'src\',s);$(\'#modal-image-preview\').modal(\'show\');}">'+decoded+'</div>';
         }
         var pairIcon = order.is_paired ? ' <i class="fa fa-link" style="color:#198754;font-size:9px;" title="კომპლექტი შედგა"></i>' : '';
-        var colB = '<div style="display:flex;align-items:center;gap:8px;">'+thumbHtml+'<div style="font-size:12px;line-height:1.4;"><div style="font-weight:600;color:var(--c-text-1);">'+(order.product_name||'')+'</div>'+(order.product_size ? '<span class="label label-info" style="font-size:10px;">'+order.product_size+'</span>' : '')+pairIcon+'</div></div>';
+        var colB = '<div style="display:flex;align-items:center;gap:8px;">'+thumbHtml+'<div style="font-size:12px;line-height:1.4;"><div style="font-weight:600;color:var(--c-text-1);">'+(order.product_name||'')+'</div>'+(order.product_code ? '<div><small style="color:var(--c-text-3);font-size:10px;">'+order.product_code+'</small></div>' : '')+(order.product_size ? '<span class="label label-info" style="font-size:10px;">'+order.product_size+'</span>' : '')+pairIcon+'</div></div>';
         var chOrig = parseFloat(order.price_georgia||0);
         var chDisc = parseFloat(order.discount||0);
         var chGeo  = chOrig - chDisc;
