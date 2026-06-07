@@ -87,6 +87,9 @@
         font-size: 14px; color: var(--prd-text-1); font-family: inherit;
     }
     .prd-mob-search input::placeholder { color: var(--prd-text-3); font-size: 13px; }
+    /* filter btn — no color change, only badge appears */
+    #prd-filter-btn.active, #prd-filter-btn.has-active { color: inherit !important; background: transparent !important; }
+    #prd-filter-btn.has-active .mob-ts-filter-badge { display: flex !important; }
 
     /* ── Inline filter panel (drops below search bar) ── */
     @keyframes prdPanelIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
