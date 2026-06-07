@@ -291,7 +291,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   border: 1px solid var(--c-border);
   border-radius: var(--r-lg);
   padding: 10px 12px;
-  display: flex;
+  /* display: flex; */
   align-items: center;
   flex-wrap: wrap;
   gap: 7px;
@@ -340,7 +340,6 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 .po-filter-adv { display: contents; }
 .mob-adv-header { display: none; }
 .mob-adv-body { display: contents; }
-#mob-filter-backdrop { display: none; }
 .mob-action-bar { display: none; }
 .mob-adv-date-section { display: none; }
 .mob-filter-badge {
@@ -743,10 +742,18 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   .mab-icon  { background: var(--c-surface); border-color: var(--c-border-md); color: var(--c-text-2); padding: 7px 10px; }
   /* visual group separator */
   .mab-sep { width: 1px; height: 20px; background: var(--c-border-md); flex-shrink: 0; }
-  /* hide toggles + action buttons from filter panel on mobile */
-  .mob-adv-body .po-toggle-wrap,
+  /* hide action buttons from filter panel on mobile */
   .mob-adv-body #btn-send-all-courier,
   .mob-adv-body #btn-sent-report { display: none !important; }
+  /* switcher rows in filter panel */
+  .mob-adv-body .po-toggle-wrap {
+    display: flex !important; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-top: 1px solid rgba(99,115,150,.15);
+    font-size: 13px; color: #475569;
+  }
+  .mob-adv-body .po-toggle-wrap label { font-weight: 600; cursor: pointer; margin: 0; }
+  /* hide ready toggle from mobile panel — checkbox stays in DOM for JS */
+  .mob-adv-body .po-ready-wrap { display: none !important; }
 
   /* ── FILTER BAR MOBILE ── */
   .po-filter-bar {
@@ -809,9 +816,9 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     font-size: 12px !important; padding: 6px 14px !important;
     touch-action: manipulation; -webkit-tap-highlight-color: transparent;
   }
-  /* filter button active state (has filters applied) */
-  .mob-ts-filter-btn.has-active { background: var(--c-blue) !important; color: #fff !important; }
-  .mob-ts-filter-btn.has-active .mob-ts-filter-badge { background: #fff !important; color: var(--c-blue) !important; }
+  /* filter btn — no color change, only badge appears */
+  #mob-ts-filter-btn.active, #mob-ts-filter-btn.has-active { color: inherit !important; background: transparent !important; }
+  #mob-ts-filter-btn.has-active .mob-ts-filter-badge { display: flex !important; }
   /* Custom dates */
   .po-custom-dates.show {
     flex-wrap: wrap !important; margin-top: 8px; width: 100%;
@@ -819,22 +826,16 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     border-radius: 14px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.07);
   }
   .po-custom-dates.show input[type=date] { flex: 1 !important; width: auto !important; min-width: 100px !important; }
-  /* Backdrop — invisible, only catches outside-tap to close */
-  #mob-filter-backdrop {
-    display: none; position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    z-index: 8997; background: transparent;
-  }
-  #mob-filter-backdrop.show { display: block; }
   /* Top-down filter panel — drops below the filter bar */
   .po-filter-adv { display: none !important; }
   .po-filter-adv.open {
     display: flex !important; flex-direction: column;
     position: absolute !important;
-    top: 100%; left: 0; right: 0; z-index: 8998;
-    background: var(--c-surface);
-    border-radius: 0 0 14px 14px;
-    box-shadow: 0 6px 28px rgba(0,0,0,.16);
+    top: calc(100% + 6px); left: 0; right: 0; z-index: 200;
+    background: #fff;
+    border: 1px solid rgba(99,115,150,.20);
+    border-radius: 14px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.12);
     max-height: 70vh;
     overflow-y: auto; -webkit-overflow-scrolling: touch;
     animation: poSlideDownPanel .2s ease;
@@ -1236,13 +1237,6 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
         <button type="button" class="mab-btn mab-cond-green" id="mob-qr-send-all" onclick="sendAllReadyToCourier()" style="display:none;">
             <i class="fa fa-paper-plane"></i> ყველა გაგზ.
         </button>
-        <button type="button" class="mab-btn mab-toggle" id="mob-qr-deleted" onclick="mobQrToggle('deleted')">
-            <i class="fa fa-coins"></i> დავ.
-        </button>
-        <button type="button" class="mab-btn mab-toggle" id="mob-qr-show-deleted" onclick="mobQrToggle('show-deleted')">
-            <i class="fa fa-trash"></i> წაშ.
-        </button>
-
         <button type="button" class="mab-btn mab-primary" id="mob-btn-merge" onclick="mergeSelected()" style="display:none;">
             <i class="fa fa-link"></i> გაერთ.
         </button>
@@ -1356,17 +1350,6 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
             </div>
             <div class="mob-adv-body">
             {{-- Mobile-only: date period filter at top of drawer --}}
-            <div class="mob-adv-date-section">
-                <div class="mob-adv-date-label">თარიღი</div>
-                <div class="mob-adv-period-pills">
-                    <button class="po-pill active" data-period="all">ყველა</button>
-                    <button class="po-pill" data-period="today">დღეს</button>
-                    <button class="po-pill" data-period="week">კვირა</button>
-                    <button class="po-pill" data-period="month">თვე</button>
-                    <button class="po-pill" data-period="custom">Custom</button>
-                </div>
-            </div>
-            <div class="po-filter-sep"></div>
             <div style="position:relative;" id="po-status-wrap">
                 <button id="status-filter-btn" type="button" class="po-select" style="cursor:pointer;min-width:130px;text-align:left;display:flex;align-items:center;gap:6px;">
                     <i class="fa fa-filter" style="font-size:9px;opacity:.5;"></i>
@@ -1401,7 +1384,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                 <option value="-1">ყველა</option>
             </select>
             <div class="po-filter-sep"></div>
-            <div class="po-toggle-wrap">
+            <div class="po-toggle-wrap po-ready-wrap">
                 <label for="toggle-ready-ship" style="color:#16a34a;font-weight:700;"><i class="fa fa-truck" style="font-size:10px;"></i> მზად</label>
                 <div class="form-check form-switch mb-0">
                     <input class="form-check-input" type="checkbox" id="toggle-ready-ship" role="switch" style="cursor:pointer;">
@@ -1420,13 +1403,13 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                 </div>
             </div>
             <div class="po-toggle-wrap">
-                <label for="toggle-deleted">დავ.</label>
+                <label for="toggle-deleted"><i class="fa fa-coins" style="font-size:10px;opacity:.7;margin-right:4px;"></i>დავალიანება</label>
                 <div class="form-check form-switch mb-0">
                     <input class="form-check-input" type="checkbox" id="toggle-deleted" role="switch" style="cursor:pointer;">
                 </div>
             </div>
             <div class="po-toggle-wrap">
-                <label for="toggle-show-deleted">წაშ.</label>
+                <label for="toggle-show-deleted"><i class="fa fa-trash" style="font-size:10px;opacity:.7;margin-right:4px;"></i>წაშლილები</label>
                 <div class="form-check form-switch mb-0">
                     <input class="form-check-input" type="checkbox" id="toggle-show-deleted" role="switch" style="cursor:pointer;">
                 </div>
@@ -1434,7 +1417,6 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
             </div>{{-- /mob-adv-body --}}
         </div>{{-- /po-filter-adv --}}
     </div>
-
     {{-- ── BULK BAR ── --}}
     <div class="po-bulk-bar" id="po-bulk-bar" style="display:none;">
         <i class="fa fa-check-square" style="font-size:13px;"></i>
@@ -3492,9 +3474,7 @@ $('#comment-edit-save').on('click', function() {
 /* ── MOBILE QUICK-ROW TOGGLES ── */
 function mobQrToggle(type) {
     var map = {
-        'ready':        { btn: '#mob-qr-ready',        cls: 'on-green', cb: '#toggle-ready-ship' },
-        'deleted':      { btn: '#mob-qr-deleted',      cls: 'on-amber', cb: '#toggle-deleted' },
-        'show-deleted': { btn: '#mob-qr-show-deleted', cls: 'on-red',   cb: '#toggle-show-deleted' }
+        'ready': { btn: '#mob-qr-ready', cls: 'on-green', cb: '#toggle-ready-ship' }
     };
     var m = map[type]; if (!m) return;
     var isOn = !$(m.btn).hasClass(m.cls);
@@ -3502,14 +3482,20 @@ function mobQrToggle(type) {
     $(m.cb).prop('checked', isOn).trigger('change');
 }
 
-/* ── MOBILE FILTER DRAWER ── */
+/* ── MOBILE FILTER PANEL ── */
 function toggleMobFilter() {
     var adv = $('#po-filter-adv');
     var isOpen = adv.hasClass('open');
     adv.toggleClass('open', !isOpen);
-    $('#mob-filter-backdrop').toggleClass('show', !isOpen);
-    $('body').css('overflow', isOpen ? '' : 'hidden');
+    $('#mob-ts-filter-btn').toggleClass('active', !isOpen);
 }
+
+$(document).on('click', function(e) {
+    if (!$(e.target).closest('.po-filter-bar').length) {
+        $('#po-filter-adv').removeClass('open');
+        $('#mob-ts-filter-btn').removeClass('active');
+    }
+});
 
 function updateMobFilterBadge() {
     var count = 0;
