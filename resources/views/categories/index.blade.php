@@ -30,18 +30,6 @@
     --cat-r-md:       12px;
     --cat-sh-sm:      0 2px 8px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.03);
 }
-@media (prefers-color-scheme: dark) {
-    :root {
-        --cat-surface:    #131720;
-        --cat-surface2:   #191e2b;
-        --cat-border:     rgba(148,163,184,.14);
-        --cat-text-1:     #f0f4ff;
-        --cat-text-2:     #94a3b8;
-        --cat-text-3:     #64748b;
-        --cat-blue:       #3b82f6;
-        --cat-sh-sm:      0 2px 8px rgba(0,0,0,.3), 0 0 0 1px rgba(255,255,255,.03);
-    }
-}
 
 /* ── Toggle switch ── */
 .switch { position: relative; display: inline-block; width: 46px; height: 24px; margin: 0; }
