@@ -700,9 +700,13 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   /* ── Mobile action bar ── */
   .po-page .mod-actions { display: none !important; }
   .mob-action-bar {
-    display: flex !important; flex-wrap: wrap; align-items: center;
+    display: flex !important; flex-wrap: nowrap; align-items: center;
     gap: 6px; padding: 2px 0 12px;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
+  .mob-action-bar::-webkit-scrollbar { display: none; }
+  .mab-sep { flex-shrink: 0; }
   /* base chip */
   .mab-btn {
     display: inline-flex; align-items: center; gap: 5px;
@@ -710,6 +714,8 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     font-size: 12.5px; font-weight: 600; line-height: 1;
     padding: 7px 13px; border-radius: 22px; border: 1.5px solid transparent;
     transition: background .15s, border-color .15s, color .15s, transform .1s;
+    touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+    flex-shrink: 0;
   }
   .mab-btn:active { transform: scale(.93); }
   .mab-btn > i { font-size: 10px; flex-shrink: 0; }
@@ -784,7 +790,10 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     padding: 8px 10px;
   }
   .po-filter-pills-row .po-pill-group::-webkit-scrollbar { display: none; }
-  .po-filter-pills-row .po-pill { font-size: 12px !important; padding: 5px 12px !important; }
+  .po-filter-pills-row .po-pill { font-size: 12px !important; padding: 5px 12px !important; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  /* filter button active state (has filters applied) */
+  .mob-ts-filter-btn.has-active { background: var(--c-blue) !important; color: #fff !important; }
+  .mob-ts-filter-btn.has-active .mob-ts-filter-badge { background: #fff !important; color: var(--c-blue) !important; }
   /* Custom dates */
   .po-custom-dates.show {
     flex-wrap: wrap !important; margin-top: 8px; width: 100%;
@@ -1828,7 +1837,7 @@ var columns = [
     {
         data: null, orderable: false, searchable: false, responsivePriority: 3,
         render: function(data) {
-            var photo = data.show_photo ? '<div class="po-product-thumb">'+data.show_photo+'</div>' : '';
+            var photo = data.show_photo ? '<div class="po-product-thumb">'+data.show_photo.replace(/<img /g,'<img loading="lazy" ')+'</div>' : '';
             // mobile-only finance line
             var orig = parseFloat(data.price_georgia || 0);
             var disc = parseFloat(data.discount || 0);
@@ -1940,7 +1949,9 @@ var table = $('#products-out-table').DataTable({
 });
 
 $('#dt-page-length').on('change', function() { table.page.len(parseInt($(this).val())).draw(); });
-$('#dt-search').on('input', function() { table.search($(this).val()).draw(); });
+(function() {
+    var _st; $('#dt-search').on('input', function() { clearTimeout(_st); var v=$(this).val(); _st=setTimeout(function(){ table.search(v).draw(); },300); });
+})();
 
 // შესყიდვებიდან ?search= პარამეტრი
 (function() {
@@ -2977,7 +2988,7 @@ $(document).on('click', '.expand-btn', function() {
         allOrders.forEach(function(order) {
             var thumbHtml = '';
             if (order.product_image) {
-                var decoded = $('<textarea/>').html(order.product_image).text();
+                var decoded = $('<textarea/>').html(order.product_image).text().replace(/<img /g,'<img loading="lazy" ');
                 thumbHtml = '<div class="mob-ci-thumb" style="cursor:zoom-in;" onclick="var s=$(this).find(\'img\').attr(\'src\');if(s){$(\'#preview-img-full\').attr(\'src\',s);$(\'#modal-image-preview\').modal(\'show\');}">'+decoded+'</div>';
             }
             var chOrig = parseFloat(order.price_georgia||0);
@@ -3038,7 +3049,7 @@ $(document).on('click', '.expand-btn', function() {
             + commentHtml;
         var thumbHtml = '';
         if (order.product_image) {
-            var decoded = $('<textarea/>').html(order.product_image).text();
+            var decoded = $('<textarea/>').html(order.product_image).text().replace(/<img /g,'<img loading="lazy" ');
             thumbHtml = '<div class="po-product-thumb" style="width:36px;height:36px;flex-shrink:0;cursor:zoom-in;" onclick="var s=$(this).find(\'img\').attr(\'src\');if(s){$(\'#preview-img-full\').attr(\'src\',s);$(\'#modal-image-preview\').modal(\'show\');}">'+decoded+'</div>';
         }
         var pairIcon = order.is_paired ? ' <i class="fa fa-link" style="color:#198754;font-size:9px;" title="კომპლექტი შედგა"></i>' : '';
@@ -3376,7 +3387,7 @@ $(document).on('click', function(e) {
     if (!$(e.target).closest('#mab-export-wrap').length) $('#mab-export-menu').hide();
 });
 
-function loadPoStats() {
+var _statsTimer; function loadPoStats() { clearTimeout(_statsTimer); _statsTimer = setTimeout(_doLoadPoStats, 250); } function _doLoadPoStats() {
     var selected = []; $('.status-filter-check:checked').each(function() { selected.push($(this).val()); });
     var data = { date_from:$('#filter-date-from').val(), date_to:$('#filter-date-to').val() };
     if (selected.length)                          data['statuses[]'] = selected;
@@ -3405,7 +3416,7 @@ function loadPoStats() {
             $('#stat-ready').text(d.ready_to_ship||0);
         }
     });
-}
+}   // end _doLoadPoStats
 loadPoStats();
 
 function editComment(id) {
