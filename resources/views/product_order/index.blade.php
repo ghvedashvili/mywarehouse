@@ -114,6 +114,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   border: 1px solid var(--c-border-md) !important;
   border-radius: var(--r-md) !important;
   box-shadow: var(--sh-lg) !important;
+  z-index: 9999 !important;
 }
 
 /* ── HEADER ───────────────────────────────────────────────── */
@@ -340,6 +341,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 .mob-adv-header { display: none; }
 .mob-adv-body { display: contents; }
 #mob-filter-backdrop { display: none; }
+.mob-action-bar { display: none; }
 .mob-filter-badge {
     background: var(--c-blue); color: #fff;
     border-radius: 20px; font-size: 9.5px; font-weight: 700;
@@ -682,13 +684,62 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 @media (max-width: 767px) {
 
   /* ── page ── */
-  .po-page { padding: 0 !important; }
-  .po-wrap { padding: 8px 16px 70px !important; }
+  .po-page { padding: 6px 16px 70px !important; }
   .po-stats { grid-template-columns: repeat(2,1fr); gap: 8px; margin-bottom: 10px; }
-  .po-page .mod-header { padding: 12px 0 10px; gap: 8px; }
-  .po-page .mod-title { font-size: 18px; }
-  .po-page .mod-actions { width: 100%; justify-content: flex-end; }
+  .po-page .mod-header { display: none !important; }
+  .po-page .mod-actions { display: none !important; }
+  .po-table-card {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
   .po-table-card .table-responsive { overflow: visible !important; }
+
+  /* ── Mobile action bar ── */
+  .po-page .mod-actions { display: none !important; }
+  .mob-action-bar {
+    display: flex !important; flex-wrap: wrap; align-items: center;
+    gap: 6px; padding: 2px 0 12px;
+  }
+  /* base chip */
+  .mab-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    white-space: nowrap; cursor: pointer; font-family: inherit;
+    font-size: 12.5px; font-weight: 600; line-height: 1;
+    padding: 7px 13px; border-radius: 22px; border: 1.5px solid transparent;
+    transition: background .15s, border-color .15s, color .15s, transform .1s;
+  }
+  .mab-btn:active { transform: scale(.93); }
+  .mab-btn > i { font-size: 10px; flex-shrink: 0; }
+  /* primary */
+  .mab-primary {
+    background: var(--c-blue); border-color: var(--c-blue); color: #fff;
+    box-shadow: 0 2px 10px rgba(37,99,235,.28);
+  }
+  /* toggle — off */
+  .mab-toggle {
+    background: var(--c-surface); border-color: var(--c-border-md); color: var(--c-text-2);
+  }
+  /* toggle — on */
+  .mab-toggle.on-green { background: var(--c-green-dim); border-color: var(--c-green); color: var(--c-green); }
+  .mab-toggle.on-amber { background: var(--c-amber-dim); border-color: var(--c-amber); color: var(--c-amber); }
+  .mab-toggle.on-red   { background: var(--c-red-dim);   border-color: var(--c-red);   color: var(--c-red);   }
+  /* conditional green (send-all) */
+  .mab-cond-green { background: var(--c-green-dim); border-color: var(--c-green); color: var(--c-green); }
+  /* report */
+  .mab-report { background: var(--c-surface); border-color: var(--c-border-md); color: var(--c-text-2); }
+  /* ghost / export */
+  .mab-ghost { background: var(--c-surface); border-color: var(--c-border-md); color: var(--c-text-2); }
+  /* icon-only */
+  .mab-icon  { background: var(--c-surface); border-color: var(--c-border-md); color: var(--c-text-2); padding: 7px 10px; }
+  /* visual group separator */
+  .mab-sep { width: 1px; height: 20px; background: var(--c-border-md); flex-shrink: 0; }
+  /* hide toggles + action buttons from filter panel on mobile */
+  .mob-adv-body .po-toggle-wrap,
+  .mob-adv-body #btn-send-all-courier,
+  .mob-adv-body #btn-sent-report { display: none !important; }
 
   /* ── FILTER BAR MOBILE ── */
   .po-filter-bar {
@@ -741,14 +792,13 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     border-radius: 14px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.07);
   }
   .po-custom-dates.show input[type=date] { flex: 1 !important; width: auto !important; min-width: 100px !important; }
-  /* Backdrop */
+  /* Backdrop — invisible, only catches outside-tap to close */
   #mob-filter-backdrop {
     display: none; position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    z-index: 8997; background: rgba(0,0,0,.28);
+    z-index: 8997; background: transparent;
   }
-  #mob-filter-backdrop.show { display: block; animation: poFadeBackdrop .18s ease; }
-  @keyframes poFadeBackdrop { from { opacity:0; } to { opacity:1; } }
+  #mob-filter-backdrop.show { display: block; }
   /* Top-down filter panel — drops below the filter bar */
   .po-filter-adv { display: none !important; }
   .po-filter-adv.open {
@@ -782,17 +832,6 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     width: 100% !important; height: 44px !important; font-size: 13.5px !important;
     border-radius: 12px !important; border: 1px solid var(--c-border-md) !important;
   }
-  .mob-adv-body .po-toggle-wrap {
-    display: flex !important; align-items: center;
-    justify-content: space-between; padding: 9px 0 !important;
-    border-top: 1px solid var(--c-border);
-  }
-  .mob-adv-body .po-toggle-wrap label { font-size: 13px !important; color: var(--c-text-2) !important; }
-  .mob-adv-body > button.po-btn {
-    width: 100% !important; justify-content: center !important;
-    height: 44px !important; border-radius: 12px !important;
-  }
-
   /* ── table → block ── */
   #products-out-table            { display: block !important; width: 100% !important; }
   #products-out-table thead      { display: none !important; }
@@ -1102,6 +1141,50 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                 <i class="fa fa-moon" id="po-theme-icon"></i>
             </button>
         </div>
+    </div>
+
+    {{-- ── MOBILE ACTION BAR (mobile only) ── --}}
+    <div class="mob-action-bar">
+        @if(\App\Models\RolePermission::check(auth()->user()->role, 'sales', 'can_create'))
+        <button onclick="addSaleForm()" class="mab-btn mab-primary">
+            <i class="fa fa-plus"></i> ახალი
+        </button>
+        @endif
+
+        <div class="mab-sep"></div>
+
+        <button type="button" class="mab-btn mab-toggle" id="mob-qr-ready" onclick="mobQrToggle('ready')">
+            <i class="fa fa-truck"></i> მზად
+        </button>
+        <button type="button" class="mab-btn mab-cond-green" id="mob-qr-send-all" onclick="sendAllReadyToCourier()" style="display:none;">
+            <i class="fa fa-paper-plane"></i> ყველა გაგზ.
+        </button>
+        <button type="button" class="mab-btn mab-toggle" id="mob-qr-deleted" onclick="mobQrToggle('deleted')">
+            <i class="fa fa-coins"></i> დავ.
+        </button>
+        <button type="button" class="mab-btn mab-toggle" id="mob-qr-show-deleted" onclick="mobQrToggle('show-deleted')">
+            <i class="fa fa-trash"></i> წაშ.
+        </button>
+
+        <div class="mab-sep"></div>
+
+        <div style="position:relative;" id="mab-export-wrap">
+            <button class="mab-btn mab-ghost" id="mab-export-btn">
+                <i class="fa fa-download"></i> ექსპ.
+            </button>
+            <div id="mab-export-menu" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:9999;background:var(--c-surface);border:1px solid var(--c-border-md);border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.14);min-width:185px;overflow:hidden;">
+                <a onclick="openReportDateModal('courier');$('#mab-export-menu').hide();" class="po-drop-item"><i class="fa fa-file-excel" style="color:#16a34a;"></i> კურიერი დღეს</a>
+                <a onclick="openReportDateModal('sent');$('#mab-export-menu').hide();" class="po-drop-item"><i class="fa fa-print" style="color:#0369a1;"></i> გაგზავნილი</a>
+                <div style="height:1px;background:var(--c-border);margin:2px 0;"></div>
+                <a onclick="exportFilteredPDF();$('#mab-export-menu').hide();" class="po-drop-item"><i class="fa fa-file-pdf" style="color:var(--c-red);"></i> Filtered PDF</a>
+                <a onclick="exportFilteredExcel();$('#mab-export-menu').hide();" class="po-drop-item"><i class="fa fa-file-excel" style="color:#16a34a;"></i> Filtered Excel</a>
+                <a href="{{ route('exportPDF.productOrderAll') }}" class="po-drop-item"><i class="fa fa-file-pdf" style="color:#aaa;"></i> All PDF</a>
+            </div>
+        </div>
+
+        <button onclick="togglePoTheme()" class="mab-btn mab-icon" id="mab-theme-btn">
+            <i class="fa fa-moon" id="mab-theme-icon"></i>
+        </button>
     </div>
 
     {{-- ── STATS ── --}}
@@ -2424,7 +2507,9 @@ function exportFilteredExcel() {
 }
 
 $(document).on('change', '#toggle-ready-ship', function() {
-    $('#btn-send-all-courier').toggle($(this).is(':checked'));
+    var on = $(this).is(':checked');
+    $('#btn-send-all-courier').toggle(on);
+    $('#mob-qr-send-all').toggle(on);
     reloadTableWithFilters();
 });
 $(document).on('change', '#toggle-merged',       function() { reloadTableWithFilters(); });
@@ -3192,15 +3277,19 @@ $('#modal-change').on('hidden.bs.modal', function() {
 
 function togglePoTheme() {
     var $root = $('#po-page-root'); var isDark = $root.toggleClass('po-dark').hasClass('po-dark');
-    $('#po-theme-icon').toggleClass('fa-moon', !isDark).toggleClass('fa-sun', isDark);
+    $('#po-theme-icon, #mab-theme-icon').toggleClass('fa-moon', !isDark).toggleClass('fa-sun', isDark);
     try { localStorage.setItem('po-theme', isDark ? 'dark' : 'light'); } catch(e) {}
 }
 (function() {
-    try { if (localStorage.getItem('po-theme') === 'dark') { $('#po-page-root').addClass('po-dark'); $('#po-theme-icon').removeClass('fa-moon').addClass('fa-sun'); } } catch(e) {}
+    try { if (localStorage.getItem('po-theme') === 'dark') { $('#po-page-root').addClass('po-dark'); $('#po-theme-icon, #mab-theme-icon').removeClass('fa-moon').addClass('fa-sun'); } } catch(e) {}
 })();
 
 $('#po-export-btn').on('click', function(e) { e.stopPropagation(); $('#po-export-menu').toggle(); });
-$(document).on('click', function(e) { if (!$(e.target).closest('#po-export-wrap').length) $('#po-export-menu').hide(); });
+$('#mab-export-btn').on('click', function(e) { e.stopPropagation(); $('#mab-export-menu').toggle(); });
+$(document).on('click', function(e) {
+    if (!$(e.target).closest('#po-export-wrap').length)  $('#po-export-menu').hide();
+    if (!$(e.target).closest('#mab-export-wrap').length) $('#mab-export-menu').hide();
+});
 
 function loadPoStats() {
     var selected = []; $('.status-filter-check:checked').each(function() { selected.push($(this).val()); });
@@ -3254,6 +3343,19 @@ $('#comment-edit-save').on('click', function() {
         }
     });
 });
+
+/* ── MOBILE QUICK-ROW TOGGLES ── */
+function mobQrToggle(type) {
+    var map = {
+        'ready':        { btn: '#mob-qr-ready',        cls: 'on-green', cb: '#toggle-ready-ship' },
+        'deleted':      { btn: '#mob-qr-deleted',      cls: 'on-amber', cb: '#toggle-deleted' },
+        'show-deleted': { btn: '#mob-qr-show-deleted', cls: 'on-red',   cb: '#toggle-show-deleted' }
+    };
+    var m = map[type]; if (!m) return;
+    var isOn = !$(m.btn).hasClass(m.cls);
+    $(m.btn).toggleClass(m.cls, isOn);
+    $(m.cb).prop('checked', isOn).trigger('change');
+}
 
 /* ── MOBILE FILTER DRAWER ── */
 function toggleMobFilter() {
