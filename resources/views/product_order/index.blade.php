@@ -1393,7 +1393,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
             <button id="btn-send-all-courier" onclick="sendAllReadyToCourier()" class="po-btn po-btn-success" style="display:none;">
                 <i class="fa fa-truck"></i> ყველას გაგზავნა
             </button>
-            <button onclick="openReportDateModal('sent')" class="po-btn" style="background:#f0f9ff;border-color:#0ea5e9;color:#0369a1;">
+            <button id="btn-sent-report" onclick="openReportDateModal('sent')" class="po-btn" style="background:#f0f9ff;border-color:#0ea5e9;color:#0369a1;">
                 <i class="fa fa-print"></i> გაგზავნილი
             </button>
             <div class="po-toggle-wrap">
