@@ -1241,6 +1241,10 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
             <i class="fa fa-link"></i> გაერთ.
         </button>
 
+        <button type="button" class="mab-btn mab-primary" id="mob-btn-merge" onclick="mergeSelected()" style="display:none;">
+            <i class="fa fa-link"></i> გაერთ.
+        </button>
+
         <div class="mab-sep"></div>
 
         <div style="position:relative;" id="mab-export-wrap">
