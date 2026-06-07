@@ -1,30 +1,266 @@
 @extends('layouts.master')
 @section('page_title')<i class="fa fa-cubes me-2" style="color:#3498db;"></i>პროდუქტები@endsection
 
+
 @section('top')
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
-<link href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css" rel="stylesheet">
 <style>
-/* Select2 */
+/* ── Design tokens ── */
+:root {
+    --prd-surface:    #ffffff;
+    --prd-surface2:   #f6f7fb;
+    --prd-border:     rgba(99,115,150,.20);
+    --prd-text-1:     #1a2235;
+    --prd-text-2:     #3d4a5c;
+    --prd-text-3:     #7a8a9e;
+    --prd-blue:       #2563eb;
+    --prd-blue-dim:   #eff6ff;
+    --prd-r-md:       12px;
+    --prd-r-sm:       8px;
+    --prd-sh-sm:      0 2px 8px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.03);
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --prd-surface:    #131720;
+        --prd-surface2:   #191e2b;
+        --prd-border:     rgba(148,163,184,.14);
+        --prd-text-1:     #f0f4ff;
+        --prd-text-2:     #94a3b8;
+        --prd-text-3:     #64748b;
+        --prd-blue:       #3b82f6;
+        --prd-blue-dim:   #1a2744;
+        --prd-sh-sm:      0 2px 8px rgba(0,0,0,.3), 0 0 0 1px rgba(255,255,255,.03);
+    }
+}
+
+/* ── Select2 ── */
 .select2-container--default .select2-selection--single { height: 38px; border: 1px solid #dee2e6; border-radius: 6px; }
 .select2-container--default .select2-selection--single .select2-selection__rendered { line-height: 38px; padding-left: 10px; }
 .select2-container--default .select2-selection--single .select2-selection__arrow { height: 38px; }
-/* Toggle */
+/* ── Toggle ── */
 .form-switch .form-check-input { width: 2.5em; height: 1.3em; cursor: pointer; }
-/* Image thumb */
+/* ── Image thumb ── */
 .img-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 6px; cursor: zoom-in; transition: transform 0.15s; border: 1px solid #dee2e6; }
 .img-thumb:hover { transform: scale(1.1); }
-/* Table */
+/* ── Desktop table ── */
 #products-table td { vertical-align: middle; }
-#products-table td:nth-child(5) { padding: 4px 3px; cursor: zoom-in; }
-/* Responsive — hide "+" icon, expand on name click */
-table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before { display: none !important; }
-table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control { cursor: pointer; padding-left: 8px !important; }
-#products-table tbody tr td:nth-child(1) { cursor: pointer; }
+#products-table td:nth-child(6) { padding: 4px 3px; cursor: zoom-in; }
+
+/* Mobile-only elements: hidden on desktop */
+.prd-mob-action-bar  { display: none; }
+.prd-mob-search-wrap { display: none; }
+.prd-mob-cell        { display: none !important; }
+.prd-sizes-toggle    { display: none; }
+
+/* ══════════════════════════════════════════════
+   MOBILE CARD VIEW  ≤767px
+══════════════════════════════════════════════ */
+@media (max-width: 767px) {
+
+    /* Hide desktop header + toolbar */
+    .mod-header  { display: none !important; }
+    .mod-toolbar { display: none !important; }
+
+    /* Page padding */
+    .mod-wrap { padding: 8px 12px 70px !important; }
+
+    /* Strip card from mod-card */
+    .mod-card {
+        background: transparent !important;
+        border: none !important; box-shadow: none !important;
+        border-radius: 0 !important; padding: 0 !important;
+    }
+    .table-responsive { overflow: visible !important; }
+
+    /* ── Mobile action bar ── */
+    .prd-mob-action-bar {
+        display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;
+        padding: 0 0 8px; overflow-x: auto;
+        -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .prd-mob-action-bar::-webkit-scrollbar { display: none; }
+
+    /* ── Mobile search bar (below action bar) ── */
+    .prd-mob-search-wrap { display: block; margin-bottom: 10px; }
+    .prd-mob-search {
+        display: flex; align-items: center; gap: 8px;
+        background: var(--prd-surface); border: 1px solid var(--prd-border);
+        border-radius: 14px; padding: 10px 6px 10px 14px;
+        box-shadow: var(--prd-sh-sm);
+    }
+    .prd-mob-search > i { font-size: 13px; color: var(--prd-text-3); flex-shrink: 0; }
+    .prd-mob-search input {
+        flex: 1; min-width: 0; background: none; border: none; outline: none;
+        font-size: 14px; color: var(--prd-text-1); font-family: inherit;
+    }
+    .prd-mob-search input::placeholder { color: var(--prd-text-3); font-size: 13px; }
+    .prd-mab-btn {
+        display: inline-flex; align-items: center; gap: 5px;
+        white-space: nowrap; cursor: pointer; font-family: inherit;
+        font-size: 12.5px; font-weight: 600; line-height: 1;
+        padding: 7px 13px; border-radius: 22px; border: 1.5px solid transparent;
+        touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+        transition: background .15s, transform .1s; flex-shrink: 0; text-decoration: none;
+    }
+    .prd-mab-btn:active { transform: scale(.93); }
+    .prd-mab-btn > i { font-size: 10px; }
+    .prd-mab-primary { background: var(--prd-blue); border-color: var(--prd-blue); color: #fff; box-shadow: 0 2px 10px rgba(37,99,235,.28); }
+    .prd-mab-ghost   { background: var(--prd-surface); border-color: var(--prd-border); color: var(--prd-text-2); }
+
+    /* ── Table → block ── */
+    #products-table       { display: block !important; width: 100% !important; }
+    #products-table thead { display: none !important; }
+    #products-table tbody { display: block !important; }
+    #products-table tfoot { display: none !important; }
+
+    /* ── Row = card ── */
+    #products-table tbody tr {
+        display: block !important;
+        background: var(--prd-surface) !important;
+        border-radius: var(--prd-r-md) !important;
+        margin: 0 0 10px !important;
+        box-shadow: var(--prd-sh-sm) !important;
+        border: 1px solid var(--prd-border) !important;
+        overflow: hidden;
+    }
+
+    /* Hide all original cells — card cell only */
+    #products-table tbody tr td:not(.prd-mob-cell) { display: none !important; }
+
+    /* ── Card cell: full width, no padding (card handles it) ── */
+    .prd-mob-cell {
+        display: block !important;
+        padding: 0 !important; border: none !important;
+    }
+
+    /* ── Card structure ── */
+    .prd-mob-card { display: flex; flex-direction: column; }
+
+    /* Header: photo | info | actions */
+    .prd-mob-hdr {
+        display: flex; align-items: flex-start; gap: 10px;
+        padding: 10px 10px 10px 12px;
+    }
+    .prd-mob-photo {
+        flex-shrink: 0; width: 56px; height: 56px;
+        border-radius: var(--prd-r-sm); overflow: hidden;
+        border: 1px solid var(--prd-border);
+        display: flex; align-items: center; justify-content: center;
+    }
+    .prd-mob-photo .img-thumb {
+        width: 56px !important; height: 56px !important;
+        border-radius: 0 !important; border: none !important;
+        margin: 0 !important; display: block;
+    }
+    .prd-mob-info { flex: 1; min-width: 0; }
+    .prd-mob-name {
+        font-size: 13.5px; font-weight: 700; color: var(--prd-text-1);
+        line-height: 1.35; word-break: break-word;
+    }
+    .prd-mob-meta {
+        display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+        margin-top: 4px;
+    }
+    .prd-meta-item {
+        font-size: 11px; color: var(--prd-text-3); white-space: nowrap;
+        background: var(--prd-surface); border: 1px solid var(--prd-border);
+        border-radius: 5px; padding: 1px 6px; line-height: 1.6;
+    }
+    .prd-meta-code { font-family: monospace; color: var(--prd-text-2); font-weight: 600; }
+    .prd-mob-act {
+        flex-shrink: 0; display: flex; gap: 4px; align-items: flex-start;
+        margin-left: auto;
+    }
+    .prd-mob-act .btn-xs {
+        padding: 5px 8px !important; font-size: 11px !important;
+        border-radius: 7px !important; touch-action: manipulation;
+    }
+
+    /* Body: price + status badges — inside header info, below name/meta */
+    .prd-mob-bdy {
+        display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+        padding: 5px 0 0;
+    }
+    .prd-mob-price {
+        font-size: 14px; font-weight: 800; color: var(--prd-text-1);
+    }
+    .prd-mob-badges { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+    .prd-mob-badges .btn { font-size: 11px !important; padding: 3px 8px !important; border-radius: 6px !important; touch-action: manipulation; }
+    .prd-mob-badges .badge { font-size: 11px; }
+
+    /* Sizes + bundle: separated by border-top */
+    .prd-mob-sizes {
+        padding: 7px 12px 8px;
+        border-top: 1px solid var(--prd-border);
+        display: flex; flex-direction: column; gap: 4px;
+    }
+    .prd-mob-sizes-row {
+        display: flex; align-items: flex-start; gap: 6px;
+    }
+    .prd-mob-bundle-tag {
+        display: inline-flex; align-items: center; gap: 4px;
+        font-size: 11px; font-weight: 600;
+        color: var(--prd-blue); background: var(--prd-blue-dim);
+        border-radius: 5px; padding: 2px 7px;
+        flex-shrink: 0; margin-left: auto;
+    }
+    .prd-mob-sizes-inner {
+        overflow: hidden; max-height: 30px;
+        transition: max-height 0.25s ease; line-height: 1.9;
+    }
+    .prd-mob-sizes-inner.expanded { max-height: 400px; }
+    .prd-sizes-toggle {
+        display: inline-flex; align-items: center; gap: 3px;
+        margin-top: 4px; padding: 2px 0;
+        font-size: 11.5px; font-weight: 700;
+        color: var(--prd-blue); background: none; border: none;
+        cursor: pointer; font-family: inherit;
+        touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+    }
+}
 </style>
 @endsection
 
 @section('content')
+
+{{-- Mobile filter drawer --}}
+<div class="mob-drawer" id="prd-filter-drawer">
+    <div class="mob-drawer-header">
+        <span class="mob-drawer-title"><i class="fa fa-sliders" style="font-size:12px;margin-right:7px;opacity:.6;"></i>ფილტრები</span>
+        <button type="button" class="mob-drawer-close" onclick="togglePrdDrawer()"><i class="fa fa-xmark"></i></button>
+    </div>
+    <div class="mob-drawer-body">
+        <div>
+            <div class="mob-drawer-label">საწყობი</div>
+            <select id="mob-filter-warehouse">
+                <option value="">ყველა</option>
+                <option value="1">მხოლოდ საწყობიდან</option>
+                <option value="0">ჩვეულებრივი</option>
+            </select>
+        </div>
+        @if(Auth::user()->role === 'admin')
+        <div class="mob-drawer-row">
+            <span>წაშლილი პროდუქტები</span>
+            <label class="switch mb-0" style="display:inline-block;position:relative;width:46px;height:24px;">
+                <input type="checkbox" id="mob-toggle-deleted" style="opacity:0;width:0;height:0;">
+                <span class="switch-slider" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#ccc;border-radius:24px;transition:.3s;"></span>
+            </label>
+        </div>
+        @endif
+        <div>
+            <div class="mob-drawer-label">ჩანაწ. რაოდ.</div>
+            <select id="mob-dt-page-length">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="-1">ყველა</option>
+            </select>
+        </div>
+    </div>
+</div>
+<div class="mob-drawer-backdrop" id="prd-filter-backdrop" onclick="togglePrdDrawer()"></div>
+
 <div class="mod-wrap">
 
     <div class="mod-header">
@@ -38,6 +274,27 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control { cursor: poi
                 <i class="fa fa-plus me-1"></i><span class="d-none d-sm-inline">ახალი</span>
             </button>
             @endif
+        </div>
+    </div>
+
+    {{-- ── MOBILE ACTION BAR ── --}}
+    <div class="prd-mob-action-bar">
+        @if(\App\Models\RolePermission::check(auth()->user()->role, 'products', 'can_create'))
+        <button onclick="addForm()" class="prd-mab-btn prd-mab-primary">
+            <i class="fa fa-plus"></i> ახალი
+        </button>
+        @endif
+    </div>
+
+    {{-- ── MOBILE SEARCH BAR (below action bar) ── --}}
+    <div class="prd-mob-search-wrap">
+        <div class="prd-mob-search">
+            <i class="fa fa-magnifying-glass"></i>
+            <input type="search" id="mob-prd-search" placeholder="პროდუქტის ძებნა..." autocomplete="off">
+            <button type="button" class="mob-ts-filter-btn" id="prd-filter-btn" onclick="togglePrdDrawer()">
+                <i class="fa fa-sliders"></i>
+                <span class="mob-ts-filter-badge" id="prd-filter-badge"></span>
+            </button>
         </div>
     </div>
 
@@ -131,8 +388,6 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control { cursor: poi
 
 @section('bot')
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
-<script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
 <script src="{{ asset('assets/validator/validator.min.js') }}"></script>
 <script>
 var save_method;
@@ -142,7 +397,6 @@ $(function() {
     table = $('#products-table').DataTable({
         processing: true,
         serverSide: true,
-        responsive: { details: { type: 'column', target: 0 } },
         autoWidth: false,
         order: [],
         ajax: {
@@ -152,17 +406,17 @@ $(function() {
             }
         },
         columns: [
-            { data: 'name',                                                                                          responsivePriority: 1 },
-            { data: 'product_code',                                                width: '90px',                   responsivePriority: 5 },
-            { data: 'category_name', orderable: false, searchable: false,          width: '110px',                  responsivePriority: 6 },
-            { data: 'brand_name',    orderable: false, searchable: false,          width: '100px',                  responsivePriority: 7 },
-            { data: 'bundle_name',   orderable: false, searchable: false,          width: '110px',                  responsivePriority: 8 },
-            { data: 'price_geo',     className: 'text-end',                        width: '70px',                   responsivePriority: 2 },
-            { data: 'show_photo',    orderable: false, searchable: false, className: 'text-center', width: '56px',  responsivePriority: 4 },
-            { data: 'format_sizes',        orderable: false, searchable: false,          width: '90px',                    responsivePriority: 8 },
-            { data: 'warehouse_only_badge', orderable: false, searchable: false, className: 'text-center', width: '100px', responsivePriority: 4 },
-            { data: 'status_stock',        orderable: false, searchable: false, className: 'text-center', width: '62px',  responsivePriority: 3 },
-            { data: 'action',              orderable: false, searchable: false, className: 'text-center', width: '70px',  responsivePriority: 1 }
+            { data: 'name',                                                                              },
+            { data: 'product_code',              width: '90px'                                           },
+            { data: 'category_name',  orderable: false, searchable: false, width: '110px'               },
+            { data: 'brand_name',     orderable: false, searchable: false, width: '100px'               },
+            { data: 'bundle_name',    orderable: false, searchable: false, width: '110px'               },
+            { data: 'price_geo',      className: 'text-end',               width: '70px'                },
+            { data: 'show_photo',     orderable: false, searchable: false, className: 'text-center', width: '56px'  },
+            { data: 'format_sizes',   orderable: false, searchable: false, width: '90px'               },
+            { data: 'warehouse_only_badge', orderable: false, searchable: false, className: 'text-center', width: '100px' },
+            { data: 'status_stock',   orderable: false, searchable: false, className: 'text-center', width: '62px'  },
+            { data: 'action',         orderable: false, searchable: false, className: 'text-center', width: '70px'  }
         ],
         language: {
             processing: '<div class="spinner-border spinner-border-sm text-primary" role="status"></div>',
@@ -171,10 +425,15 @@ $(function() {
         },
         dom: 't<"d-flex justify-content-between align-items-center mt-2"ip>',
         pageLength: 25,
+        drawCallback: function() {
+            buildMobilePrdCards();
+        }
     });
 
+    /* ── Desktop controls ── */
     $('#toggle-deleted').on('change', function() {
-        if ($(this).is(':checked')) {
+        var deleted = $(this).is(':checked');
+        if (deleted) {
             table.ajax.url("{{ route('api.deleted-products') }}").load();
         } else {
             table.ajax.settings()[0].ajax = {
@@ -183,22 +442,176 @@ $(function() {
             };
             table.ajax.reload();
         }
+        updatePrdFilterBadge();
     });
 
     $('#filter-warehouse-only').on('change', function() {
         table.ajax.reload();
+        updatePrdFilterBadge();
     });
 
     $('#dt-page-length').on('change', function() {
         table.page.len(parseInt($(this).val())).draw();
     });
 
-    $('#dt-search').on('input', function() {
-        table.search($(this).val()).draw();
-    });
+    (function() {
+        var _t;
+        $('#dt-search').on('input', function() {
+            clearTimeout(_t); var v = $(this).val();
+            _t = setTimeout(function() { table.search(v).draw(); }, 300);
+        });
+    })();
 });
 
-// ── SELECT2 for brand_id (with logo) ─────────────────────────
+/* ── Mobile topbar search ── */
+(function() {
+    var _t;
+    $('#mob-prd-search').on('input', function() {
+        clearTimeout(_t); var v = $(this).val();
+        _t = setTimeout(function() { table.search(v).draw(); }, 300);
+        $('#dt-search').val(v);
+    });
+})();
+
+/* ── Mobile filter drawer ── */
+function togglePrdDrawer() {
+    var drawer = $('#prd-filter-drawer');
+    var isOpen = drawer.hasClass('open');
+    drawer.toggleClass('open', !isOpen);
+    $('#prd-filter-backdrop').toggleClass('show', !isOpen);
+    $('#prd-filter-btn').toggleClass('active', !isOpen);
+    $('body').css('overflow', isOpen ? '' : 'hidden');
+}
+
+function updatePrdFilterBadge() {
+    var count = 0;
+    if ($('#filter-warehouse-only').val()) count++;
+    if ($('#toggle-deleted').is(':checked')) count++;
+    $('#prd-filter-badge').text(count || '');
+    $('#prd-filter-btn').toggleClass('has-active', count > 0);
+}
+
+/* Mobile warehouse filter → sync with desktop */
+$('#mob-filter-warehouse').on('change', function() {
+    $('#filter-warehouse-only').val($(this).val()).trigger('change');
+});
+/* Desktop → mobile sync */
+$('#filter-warehouse-only').on('change', function() {
+    $('#mob-filter-warehouse').val($(this).val());
+});
+
+/* Mobile deleted toggle → sync with desktop */
+$('#mob-toggle-deleted').on('change', function() {
+    $('#toggle-deleted').prop('checked', $(this).is(':checked')).trigger('change');
+});
+$('#toggle-deleted').on('change', function() {
+    $('#mob-toggle-deleted').prop('checked', $(this).is(':checked'));
+});
+
+/* Mobile page length */
+$('#mob-dt-page-length').on('change', function() {
+    table.page.len(parseInt($(this).val())).draw();
+    $('#dt-page-length').val($(this).val());
+});
+
+/* ── Build mobile cards ── */
+function buildMobilePrdCards() {
+    if (window.innerWidth > 767) return;
+    $('#products-table tbody tr').each(function() {
+        var tr  = $(this);
+        var tds = tr.find('td');
+
+        var name   = tds.eq(0).html()  || '';
+        var code   = $.trim(tds.eq(1).text());
+        var cat    = $.trim(tds.eq(2).text());
+        var brand  = $.trim(tds.eq(3).text());
+        var bundle = $.trim(tds.eq(4).text());
+        var price  = $.trim(tds.eq(5).text());
+        var photo  = tds.eq(6).html()  || '';
+        var sizes  = tds.eq(7).html()  || '';
+        var wareh  = tds.eq(8).html()  || '';
+        var status = tds.eq(9).html()  || '';
+        var action = tds.eq(10).html() || '';
+
+        /* Filter out empty / dash-only values */
+        function notEmpty(v) { return v && v !== '-' && v !== '—' && v !== '–'; }
+
+        /* Meta chips: code · category · brand (skip dashes) */
+        var meta = '';
+        if (notEmpty(code))  meta += '<span class="prd-meta-item prd-meta-code">' + $('<div>').text(code).html() + '</span>';
+        if (notEmpty(cat))   meta += '<span class="prd-meta-item">' + $('<div>').text(cat).html() + '</span>';
+        if (notEmpty(brand)) meta += '<span class="prd-meta-item">' + $('<div>').text(brand).html() + '</span>';
+
+        /* Warehouse badge — hide when empty or dash */
+        var warehText  = wareh.replace(/<[^>]+>/g, '').trim();
+        var warehBadge = notEmpty(warehText) ? wareh : '';
+
+        /* Sizes + bundle section */
+        var sizesText  = sizes.replace(/<[^>]+>/g, '').trim();
+        var hasBundle  = notEmpty(bundle);
+        var hasSizes   = sizesText.length > 0;
+        var bundleTag  = hasBundle
+            ? '<span class="prd-mob-bundle-tag"><i class="fa fa-boxes-stacking" style="font-size:9px;opacity:.7;"></i> ' + $('<div>').text(bundle).html() + '</span>'
+            : '';
+        var sizesSection = (hasSizes || hasBundle)
+            ? '<div class="prd-mob-sizes">'
+            +   '<div class="prd-mob-sizes-row">'
+            +     (hasSizes ? '<div class="prd-mob-sizes-inner">' + sizes + '</div>' : '')
+            +     bundleTag
+            +   '</div>'
+            +   (hasSizes ? '<button type="button" class="prd-sizes-toggle" style="display:none;">ყველა ▾</button>' : '')
+            + '</div>'
+            : '';
+
+        /* Photo wrapper — only if img exists */
+        var photoSection = photo.indexOf('<img') !== -1
+            ? '<div class="prd-mob-photo">' + photo + '</div>'
+            : '';
+
+        var card = '<div class="prd-mob-card">'
+            + '<div class="prd-mob-hdr">'
+            +   photoSection
+            +   '<div class="prd-mob-info">'
+            +     '<div class="prd-mob-name">' + name + '</div>'
+            +     (meta ? '<div class="prd-mob-meta">' + meta + '</div>' : '')
+            +     '<div class="prd-mob-bdy">'
+            +       (price ? '<span class="prd-mob-price">' + $('<div>').text(price).html() + '</span>' : '')
+            +       '<div class="prd-mob-badges">' + status + warehBadge + '</div>'
+            +     '</div>'
+            +   '</div>'
+            +   '<div class="prd-mob-act">' + action + '</div>'
+            + '</div>'
+            + sizesSection
+            + '</div>';
+
+        tr.append('<td class="prd-mob-cell" colspan="11">' + card + '</td>');
+    });
+
+    /* Show expand toggle for overflowing sizes */
+    $('.prd-mob-sizes').each(function() {
+        var inner  = $(this).find('.prd-mob-sizes-inner')[0];
+        var toggle = $(this).find('.prd-sizes-toggle');
+        if (inner && inner.scrollHeight > inner.clientHeight + 2) {
+            toggle.show();
+        }
+    });
+}
+
+/* Sizes expand/collapse */
+$(document).on('click', '.prd-sizes-toggle', function() {
+    var inner    = $(this).prev('.prd-mob-sizes-inner');
+    var expanded = inner.hasClass('expanded');
+    inner.toggleClass('expanded', !expanded);
+    $(this).text(expanded ? 'ყველა ▾' : 'ნაკლები ▴');
+});
+
+/* Lightbox */
+$(document).on('click', '.img-thumb', function() {
+    document.getElementById('img-lightbox-img').src = $(this).data('src') || this.src;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('img-lightbox')).show();
+});
+
+/* ── SELECT2 for brand_id ── */
 function brandOptionTemplate(option) {
     if (!option.id) return option.text;
     var logo = $(option.element).data('logo');
@@ -217,7 +630,7 @@ $(function() {
     });
 });
 
-// ── ADD ──────────────────────────────────────────────────────
+/* ── ADD ── */
 function addForm() {
     save_method = 'add';
     $('input[name=_method]').val('POST');
@@ -231,15 +644,14 @@ function addForm() {
     bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-form')).show();
 }
 
-// ── EDIT ─────────────────────────────────────────────────────
+/* ── EDIT ── */
 function editForm(id) {
     save_method = 'edit';
     $('input[name=_method]').val('PATCH');
     $('#form-item')[0].reset();
-
     $.ajax({
         url: "{{ url('products') }}/" + id + "/edit",
-        type: "GET", dataType: "JSON",
+        type: "GET", dataType: "JSON", cache: false,
         success: function(data) {
             $('.modal-title').text('Edit Product');
             $('#id').val(data.id);
@@ -253,21 +665,16 @@ function editForm(id) {
             updatePriceHint();
             $('#brand_id').val(data.brand_id || null).trigger('change');
             $('#bundle_id').val(data.bundle_id || '');
-
-            var currentSizes = data.sizes ? data.sizes.split(',').map(s => s.trim()) : [];
+            var currentSizes = data.sizes ? data.sizes.split(',').map(function(s) { return s.trim(); }) : [];
             filterSizes(currentSizes);
-
             if (data.image_url) {
                 $('#image-preview').html('<img src="' + data.image_url + '" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">');
             } else {
                 $('#image-preview').html('<span class="text-muted">No Preview</span>');
             }
-
             bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-form')).show();
         },
-        error: function() {
-            swal({ title: 'Error', text: 'Could not fetch data', icon: 'error' });
-        }
+        error: function() { swal({ title: 'Error', text: 'Could not fetch data', icon: 'error' }); }
     });
 }
 
@@ -275,56 +682,51 @@ function updatePriceHint() {
     var isDivisible = $('#category_id option:selected').data('divisible') == '1';
     $('#price_geo_hint').toggle(isDivisible);
     $('#price_geo_label').text(isDivisible ? 'Price (1ml-ზე)' : 'Price');
-    // red border on category select when divisible
     $('#category_id').css('border-color', isDivisible ? '#ef4444' : '').css('color', isDivisible ? '#dc2626' : '').css('font-weight', isDivisible ? '700' : '');
 }
 
-// ── SIZES ────────────────────────────────────────────────────
+/* ── SIZES ── */
 function filterSizes(selectedSizes) {
     updatePriceHint();
     selectedSizes = selectedSizes || [];
     var catId       = $('#category_id').val();
     var isDivisible = $('#category_id option:selected').data('divisible') == '1';
-
-    if (isDivisible) {
-        $('#sizes-wrapper').hide();
-        $('#divisible-notice').show();
-        return;
-    }
-
-    $('#sizes-wrapper').show();
-    $('#divisible-notice').hide();
-
+    if (isDivisible) { $('#sizes-wrapper').hide(); $('#divisible-notice').show(); return; }
+    $('#sizes-wrapper').show(); $('#divisible-notice').hide();
     if (!catId) {
         $('#size-checkboxes').html('<span class="text-muted" style="font-size:12px;">Choose a category first</span>');
         return;
     }
-    $.get("{{ url('get-sizes') }}/" + catId, function(data) {
-        if (!data || !data.length) {
-            $('#size-checkboxes').html('<span class="text-muted" style="font-size:12px;">No sizes</span>');
-            return;
+    $.ajax({
+        url: "{{ url('get-sizes') }}/" + catId,
+        type: 'GET',
+        dataType: 'json',
+        cache: false,
+        success: function(data) {
+            if (!data || !data.length) {
+                $('#size-checkboxes').html('<span class="text-muted" style="font-size:12px;">No sizes</span>');
+                return;
+            }
+            var html = '';
+            data.forEach(function(size) {
+                var label   = typeof size === 'object' ? size.name : size;
+                var checked = selectedSizes.includes(label) ? 'checked' : '';
+                html += '<div class="form-check form-check-inline mb-1">'
+                      + '<input class="form-check-input" type="checkbox" name="product_sizes[]" value="' + label + '" id="sz_' + label + '" ' + checked + '>'
+                      + '<label class="form-check-label small" for="sz_' + label + '">' + label + '</label></div>';
+            });
+            $('#size-checkboxes').html(html);
         }
-        var html = '';
-        data.forEach(function(size) {
-            var label   = typeof size === 'object' ? size.name : size;
-            var checked = selectedSizes.includes(label) ? 'checked' : '';
-            html += '<div class="form-check form-check-inline mb-1">'
-                  + '<input class="form-check-input" type="checkbox" name="product_sizes[]" value="' + label + '" id="sz_' + label + '" ' + checked + '>'
-                  + '<label class="form-check-label small" for="sz_' + label + '">' + label + '</label></div>';
-        });
-        $('#size-checkboxes').html(html);
     });
 }
 
-// ── SAVE ─────────────────────────────────────────────────────
+/* ── SAVE ── */
 $(function() {
     $('#form-item').on('submit', function(e) {
         e.preventDefault();
         var id  = $('#id').val();
         var url = (save_method == 'add') ? "{{ url('products') }}" : "{{ url('products') }}/" + id;
-
         var btn = $(this).find('[type=submit]').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Saving...');
-
         $.ajax({
             url: url, type: 'POST',
             data: new FormData(this),
@@ -338,14 +740,12 @@ $(function() {
                 var msg = xhr.responseJSON ? xhr.responseJSON.message : 'Error';
                 swal({ title: 'Error', text: msg, icon: 'error' });
             },
-            complete: function() {
-                btn.prop('disabled', false).html('<i class="fa fa-save me-1"></i>Save Changes');
-            }
+            complete: function() { btn.prop('disabled', false).html('<i class="fa fa-save me-1"></i>Save Changes'); }
         });
     });
 });
 
-// ── DELETE ───────────────────────────────────────────────────
+/* ── DELETE ── */
 function deleteData(id) {
     swal({ title: 'Are you sure?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete', confirmButtonColor: '#dc3545' })
     .then(function(result) {
@@ -367,7 +767,7 @@ function deleteData(id) {
     });
 }
 
-// ── RESTORE ──────────────────────────────────────────────────
+/* ── RESTORE ── */
 function restoreData(id) {
     swal({ title: 'Restore?', icon: 'info', showCancelButton: true, confirmButtonText: 'Restore' })
     .then(function(result) {
@@ -380,12 +780,7 @@ function restoreData(id) {
     });
 }
 
-// ── ACTION BUTTONS → stop row expand ─────────────────────────
-$('#products-table').on('click', 'a.btn', function(e) {
-    e.stopPropagation();
-});
-
-// ── STATUS MODAL ─────────────────────────────────────────────
+/* ── STATUS MODAL ── */
 function openStatusModal(id, currentStatus) {
     $('#status-product-id').val(id);
     $('#status-select').val(currentStatus);
@@ -406,13 +801,5 @@ function saveStatus() {
         error: function() { swal({ title: 'Error', icon: 'error' }); }
     });
 }
-
-
-// ── LIGHTBOX ─────────────────────────────────────────────────
-$(document).on('click', '.img-thumb', function() {
-    document.getElementById('img-lightbox-img').src = $(this).data('src') || this.src;
-    bootstrap.Modal.getOrCreateInstance(document.getElementById('img-lightbox')).show();
-});
-
 </script>
 @endsection
