@@ -19,19 +19,6 @@
     --prd-r-sm:       8px;
     --prd-sh-sm:      0 2px 8px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.03);
 }
-@media (prefers-color-scheme: dark) {
-    :root {
-        --prd-surface:    #131720;
-        --prd-surface2:   #191e2b;
-        --prd-border:     rgba(148,163,184,.14);
-        --prd-text-1:     #f0f4ff;
-        --prd-text-2:     #94a3b8;
-        --prd-text-3:     #64748b;
-        --prd-blue:       #3b82f6;
-        --prd-blue-dim:   #1a2744;
-        --prd-sh-sm:      0 2px 8px rgba(0,0,0,.3), 0 0 0 1px rgba(255,255,255,.03);
-    }
-}
 
 /* ── Select2 ── */
 .select2-container--default .select2-selection--single { height: 38px; border: 1px solid #dee2e6; border-radius: 6px; }
@@ -39,6 +26,12 @@
 .select2-container--default .select2-selection--single .select2-selection__arrow { height: 38px; }
 /* ── Toggle ── */
 .form-switch .form-check-input { width: 2.5em; height: 1.3em; cursor: pointer; }
+.switch { position: relative; display: inline-block; width: 46px; height: 24px; margin: 0; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; border-radius: 24px; transition: .3s; }
+.switch-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.switch input:checked + .switch-slider { background-color: #e74c3c; }
+.switch input:checked + .switch-slider:before { transform: translateX(22px); }
 /* ── Image thumb ── */
 .img-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 6px; cursor: zoom-in; transition: transform 0.15s; border: 1px solid #dee2e6; }
 .img-thumb:hover { transform: scale(1.1); }
@@ -81,10 +74,10 @@
     .prd-mob-action-bar::-webkit-scrollbar { display: none; }
 
     /* ── Mobile search bar (below action bar) ── */
-    .prd-mob-search-wrap { display: block; margin-bottom: 10px; }
+    .prd-mob-search-wrap { display: block; margin-bottom: 10px; position: relative; }
     .prd-mob-search {
         display: flex; align-items: center; gap: 8px;
-        background: var(--prd-surface); border: 1px solid var(--prd-border);
+        background: #fff; border: 1px solid var(--prd-border);
         border-radius: 14px; padding: 10px 6px 10px 14px;
         box-shadow: var(--prd-sh-sm);
     }
@@ -94,6 +87,31 @@
         font-size: 14px; color: var(--prd-text-1); font-family: inherit;
     }
     .prd-mob-search input::placeholder { color: var(--prd-text-3); font-size: 13px; }
+
+    /* ── Inline filter panel (drops below search bar) ── */
+    @keyframes prdPanelIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+    .prd-filter-panel {
+        display: none; position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+        background: #fff; border: 1px solid var(--prd-border);
+        border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.12); z-index: 200;
+        overflow: hidden;
+    }
+    .prd-filter-panel.open { display: block; animation: prdPanelIn .18s ease; }
+    .prd-filter-panel-body {
+        display: flex; flex-direction: column; padding: 12px 16px 14px; gap: 10px;
+    }
+    .prd-filter-panel .prd-fp-label {
+        font-size: 11.5px; font-weight: 600; color: #64748b; margin-bottom: 3px;
+    }
+    .prd-filter-panel select {
+        width: 100%; height: 40px; font-size: 13.5px;
+        border-radius: 10px; border: 1.5px solid #e2e8f0; padding: 0 10px;
+        background: #fff; color: #1e293b; font-family: inherit;
+    }
+    .prd-filter-panel .prd-fp-row {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 6px 0; border-top: 1px solid #f1f5f9; font-size: 13px; color: #475569;
+    }
     .prd-mab-btn {
         display: inline-flex; align-items: center; gap: 5px;
         white-space: nowrap; cursor: pointer; font-family: inherit;
@@ -162,8 +180,8 @@
         margin-top: 4px;
     }
     .prd-meta-item {
-        font-size: 11px; color: var(--prd-text-3); white-space: nowrap;
-        background: var(--prd-surface); border: 1px solid var(--prd-border);
+        font-size: 11px; color: var(--prd-text-2); white-space: nowrap;
+        background: var(--prd-surface2); border: 1px solid var(--prd-border);
         border-radius: 5px; padding: 1px 6px; line-height: 1.6;
     }
     .prd-meta-code { font-family: monospace; color: var(--prd-text-2); font-weight: 600; }
@@ -223,44 +241,6 @@
 
 @section('content')
 
-{{-- Mobile filter drawer --}}
-<div class="mob-drawer" id="prd-filter-drawer">
-    <div class="mob-drawer-header">
-        <span class="mob-drawer-title"><i class="fa fa-sliders" style="font-size:12px;margin-right:7px;opacity:.6;"></i>ფილტრები</span>
-        <button type="button" class="mob-drawer-close" onclick="togglePrdDrawer()"><i class="fa fa-xmark"></i></button>
-    </div>
-    <div class="mob-drawer-body">
-        <div>
-            <div class="mob-drawer-label">საწყობი</div>
-            <select id="mob-filter-warehouse">
-                <option value="">ყველა</option>
-                <option value="1">მხოლოდ საწყობიდან</option>
-                <option value="0">ჩვეულებრივი</option>
-            </select>
-        </div>
-        @if(Auth::user()->role === 'admin')
-        <div class="mob-drawer-row">
-            <span>წაშლილი პროდუქტები</span>
-            <label class="switch mb-0" style="display:inline-block;position:relative;width:46px;height:24px;">
-                <input type="checkbox" id="mob-toggle-deleted" style="opacity:0;width:0;height:0;">
-                <span class="switch-slider" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#ccc;border-radius:24px;transition:.3s;"></span>
-            </label>
-        </div>
-        @endif
-        <div>
-            <div class="mob-drawer-label">ჩანაწ. რაოდ.</div>
-            <select id="mob-dt-page-length">
-                <option value="10">10</option>
-                <option value="25" selected>25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                <option value="-1">ყველა</option>
-            </select>
-        </div>
-    </div>
-</div>
-<div class="mob-drawer-backdrop" id="prd-filter-backdrop" onclick="togglePrdDrawer()"></div>
-
 <div class="mod-wrap">
 
     <div class="mod-header">
@@ -286,7 +266,7 @@
         @endif
     </div>
 
-    {{-- ── MOBILE SEARCH BAR (below action bar) ── --}}
+    {{-- ── MOBILE SEARCH BAR + inline filter panel ── --}}
     <div class="prd-mob-search-wrap">
         <div class="prd-mob-search">
             <i class="fa fa-magnifying-glass"></i>
@@ -295,6 +275,38 @@
                 <i class="fa fa-sliders"></i>
                 <span class="mob-ts-filter-badge" id="prd-filter-badge"></span>
             </button>
+        </div>
+        {{-- Filter panel drops below search bar --}}
+        <div class="prd-filter-panel" id="prd-filter-drawer">
+            <div class="prd-filter-panel-body">
+                <div>
+                    <div class="prd-fp-label">საწყობი</div>
+                    <select id="mob-filter-warehouse">
+                        <option value="">ყველა</option>
+                        <option value="1">მხოლოდ საწყობიდან</option>
+                        <option value="0">ჩვეულებრივი</option>
+                    </select>
+                </div>
+                @if(Auth::user()->role === 'admin')
+                <div class="prd-fp-row">
+                    <span>წაშლილი პროდუქტები</span>
+                    <label class="switch mb-0">
+                        <input type="checkbox" id="mob-toggle-deleted">
+                        <span class="switch-slider"></span>
+                    </label>
+                </div>
+                @endif
+                <div>
+                    <div class="prd-fp-label">ჩანაწ. რაოდ.</div>
+                    <select id="mob-dt-page-length">
+                        <option value="10">10</option>
+                        <option value="25" selected>25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="-1">ყველა</option>
+                    </select>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -436,11 +448,7 @@ $(function() {
         if (deleted) {
             table.ajax.url("{{ route('api.deleted-products') }}").load();
         } else {
-            table.ajax.settings()[0].ajax = {
-                url: "{{ route('api.products') }}",
-                data: function(d) { d.warehouse_only = $('#filter-warehouse-only').val(); }
-            };
-            table.ajax.reload();
+            table.ajax.url("{{ route('api.products') }}").load();
         }
         updatePrdFilterBadge();
     });
@@ -473,15 +481,21 @@ $(function() {
     });
 })();
 
-/* ── Mobile filter drawer ── */
+/* ── Mobile filter panel (inline below search) ── */
 function togglePrdDrawer() {
-    var drawer = $('#prd-filter-drawer');
-    var isOpen = drawer.hasClass('open');
-    drawer.toggleClass('open', !isOpen);
-    $('#prd-filter-backdrop').toggleClass('show', !isOpen);
+    var panel  = $('#prd-filter-drawer');
+    var isOpen = panel.hasClass('open');
+    panel.toggleClass('open', !isOpen);
     $('#prd-filter-btn').toggleClass('active', !isOpen);
-    $('body').css('overflow', isOpen ? '' : 'hidden');
 }
+
+/* Close panel on outside click */
+$(document).on('click', function(e) {
+    if (!$(e.target).closest('.prd-mob-search-wrap').length) {
+        $('#prd-filter-drawer').removeClass('open');
+        $('#prd-filter-btn').removeClass('active');
+    }
+});
 
 function updatePrdFilterBadge() {
     var count = 0;
