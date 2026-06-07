@@ -342,6 +342,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 .mob-adv-body { display: contents; }
 #mob-filter-backdrop { display: none; }
 .mob-action-bar { display: none; }
+.mob-adv-date-section { display: none; }
 .mob-filter-badge {
     background: var(--c-blue); color: #fff;
     border-radius: 20px; font-size: 9.5px; font-weight: 700;
@@ -785,12 +786,29 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   .po-filter-pills-row .po-search input::placeholder { font-size: 13px !important; }
   /* Pills row */
   .po-filter-pills-row .po-pill-group {
+    display: flex !important;
     flex: 1; min-width: 0; flex-wrap: nowrap !important; overflow-x: auto;
     -webkit-overflow-scrolling: touch; scrollbar-width: none; gap: 4px !important;
     padding: 8px 10px;
   }
   .po-filter-pills-row .po-pill-group::-webkit-scrollbar { display: none; }
   .po-filter-pills-row .po-pill { font-size: 12px !important; padding: 5px 12px !important; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  /* Mobile drawer — date period section */
+  .mob-adv-date-section {
+    display: flex; flex-direction: column; gap: 8px;
+    padding-bottom: 12px; border-bottom: 1px solid var(--c-border-md);
+  }
+  .mob-adv-date-label {
+    font-size: 11px; font-weight: 700; color: var(--c-text-3);
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .mob-adv-period-pills {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .mob-adv-period-pills .po-pill {
+    font-size: 12px !important; padding: 6px 14px !important;
+    touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  }
   /* filter button active state (has filters applied) */
   .mob-ts-filter-btn.has-active { background: var(--c-blue) !important; color: #fff !important; }
   .mob-ts-filter-btn.has-active .mob-ts-filter-badge { background: #fff !important; color: var(--c-blue) !important; }
@@ -1331,65 +1349,90 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
             <input type="date" id="filter-date-to">
             <button class="po-apply-btn" id="applyCustom">გამოყენება</button>
         </div>
-        <div class="po-filter-sep"></div>
-        <div style="position:relative;" id="po-status-wrap">
-            <button id="status-filter-btn" type="button" class="po-select" style="cursor:pointer;min-width:130px;text-align:left;display:flex;align-items:center;gap:6px;">
-                <i class="fa fa-filter" style="font-size:9px;opacity:.5;"></i>
-                <span id="status-filter-label" style="flex:1;">სტატუსი</span>
-                <span style="opacity:.4;font-size:10px;">▾</span>
-            </button>
-            <div id="po-status-dropdown">
-                @foreach($statuses as $status)
-                <label>
-                    <input type="checkbox" class="status-filter-check" value="{{ $status->id }}"> {{ $status->name }}
-                </label>
+        <div class="po-filter-adv" id="po-filter-adv">
+            <div class="mob-adv-header">
+                <span class="mob-adv-title"><i class="fa fa-sliders" style="font-size:12px;margin-right:7px;opacity:.6;"></i>ფილტრები</span>
+                <button type="button" class="mob-adv-close" onclick="toggleMobFilter()"><i class="fa fa-xmark"></i></button>
+            </div>
+            <div class="mob-adv-body">
+            {{-- Mobile-only: date period filter at top of drawer --}}
+            <div class="mob-adv-date-section">
+                <div class="mob-adv-date-label">თარიღი</div>
+                <div class="mob-adv-period-pills">
+                    <button class="po-pill active" data-period="all">ყველა</button>
+                    <button class="po-pill" data-period="today">დღეს</button>
+                    <button class="po-pill" data-period="week">კვირა</button>
+                    <button class="po-pill" data-period="month">თვე</button>
+                    <button class="po-pill" data-period="custom">Custom</button>
+                </div>
+            </div>
+            <div class="po-filter-sep"></div>
+            <div style="position:relative;" id="po-status-wrap">
+                <button id="status-filter-btn" type="button" class="po-select" style="cursor:pointer;min-width:130px;text-align:left;display:flex;align-items:center;gap:6px;">
+                    <i class="fa fa-filter" style="font-size:9px;opacity:.5;"></i>
+                    <span id="status-filter-label" style="flex:1;">სტატუსი</span>
+                    <span style="opacity:.4;font-size:10px;">▾</span>
+                </button>
+                <div id="po-status-dropdown">
+                    @foreach($statuses as $status)
+                    <label>
+                        <input type="checkbox" class="status-filter-check" value="{{ $status->id }}"> {{ $status->name }}
+                    </label>
+                    @endforeach
+                </div>
+            </div>
+            <select id="filter-product" style="width:200px;">
+                <option value="">— ყველა პროდუქტი —</option>
+                @foreach($all_products as $product)
+                <option value="{{ $product->id }}">{{ $product->name }}</option>
                 @endforeach
+            </select>
+            <select id="filter-customer" style="width:200px;">
+                <option value="">— ყველა კლიენტი —</option>
+                @foreach($customers as $customer)
+                <option value="{{ $customer->id }}">{{ $customer->name }}{{ $customer->tel ? ' ('.$customer->tel.')' : '' }}</option>
+                @endforeach
+            </select>
+            <select id="dt-page-length" class="po-select" style="width:76px;">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100" selected>100</option>
+                <option value="-1">ყველა</option>
+            </select>
+            <div class="po-filter-sep"></div>
+            <div class="po-toggle-wrap">
+                <label for="toggle-ready-ship" style="color:#16a34a;font-weight:700;"><i class="fa fa-truck" style="font-size:10px;"></i> მზად</label>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="toggle-ready-ship" role="switch" style="cursor:pointer;">
+                </div>
             </div>
-        </div>
-        <select id="filter-product" style="width:200px;">
-            <option value="">— ყველა პროდუქტი —</option>
-            @foreach($all_products as $product)
-            <option value="{{ $product->id }}">{{ $product->name }}</option>
-            @endforeach
-        </select>
-        <select id="filter-customer" style="width:200px;">
-            <option value="">— ყველა კლიენტი —</option>
-            @foreach($customers as $customer)
-            <option value="{{ $customer->id }}">{{ $customer->name }}{{ $customer->tel ? ' ('.$customer->tel.')' : '' }}</option>
-            @endforeach
-        </select>
-        <select id="dt-page-length" class="po-select" style="width:76px;">
-            <option value="10">10</option>
-            <option value="25">25</option>
-            <option value="50">50</option>
-            <option value="100" selected>100</option>
-            <option value="-1">ყველა</option>
-        </select>
-        <div class="po-filter-sep"></div>
-        <div class="po-toggle-wrap">
-            <label for="toggle-ready-ship" style="color:#16a34a;font-weight:700;"><i class="fa fa-truck" style="font-size:10px;"></i> მზად</label>
-            <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" id="toggle-ready-ship" role="switch" style="cursor:pointer;">
+            <button id="btn-send-all-courier" onclick="sendAllReadyToCourier()" class="po-btn po-btn-success" style="display:none;">
+                <i class="fa fa-truck"></i> ყველას გაგზავნა
+            </button>
+            <button onclick="openReportDateModal('sent')" class="po-btn" style="background:#f0f9ff;border-color:#0ea5e9;color:#0369a1;">
+                <i class="fa fa-print"></i> გაგზავნილი
+            </button>
+            <div class="po-toggle-wrap">
+                <label for="toggle-merged" style="color:#7c3aed;font-weight:700;"><i class="fa fa-layer-group" style="font-size:10px;"></i> გაერთ.</label>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="toggle-merged" role="switch" style="cursor:pointer;">
+                </div>
             </div>
-        </div>
-        <button id="btn-send-all-courier" onclick="sendAllReadyToCourier()" class="po-btn po-btn-success" style="display:none;">
-            <i class="fa fa-truck"></i> ყველას გაგზავნა
-        </button>
-        <button onclick="openReportDateModal('sent')" class="po-btn" style="background:#f0f9ff;border-color:#0ea5e9;color:#0369a1;">
-            <i class="fa fa-print"></i> გაგზავნილი
-        </button>
-        <div class="po-toggle-wrap">
-            <label for="toggle-deleted">დავ.</label>
-            <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" id="toggle-deleted" role="switch" style="cursor:pointer;">
+            <div class="po-toggle-wrap">
+                <label for="toggle-deleted">დავ.</label>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="toggle-deleted" role="switch" style="cursor:pointer;">
+                </div>
             </div>
-        </div>
-        <div class="po-toggle-wrap">
-            <label for="toggle-show-deleted">წაშ.</label>
-            <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" id="toggle-show-deleted" role="switch" style="cursor:pointer;">
+            <div class="po-toggle-wrap">
+                <label for="toggle-show-deleted">წაშ.</label>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="toggle-show-deleted" role="switch" style="cursor:pointer;">
+                </div>
             </div>
-        </div>
+            </div>{{-- /mob-adv-body --}}
+        </div>{{-- /po-filter-adv --}}
     </div>
 
     {{-- ── BULK BAR ── --}}
@@ -2751,8 +2794,16 @@ function applyPeriod(period) {
 $(document).on('click', '.po-pill[data-period]', function() {
     $('.po-pill[data-period]').removeClass('active'); $(this).addClass('active');
     var period = $(this).data('period');
-    if (period === 'custom') $('#customDates').addClass('show');
-    else { $('#customDates').removeClass('show'); applyPeriod(period); }
+    if (period === 'custom') {
+        $('#customDates').addClass('show');
+        // On mobile: close drawer so custom date inputs are visible below filter card
+        if (window.innerWidth <= 767 && $('#po-filter-adv').hasClass('open')) { toggleMobFilter(); }
+    } else {
+        $('#customDates').removeClass('show');
+        applyPeriod(period);
+        // On mobile: close drawer after selecting a period
+        if (window.innerWidth <= 767 && $('#po-filter-adv').hasClass('open')) { toggleMobFilter(); }
+    }
 });
 $(document).on('click', '#applyCustom', function() { reloadTableWithFilters(); });
 
