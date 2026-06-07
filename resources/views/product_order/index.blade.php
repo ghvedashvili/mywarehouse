@@ -1045,6 +1045,56 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   .mob-fin-disc  { color: #8e44ad; font-size: 11px; }
   .mob-fin-net   { color: var(--c-text-2); font-size: 11px; }
 
+  /* ── merge hint: larger pill so it's tappable ── */
+  .po-merge-hint {
+    display: inline-flex !important; align-items: center !important;
+    gap: 4px !important; padding: 5px 10px !important;
+    background: rgba(220,38,38,.1) !important;
+    border-radius: 20px !important;
+    font-size: 12px !important;
+    animation: none !important; opacity: 1 !important;
+    margin-left: 2px !important;
+  }
+  .po-merge-hint::after { content: 'გაერთ.'; font-size: 11px; font-weight: 700; }
+
+  /* ── merge mode: checkbox column + selection visuals ── */
+
+  /* widen grid: 44px checkbox col | content | actions */
+  .po-merge-mode #products-out-table tbody tr:not(.po-child-row) {
+    grid-template-columns: 44px 1fr auto !important;
+    cursor: default !important;
+  }
+  /* show checkbox td in left col of header row */
+  .po-merge-mode #products-out-table tbody td.td-mob-hide {
+    display: flex !important;
+    grid-column: 1 !important; grid-row: 1 !important;
+    align-items: center; justify-content: center;
+    padding: 0 !important;
+    background: var(--c-surface2) !important;
+    border-right: 1px solid var(--c-border-md) !important;
+    border-bottom: 1px solid var(--c-border-md) !important;
+  }
+  /* push order header to cols 2+ */
+  .po-merge-mode #products-out-table tbody td.td-order {
+    grid-column: 2 / -1 !important;
+  }
+  /* large touch-friendly checkbox */
+  .po-merge-mode #products-out-table tbody .row-check {
+    width: 20px; height: 20px; cursor: pointer;
+    accent-color: var(--c-blue, #2563eb);
+  }
+  /* selected card */
+  .po-merge-mode #products-out-table tbody tr.mob-merge-selected {
+    border-color: var(--c-blue) !important;
+    box-shadow: 0 0 0 2px rgba(37,99,235,.35), var(--sh-sm) !important;
+  }
+  .po-merge-mode #products-out-table tbody tr.mob-merge-selected td.td-mob-hide {
+    background: var(--c-blue-dim) !important;
+  }
+  .po-merge-mode #products-out-table tbody tr.mob-merge-selected td.td-order {
+    background: rgba(37,99,235,.06) !important;
+  }
+
   /* ── child rows (expanded group members) ── */
   #products-out-table tbody tr.po-child-row {
     display: block !important;
@@ -1164,6 +1214,10 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
         </button>
         <button type="button" class="mab-btn mab-toggle" id="mob-qr-show-deleted" onclick="mobQrToggle('show-deleted')">
             <i class="fa fa-trash"></i> წაშ.
+        </button>
+
+        <button type="button" class="mab-btn mab-primary" id="mob-btn-merge" onclick="mergeSelected()" style="display:none;">
+            <i class="fa fa-link"></i> გაერთ.
         </button>
 
         <div class="mab-sep"></div>
@@ -2802,17 +2856,28 @@ function showStatusLog(orderId) {
     });
 }
 
-$(document).on('change', '#check-all', function() { $('.row-check').prop('checked', $(this).is(':checked')); toggleMergeBtn(); });
-$(document).on('change', '.row-check', function() { toggleMergeBtn(); });
+$(document).on('change', '#check-all', function() {
+    var on = $(this).is(':checked');
+    $('.row-check').prop('checked', on);
+    $('#products-out-table tbody tr').toggleClass('mob-merge-selected', on);
+    toggleMergeBtn();
+});
+$(document).on('change', '.row-check', function() {
+    $(this).closest('tr').toggleClass('mob-merge-selected', $(this).prop('checked'));
+    toggleMergeBtn();
+});
 
 function toggleMergeBtn() {
     var count = $('.row-check:checked').length;
     if (count >= 1) { $('#po-bulk-count').text(count+' მონიშნული'); $('#po-bulk-bar').show(); } else { $('#po-bulk-bar').hide(); }
-    if (count >= 2) $('#btn-merge').show(); else $('#btn-merge').hide();
+    if (count >= 2) { $('#btn-merge').show(); $('#mob-btn-merge').show(); }
+    else            { $('#btn-merge').hide(); $('#mob-btn-merge').hide(); }
 }
 
 function clearPoSelection() {
-    $('.row-check').prop('checked',false); $('#check-all').prop('checked',false); $('#po-bulk-bar').hide(); $('#btn-merge').hide();
+    $('.row-check').prop('checked',false); $('#check-all').prop('checked',false);
+    $('#po-bulk-bar').hide(); $('#btn-merge').hide(); $('#mob-btn-merge').hide();
+    $('#products-out-table tbody tr').removeClass('mob-merge-selected');
     if (mergeMode) { mergeMode = false; $('#po-page-root').removeClass('po-merge-mode'); reloadTableWithFilters(); }
 }
 
@@ -2828,7 +2893,8 @@ function mergeSelected() {
             success: function(data) {
                 mergeMode = false; $('#po-page-root').removeClass('po-merge-mode');
                 table.ajax.url("{{ route('api.productsOut') }}").load();
-                $('#btn-merge').hide(); $('#check-all').prop('checked',false); $('#po-bulk-bar').hide();
+                $('#btn-merge').hide(); $('#mob-btn-merge').hide(); $('#check-all').prop('checked',false); $('#po-bulk-bar').hide();
+                $('#products-out-table tbody tr').removeClass('mob-merge-selected');
                 swal("წარმატება!", data.message, "success");
             },
             error: function(xhr) { swal("შეცდომა", xhr.responseJSON ? xhr.responseJSON.message : "ვერ გაერთიანდა", "error"); }
@@ -2840,7 +2906,26 @@ $(document).on('click', '.merge-search-btn', function(e) {
     e.stopPropagation();
     var customerId = $(this).data('customer-id');
     mergeMode = true; $('#po-page-root').addClass('po-merge-mode');
-    table.ajax.url("{{ route('api.productsOut') }}?merge_customer_id="+customerId).load(function() { $('.row-check').each(function() { $(this).prop('checked', $(this).data('ready') == 1); }); toggleMergeBtn(); });
+    table.ajax.url("{{ route('api.productsOut') }}?merge_customer_id="+customerId).load(function() {
+        $('.row-check').each(function() {
+            var on = $(this).data('ready') == 1;
+            $(this).prop('checked', on);
+            if (on) $(this).closest('tr').addClass('mob-merge-selected');
+        });
+        toggleMergeBtn();
+    });
+});
+
+// Mobile: tap a card to toggle its merge selection
+$(document).on('click', '#products-out-table tbody tr', function(e) {
+    if (!mergeMode || window.innerWidth > 767) return;
+    if ($(e.target).closest('.po-merge-hint,.po-expand-btn,.po-actions,a,button,input').length) return;
+    var cb = $(this).find('.row-check');
+    if (!cb.length) return;
+    var on = !cb.prop('checked');
+    cb.prop('checked', on);
+    $(this).toggleClass('mob-merge-selected', on);
+    toggleMergeBtn();
 });
 
 function unmergeOrder(id) {
@@ -3001,7 +3086,7 @@ $(document).on('click', '.expand-btn', function() {
     parentRow.after(rowsHtml);
 });
 
-table.on('draw', function() { $('#check-all').prop('checked',false); $('#btn-merge').hide(); $('#po-bulk-bar').hide(); });
+table.on('draw', function() { $('#check-all').prop('checked',false); $('#btn-merge').hide(); $('#mob-btn-merge').hide(); $('#po-bulk-bar').hide(); });
 
 function restoreOpenRows() {
     window._openParentIds.forEach(function(parentId) {
