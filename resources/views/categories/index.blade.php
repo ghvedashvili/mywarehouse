@@ -1,20 +1,6 @@
 @extends('layouts.master')
 @section('page_title')<i class="fa fa-tags me-2" style="color:#f39c12;"></i>კატეგორიები@endsection
 
-@section('topbar_search')
-<div class="mob-topbar-search">
-    <div class="mob-ts-bar">
-        <i class="fa fa-magnifying-glass"></i>
-        <input type="search" id="mob-cat-search" placeholder="კატეგორიის ძებნა..." autocomplete="off">
-        @if(Auth::user()->role === 'admin')
-        <button type="button" class="mob-ts-filter-btn" id="cat-filter-btn" onclick="toggleCatDrawer()">
-            <i class="fa fa-sliders"></i>
-            <span class="mob-ts-filter-badge" id="cat-filter-badge"></span>
-        </button>
-        @endif
-    </div>
-</div>
-@endsection
 
 @section('top')
 <style>
@@ -30,6 +16,9 @@
     --cat-r-md:       12px;
     --cat-sh-sm:      0 2px 8px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.03);
 }
+
+/* ── Mobile search wrap: hidden on desktop ── */
+.cat-mob-search-wrap { display: none; }
 
 /* ── Toggle switch ── */
 .switch { position: relative; display: inline-block; width: 46px; height: 24px; margin: 0; }
@@ -77,6 +66,46 @@
         -webkit-overflow-scrolling: touch; scrollbar-width: none;
     }
     .cat-mob-action-bar::-webkit-scrollbar { display: none; }
+
+    /* ── Mobile search bar ── */
+    .cat-mob-search-wrap { display: block; margin-bottom: 10px; position: relative; }
+    .cat-mob-search {
+        display: flex; align-items: center; gap: 8px;
+        background: #fff; border: 1px solid var(--cat-border);
+        border-radius: 14px; padding: 10px 6px 10px 14px;
+        box-shadow: var(--cat-sh-sm);
+    }
+    .cat-mob-search > i { font-size: 13px; color: var(--cat-text-3); flex-shrink: 0; }
+    .cat-mob-search input {
+        flex: 1; min-width: 0; background: none; border: none; outline: none;
+        font-size: 14px; color: var(--cat-text-1); font-family: inherit;
+    }
+    .cat-mob-search input::placeholder { color: var(--cat-text-3); font-size: 13px; }
+    /* filter btn — no color change, only badge appears */
+    #cat-filter-btn.active, #cat-filter-btn.has-active { color: inherit !important; background: transparent !important; }
+    #cat-filter-btn.has-active .mob-ts-filter-badge { display: flex !important; }
+
+    /* ── Inline filter panel ── */
+    @keyframes catPanelIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+    .cat-filter-panel {
+        display: none; position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+        background: #fff; border: 1px solid var(--cat-border);
+        border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.12); z-index: 200;
+        overflow: hidden;
+    }
+    .cat-filter-panel.open { display: block; animation: catPanelIn .18s ease; }
+    .cat-filter-panel-body { display: flex; flex-direction: column; padding: 12px 16px 14px; gap: 10px; }
+    .cat-filter-panel .cat-fp-label { font-size: 11.5px; font-weight: 600; color: #64748b; margin-bottom: 3px; }
+    .cat-filter-panel select {
+        width: 100%; height: 40px; font-size: 13.5px;
+        border-radius: 10px; border: 1.5px solid #e2e8f0; padding: 0 10px;
+        background: #fff; color: #1e293b; font-family: inherit;
+    }
+    .cat-filter-panel .cat-fp-row {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 6px 0; border-top: 1px solid #f1f5f9; font-size: 13px; color: #475569; font-weight: 600;
+    }
+
     .cat-mab-btn {
         display: inline-flex; align-items: center; gap: 5px;
         white-space: nowrap; cursor: pointer; font-family: inherit;
@@ -180,35 +209,6 @@
 
 @section('content')
 
-{{-- Mobile filter drawer (admin only) --}}
-@if(Auth::user()->role === 'admin')
-<div class="mob-drawer" id="cat-filter-drawer">
-    <div class="mob-drawer-header">
-        <span class="mob-drawer-title"><i class="fa fa-sliders" style="font-size:12px;margin-right:7px;opacity:.6;"></i>ფილტრები</span>
-        <button type="button" class="mob-drawer-close" onclick="toggleCatDrawer()"><i class="fa fa-xmark"></i></button>
-    </div>
-    <div class="mob-drawer-body">
-        <div class="mob-drawer-row">
-            <span>წაშლილი კატეგორიები</span>
-            <label class="switch mb-0">
-                <input type="checkbox" id="mob-toggle-deleted">
-                <span class="switch-slider"></span>
-            </label>
-        </div>
-        <div class="mob-drawer-row">
-            <span>ჩანაწ. რაოდ.</span>
-            <select id="mob-dt-page-length" style="width:90px;height:34px;font-size:13px;border-radius:8px;border:1.5px solid #e2e8f0;padding:0 8px;">
-                <option value="10" selected>10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="-1">ყველა</option>
-            </select>
-        </div>
-    </div>
-</div>
-<div class="mob-drawer-backdrop" id="cat-filter-backdrop" onclick="toggleCatDrawer()"></div>
-@endif
-
 <div class="mod-wrap">
 
     <div class="mod-header">
@@ -245,6 +245,42 @@
         <a href="{{ route('exportExcel.categoriesAll') }}" class="cat-mab-btn cat-mab-ghost">
             <i class="fa fa-file-excel" style="color:#16a34a;"></i> Excel
         </a>
+    </div>
+
+    {{-- ── MOBILE SEARCH BAR + inline filter panel ── --}}
+    <div class="cat-mob-search-wrap">
+        <div class="cat-mob-search">
+            <i class="fa fa-magnifying-glass"></i>
+            <input type="search" id="mob-cat-search" placeholder="კატეგორიის ძებნა..." autocomplete="off">
+            @if(Auth::user()->role === 'admin')
+            <button type="button" class="mob-ts-filter-btn" id="cat-filter-btn" onclick="toggleCatDrawer()">
+                <i class="fa fa-sliders"></i>
+                <span class="mob-ts-filter-badge" id="cat-filter-badge"></span>
+            </button>
+            @endif
+        </div>
+        @if(Auth::user()->role === 'admin')
+        <div class="cat-filter-panel" id="cat-filter-drawer">
+            <div class="cat-filter-panel-body">
+                <div class="cat-fp-row">
+                    <span>წაშლილი კატეგორიები</span>
+                    <label class="switch mb-0">
+                        <input type="checkbox" id="mob-toggle-deleted">
+                        <span class="switch-slider"></span>
+                    </label>
+                </div>
+                <div>
+                    <div class="cat-fp-label">ჩანაწ. რაოდ.</div>
+                    <select id="mob-dt-page-length">
+                        <option value="10" selected>10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="-1">ყველა</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        @endif
     </div>
 
     <div class="mod-card">
@@ -354,15 +390,20 @@ $('#toggle-deleted').on('change', function() {
     });
 })();
 
-/* ── Mobile filter drawer ── */
+/* ── Mobile filter panel ── */
 function toggleCatDrawer() {
-    var drawer = $('#cat-filter-drawer');
-    var isOpen = drawer.hasClass('open');
-    drawer.toggleClass('open', !isOpen);
-    $('#cat-filter-backdrop').toggleClass('show', !isOpen);
+    var panel  = $('#cat-filter-drawer');
+    var isOpen = panel.hasClass('open');
+    panel.toggleClass('open', !isOpen);
     $('#cat-filter-btn').toggleClass('active', !isOpen);
-    $('body').css('overflow', isOpen ? '' : 'hidden');
 }
+
+$(document).on('click', function(e) {
+    if (!$(e.target).closest('.cat-mob-search-wrap').length) {
+        $('#cat-filter-drawer').removeClass('open');
+        $('#cat-filter-btn').removeClass('active');
+    }
+});
 
 function updateCatFilterBadge() {
     var count = showingDeleted ? 1 : 0;
