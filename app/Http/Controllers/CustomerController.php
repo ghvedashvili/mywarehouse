@@ -40,8 +40,14 @@ class CustomerController extends Controller
         'city_id' => 'required|exists:cities,id',
         'address' => 'required|string|max:255',
         'email'   => 'nullable|email|unique:customers,email',
-        'tel'     => 'required|unique:customers,tel',
+        'tel'     => 'required',
     ]);
+
+    $normalizedTel = preg_replace('/\s/', '', $request->tel);
+    $telExists = \App\Models\Customer::whereRaw("REPLACE(tel, ' ', '') = ?", [$normalizedTel])->exists();
+    if ($telExists) {
+        return response()->json(['errors' => ['tel' => ['ეს ტელეფონის ნომერი უკვე გამოყენებულია']]], 422);
+    }
 
     $customer = Customer::create($request->all());
     $customer->load('city');
@@ -67,8 +73,16 @@ public function update(Request $request, $id)
         'city_id' => 'required|exists:cities,id',
         'address' => 'required|string|max:255',
         'email'   => 'nullable|email|unique:customers,email,' . $id,
-        'tel'     => 'required|unique:customers,tel,' . $id,
+        'tel'     => 'required',
     ]);
+
+    $normalizedTel = preg_replace('/\s/', '', $request->tel);
+    $telExists = \App\Models\Customer::whereRaw("REPLACE(tel, ' ', '') = ?", [$normalizedTel])
+        ->where('id', '!=', $id)
+        ->exists();
+    if ($telExists) {
+        return response()->json(['errors' => ['tel' => ['ეს ტელეფონის ნომერი უკვე გამოყენებულია']]], 422);
+    }
 
     $customer = Customer::findOrFail($id); // პირველ ეს
     $customer->update($request->all());    // მერე ეს

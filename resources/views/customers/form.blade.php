@@ -65,14 +65,16 @@
                                 <div class="row g-2 mb-3">
                                     <div class="col-6">
                                         <label class="form-label fw-600 text-muted small mb-1">ტელეფონი *</label>
-                                        <input type="text" class="form-control form-control-lg fs-6 border-light-subtle bg-light" 
-                                               id="tel" name="tel" required placeholder="5xx xx xx xx">
+                                        <input type="text" class="form-control form-control-lg fs-6 border-light-subtle bg-light"
+                                               id="tel" name="tel" required placeholder="5xx xx xx xx" inputmode="numeric"
+                                               oninput="this.value=this.value.replace(/[^\d\s]/g,'')">
                                         <div class="invalid-feedback small">აუცილებელია</div>
                                     </div>
                                     <div class="col-6">
                                         <label class="form-label fw-600 text-muted small mb-1">ალტ. ტელ.</label>
-                                        <input type="text" class="form-control form-control-lg fs-6 border-light-subtle bg-light" 
-                                               id="alternative_tel" name="alternative_tel" placeholder="(სურვილისამებრ)">
+                                        <input type="text" class="form-control form-control-lg fs-6 border-light-subtle bg-light"
+                                               id="alternative_tel" name="alternative_tel" placeholder="(სურვილისამებრ)" inputmode="numeric"
+                                               oninput="this.value=this.value.replace(/[^\d\s]/g,'')">
                                     </div>
                                 </div>
 
@@ -114,4 +116,5 @@
         $('#modal-sale').modal('show');
     }
 });
+
 </script>
