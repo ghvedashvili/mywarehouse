@@ -114,7 +114,7 @@
 
             {{-- BODY --}}
             <div class="modal-body">
-                <form id="form-sale-content" method="post" enctype="multipart/form-data">
+                <form id="form-sale-content" method="post" enctype="multipart/form-data" autocomplete="off">
                     @csrf @method('POST')
                     <input type="hidden" name="id" id="id">
                     <input type="hidden" name="order_type" value="sale">

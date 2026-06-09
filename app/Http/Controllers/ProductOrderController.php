@@ -103,11 +103,12 @@ class ProductOrderController extends Controller
         $data['price_usa']         = $nextPurchase ? (float) $nextPurchase->cost_price : 0;
         $data['purchase_order_id'] = null;
 
-        if ($user->role === 'staff') {
-            $data['discount'] = 0;
-            $data['paid_tbc'] = 0;
-            $data['paid_bog'] = 0;
-            $data['paid_lib'] = 0;
+        if ($user->role !== 'admin') {
+            $data['discount']  = 0;
+            $data['paid_tbc']  = 0;
+            $data['paid_bog']  = 0;
+            $data['paid_lib']  = 0;
+            $data['paid_cash'] = 0;
         }
 
         $data['discount']  = $data['discount']  ?? 0;
@@ -469,17 +470,23 @@ class ProductOrderController extends Controller
                     $data['product_size'] = $order->product_size;
                 }
 
+                $isAdmin = auth()->user()->role === 'admin';
+
                 // 1. სტატუსი მხოლოდ admin-ს შეუძლია შეცვალოს
-                if (auth()->user()->role !== 'admin') {
+                if (!$isAdmin) {
                     unset($data['status_id']);
                 }
 
-                // 2. ბანკები და კურიერი
-                $data['paid_tbc']  = $request->paid_tbc  ?? 0;
-                $data['paid_bog']  = $request->paid_bog  ?? 0;
-                $data['paid_lib']  = $request->paid_lib  ?? 0;
-                $data['paid_cash'] = $request->paid_cash ?? 0;
-                $data['discount']  = $request->discount  ?? 0;
+                // 2. გადახდა და ფასდაკლება — მხოლოდ admin-ს შეუძლია შეცვლა
+                if ($isAdmin) {
+                    $data['paid_tbc']  = $request->paid_tbc  ?? 0;
+                    $data['paid_bog']  = $request->paid_bog  ?? 0;
+                    $data['paid_lib']  = $request->paid_lib  ?? 0;
+                    $data['paid_cash'] = $request->paid_cash ?? 0;
+                    $data['discount']  = $request->discount  ?? 0;
+                } else {
+                    unset($data['paid_tbc'], $data['paid_bog'], $data['paid_lib'], $data['paid_cash'], $data['discount']);
+                }
 
                 $courier = \App\Models\Courier::first();
                 $product = \App\Models\Product::with('category')
