@@ -2359,7 +2359,7 @@ $(document).on('click', '.expand-btn', function() {
     allOrders.forEach(function(order) {
         var orderNo = order.order_number || ('S'+order.id);
         var commentHtml = order.comment
-            ? '<div style="margin-top:3px;"><small style="color:#1a5276;background:#eaf4fb;border-radius:3px;padding:1px 5px;font-size:10px;"><i class="fa fa-cube" style="font-size:9px;"></i> '+$('<div>').text(order.comment).html()+'</small></div>'
+            ? '<div style="margin-top:3px;"><small style="color:#dc2626;background:#fef2f2;border-radius:3px;padding:1px 5px;font-size:10px;font-weight:600;"><i class="fa fa-cube" style="font-size:9px;"></i> '+$('<div>').text(order.comment).html()+'</small></div>'
             : '';
         commentHtml += order.payment_comment
             ? '<div style="margin-top:3px;"><small style="color:#1e8449;background:#eafaf1;border-radius:3px;padding:1px 5px;font-size:10px;"><i class="fa fa-money-bill" style="font-size:9px;"></i> '+$('<div>').text(order.payment_comment).html()+'</small></div>'

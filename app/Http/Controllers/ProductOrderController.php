@@ -1381,7 +1381,7 @@ class ProductOrderController extends Controller
 
                 $isGroupHeader = $item->is_primary && $item->children->isNotEmpty();
                 if ($item->comment && !$isGroupHeader) {
-                    $html .= '<br><small style="color:#1a5276;background:#eaf4fb;border-radius:3px;padding:1px 4px;display:inline-block;margin-top:2px;">'
+                    $html .= '<br><small style="color:#dc2626;background:#fef2f2;border-radius:3px;padding:1px 4px;display:inline-block;margin-top:2px;font-weight:600;">'
                            . '<i class="fa fa-cube"></i> ' . e($item->comment) . '</small>';
                 }
 
@@ -2165,6 +2165,26 @@ class ProductOrderController extends Controller
         });
     }
 
+    private function loadOriginalOrders(\Illuminate\Support\Collection $allMembers): void
+    {
+        $ids = $allMembers->where('order_type', 'change')
+            ->pluck('original_sale_id')->filter()->unique()->toArray();
+        if (empty($ids)) return;
+
+        $map = \App\Models\Product_Order::withoutGlobalScope('active')
+            ->with(['product' => fn($q) => $q->withoutGlobalScope('active')])
+            ->whereIn('id', $ids)->get()->keyBy('id');
+
+        foreach ($map as $orig) {
+            $orig->imageBase64 = $this->productImageBase64($orig->product);
+        }
+        foreach ($allMembers as $member) {
+            $member->originalOrderData = ($member->order_type === 'change' && $member->original_sale_id)
+                ? $map->get($member->original_sale_id)
+                : null;
+        }
+    }
+
     public function exportProductOrder($id)
     {
         $order = Product_Order::withoutGlobalScope('active')
@@ -2187,22 +2207,15 @@ class ProductOrderController extends Controller
         }
 
         $isExchange = $order->order_type === 'change' && $order->original_sale_id;
-        $origOrd    = null;
-        if ($isExchange) {
-            $origOrd = Product_Order::withoutGlobalScope('active')
-                ->with(['product' => fn($q) => $q->withoutGlobalScope('active')])
-                ->find($order->original_sale_id);
-            if ($origOrd) {
-                $origOrd->imageBase64 = $this->productImageBase64($origOrd->product);
-            }
-        }
+
+        $this->loadOriginalOrders(collect([$order])->merge($children));
 
         $groups = collect([[
             'primary'        => $order,
             'children'       => $children,
             'is_group'       => $order->is_primary == 1 && $children->isNotEmpty(),
             'is_exchange'    => $isExchange,
-            'original_order' => $origOrd,
+            'original_order' => $order->originalOrderData ?? null,
             'is_return'      => $order->status_id == 5,
         ]]);
 
@@ -2267,35 +2280,20 @@ class ProductOrderController extends Controller
             $childrenByParent = $childRows->groupBy('merged_id');
         }
 
-        // original sale orders for exchange (change) orders
-        $originalSaleIds = $orders
-            ->where('order_type', 'change')
-            ->pluck('original_sale_id')
-            ->filter()->toArray();
-        $originalSales = collect();
-        if (!empty($originalSaleIds)) {
-            $origRows = Product_Order::withoutGlobalScope('active')
-                ->with(['product' => fn($q) => $q->withoutGlobalScope('active')])
-                ->whereIn('id', $originalSaleIds)
-                ->get()
-                ->keyBy('id');
-            foreach ($origRows as $orig) {
-                $orig->imageBase64 = $this->productImageBase64($orig->product);
-            }
-            $originalSales = $origRows;
-        }
-
-        // build groups
-        $groups = $orders->map(function ($order) use ($childrenByParent, $originalSales) {
+        // build groups — original orders for ALL change members (primary + children)
+        $groups = $orders->map(function ($order) use ($childrenByParent) {
             $order->imageBase64 = $this->productImageBase64($order->product);
             $children = $childrenByParent->get($order->id, collect());
             $isExchange = $order->order_type === 'change' && $order->original_sale_id;
+
+            $this->loadOriginalOrders(collect([$order])->merge($children));
+
             return [
                 'primary'        => $order,
                 'children'       => $children,
                 'is_group'       => $order->is_primary == 1 && $children->isNotEmpty(),
                 'is_exchange'    => $isExchange,
-                'original_order' => $isExchange ? ($originalSales->get($order->original_sale_id)) : null,
+                'original_order' => $order->originalOrderData ?? null,
                 'is_return'      => $order->status_id == 5,
             ];
         });
@@ -2374,20 +2372,15 @@ class ProductOrderController extends Controller
         }
 
         $isExchange = $order->order_type === 'change' && $order->original_sale_id;
-        $origOrd    = null;
-        if ($isExchange) {
-            $origOrd = Product_Order::withoutGlobalScope('active')
-                ->with(['product' => fn($q) => $q->withoutGlobalScope('active')])
-                ->find($order->original_sale_id);
-            if ($origOrd) $origOrd->imageBase64 = $this->productImageBase64($origOrd->product);
-        }
+
+        $this->loadOriginalOrders(collect([$order])->merge($children));
 
         $groups = collect([[
             'primary'        => $order,
             'children'       => $children,
             'is_group'       => $order->is_primary == 1 && $children->isNotEmpty(),
             'is_exchange'    => $isExchange,
-            'original_order' => $origOrd,
+            'original_order' => $order->originalOrderData ?? null,
             'is_return'      => $order->status_id == 5,
         ]]);
 

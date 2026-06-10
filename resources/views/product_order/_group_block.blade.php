@@ -32,37 +32,44 @@
             </div>
         </div>
         <div class="exchange-content">
-            <div class="prod-row">
-                <div class="pr-img">
-                    @if(!empty($primary->imageBase64))<img src="{{ $primary->imageBase64 }}" alt="">
-                    @else<div class="no-img"></div>@endif
-                </div>
-                <div class="pr-info">
-                    <div class="pr-name">{{ $primary->product->name ?? '—' }}</div>
-                    <div class="pr-meta">
-                        @if($primary->product?->product_code)<span style="color:#888;font-size:10px;">{{ $primary->product->product_code }}</span><br>@endif
-                        @if($primary->product_size)ზომა: {{ $primary->product_size }}@endif
-                        @if($primary->comment)<br>{{ $primary->comment }}@endif
+            @php $exchangeMembers = collect([$primary])->merge($children); @endphp
+            @foreach($exchangeMembers as $member)
+                @if(!$loop->first)
+                    <div style="border-top:1px dashed #fcd34d;margin:4px 0;"></div>
+                @endif
+                <div class="prod-row">
+                    <div class="pr-img">
+                        @if(!empty($member->imageBase64))<img src="{{ $member->imageBase64 }}" alt="">
+                        @else<div class="no-img"></div>@endif
                     </div>
-                </div>
-                <div class="pr-action"><span class="badge-deliver">&#10003; გადაეცი</span></div>
-            </div>
-            @if($origOrd)
-            <div class="prod-row">
-                <div class="pr-img">
-                    @if(!empty($origOrd->imageBase64))<img src="{{ $origOrd->imageBase64 }}" alt="">
-                    @else<div class="no-img"></div>@endif
-                </div>
-                <div class="pr-info">
-                    <div class="pr-name">{{ $origOrd->product->name ?? '—' }}</div>
-                    <div class="pr-meta">
-                        @if($origOrd->product?->product_code)<span style="color:#888;font-size:10px;">{{ $origOrd->product->product_code }}</span><br>@endif
-                        @if($origOrd->product_size)ზომა: {{ $origOrd->product_size }}@endif
+                    <div class="pr-info">
+                        <div class="pr-name">{{ $member->product->name ?? '—' }}</div>
+                        <div class="pr-meta">
+                            @if($member->product?->product_code)<span style="color:#888;font-size:10px;">{{ $member->product->product_code }}</span><br>@endif
+                            @if($member->product_size)ზომა: {{ $member->product_size }}@endif
+                            @if($member->comment)<br><span style="color:rgb(220,38,38);font-weight:600;">{{ $member->comment }}</span>@endif
+                        </div>
                     </div>
+                    <div class="pr-action"><span class="badge-deliver">&#10003; გადაეცი</span></div>
                 </div>
-                <div class="pr-action"><span class="badge-pickup">&#8617; წამოიღე</span></div>
-            </div>
-            @endif
+                @php $memberOrig = $member->originalOrderData ?? null; @endphp
+                @if($memberOrig)
+                <div class="prod-row">
+                    <div class="pr-img">
+                        @if(!empty($memberOrig->imageBase64))<img src="{{ $memberOrig->imageBase64 }}" alt="">
+                        @else<div class="no-img"></div>@endif
+                    </div>
+                    <div class="pr-info">
+                        <div class="pr-name">{{ $memberOrig->product->name ?? '—' }}</div>
+                        <div class="pr-meta">
+                            @if($memberOrig->product?->product_code)<span style="color:#888;font-size:10px;">{{ $memberOrig->product->product_code }}</span><br>@endif
+                            @if($memberOrig->product_size)ზომა: {{ $memberOrig->product_size }}@endif
+                        </div>
+                    </div>
+                    <div class="pr-action"><span class="badge-pickup">&#8617; წამოიღე</span></div>
+                </div>
+                @endif
+            @endforeach
         </div>
     </div>
 
@@ -95,7 +102,7 @@
                     <div class="pr-meta">
                         @if($primary->product?->product_code)<span style="color:#888;font-size:10px;">{{ $primary->product->product_code }}</span><br>@endif
                         @if($primary->product_size)ზომა: {{ $primary->product_size }}@endif
-                        @if($primary->comment) · {{ $primary->comment }}@endif
+                        @if($primary->comment) · <span style="color:rgb(220,38,38);font-weight:600;">{{ $primary->comment }}</span>@endif
                     </div>
                 </div>
                 <div class="pr-action"><span class="badge-pickup">&#8617; წამოიღე</span></div>
@@ -132,7 +139,7 @@
                         <div class="pr-meta">
                             @if($member->product?->product_code)<span style="color:#888;font-size:10px;">{{ $member->product->product_code }}</span><br>@endif
                             @if($member->product_size)ზომა: {{ $member->product_size }}@endif
-                            @if($member->comment) · {{ $member->comment }}@endif
+                            @if($member->comment) · <span style="color:rgb(220,38,38);font-weight:600;">{{ $member->comment }}</span>@endif
                         </div>
                     </div>
                 </div>
@@ -154,7 +161,7 @@
             <div class="pr-meta">
                 @if($primary->product?->product_code)<span style="color:#888;font-size:10px;">{{ $primary->product->product_code }}</span><br>@endif
                 @if($primary->product_size)ზომა: {{ $primary->product_size }}@endif
-                @if($primary->comment)<br>{{ $primary->comment }}@endif
+                @if($primary->comment)<br><span style="color:rgb(220,38,38);font-weight:600;">{{ $primary->comment }}</span>@endif
             </div>
         </div>
         <div class="pr-info" style="width:38%;">
