@@ -391,6 +391,7 @@ function buildMobileCustCards() {
 
         var card = '<div class="cust-mob-card">'
             + '<div class="cust-mob-hdr">'
+            +   avatar
             +   '<div class="cust-mob-info">'
             +     '<div class="cust-mob-name">' + $('<div>').text(name).html() + '</div>'
             +     (notEmpty(contact) ? '<div class="cust-mob-contact">' + contact + '</div>' : '')
