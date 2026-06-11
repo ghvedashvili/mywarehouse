@@ -44,7 +44,11 @@ class BrandController extends Controller
     public function edit($id)
     {
         $brand = Brand::findOrFail($id);
-        return response()->json($brand);
+        return response()->json([
+            'id'       => $brand->id,
+            'name'     => $brand->name,
+            'logo_url' => $brand->logo_url,
+        ]);
     }
 
     public function update(Request $request, $id)
