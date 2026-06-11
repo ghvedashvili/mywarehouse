@@ -16,8 +16,9 @@
 .table-responsive { overflow-x: hidden; }
 
 /* Mobile-only: hidden on desktop */
-.brand-mob-bar { display: none; }
+.brand-mob-bar        { display: none; }
 .brand-mob-search-wrap { display: none; }
+.brand-mob-cell       { display: none; }
 
 @media (max-width: 767px) {
     .mod-header  { display: none !important; }
@@ -97,7 +98,7 @@
         overflow: hidden;
     }
     #brands-table tbody tr td:not(.brand-mob-cell) { display: none !important; }
-    .brand-mob-cell { display: block !important; padding: 0 !important; border: none !important; }
+    .brand-mob-cell { display: block !important; padding: 0 !important; border: none !important; width: 100%; }
 
     /* ── Card: single row ── */
     .brand-mob-card {
@@ -256,6 +257,19 @@ $('#dt-page-length').on('change', function() {
 $('#dt-search').on('input', function() {
     table.search($(this).val()).draw();
 });
+
+/* ── Rebuild cards on desktop→mobile switch ── */
+(function() {
+    var _mob = window.innerWidth <= 767, _t;
+    $(window).on('resize', function() {
+        clearTimeout(_t);
+        _t = setTimeout(function() {
+            var now = window.innerWidth <= 767;
+            if (now && !_mob) buildMobileBrandCards(table.api());
+            _mob = now;
+        }, 200);
+    });
+})();
 
 /* ── Mobile search sync ── */
 (function() {

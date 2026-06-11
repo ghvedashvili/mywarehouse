@@ -313,6 +313,19 @@ $('#dt-search').on('keyup', function() { table.search(this.value).draw(); });
 $('#dt-page-length').on('change', function() { table.page.len(parseInt(this.value)).draw(); });
 $('#filter_city').on('change', function() { table.draw(); });
 
+/* ── Rebuild cards on desktop→mobile switch ── */
+(function() {
+    var _mob = window.innerWidth <= 767, _t;
+    $(window).on('resize', function() {
+        clearTimeout(_t);
+        _t = setTimeout(function() {
+            var now = window.innerWidth <= 767;
+            if (now && !_mob) buildMobileCustCards();
+            _mob = now;
+        }, 200);
+    });
+})();
+
 /* ── Mobile search ── */
 (function() {
     var _t;
