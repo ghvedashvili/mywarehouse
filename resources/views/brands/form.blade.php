@@ -42,8 +42,9 @@
 <script>
 document.getElementById('logo').addEventListener('change', function() {
     var file = this.files[0];
+    if (!file) return; // Chrome 109+: cancel fires change with empty files — ignore
     var preview = document.getElementById('brand-logo-preview');
-    if (file && file.type.startsWith('image/')) {
+    if (file.type.startsWith('image/')) {
         var reader = new FileReader();
         reader.onload = function(e) {
             preview.innerHTML = '<img src="' + e.target.result + '" style="max-height:68px;max-width:100%;object-fit:contain;border-radius:4px;">';
