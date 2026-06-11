@@ -14,6 +14,116 @@
 #brands-table td { white-space: normal !important; word-break: break-word; vertical-align: middle; }
 #brands-table td:last-child { white-space: nowrap !important; }
 .table-responsive { overflow-x: hidden; }
+
+/* Mobile-only: hidden on desktop */
+.brand-mob-bar { display: none; }
+.brand-mob-search-wrap { display: none; }
+
+@media (max-width: 767px) {
+    .mod-header  { display: none !important; }
+    .mod-toolbar { display: none !important; }
+    .mod-wrap { padding: 8px 12px 70px !important; }
+    .mod-card { background: transparent !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; padding: 0 !important; }
+    .table-responsive { overflow: visible !important; }
+
+    /* ── Mobile action bar ── */
+    .brand-mob-bar {
+        display: flex; align-items: center; gap: 8px;
+        padding: 0 0 8px; overflow-x: auto;
+        -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .brand-mob-bar::-webkit-scrollbar { display: none; }
+    .brand-mob-add {
+        flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;
+        padding: 7px 13px; border-radius: 22px; border: none;
+        background: #059669; color: #fff; font-size: 12.5px; font-weight: 600;
+        box-shadow: 0 2px 10px rgba(5,150,105,.28);
+        touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+        cursor: pointer;
+    }
+    .brand-mob-add:active { transform: scale(.93); }
+    .brand-mob-add > i { font-size: 10px; }
+
+    /* ── Mobile search + filter ── */
+    .brand-mob-search-wrap { display: block; margin-bottom: 10px; position: relative; }
+    .brand-mob-search {
+        display: flex; align-items: center; gap: 8px;
+        background: #fff; border: 1px solid rgba(99,115,150,.20);
+        border-radius: 14px; padding: 10px 6px 10px 14px;
+        box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    }
+    .brand-mob-search > i { font-size: 13px; color: #7a8a9e; flex-shrink: 0; }
+    .brand-mob-search input {
+        flex: 1; min-width: 0; background: none; border: none; outline: none;
+        font-size: 14px; color: #1a2235; font-family: inherit;
+    }
+    .brand-mob-search input::placeholder { color: #7a8a9e; font-size: 13px; }
+    #brand-filter-btn.has-active .mob-ts-filter-badge { display: flex !important; }
+
+    /* ── Inline filter panel ── */
+    @keyframes brandPanelIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+    .brand-filter-panel {
+        display: none; position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+        background: #fff; border: 1px solid rgba(99,115,150,.20);
+        border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.12); z-index: 200;
+        overflow: hidden;
+    }
+    .brand-filter-panel.open { display: block; animation: brandPanelIn .18s ease; }
+    .brand-filter-panel-body { display: flex; flex-direction: column; padding: 12px 16px 14px; gap: 12px; }
+    .brand-fp-label { font-size: 11.5px; font-weight: 600; color: #64748b; margin-bottom: 3px; }
+    .brand-filter-panel select {
+        width: 100%; height: 40px; font-size: 13.5px;
+        border-radius: 10px; border: 1.5px solid #e2e8f0; padding: 0 10px;
+        background: #fff; color: #1e293b; font-family: inherit;
+    }
+    .brand-fp-toggle-row {
+        display: flex; align-items: center; justify-content: space-between;
+    }
+
+    /* ── Table → block ── */
+    #brands-table       { display: block !important; width: 100% !important; }
+    #brands-table thead { display: none !important; }
+    #brands-table tbody { display: block !important; }
+    #brands-table tfoot { display: none !important; }
+
+    /* ── Row = card ── */
+    #brands-table tbody tr {
+        display: block !important;
+        background: #fff !important;
+        border-radius: 12px !important;
+        margin: 0 0 8px !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.03) !important;
+        border: none !important;
+        overflow: hidden;
+    }
+    #brands-table tbody tr td:not(.brand-mob-cell) { display: none !important; }
+    .brand-mob-cell { display: block !important; padding: 0 !important; border: none !important; }
+
+    /* ── Card: single row ── */
+    .brand-mob-card {
+        display: flex; align-items: center; gap: 10px;
+        padding: 8px 10px; width: 100%;
+    }
+    .brand-mob-logo-img {
+        flex-shrink: 0;
+        width: 42px; height: 42px; border-radius: 8px;
+        object-fit: contain; border: 1px solid rgba(99,115,150,.15);
+        background: #f8f9fb; padding: 3px;
+    }
+    .brand-mob-logo-placeholder {
+        flex-shrink: 0;
+        width: 42px; height: 42px; border-radius: 8px;
+        background: #f1f3f9; border: 1px solid rgba(99,115,150,.15);
+        display: flex; align-items: center; justify-content: center;
+        color: #b0b8c8; font-size: 18px;
+    }
+    .brand-mob-name {
+        flex: 1; min-width: 0;
+        font-size: 14px; font-weight: 700; color: #1a2235;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .brand-mob-ftr { flex-shrink: 0; display: flex; gap: 4px; align-items: center; margin-left: auto; }
+}
 </style>
 @endsection
 
@@ -31,6 +141,50 @@
                 <i class="fa fa-plus me-1"></i> ახალი
             </button>
             @endif
+        </div>
+    </div>
+
+    {{-- ── MOBILE ACTION BAR ── --}}
+    <div class="brand-mob-bar">
+        @if(\App\Models\RolePermission::check(auth()->user()->role, 'brands', 'can_create'))
+        <button type="button" class="brand-mob-add" onclick="addForm()">
+            <i class="fa fa-plus"></i> ახალი
+        </button>
+        @endif
+    </div>
+
+    {{-- ── MOBILE SEARCH + FILTER ── --}}
+    <div class="brand-mob-search-wrap">
+        <div class="brand-mob-search">
+            <i class="fa fa-magnifying-glass"></i>
+            <input type="search" id="mob-brand-search" placeholder="ბრენდის სახელი..." autocomplete="off">
+            <button type="button" class="mob-ts-filter-btn" id="brand-filter-btn" onclick="toggleBrandPanel()">
+                <i class="fa fa-sliders"></i>
+                <span class="mob-ts-filter-badge" id="brand-filter-badge"></span>
+            </button>
+        </div>
+        <div class="brand-filter-panel" id="brand-filter-panel">
+            <div class="brand-filter-panel-body">
+                <div>
+                    <div class="brand-fp-label">ჩანაწ. რაოდ.</div>
+                    <select id="mob-dt-page-length">
+                        <option value="10" selected>10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="-1">ყველა</option>
+                    </select>
+                </div>
+                @if(Auth::user()->role === 'admin')
+                <div class="brand-fp-toggle-row">
+                    <span class="brand-fp-label mb-0">წაშლილი ბრენდები</span>
+                    <label class="switch mb-0">
+                        <input type="checkbox" id="mob-toggle-deleted">
+                        <span class="switch-slider"></span>
+                    </label>
+                </div>
+                @endif
+            </div>
         </div>
     </div>
 
@@ -91,7 +245,8 @@ var table = $('#brands-table').DataTable({
         {data: 'name',           name: 'name'},
         {data: 'status_display', name: 'status_display', orderable: false, searchable: false, visible: false, width: '80px'},
         {data: 'action',         name: 'action',         orderable: false, searchable: false, width: '90px'}
-    ]
+    ],
+    drawCallback: function() { buildMobileBrandCards(this.api()); }
 });
 
 $('#dt-page-length').on('change', function() {
@@ -101,6 +256,77 @@ $('#dt-page-length').on('change', function() {
 $('#dt-search').on('input', function() {
     table.search($(this).val()).draw();
 });
+
+/* ── Mobile search sync ── */
+(function() {
+    var _t;
+    $('#mob-brand-search').on('input', function() {
+        clearTimeout(_t); var v = $(this).val();
+        _t = setTimeout(function() { table.search(v).draw(); }, 300);
+        $('#dt-search').val(v);
+    });
+})();
+
+/* ── Mobile filter panel ── */
+function toggleBrandPanel() {
+    var panel  = $('#brand-filter-panel');
+    var isOpen = panel.hasClass('open');
+    panel.toggleClass('open', !isOpen);
+    $('#brand-filter-btn').toggleClass('active', !isOpen);
+}
+
+$(document).on('click', function(e) {
+    if (!$(e.target).closest('.brand-mob-search-wrap').length) {
+        $('#brand-filter-panel').removeClass('open');
+        $('#brand-filter-btn').removeClass('active');
+    }
+});
+
+function updateBrandFilterBadge() {
+    var count = ($('#mob-toggle-deleted').is(':checked') ? 1 : 0);
+    $('#brand-filter-badge').text(count || '');
+    $('#brand-filter-btn').toggleClass('has-active', count > 0);
+}
+
+/* Mobile page length */
+$('#mob-dt-page-length').on('change', function() {
+    var v = parseInt($(this).val());
+    table.page.len(v).draw();
+    $('#dt-page-length').val($(this).val());
+});
+
+/* Mobile deleted toggle — syncs with desktop #toggle-deleted */
+$('#mob-toggle-deleted').on('change', function() {
+    $('#toggle-deleted').prop('checked', $(this).is(':checked')).trigger('change');
+    updateBrandFilterBadge();
+});
+
+/* ── Build mobile brand cards ── */
+function buildMobileBrandCards(api) {
+    if (window.innerWidth > 767) return;
+    api.rows().every(function() {
+        var tr = $(this.node());
+        if (tr.find('.brand-mob-cell').length) return;
+
+        var data = this.data();
+        var logoHtml   = data.logo_display || '';
+        var name       = data.name         || '';
+        var actionHtml = data.action       || '';
+
+        var imgMatch = logoHtml.match(/<img[^>]+src=["']([^"']+)["']/i);
+        var logoEl = imgMatch
+            ? '<img src="' + imgMatch[1] + '" class="brand-mob-logo-img" alt="">'
+            : '<div class="brand-mob-logo-placeholder"><i class="fa fa-copyright"></i></div>';
+
+        var card = '<div class="brand-mob-card">'
+            + logoEl
+            + '<span class="brand-mob-name">' + $('<div>').text(name).html() + '</span>'
+            + '<div class="brand-mob-ftr">' + actionHtml + '</div>'
+            + '</div>';
+
+        tr.append('<td class="brand-mob-cell" colspan="4">' + card + '</td>');
+    });
+}
 
 $('#toggle-deleted').on('change', function() {
     showingDeleted = $(this).is(':checked');
@@ -141,10 +367,10 @@ function addForm() {
 function editForm(id) {
     save_method = 'edit';
     $('input[name=_method]').val('PATCH');
-    $('#modal-form form')[0].reset();
+    $('#form-item')[0].reset();
     $.ajax({
         url: "{{ url('brands') }}/" + id + "/edit",
-        type: "GET", dataType: "JSON",
+        type: "GET", dataType: "JSON", cache: false,
         success: function(data) {
             $('.modal-title').text('ბრენდის რედაქტირება');
             $('#id').val(data.id);
@@ -156,6 +382,9 @@ function editForm(id) {
                 preview.innerHTML = '<span class="text-muted small"><i class="fa fa-image"></i></span>';
             }
             bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-form')).show();
+        },
+        error: function(xhr) {
+            console.error('brand edit error:', xhr.status, xhr.responseText);
         }
     });
 }
