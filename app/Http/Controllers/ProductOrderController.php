@@ -239,6 +239,7 @@ class ProductOrderController extends Controller
                 'paid_lib'         => 0,
                 'paid_cash'        => 0,
                 'comment'          => $request->comment,
+                'is_gift'          => $request->boolean('is_gift'),
                 'order_address'    => $orderAddress,
                 'order_alt_tel'    => $orderAltTel,
                 'order_city_id'    => $orderCityId,
@@ -542,6 +543,8 @@ class ProductOrderController extends Controller
                         $data['status_id'] = 1;
                     }
                 }
+
+                $data['is_gift'] = $request->boolean('is_gift');
 
                 // 5. მონაცემების განახლება — ამის შემდეგ Order A DB-ში purchase_order_id=null
                 $order->update($data);
@@ -2046,7 +2049,8 @@ class ProductOrderController extends Controller
         $fullPrice = (float)($order->price_georgia ?? 0) - $discount;
 
         // preserve original fully_paid_at date; clear it if payment drops below full
-        if ($totalPaid >= $fullPrice && $fullPrice > 0) {
+        // fullPrice can be 0 when discount covers the entire price — still counts as fully paid
+        if ($totalPaid >= $fullPrice && (float)($order->price_georgia ?? 0) > 0) {
             $fullyPaidAt = $order->fully_paid_at ?? now();
         } else {
             $fullyPaidAt = null;

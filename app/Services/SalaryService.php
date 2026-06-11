@@ -21,6 +21,7 @@ class SalaryService
             ->with('product:id,bundle_id')
             ->where('user_id', $userId)
             ->where('order_type', 'sale')
+            ->where('is_gift', false)
             ->whereNotNull('fully_paid_at')
             ->whereBetween('fully_paid_at', [$start, $end])
             ->get();
@@ -31,6 +32,7 @@ class SalaryService
             ->with('product:id,bundle_id')
             ->where('user_id', $userId)
             ->where('order_type', 'sale')
+            ->where('is_gift', false)
             ->whereNotNull('fully_paid_at')
             ->whereBetween('cancelled_at', [$start, $end])
             ->where(function ($q) {
@@ -153,6 +155,7 @@ class SalaryService
         $soloOrders = Product_Order::withoutGlobalScope('active')
             ->where('order_type', 'sale')
             ->whereNull('merged_id')
+            ->where('is_gift', false)
             ->where(function ($q) use ($start, $end) {
                 $q->whereBetween('fully_paid_at', [$start, $end])
                   ->orWhereBetween('cancelled_at', [$start, $end]);
@@ -171,6 +174,7 @@ class SalaryService
         $mergedPrimaries = Product_Order::withoutGlobalScope('active')
             ->where('order_type', 'sale')
             ->where('is_primary', 1)
+            ->where('is_gift', false)
             ->get(['id', 'created_at', 'fully_paid_at', 'status', 'status_id', 'cancelled_at']);
 
         if ($mergedPrimaries->isNotEmpty()) {

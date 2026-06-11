@@ -268,6 +268,16 @@
                                           placeholder="დამატებითი შენიშვნა..."
                                           style="border-radius:8px;border:1.5px solid #e0e4f0;resize:none;font-size:12px;"></textarea>
 
+                                {{-- Gift --}}
+                                <div class="mt-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="is_gift" value="1" id="chk-is-gift">
+                                        <label class="form-check-label" for="chk-is-gift" style="font-size:13px;">
+                                            <i class="bi bi-gift me-1" style="color:#e05c2a;"></i>საჩუქარი
+                                        </label>
+                                    </div>
+                                </div>
+
                             </div>
                         </div>{{-- /col right --}}
 

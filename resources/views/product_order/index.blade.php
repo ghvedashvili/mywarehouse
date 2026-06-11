@@ -1586,6 +1586,7 @@ function editForm(id) {
             }
             $('#customer_id_sale').val(data.customer_id).trigger('change');
             $('#form-sale-content textarea[name="comment"]').val(data.comment || '');
+            $('#chk-is-gift').prop('checked', !!data.is_gift);
             $('#form-sale-content input[name="paid_tbc"]').val(data.paid_tbc  || 0);
             $('#form-sale-content input[name="paid_bog"]').val(data.paid_bog  || 0);
             $('#form-sale-content input[name="paid_lib"]').val(data.paid_lib  || 0);
