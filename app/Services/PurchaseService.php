@@ -175,13 +175,9 @@ class PurchaseService
 
                 foreach ($pendingSales as $sale) {
                     if ($canTake <= 0) break;
-                    $stock->refresh();
-                    $available = $stock->incoming_qty - $stock->reserved_qty;
-                    if ($available <= 0) break;
-
+                    $stock->increment('reserved_qty', 1);
                     $sale->purchase_order_id = $order->id;
                     $sale->price_usa         = $order->cost_price;
-                    $stock->increment('reserved_qty', 1);
                     $canTake--;
                     $logAndSave($sale, 2, $sale->price_usa, $sale->purchase_order_id);
                 }
