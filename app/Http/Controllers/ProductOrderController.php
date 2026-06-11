@@ -951,6 +951,12 @@ class ProductOrderController extends Controller
             });
         }
 
+        if ($request->merged_only == 1) {
+            $query->where('is_primary', 1)
+                  ->where('status_id', '!=', 4)
+                  ->whereHas('siblings', fn($sq) => $sq->whereNotIn('status_id', [5, 6]));
+        }
+
         if ($request->get('show_deleted') == 1) {
             $query->where('status', 'deleted');
         } else {

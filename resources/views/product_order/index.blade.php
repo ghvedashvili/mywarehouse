@@ -829,6 +829,12 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
             <i class="fa fa-print"></i> გაგზავნილი
         </button>
         <div class="po-toggle-wrap">
+            <label for="toggle-merged" style="color:#7c3aed;font-weight:700;"><i class="fa fa-layer-group" style="font-size:10px;"></i> გაერთ.</label>
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="toggle-merged" role="switch" style="cursor:pointer;">
+            </div>
+        </div>
+        <div class="po-toggle-wrap">
             <label for="toggle-deleted">დავ.</label>
             <div class="form-check form-switch mb-0">
                 <input class="form-check-input" type="checkbox" id="toggle-deleted" role="switch" style="cursor:pointer;">
@@ -1996,6 +2002,7 @@ $(document).on('change', '#toggle-ready-ship', function() {
     $('#btn-send-all-courier').toggle($(this).is(':checked'));
     reloadTableWithFilters();
 });
+$(document).on('change', '#toggle-merged',       function() { reloadTableWithFilters(); });
 $(document).on('change', '#toggle-deleted',      function() { reloadTableWithFilters(); });
 $(document).on('change', '#toggle-show-deleted', function() { reloadTableWithFilters(); });
 
@@ -2131,6 +2138,7 @@ function reloadTableWithFilters() {
     mergeMode = false; $('#po-page-root').removeClass('po-merge-mode');
     var params = [];
     if ($('#toggle-ready-ship').is(':checked'))   params.push('ready_to_ship=1');
+    if ($('#toggle-merged').is(':checked'))        params.push('merged_only=1');
     if ($('#toggle-deleted').is(':checked'))      params.push('debt_only=1');
     if ($('#toggle-show-deleted').is(':checked')) params.push('show_deleted=1');
     var selected = [];
