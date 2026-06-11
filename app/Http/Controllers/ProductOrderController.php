@@ -104,11 +104,13 @@ class ProductOrderController extends Controller
         $data['purchase_order_id'] = null;
 
         if ($user->role !== 'admin') {
-            $data['discount']  = 0;
             $data['paid_tbc']  = 0;
             $data['paid_bog']  = 0;
             $data['paid_lib']  = 0;
             $data['paid_cash'] = 0;
+        }
+        if ($user->role === 'staff') {
+            $data['discount'] = 0;
         }
 
         $data['discount']  = $data['discount']  ?? 0;
@@ -360,7 +362,7 @@ class ProductOrderController extends Controller
 
     private function distributePayment(Request $request, array $orders, $user): void
     {
-        if ($user->role === 'staff') return;
+        if ($user->role !== 'admin') return;
 
         $pools = [
             'paid_tbc'  => (float) ($request->paid_tbc  ?? 0),
@@ -477,15 +479,20 @@ class ProductOrderController extends Controller
                     unset($data['status_id']);
                 }
 
-                // 2. გადახდა და ფასდაკლება — მხოლოდ admin-ს შეუძლია შეცვლა
+                // 2. გადახდა — მხოლოდ admin-ს შეუძლია შეცვლა
                 if ($isAdmin) {
                     $data['paid_tbc']  = $request->paid_tbc  ?? 0;
                     $data['paid_bog']  = $request->paid_bog  ?? 0;
                     $data['paid_lib']  = $request->paid_lib  ?? 0;
                     $data['paid_cash'] = $request->paid_cash ?? 0;
-                    $data['discount']  = $request->discount  ?? 0;
                 } else {
-                    unset($data['paid_tbc'], $data['paid_bog'], $data['paid_lib'], $data['paid_cash'], $data['discount']);
+                    unset($data['paid_tbc'], $data['paid_bog'], $data['paid_lib'], $data['paid_cash']);
+                }
+                // ფასდაკლება — admin და sale_operator-ს შეუძლია, staff-ს არა
+                if (auth()->user()->role === 'staff') {
+                    unset($data['discount']);
+                } elseif ($isAdmin) {
+                    $data['discount'] = $request->discount ?? 0;
                 }
 
                 $courier = \App\Models\Courier::first();
@@ -2015,6 +2022,10 @@ class ProductOrderController extends Controller
 
     public function updatePayment(Request $request, $id)
     {
+        if (auth()->user()->role !== 'admin') {
+            return response()->json(['success' => false, 'message' => 'უფლება არ გაქვს'], 403);
+        }
+
         $request->validate([
             'paid_tbc'        => 'nullable|numeric|min:0',
             'paid_bog'        => 'nullable|numeric|min:0',
