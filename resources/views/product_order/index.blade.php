@@ -2496,7 +2496,7 @@ window.openChangeModal = function(saleId) {
     $('#change_size').show().prop('required',true).empty().append('<option value="">— ზომა —</option>');
     $('#change-ml-input').hide().prop('disabled',true).val('');
     $('#form-change').data('is-div-size', false).data('price-geo-per-ml', 0);
-    $.get("{{ url('productsOut') }}/"+saleId+"/edit", function(data) {
+    $.ajax({ url: "{{ url('productsOut') }}/"+saleId+"/edit", type: 'GET', dataType: 'JSON', cache: false, success: function(data) {
         $('#change-orig-id').text(data.id); $('#change-orig-product').text(data.current_product ? data.current_product.name : '');
         $('#change-orig-size').text(data.product_size||''); $('#change_product_id').val(data.product_id);
         $('#form-change').data('orig-price', parseFloat(data.price_georgia)||0).data('orig-product-id', data.product_id).data('orig-size', data.product_size);
@@ -2751,11 +2751,11 @@ function loadPoStats() {
 loadPoStats();
 
 function editComment(id) {
-    $.get("{{ url('productsOut') }}/"+id+"/edit", function(data) {
+    $.ajax({ url: "{{ url('productsOut') }}/"+id+"/edit", type: 'GET', dataType: 'JSON', cache: false, success: function(data) {
         $('#comment-edit-id').val(id);
         $('#comment-edit-text').val(data.comment || '');
         $('#modal-comment-edit').modal('show');
-    }, 'json');
+    }});
 }
 
 $('#comment-edit-save').on('click', function() {
