@@ -1569,7 +1569,7 @@ function editForm(id) {
     save_method = 'edit'; isEditMode = true; saleRowIndex = 0;
     $('#form-sale-content input[name=_method]').val('PATCH');
     $.ajax({
-        url: "{{ url('productsOut') }}/"+id+"/edit", type: "GET", dataType: "JSON",
+        url: "{{ url('productsOut') }}/"+id+"/edit", type: "GET", dataType: "JSON", cache: false,
         success: function(data) {
             $('#form-sale-content')[0].reset();
             $('#modal-sale-title').text('გაყიდვის რედაქტირება');
@@ -1683,6 +1683,7 @@ $(document).on('change', '.sale-product-select', function() {
                     $sizeSelect.append('<option value="'+editSize+'">'+editSize+'</option>');
                 }
                 $sizeSelect.val(editSize);
+                $wrap.removeData('edit-size'); // clear so subsequent product changes don't re-apply old size
             }
         }
 
