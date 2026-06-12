@@ -1875,11 +1875,11 @@ var columns = [
         data: null, orderable: false, searchable: false, responsivePriority: 3,
         render: function(data) {
             var photo = data.show_photo ? '<div class="po-product-thumb">'+data.show_photo.replace(/<img /g,'<img loading="lazy" ')+'</div>' : '';
-            // mobile-only finance line
-            var orig = parseFloat(data.price_georgia || 0);
-            var disc = parseFloat(data.discount || 0);
+            // mobile-only finance line — use group aggregates for merged primary orders
+            var orig = parseFloat(data.group_orig || data.price_georgia || 0);
+            var disc = parseFloat(data.group_disc || data.discount || 0);
             var geo  = orig - disc;
-            var paid = parseFloat(data.paid_tbc||0)+parseFloat(data.paid_bog||0)+parseFloat(data.paid_lib||0)+parseFloat(data.paid_cash||0);
+            var paid = parseFloat(data.group_paid || 0);
             var diff = geo - paid;
             var finTag;
             if (diff < -0.01)    finTag = '<span style="color:var(--c-green);font-weight:700;"><i class="fa fa-plus" style="font-size:9px;"></i> +'+Math.abs(diff).toFixed(2)+'₾</span>';
