@@ -1193,6 +1193,27 @@ class ProductOrderController extends Controller
             ->addColumn('children_count', function ($item) {
                 return $item->is_primary ? $item->children->count() + 1 : 0;
             })
+            ->addColumn('group_orig', function ($item) {
+                if ($item->is_primary && $item->children->isNotEmpty()) {
+                    return collect([$item])->merge($item->children)->sum(fn($o) => (float)$o->price_georgia);
+                }
+                return (float)$item->price_georgia;
+            })
+            ->addColumn('group_disc', function ($item) {
+                if ($item->is_primary && $item->children->isNotEmpty()) {
+                    return collect([$item])->merge($item->children)->sum(fn($o) => (float)($o->discount ?? 0));
+                }
+                return (float)($item->discount ?? 0);
+            })
+            ->addColumn('group_paid', function ($item) {
+                if ($item->is_primary && $item->children->isNotEmpty()) {
+                    return collect([$item])->merge($item->children)->sum(fn($o) =>
+                        (float)($o->paid_tbc ?? 0) + (float)($o->paid_bog ?? 0) +
+                        (float)($o->paid_lib ?? 0) + (float)($o->paid_cash ?? 0));
+                }
+                return (float)($item->paid_tbc ?? 0) + (float)($item->paid_bog ?? 0) +
+                       (float)($item->paid_lib ?? 0) + (float)($item->paid_cash ?? 0);
+            })
             ->addColumn('children_by_status', function ($item) {
                 if (!$item->is_primary) return [];
 
