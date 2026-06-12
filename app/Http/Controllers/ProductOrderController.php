@@ -19,6 +19,7 @@ use App\Services\WarehouseLogService;
 use Illuminate\Http\Request;
 use Yajra\DataTables\DataTables;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Mail\Message;
 
@@ -902,7 +903,10 @@ class ProductOrderController extends Controller
         $statuses = $request->has('statuses') ? $request->input('statuses') : [];
 
         $query = Product_Order::withoutGlobalScope('active')
-            ->with(['product.bundle', 'customer.city', 'orderCity', 'orderStatus', 'changeOrders'])
+            ->with([
+                'product.bundle', 'customer.city', 'orderCity', 'orderStatus', 'changeOrders',
+                'siblings.product.bundle', 'siblings.customer.city', 'siblings.orderCity', 'siblings.orderStatus', 'siblings.changeOrders',
+            ])
             ->where(function($q) {
                 $q->where('is_primary', 1)
                   ->orWhereNull('merged_id');
@@ -1034,15 +1038,7 @@ class ProductOrderController extends Controller
         $productOrder = $query->get();
 
         foreach ($productOrder as $order) {
-            if ($order->is_primary) {
-                $order->children = Product_Order::withoutGlobalScope('active')
-                    ->with(['product.bundle', 'customer.city', 'orderCity', 'orderStatus', 'changeOrders'])
-                    ->where('merged_id', $order->merged_id)
-                    ->where('is_primary', 0)
-                    ->get();
-            } else {
-                $order->children = collect();
-            }
+            $order->children = $order->is_primary ? $order->siblings : collect();
         }
 
         // ─── Bundle pair icons ────────────────────────────────────────
@@ -1084,59 +1080,40 @@ class ProductOrderController extends Controller
         }
         // ──────────────────────────────────────────────────────────────
 
-        // ─── გასაერთიანებელი customer-ების ID-ები ─────────────────────
-        // ungrouped ორდერების customer_id-ები (merged_id IS NULL)
-        $ungroupedByCustomer = Product_Order::withoutGlobalScope('active')
-            ->where('status', 'active')
-            ->whereIn('order_type', ['sale', 'change'])
-            ->whereIn('status_id', [1, 2, 3])
-            ->whereNotNull('customer_id')
-            ->whereNull('merged_id')
-            ->select('customer_id')
-            ->groupBy('customer_id')
-            ->havingRaw('COUNT(*) >= 1')
-            ->pluck('customer_id')
-            ->flip()
-            ->toArray();
+        // ─── გასაერთიანებელი customer-ების ID-ები (60წმ cache) ────────
+        $mergeableCustomerIds = Cache::remember('mergeable_customer_ids', 60, function () {
+            $primaryByCustomer = Product_Order::withoutGlobalScope('active')
+                ->where('status', 'active')
+                ->whereIn('order_type', ['sale', 'change'])
+                ->whereIn('status_id', [1, 2, 3])
+                ->whereNotNull('customer_id')
+                ->where('is_primary', 1)
+                ->select('customer_id')
+                ->groupBy('customer_id')
+                ->havingRaw('COUNT(*) >= 1')
+                ->pluck('customer_id')
+                ->flip()
+                ->toArray();
 
-        // primary ორდერების customer_id-ები (is_primary=1)
-        $primaryByCustomer = Product_Order::withoutGlobalScope('active')
-            ->where('status', 'active')
-            ->whereIn('order_type', ['sale', 'change'])
-            ->whereIn('status_id', [1, 2, 3])
-            ->whereNotNull('customer_id')
-            ->where('is_primary', 1)
-            ->select('customer_id')
-            ->groupBy('customer_id')
-            ->havingRaw('COUNT(*) >= 1')
-            ->pluck('customer_id')
-            ->flip()
-            ->toArray();
+            $ungroupedCounts = Product_Order::withoutGlobalScope('active')
+                ->where('status', 'active')
+                ->whereIn('order_type', ['sale', 'change'])
+                ->whereIn('status_id', [1, 2, 3])
+                ->whereNotNull('customer_id')
+                ->whereNull('merged_id')
+                ->select('customer_id', \DB::raw('COUNT(*) as cnt'))
+                ->groupBy('customer_id')
+                ->pluck('cnt', 'customer_id')
+                ->toArray();
 
-        // customer-ი გასაერთიანებელია თუ:
-        // A) 2+ ungrouped ორდერი, ან
-        // B) 1+ primary + 1+ ungrouped (სხვა ჯგუფის გარეთ)
-        $ungroupedCounts = Product_Order::withoutGlobalScope('active')
-            ->where('status', 'active')
-            ->whereIn('order_type', ['sale', 'change'])
-            ->whereIn('status_id', [1, 2, 3])
-            ->whereNotNull('customer_id')
-            ->whereNull('merged_id')
-            ->select('customer_id', \DB::raw('COUNT(*) as cnt'))
-            ->groupBy('customer_id')
-            ->pluck('cnt', 'customer_id')
-            ->toArray();
-
-        // customer_id → გასაერთიანებელია თუ:
-        // ungrouped >= 2, ან (ungrouped >= 1 და primary >= 1)
-        $mergeableCustomerIds = [];
-        foreach ($ungroupedCounts as $customerId => $cnt) {
-            if ($cnt >= 2) {
-                $mergeableCustomerIds[$customerId] = true;
-            } elseif ($cnt >= 1 && isset($primaryByCustomer[$customerId])) {
-                $mergeableCustomerIds[$customerId] = true;
+            $result = [];
+            foreach ($ungroupedCounts as $customerId => $cnt) {
+                if ($cnt >= 2 || ($cnt >= 1 && isset($primaryByCustomer[$customerId]))) {
+                    $result[$customerId] = true;
+                }
             }
-        }
+            return $result;
+        });
         // ──────────────────────────────────────────────────────────────
 
         return Datatables::of($productOrder)
