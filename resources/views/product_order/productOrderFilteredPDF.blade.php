@@ -143,7 +143,7 @@
                 <div class="pr-meta">
                     @if($primary->product?->product_code)<span style="color:#888;font-size:10px;">{{ $primary->product->product_code }}</span><br>@endif
                     @if($primary->product_size)ზომა: {{ $primary->product_size }}@endif
-                    @if($primary->comment)<br>{{ $primary->comment }}@endif
+                    @if($primary->comment)<br><span style="color:#e74c3c;">{{ $primary->comment }}</span>@endif
                 </div>
             </div>
             <div class="pr-info" style="width:38%;">
@@ -217,7 +217,7 @@
                                 <div class="pr-meta">
                                     @if($member->product?->product_code)<span style="color:#888;font-size:10px;">{{ $member->product->product_code }}</span><br>@endif
                                     @if($member->product_size)ზომა: {{ $member->product_size }}@endif
-                                    @if($member->comment) · {{ $member->comment }}@endif
+                                    @if($member->comment) · <span style="color:#e74c3c;">{{ $member->comment }}</span>@endif
                                 </div>
                             </div>
                         </div>
@@ -273,7 +273,7 @@
                         <div class="pr-meta">
                             @if($primary->product?->product_code)<span style="color:#888;font-size:10px;">{{ $primary->product->product_code }}</span><br>@endif
                             @if($primary->product_size)ზომა: {{ $primary->product_size }}@endif
-                            @if($primary->comment) · {{ $primary->comment }}@endif
+                            @if($primary->comment) · <span style="color:#e74c3c;">{{ $primary->comment }}</span>@endif
                         </div>
                     </div>
                     <div class="pr-action"><span class="badge-pickup">&#8617; წამოიღე</span></div>
@@ -329,7 +329,7 @@
                         <div class="pr-meta">
                             @if($primary->product?->product_code)<span style="color:#888;font-size:10px;">{{ $primary->product->product_code }}</span><br>@endif
                             @if($primary->product_size)ზომა: {{ $primary->product_size }}@endif
-                            @if($primary->comment)<br>{{ $primary->comment }}@endif
+                            @if($primary->comment)<br><span style="color:#e74c3c;">{{ $primary->comment }}</span>@endif
                         </div>
                     </div>
                     <div class="pr-action"><span class="badge-deliver">&#10003; გადაეცი</span></div>

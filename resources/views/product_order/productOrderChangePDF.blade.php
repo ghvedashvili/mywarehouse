@@ -101,7 +101,7 @@
                 <div class="pr-meta">
                     @if($changeOrder->product?->product_code)<span style="color:#888;font-size:10px;">{{ $changeOrder->product->product_code }}</span><br>@endif
                     @if($changeOrder->product_size)ზომა: {{ $changeOrder->product_size }}@endif
-                    @if($changeOrder->comment)<br>{{ $changeOrder->comment }}@endif
+                    @if($changeOrder->comment)<br><span style="color:#e74c3c;">{{ $changeOrder->comment }}</span>@endif
                 </div>
             </div>
             <div class="pr-action"><span class="badge-deliver">&#10003; გადაეცი</span></div>
