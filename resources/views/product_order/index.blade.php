@@ -2518,7 +2518,7 @@ window.openChangeModal = function(saleId) {
             $sel.append('<option value="'+data.product_size+'">'+data.product_size+'</option>');
         }
         $sel.val(data.product_size);
-    });
+    }});
     $('#modal-change').modal('show');
 };
 
