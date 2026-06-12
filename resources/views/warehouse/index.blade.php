@@ -5,55 +5,412 @@
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
 <link href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css" rel="stylesheet">
 <style>
-:root { --wh-green:#00a65a; --wh-orange:#f39c12; --wh-red:#dd4b39; --wh-blue:#357ca5; --wh-purple:#8e44ad; --wh-dark:#222d32; --wh-border:#dee2e6; }
-.stat-card { background:#fff; border:1px solid var(--wh-border); border-radius:8px; padding:14px 18px; border-left:4px solid var(--wh-green); box-shadow:0 1px 4px rgba(0,0,0,0.06); }
-.stat-card.orange { border-left-color:var(--wh-orange); }
-.stat-card.blue   { border-left-color:var(--wh-blue); }
-.stat-card.purple { border-left-color:var(--wh-purple); }
-.stat-card.red    { border-left-color:var(--wh-red); }
-.stat-card .val { font-size:26px; font-weight:800; color:var(--wh-dark); line-height:1; }
-.stat-card .lbl { font-size:11px; color:#888; text-transform:uppercase; letter-spacing:0.6px; margin-top:4px; }
-.wh-table thead th { background:#f4f4f4; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:#555; border-bottom:2px solid var(--wh-border)!important; white-space:nowrap; }
-.qty-badge { display:inline-block; min-width:32px; text-align:center; font-weight:700; padding:2px 8px; border-radius:4px; font-size:13px; }
-.qty-physical         { background:#dff0d8; color:#3c763d; }
-.qty-incoming         { background:#d9edf7; color:#31708f; }
-.qty-return-incoming  { background:#f5e6ff; color:#8e44ad; }
-.qty-reserved         { background:#fcf8e3; color:#8a6d3b; }
-.qty-available        { background:#222d32; color:#fff; }
-.qty-zero             { background:#f2dede; color:#a94442; }
+/* ── Design tokens ── */
+:root {
+    --wh-surface:    #ffffff;
+    --wh-surface2:   #f6f7fb;
+    --wh-border:     rgba(99,115,150,.16);
+    --wh-border-md:  rgba(99,115,150,.24);
+    --wh-text-1:     #1a2235;
+    --wh-text-2:     #3d4a5c;
+    --wh-text-3:     #7a8a9e;
+    --wh-green:      #059669;
+    --wh-orange:     #d97706;
+    --wh-red:        #dc2626;
+    --wh-blue:       #2563eb;
+    --wh-purple:     #7c3aed;
+    --wh-dark:       #1a2235;
+    --wh-r-md:       12px;
+    --wh-sh-sm:      0 2px 8px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.03);
+}
 
-/* Financial summary bar */
+/* ── Mobile search bar: hidden on desktop ── */
+.wh-mob-search-wrap  { display: none; }
+.wh-mob-action-bar   { display: none; }
+
+/* ── Stat cards ── */
+.stat-card {
+    background: var(--wh-surface);
+    border: 1px solid var(--wh-border-md);
+    border-radius: var(--wh-r-md);
+    padding: 14px 18px;
+    border-left: 4px solid var(--wh-green);
+    box-shadow: var(--wh-sh-sm);
+    height: 100%;
+}
+.stat-card.orange { border-left-color: var(--wh-orange); }
+.stat-card.blue   { border-left-color: var(--wh-blue); }
+.stat-card.purple { border-left-color: var(--wh-purple); }
+.stat-card.red    { border-left-color: var(--wh-red); }
+.stat-card .val   { font-size: 28px; font-weight: 800; color: var(--wh-dark); line-height: 1; }
+.stat-card .lbl   { font-size: 11px; color: var(--wh-text-3); text-transform: uppercase; letter-spacing: 0.6px; margin-top: 5px; }
+
+/* ── Table header ── */
+.wh-table thead th {
+    background: var(--wh-surface2);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--wh-text-3);
+    border-bottom: 1.5px solid var(--wh-border-md) !important;
+    white-space: nowrap;
+}
+
+/* ── Quantity badges ── */
+.qty-badge {
+    display: inline-block;
+    min-width: 34px;
+    text-align: center;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+}
+.qty-physical        { background: #d1fae5; color: #065f46; }
+.qty-incoming        { background: #dbeafe; color: #1e40af; }
+.qty-return-incoming { background: #ede9fe; color: #5b21b6; }
+.qty-reserved        { background: #fef3c7; color: #92400e; }
+.qty-available       { background: var(--wh-dark); color: #fff; }
+.qty-zero            { background: #fee2e2; color: #991b1b; }
+
+/* ── Financial bar ── */
 .fin-bar {
     display: flex; align-items: center; flex-wrap: wrap; gap: 0;
-    background: #fff; border: 1px solid var(--wh-border); border-radius: 8px;
-    padding: 10px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    background: var(--wh-surface);
+    border: 1px solid var(--wh-border-md);
+    border-radius: var(--wh-r-md);
+    padding: 12px 20px;
+    box-shadow: var(--wh-sh-sm);
 }
-.fin-item {
-    display: flex; align-items: center; gap: 10px;
-    flex: 1 1 0; min-width: 160px; padding: 4px 8px;
-}
-.fin-icon { font-size: 22px; line-height: 1; }
-.fin-val  { font-size: 18px; font-weight: 800; color: var(--wh-dark); line-height: 1.1; }
-.fin-lbl  { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
-.fin-sep  { width: 1px; height: 40px; background: var(--wh-border); margin: 0 4px; flex-shrink: 0; }
+.fin-item  { display: flex; align-items: center; gap: 10px; flex: 1 1 0; min-width: 160px; padding: 4px 8px; }
+.fin-icon  { font-size: 22px; line-height: 1; }
+.fin-val   { font-size: 18px; font-weight: 800; color: var(--wh-dark); line-height: 1.1; }
+.fin-lbl   { font-size: 10px; color: var(--wh-text-3); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+.fin-sep   { width: 1px; height: 40px; background: var(--wh-border-md); margin: 0 4px; flex-shrink: 0; }
 
-/* Responsive expand control dot */
+/* ── Responsive expand control ── */
 table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before,
 table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
     background-color: var(--wh-green);
     border-radius: 50%;
 }
-/* Bulk bar */
+
+/* ── Bulk bar ── */
 #wh-bulk-bar {
-    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
-    background:#1e293b; color:#fff; border-radius:12px;
-    padding:10px 18px; display:none; align-items:center; gap:12px;
-    box-shadow:0 8px 32px rgba(0,0,0,.3); z-index:9999; white-space:nowrap;
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #1e293b; color: #fff; border-radius: 14px;
+    padding: 10px 18px; display: none; align-items: center; gap: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.3); z-index: 9999; white-space: nowrap;
 }
-#wh-bulk-bar.show { display:flex; }
-#wh-bulk-bar .bulk-count { font-size:13px; font-weight:600; }
-#wh-bulk-bar button { border:none; border-radius:8px; padding:6px 14px; font-size:12px; font-weight:600; cursor:pointer; }
-.wh-bulk-clear { background:transparent; color:#94a3b8; font-size:18px; padding:0 4px !important; }
+#wh-bulk-bar.show { display: flex; }
+#wh-bulk-bar .bulk-count { font-size: 13px; font-weight: 600; }
+#wh-bulk-bar button { border: none; border-radius: 8px; padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.wh-bulk-clear { background: transparent; color: #94a3b8; font-size: 18px; padding: 0 4px !important; }
+
+/* ══════════════════════════════════════════════
+   MOBILE CARD VIEW  ≤767px
+══════════════════════════════════════════════ */
+@media (max-width: 767px) {
+
+    /* Hide desktop chrome */
+    .mod-header  { display: none !important; }
+    .mod-toolbar { display: none !important; }
+
+    /* Page padding: leave room for bulk bar */
+    .mod-wrap { padding: 8px 12px 80px !important; }
+
+    /* Strip card styling from mod-card */
+    .mod-card {
+        background: transparent !important;
+        border: none !important; box-shadow: none !important;
+        border-radius: 0 !important; padding: 0 !important;
+    }
+    .table-responsive { overflow: visible !important; }
+
+    /* Stat cards: compact */
+    .stat-card { padding: 10px 12px; }
+    .stat-card .val { font-size: 22px; }
+
+    /* Fin-bar: compact + stack separators */
+    .fin-bar  { padding: 8px 10px; }
+    .fin-item { min-width: 110px; padding: 5px 6px; }
+    .fin-val  { font-size: 15px; }
+    .fin-sep  { display: none; }
+
+    /* ── Mobile action bar ── */
+    .wh-mob-action-bar {
+        display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;
+        padding: 0 0 10px; overflow-x: auto;
+        -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .wh-mob-action-bar::-webkit-scrollbar { display: none; }
+
+    /* ── Mobile search bar ── */
+    .wh-mob-search-wrap { display: block; margin-bottom: 10px; position: relative; }
+    .wh-mob-search {
+        display: flex; align-items: center; gap: 8px;
+        background: #fff; border: 1px solid var(--wh-border-md);
+        border-radius: 14px; padding: 10px 6px 10px 14px;
+        box-shadow: var(--wh-sh-sm);
+    }
+    .wh-mob-search > i { font-size: 13px; color: var(--wh-text-3); flex-shrink: 0; }
+    .wh-mob-search input {
+        flex: 1; min-width: 0; background: none; border: none; outline: none;
+        font-size: 14px; color: var(--wh-text-1); font-family: inherit;
+    }
+    .wh-mob-search input::placeholder { color: var(--wh-text-3); font-size: 13px; }
+    #wh-filter-btn.has-active .mob-ts-filter-badge { display: flex !important; }
+
+    /* ── Filter drawer panel ── */
+    @keyframes whPanelIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+    .wh-filter-panel {
+        display: none; position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+        background: #fff; border: 1px solid var(--wh-border-md);
+        border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.12);
+        z-index: 200; overflow: hidden;
+    }
+    .wh-filter-panel.open { display: block; animation: whPanelIn .18s ease; }
+    .wh-filter-panel-body { display: flex; flex-direction: column; padding: 12px 16px 14px; gap: 10px; }
+    .wh-fp-label { font-size: 11.5px; font-weight: 600; color: #64748b; margin-bottom: 3px; }
+    .wh-filter-panel select {
+        width: 100%; height: 40px; font-size: 13.5px;
+        border-radius: 10px; border: 1.5px solid #e2e8f0; padding: 0 10px;
+        background: #fff; color: #1e293b; font-family: inherit;
+    }
+
+    /* Action bar buttons */
+    .wh-mab-btn {
+        display: inline-flex; align-items: center; gap: 5px;
+        white-space: nowrap; cursor: pointer; font-family: inherit;
+        font-size: 12.5px; font-weight: 600; line-height: 1;
+        padding: 7px 13px; border-radius: 22px; border: 1.5px solid transparent;
+        touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+        transition: background .15s, transform .1s; flex-shrink: 0; text-decoration: none;
+    }
+    .wh-mab-btn:active     { transform: scale(.93); }
+    .wh-mab-btn > i        { font-size: 10px; }
+    .wh-mab-primary { background: var(--wh-blue);   border-color: var(--wh-blue);   color: #fff; box-shadow: 0 2px 10px rgba(37,99,235,.28); }
+    .wh-mab-orange  { background: var(--wh-orange);  border-color: var(--wh-orange);  color: #fff; }
+    .wh-mab-ghost   { background: var(--wh-surface); border-color: var(--wh-border-md); color: var(--wh-text-2); }
+    .wh-mab-sep     { width: 1px; height: 20px; background: var(--wh-border-md); flex-shrink: 0; }
+
+    /* Hide DataTables responsive expand icon (blue circle on first cell) */
+    #stock-table tbody td.dtr-control::before { display: none !important; }
+
+    /* ── Table → card blocks ── */
+    #stock-table       { display: block !important; width: 100% !important; }
+    #stock-table thead { display: none !important; }
+    #stock-table tbody { display: block !important; }
+    #stock-table tfoot { display: none !important; }
+
+    /* Each row = a card (3 rows: header | badges | action) */
+    #stock-table tbody tr {
+        display: flex !important;
+        flex-wrap: wrap;
+        align-items: stretch;
+        background: var(--wh-surface);
+        border-radius: var(--wh-r-md);
+        margin: 0 0 10px !important;
+        box-shadow: var(--wh-sh-sm);
+        border: 1px solid var(--wh-border-md);
+        overflow: hidden;
+    }
+    /* Separator: row 1 → row 2 (between order 5 and order 10) */
+    #stock-table tbody tr::after {
+        content: '';
+        flex: 0 0 100%;
+        order: 7;
+        height: 1px;
+        background: var(--wh-border);
+    }
+    /* Separator: row 2 → row 3 (between order 14 and order 17) */
+    #stock-table tbody tr::before {
+        content: '';
+        flex: 0 0 100%;
+        order: 16;
+        height: 1px;
+        background: var(--wh-border);
+    }
+
+    /* All cells: full-width block by default, ordered last */
+    #stock-table tbody td {
+        display: block !important;
+        flex: 0 0 100%;
+        padding: 6px 10px !important;
+        border: none !important;
+        font-size: 12px;
+        order: 99;
+    }
+
+    /* ════════════════════════════════════
+       ROW 1: checkbox | image | name | code | size
+    ════════════════════════════════════ */
+
+    /* 1. Checkbox */
+    #stock-table tbody td:nth-child(1) {
+        flex: 0 0 34px !important;
+        display: flex !important;
+        align-items: center; justify-content: center;
+        order: 1;
+        background: var(--wh-surface2);
+        border-bottom: 1px solid var(--wh-border);
+        padding: 0 !important;
+    }
+    #stock-table tbody td:nth-child(1) input[type="checkbox"] { width: 15px; height: 15px; }
+
+    /* 2. Image */
+    #stock-table tbody td:nth-child(2) {
+        flex: 0 0 42px !important;
+        display: flex !important;
+        align-items: center; justify-content: center;
+        order: 2;
+        background: var(--wh-surface2);
+        border-bottom: 1px solid var(--wh-border);
+        padding: 3px !important;
+    }
+
+    /* 3. Product name — takes all remaining space */
+    #stock-table tbody td:nth-child(3) {
+        flex: 1 1 80px !important;
+        min-width: 0;
+        display: flex !important;
+        align-items: center;
+        order: 3;
+        background: var(--wh-surface2);
+        border-bottom: 1px solid var(--wh-border);
+        font-weight: 700;
+        font-size: 12.5px !important;
+        color: var(--wh-text-1);
+        padding: 9px 6px !important;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    /* 4. Code — compact, muted */
+    #stock-table tbody td:nth-child(4) {
+        flex: 0 0 auto !important;
+        display: flex !important;
+        align-items: center;
+        order: 4;
+        background: var(--wh-surface2);
+        border-bottom: 1px solid var(--wh-border);
+        font-size: 10.5px !important;
+        color: var(--wh-text-3);
+        padding: 9px 5px !important;
+        white-space: nowrap;
+    }
+
+    /* 5. Size — bold tag */
+    #stock-table tbody td:nth-child(5) {
+        flex: 0 0 auto !important;
+        display: flex !important;
+        align-items: center;
+        order: 5;
+        background: var(--wh-surface2);
+        border-bottom: 1px solid var(--wh-border);
+        font-weight: 700;
+        font-size: 11.5px !important;
+        color: var(--wh-text-2);
+        padding: 9px 6px !important;
+        white-space: nowrap;
+    }
+
+    /* ════════════════════════════════════
+       ROW 2: 📦 ფიზ | 🚚 გზ | ↩ დაბრ | 🔒 დაჯ | ✅ ხელ
+    ════════════════════════════════════ */
+
+    /* 6. Physical */
+    #stock-table tbody td:nth-child(6) {
+        flex: 0 0 auto !important;
+        order: 10;
+        padding: 7px 3px 7px 10px !important;
+    }
+    /* 7. Incoming */
+    #stock-table tbody td:nth-child(7) {
+        flex: 0 0 auto !important;
+        order: 11;
+        padding: 7px 3px !important;
+    }
+    /* 8. Return incoming */
+    #stock-table tbody td:nth-child(8) {
+        flex: 0 0 auto !important;
+        order: 12;
+        padding: 7px 3px !important;
+    }
+    /* 9. Reserved */
+    #stock-table tbody td:nth-child(9) {
+        flex: 0 0 auto !important;
+        order: 13;
+        padding: 7px 3px !important;
+    }
+    /* 10. Available (always 10th for both admin & non-admin) */
+    #stock-table tbody td:nth-child(10) {
+        flex: 0 0 auto !important;
+        order: 14;
+        padding: 7px 3px !important;
+    }
+    /* ════════════════════════════════════
+       ROW 3: 🧮 FIFO | სტატუსი | [ლოგი →]
+    ════════════════════════════════════ */
+
+    /* FIFO (admin: nth-last-child(3) = col 11; non-admin: re-styled harmlessly) */
+    #stock-table tbody td:nth-last-child(3) {
+        flex: 0 0 auto !important;
+        order: 17;
+        padding: 6px 6px 6px 10px !important;
+        font-size: 11.5px !important;
+        color: var(--wh-text-3);
+        display: flex !important;
+        align-items: center;
+    }
+    /* Status badge */
+    #stock-table tbody td:nth-last-child(2) {
+        flex: 0 0 auto !important;
+        order: 18;
+        padding: 6px 6px !important;
+        display: flex !important;
+        align-items: center;
+    }
+    /* Action — right end of row 3 */
+    #stock-table tbody td:last-child {
+        flex: 0 0 auto !important;
+        display: flex !important;
+        align-items: center; gap: 4px;
+        order: 19;
+        margin-left: auto;
+        padding: 5px 8px !important;
+    }
+    #stock-table tbody td:last-child .btn-xs {
+        padding: 5px 10px !important; font-size: 12px !important;
+        border-radius: 8px !important; touch-action: manipulation;
+    }
+
+    /* ── Icons before qty badges (mobile only) ──
+       Non-zero: each has its own class → target directly.
+       Zero:     all share qty-zero class → target by td position. */
+    .qty-badge.qty-physical::before        { content: '📦 '; }
+    .qty-badge.qty-incoming::before        { content: '🚚 '; }
+    .qty-badge.qty-return-incoming::before { content: '↩ '; }
+    .qty-badge.qty-reserved::before        { content: '🔒 '; }
+    .qty-badge.qty-available::before       { content: '✅ '; }
+
+    #stock-table tbody td:nth-child(6)  .qty-zero::before { content: '📦 '; }
+    #stock-table tbody td:nth-child(7)  .qty-zero::before { content: '🚚 '; }
+    #stock-table tbody td:nth-child(8)  .qty-zero::before { content: '↩ '; }
+    #stock-table tbody td:nth-child(9)  .qty-zero::before { content: '🔒 '; }
+    #stock-table tbody td:nth-child(10) .qty-zero::before { content: '✅ '; }
+
+    /* FIFO (admin only, no qty-badge class) — add 🧮 via td::before */
+    #stock-table tbody td:nth-last-child(3):not(:nth-child(10))::before { content: '🧮 '; }
+
+    /* dtr child row (expanded columns via DataTables responsive) */
+    #stock-table tbody tr.child {
+        background: var(--wh-surface2) !important;
+        border-top: 1px solid var(--wh-border);
+    }
+    #stock-table tbody tr.child td.child { padding: 8px 12px !important; }
+}
 </style>
 @endsection
 
@@ -77,6 +434,21 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
                 <i class="fa fa-cart-shopping me-1"></i><span class="d-none d-sm-inline"> შესყიდვები</span>
             </a>
         </div>
+        @endif
+    </div>
+
+    {{-- Mobile action bar --}}
+    <div class="wh-mob-action-bar">
+        @if(!in_array(auth()->user()->role, ['sale_operator', 'warehouse_operator']))
+        <button class="wh-mab-btn wh-mab-orange" onclick="openWriteOffModal()">
+            <i class="fa fa-minus-circle"></i> ჩამოწერა
+        </button>
+        <a href="{{ route('warehouse.logs') }}" class="wh-mab-btn wh-mab-ghost">
+            <i class="fa fa-history"></i> ლოგი
+        </a>
+        <a href="{{ url('purchases') }}" class="wh-mab-btn wh-mab-ghost">
+            <i class="fa fa-cart-shopping"></i> შესყიდვები
+        </a>
         @endif
     </div>
 
@@ -135,6 +507,50 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
         </div>
     </div>
     @endif
+
+    {{-- Mobile search bar + filter drawer --}}
+    <div class="wh-mob-search-wrap">
+        <div class="wh-mob-search">
+            <i class="fa fa-search"></i>
+            <input type="search" id="mob-wh-search" placeholder="ძებნა..." autocomplete="off">
+            <button type="button" class="mob-ts-filter-btn" id="wh-filter-btn" onclick="toggleWhDrawer()">
+                <i class="fa fa-sliders"></i>
+                <span class="mob-ts-filter-badge" id="wh-filter-badge"></span>
+            </button>
+        </div>
+        <div class="wh-filter-panel" id="wh-filter-drawer">
+            <div class="wh-filter-panel-body">
+                <div>
+                    <div class="wh-fp-label">კატეგორია</div>
+                    <select id="mob-filter-category">
+                        <option value="">ყველა კატეგორია</option>
+                        @foreach($categories as $cat)
+                            <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <div class="wh-fp-label">ზომა</div>
+                    <select id="mob-filter-size">
+                        <option value="">ყველა ზომა</option>
+                        @foreach($sizes as $size)
+                            <option value="{{ $size }}">{{ $size }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <div class="wh-fp-label">ჩანაწ. რაოდ.</div>
+                    <select id="mob-dt-page-length">
+                        <option value="10">10</option>
+                        <option value="25" selected>25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="-1">ყველა</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="mod-card">
         <div class="mod-toolbar">
@@ -651,5 +1067,61 @@ $(function() {
         return "{{ route('warehouse.apiLogs') }}?product_id=" + productId + "&size=" + encodeURIComponent(size);
     }
 });
+
+/* ══ MOBILE FILTER DRAWER ══ */
+window.toggleWhDrawer = function() {
+    var panel = document.getElementById('wh-filter-drawer');
+    var btn   = document.getElementById('wh-filter-btn');
+    var open  = panel.classList.contains('open');
+    panel.classList.toggle('open', !open);
+    btn.classList.toggle('active', !open);
+};
+$(document).on('click', function(e) {
+    if (!$(e.target).closest('.wh-mob-search-wrap').length) {
+        $('#wh-filter-drawer').removeClass('open');
+        $('#wh-filter-btn').removeClass('active');
+    }
+});
+
+/* Mobile search → DataTable */
+(function() {
+    var _t;
+    $('#mob-wh-search').on('input', function() {
+        clearTimeout(_t); var v = $(this).val();
+        _t = setTimeout(function() { $('#dt-search').val(v).trigger('keyup'); }, 300);
+    });
+})();
+
+/* Mobile category ↔ desktop */
+$('#mob-filter-category').on('change', function() {
+    $('#filter-category').val($(this).val()).trigger('change');
+    updateWhFilterBadge();
+});
+$('#filter-category').on('change', function() {
+    $('#mob-filter-category').val($(this).val());
+    updateWhFilterBadge();
+});
+
+/* Mobile size → desktop */
+$('#mob-filter-size').on('change', function() {
+    var val = $(this).val() ? [$(this).val()] : [];
+    $('#filter-size').val(val).trigger('change');
+    updateWhFilterBadge();
+});
+
+/* Mobile page length → desktop */
+$('#mob-dt-page-length').on('change', function() {
+    $('#dt-page-length').val($(this).val()).trigger('change');
+});
+
+/* Filter badge counter */
+function updateWhFilterBadge() {
+    var count = 0;
+    if ($('#filter-category').val()) count++;
+    var sz = $('#filter-size').val();
+    if (sz && sz.length > 0) count++;
+    $('#wh-filter-badge').text(count || '');
+    $('#wh-filter-btn').toggleClass('has-active', count > 0);
+}
 </script>
 @endsection
