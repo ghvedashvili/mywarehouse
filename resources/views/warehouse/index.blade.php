@@ -112,6 +112,15 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
 ══════════════════════════════════════════════ */
 @media (max-width: 767px) {
 
+    /* ── Override master.blade.php global card layout for this table ── */
+    #stock-table                            { display: table !important; width: 100% !important; min-width: 700px; }
+    #stock-table thead                      { display: table-header-group !important; }
+    #stock-table tbody                      { display: table-row-group !important; }
+    #stock-table tbody tr                   { display: table-row !important; background: transparent !important; border-radius: 0 !important; margin: 0 !important; box-shadow: none !important; overflow: visible; }
+    #stock-table tbody td                   { display: table-cell !important; padding: 6px 8px !important; border: 1px solid #dee2e6 !important; min-height: auto; justify-content: initial; }
+    #stock-table tbody td::before           { display: none !important; }
+    .mod-card .table-responsive             { overflow-x: auto !important; }
+
     /* Hide desktop chrome */
     .mod-header  { display: none !important; }
     .mod-toolbar { display: none !important; }
@@ -125,7 +134,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
         border: none !important; box-shadow: none !important;
         border-radius: 0 !important; padding: 0 !important;
     }
-    .table-responsive { overflow: visible !important; }
+    .mod-card .table-responsive { overflow-x: auto !important; }
 
     /* Stat cards: compact */
     .stat-card { padding: 10px 12px; }
@@ -194,223 +203,38 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
     .wh-mab-ghost   { background: var(--wh-surface); border-color: var(--wh-border-md); color: var(--wh-text-2); }
     .wh-mab-sep     { width: 1px; height: 20px; background: var(--wh-border-md); flex-shrink: 0; }
 
-    /* Hide DataTables responsive expand icon (blue circle on first cell) */
-    #stock-table tbody td.dtr-control::before { display: none !important; }
-
-    /* ── Table → card blocks ── */
-    #stock-table       { display: block !important; width: 100% !important; }
-    #stock-table thead { display: none !important; }
-    #stock-table tbody { display: block !important; }
-    #stock-table tfoot { display: none !important; }
-
-    /* Each row = a card (3 rows: header | badges | action) */
-    #stock-table tbody tr {
-        display: flex !important;
-        flex-wrap: wrap;
-        align-items: stretch;
-        background: var(--wh-surface);
-        border-radius: var(--wh-r-md);
-        margin: 0 0 10px !important;
-        box-shadow: var(--wh-sh-sm);
-        border: 1px solid var(--wh-border-md);
-        overflow: hidden;
-    }
-    /* Separator: row 1 → row 2 (between order 5 and order 10) */
-    #stock-table tbody tr::after {
-        content: '';
-        flex: 0 0 100%;
-        order: 7;
-        height: 1px;
-        background: var(--wh-border);
-    }
-    /* Separator: row 2 → row 3 (between order 14 and order 17) */
-    #stock-table tbody tr::before {
-        content: '';
-        flex: 0 0 100%;
-        order: 16;
-        height: 1px;
-        background: var(--wh-border);
-    }
-
-    /* All cells: full-width block by default, ordered last */
-    #stock-table tbody td {
-        display: block !important;
-        flex: 0 0 100%;
-        padding: 6px 10px !important;
-        border: none !important;
-        font-size: 12px;
-        order: 99;
-    }
-
-    /* ════════════════════════════════════
-       ROW 1: checkbox | image | name | code | size
-    ════════════════════════════════════ */
-
-    /* 1. Checkbox */
-    #stock-table tbody td:nth-child(1) {
-        flex: 0 0 34px !important;
-        display: flex !important;
-        align-items: center; justify-content: center;
-        order: 1;
-        background: var(--wh-surface2);
-        border-bottom: 1px solid var(--wh-border);
-        padding: 0 !important;
-    }
-    #stock-table tbody td:nth-child(1) input[type="checkbox"] { width: 15px; height: 15px; }
-
-    /* 2. Image */
-    #stock-table tbody td:nth-child(2) {
-        flex: 0 0 42px !important;
-        display: flex !important;
-        align-items: center; justify-content: center;
-        order: 2;
-        background: var(--wh-surface2);
-        border-bottom: 1px solid var(--wh-border);
-        padding: 3px !important;
-    }
-
-    /* 3. Product name — takes all remaining space */
-    #stock-table tbody td:nth-child(3) {
-        flex: 1 1 80px !important;
-        min-width: 0;
-        display: flex !important;
-        align-items: center;
-        order: 3;
-        background: var(--wh-surface2);
-        border-bottom: 1px solid var(--wh-border);
-        font-weight: 700;
-        font-size: 12.5px !important;
-        color: var(--wh-text-1);
-        padding: 9px 6px !important;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-    }
-
-    /* 4. Code — compact, muted */
-    #stock-table tbody td:nth-child(4) {
-        flex: 0 0 auto !important;
-        display: flex !important;
-        align-items: center;
-        order: 4;
-        background: var(--wh-surface2);
-        border-bottom: 1px solid var(--wh-border);
-        font-size: 10.5px !important;
-        color: var(--wh-text-3);
-        padding: 9px 5px !important;
-        white-space: nowrap;
-    }
-
-    /* 5. Size — bold tag */
-    #stock-table tbody td:nth-child(5) {
-        flex: 0 0 auto !important;
-        display: flex !important;
-        align-items: center;
-        order: 5;
-        background: var(--wh-surface2);
-        border-bottom: 1px solid var(--wh-border);
-        font-weight: 700;
-        font-size: 11.5px !important;
-        color: var(--wh-text-2);
-        padding: 9px 6px !important;
-        white-space: nowrap;
-    }
-
-    /* ════════════════════════════════════
-       ROW 2: 📦 ფიზ | 🚚 გზ | ↩ დაბრ | 🔒 დაჯ | ✅ ხელ
-    ════════════════════════════════════ */
-
-    /* 6. Physical */
-    #stock-table tbody td:nth-child(6) {
-        flex: 0 0 auto !important;
-        order: 10;
-        padding: 7px 3px 7px 10px !important;
-    }
-    /* 7. Incoming */
-    #stock-table tbody td:nth-child(7) {
-        flex: 0 0 auto !important;
-        order: 11;
-        padding: 7px 3px !important;
-    }
-    /* 8. Return incoming */
-    #stock-table tbody td:nth-child(8) {
-        flex: 0 0 auto !important;
-        order: 12;
-        padding: 7px 3px !important;
-    }
-    /* 9. Reserved */
-    #stock-table tbody td:nth-child(9) {
-        flex: 0 0 auto !important;
-        order: 13;
-        padding: 7px 3px !important;
-    }
-    /* 10. Available (always 10th for both admin & non-admin) */
-    #stock-table tbody td:nth-child(10) {
-        flex: 0 0 auto !important;
-        order: 14;
-        padding: 7px 3px !important;
-    }
-    /* ════════════════════════════════════
-       ROW 3: 🧮 FIFO | სტატუსი | [ლოგი →]
-    ════════════════════════════════════ */
-
-    /* FIFO (admin: nth-last-child(3) = col 11; non-admin: re-styled harmlessly) */
-    #stock-table tbody td:nth-last-child(3) {
-        flex: 0 0 auto !important;
-        order: 17;
-        padding: 6px 6px 6px 10px !important;
-        font-size: 11.5px !important;
-        color: var(--wh-text-3);
-        display: flex !important;
-        align-items: center;
-    }
-    /* Status badge */
-    #stock-table tbody td:nth-last-child(2) {
-        flex: 0 0 auto !important;
-        order: 18;
-        padding: 6px 6px !important;
-        display: flex !important;
-        align-items: center;
-    }
-    /* Action — right end of row 3 */
-    #stock-table tbody td:last-child {
-        flex: 0 0 auto !important;
-        display: flex !important;
-        align-items: center; gap: 4px;
-        order: 19;
-        margin-left: auto;
-        padding: 5px 8px !important;
-    }
-    #stock-table tbody td:last-child .btn-xs {
-        padding: 5px 10px !important; font-size: 12px !important;
-        border-radius: 8px !important; touch-action: manipulation;
-    }
-
-    /* ── Icons before qty badges (mobile only) ──
-       Non-zero: each has its own class → target directly.
-       Zero:     all share qty-zero class → target by td position. */
-    .qty-badge.qty-physical::before        { content: '📦 '; }
-    .qty-badge.qty-incoming::before        { content: '🚚 '; }
-    .qty-badge.qty-return-incoming::before { content: '↩ '; }
-    .qty-badge.qty-reserved::before        { content: '🔒 '; }
-    .qty-badge.qty-available::before       { content: '✅ '; }
-
-    #stock-table tbody td:nth-child(6)  .qty-zero::before { content: '📦 '; }
-    #stock-table tbody td:nth-child(7)  .qty-zero::before { content: '🚚 '; }
-    #stock-table tbody td:nth-child(8)  .qty-zero::before { content: '↩ '; }
-    #stock-table tbody td:nth-child(9)  .qty-zero::before { content: '🔒 '; }
-    #stock-table tbody td:nth-child(10) .qty-zero::before { content: '✅ '; }
-
-    /* FIFO (admin only, no qty-badge class) — add 🧮 via td::before */
-    #stock-table tbody td:nth-last-child(3):not(:nth-child(10))::before { content: '🧮 '; }
-
-    /* dtr child row (expanded columns via DataTables responsive) */
-    #stock-table tbody tr.child {
-        background: var(--wh-surface2) !important;
-        border-top: 1px solid var(--wh-border);
-    }
-    #stock-table tbody tr.child td.child { padding: 8px 12px !important; }
 }
+
+/* ══ STICKY FIRST COLUMN ══ */
+.wh-sc-inner {
+    display: flex; align-items: center; gap: 8px;
+    min-width: 200px; max-width: 260px;
+}
+.wh-sc-cb  { flex: 0 0 auto; }
+.wh-sc-text { flex: 1; min-width: 0; }
+.wh-sc-name {
+    font-weight: 600; font-size: 13px; line-height: 1.3;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 170px;
+}
+.wh-sc-code { font-size: 11px; color: #64748b; white-space: nowrap; margin-top: 2px; }
+
+#stock-table thead th:first-child,
+#stock-table tbody td:first-child {
+    position: sticky; left: 0; z-index: 2;
+    background: #fff;
+    box-shadow: 2px 0 8px rgba(0,0,0,.09);
+}
+#stock-table thead th:first-child { z-index: 3; background: #f8fafc; }
+
+/* When table is scrolled — collapse first column to image only */
+.wh-tbl-scrolled #stock-table thead th:first-child,
+.wh-tbl-scrolled #stock-table tbody td:first-child {
+    box-shadow: 3px 0 14px rgba(0,0,0,.14);
+}
+.wh-tbl-scrolled .wh-sc-text,
+.wh-tbl-scrolled .wh-sc-lbl { display: none !important; }
+.wh-tbl-scrolled .wh-sc-inner { min-width: 0; max-width: none; gap: 4px; }
 </style>
 @endsection
 
@@ -581,8 +405,8 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
             <table id="stock-table" class="table wh-table table-hover table-bordered w-100">
                 <thead>
                     <tr>
-                        <th style="width:32px;"><input type="checkbox" id="wh-select-all" title="ყველა"></th>
-                        <th></th><th>პროდუქტი</th><th>კოდი</th><th>ზომა</th>
+                        <th><div class="wh-sc-inner"><span class="wh-sc-cb"><input type="checkbox" id="wh-select-all" title="ყველა"></span><span class="wh-sc-lbl" style="font-weight:600;">პროდუქტი</span></div></th>
+                        <th></th><th></th><th></th><th>ზომა</th>
                         <th>📦 ფიზ.</th><th>🚚 გზაში</th><th>↩ დაბრ. გზაში</th><th>🔒 დაჯავშნ.</th>
                         <th>✅ ხელმისაწვდ.</th><th>🧮 FIFO</th><th>სტატუსი</th><th></th>
                     </tr>
@@ -876,7 +700,7 @@ $(function() {
 
     var stockTable = $('#stock-table').DataTable({
         processing: true, serverSide: true,
-        responsive: true,
+        responsive: false,
         pageLength: 25,
         dom: 't<"d-flex justify-content-between align-items-center mt-2 px-2"ip>',
         ajax: {
@@ -884,16 +708,20 @@ $(function() {
             data: function(d) { d.category_id = $('#filter-category').val(); d.sizes = $('#filter-size').val() || []; }
         },
         columns: [
-            { data: null, orderable:false, searchable:false, width:'32px', className:'text-center',
-              render: function(data) {
-                  var url = data.image_url_raw || '';
-                  if (!url) return '';
-                  return '<input type="checkbox" class="wh-cb" data-url="'+url+'" data-price="'+(data.price_raw||'')+'" data-size="'+(data.size||'')+'">';
+            { data: null, orderable:false, searchable:false,
+              render: function(data, type) {
+                  if (type !== 'display') return '';
+                  var url  = data.image_url_raw || '';
+                  var cb   = url ? '<span class="wh-sc-cb"><input type="checkbox" class="wh-cb" data-url="'+url+'" data-price="'+(data.price_raw||'')+'" data-size="'+(data.size||'')+'"></span>' : '<span class="wh-sc-cb"></span>';
+                  var img  = data.product_image || '';
+                  var name = data.product_name  || '';
+                  var code = data.product_code  || '';
+                  return '<div class="wh-sc-inner">'+cb+img+'<div class="wh-sc-text"><div class="wh-sc-name">'+name+'</div><div class="wh-sc-code">'+code+'</div></div></div>';
               }
             },
-            {data:'product_image', orderable:false, searchable:false, responsivePriority: 3, width:'46px'},
-            {data:'product_name', responsivePriority: 1},
-            {data:'product_code', responsivePriority: 9},
+            {data:'product_image', orderable:false, searchable:false, visible:false},
+            {data:'product_name', visible:false},
+            {data:'product_code', visible:false},
             {data:'size',         responsivePriority: 2},
             {data:'physical_qty', responsivePriority: 5,
              render: v => `<span class="qty-badge ${v>0?'qty-physical':'qty-zero'}">${v}</span>`},
@@ -1067,6 +895,16 @@ $(function() {
         return "{{ route('warehouse.apiLogs') }}?product_id=" + productId + "&size=" + encodeURIComponent(size);
     }
 });
+
+/* ══ STICKY COLUMN SCROLL COLLAPSE ══ */
+(function() {
+    var wrap = document.querySelector('.mod-card .table-responsive');
+    if (wrap) {
+        wrap.addEventListener('scroll', function() {
+            this.classList.toggle('wh-tbl-scrolled', this.scrollLeft > 5);
+        });
+    }
+})();
 
 /* ══ MOBILE FILTER DRAWER ══ */
 window.toggleWhDrawer = function() {
