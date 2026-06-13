@@ -658,7 +658,7 @@ $(function() {
 
     // ══ GROUP VIEW ══
     window.openGroupView = function(groupId) {
-        $.get("{{ url('purchases/group') }}/" + groupId + "/items", function(items) {
+        $.ajax({ url: "{{ url('purchases/group') }}/" + groupId + "/items", cache: false, success: function(items) {
             items = items || [];
 
             var html = '<table class="table table-sm table-bordered mb-0">'
@@ -708,7 +708,7 @@ $(function() {
             html += '</tbody></table>';
             $('#gv-body').html(html);
             new bootstrap.Modal(document.getElementById('modal-group-view')).show();
-        });
+        }});
     };
 
     // ══ RETURNS TABLE ══
@@ -1231,13 +1231,13 @@ $(function() {
         $('#gr-group-id').val(groupId);
         $('#btn-gr-save').prop('disabled', false);
 
-        $.get("{{ url('purchases/group') }}/" + groupId + "/items", function(allItems) {
-            var items = (allItems || []).filter(function(it) { return it.status_id === 2; });
-            if (!items.length) {
+        $.ajax({ url: "{{ url('purchases/group') }}/" + groupId + "/items", cache: false, success: function(allItems) {
+            var inTransit = (allItems || []).filter(function(it) { return it.status_id === 2; });
+            if (!inTransit.length) {
                 swal('ინფო', 'ამ ჯგუფში სტატუს=2 ორდერი არ მოიძებნა', 'info');
                 return;
             }
-            items.forEach(function(it) {
+            (allItems || []).forEach(function(it) {
                 var $imgCell = $('<td class="text-center align-middle" style="width:52px;">');
                 if (it.product_image) {
                     $imgCell.append($('<img>').attr('src', it.product_image)
@@ -1245,24 +1245,38 @@ $(function() {
                 } else {
                     $imgCell.text('📦');
                 }
-                var $tr = $('<tr data-order-id="' + it.id + '">').append(
-                    $imgCell,
-                    $('<td class="fw-semibold align-middle">').text(it.product_name),
-                    $('<td class="align-middle">').text(it.product_size || '—'),
-                    $('<td class="text-center fw-bold text-muted gr-ordered">').text(it.quantity),
-                    $('<td>').append(
-                        $('<input type="number" class="form-control form-control-sm text-center gr-received">')
-                            .val(it.quantity).attr({ min: 0, max: it.quantity })
-                    ),
-                    $('<td>').append(
-                        $('<input type="number" class="form-control form-control-sm text-center gr-lost">')
-                            .val(0).attr({ min: 0, max: it.quantity })
-                    )
-                );
-                $('#gr-lines-body').append($tr);
+                if (it.status_id === 3) {
+                    // Already fully received — show informational row only
+                    var $tr = $('<tr class="table-success opacity-75">').append(
+                        $imgCell,
+                        $('<td class="fw-semibold align-middle text-muted">').text(it.product_name),
+                        $('<td class="align-middle text-muted">').text(it.product_size || '—'),
+                        $('<td class="text-center text-muted gr-ordered">').text(it.quantity),
+                        $('<td colspan="2" class="text-center">').html(
+                            '<span class="badge bg-success" style="font-size:12px;">✅ მიღებულია</span>'
+                        )
+                    );
+                    $('#gr-lines-body').append($tr);
+                } else {
+                    var $tr = $('<tr data-order-id="' + it.id + '">').append(
+                        $imgCell,
+                        $('<td class="fw-semibold align-middle">').text(it.product_name),
+                        $('<td class="align-middle">').text(it.product_size || '—'),
+                        $('<td class="text-center fw-bold text-muted gr-ordered">').text(it.quantity),
+                        $('<td>').append(
+                            $('<input type="number" class="form-control form-control-sm text-center gr-received">')
+                                .val(it.quantity).attr({ min: 0, max: it.quantity })
+                        ),
+                        $('<td>').append(
+                            $('<input type="number" class="form-control form-control-sm text-center gr-lost">')
+                                .val(0).attr({ min: 0, max: it.quantity })
+                        )
+                    );
+                    $('#gr-lines-body').append($tr);
+                }
             });
             new bootstrap.Modal(document.getElementById('modal-group-receive')).show();
-        });
+        }});
     };
 
     $(document).on('input', '.gr-received, .gr-lost', function() {
@@ -1282,7 +1296,7 @@ $(function() {
         var items = [];
         var valid = true;
 
-        $('#gr-lines-body tr').each(function() {
+        $('#gr-lines-body tr[data-order-id]').each(function() {
             var orderId  = $(this).data('order-id');
             var received = parseInt($(this).find('.gr-received').val()) || 0;
             var lost     = parseInt($(this).find('.gr-lost').val())     || 0;

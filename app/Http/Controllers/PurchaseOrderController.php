@@ -1528,9 +1528,13 @@ $purchase->refresh();
                 $messages[] = $name . ': ' . $receivedQty . ' ✅' . ($remaining > 0 ? ' (' . $remaining . ' კვლავ გზაში)' : '');
             }
 
+            if (empty($messages)) {
+                return response()->json(['success' => false, 'message' => '⚠️ ვერაფერი დამუშავდა — ორდერები ვერ მოიძებნა ან რაოდენობა 0-ია.'], 422);
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => implode("\n", $messages) ?: 'შესრულდა',
+                'message' => implode("\n", $messages),
             ]);
         });
     }
