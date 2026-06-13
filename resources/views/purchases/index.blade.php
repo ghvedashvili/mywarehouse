@@ -254,6 +254,9 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   white-space: nowrap;
 }
 
+/* Mobile composite cell: hidden on desktop */
+.pu-cell-mobile { display: none; }
+
 /* ═══════════════ MOBILE CARD VIEW ≤767px ═══════════════ */
 @media (max-width: 767px) {
 
@@ -313,6 +316,10 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   /* Hidden cells */
   #purchases-table tbody td.pu-td-hide,
   #returns-table tbody td.pu-td-hide { display: none !important; }
+
+  /* Product cell: desktop version hidden, mobile version shown */
+  .pu-cell-desktop { display: none !important; }
+  .pu-cell-mobile  { display: block; }
 
   /* ── Row 1: ORDER NUMBER (left) ── */
   #purchases-table tbody td.pu-td-num,
@@ -753,6 +760,10 @@ $(function() {
     var isAdmin             = {{ auth()->user()->role === 'admin' ? 'true' : 'false' }};
 
     function puProductCellRender(data, type, row) {
+        if (type !== 'display') return data || '';
+        // Desktop: original photo only
+        var desktopHtml = '<div class="pu-cell-desktop">' + (data || '') + '</div>';
+        // Mobile: composite card cell
         var groupItems = [];
         try { if (row.group_items_json) groupItems = JSON.parse(row.group_items_json); } catch(e) {}
         var isGroup = groupItems.length > 1;
@@ -764,9 +775,10 @@ $(function() {
         var price = (isAdmin && (row.payment || row.price_paid))
             ? '<div class="pu-prod-price">' + (row.payment || '') + (row.price_paid ? ' &nbsp; ' + row.price_paid : '') + '</div>'
             : '';
-        return '<div class="pu-product-cell">' + leftHtml +
+        var mobileHtml = '<div class="pu-cell-mobile"><div class="pu-product-cell">' + leftHtml +
             '<div class="pu-prod-info"><div class="pu-prod-name">' + name + '</div>' +
-            (meta ? '<div class="pu-prod-meta">' + meta + '</div>' : '') + price + '</div></div>';
+            (meta ? '<div class="pu-prod-meta">' + meta + '</div>' : '') + price + '</div></div></div>';
+        return desktopHtml + mobileHtml;
     }
 
     // ══ TAB SWITCHING ══
