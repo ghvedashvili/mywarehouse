@@ -1225,6 +1225,8 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
 <script type="text/javascript">
 
+$.ajaxSetup({ cache: false });
+
 var save_method;
 var isAdmin        = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
 var isSaleOperator = {{ auth()->user()->role == 'sale_operator' ? 'true' : 'false' }};

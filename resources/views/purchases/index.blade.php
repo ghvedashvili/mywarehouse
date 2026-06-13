@@ -571,6 +571,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
 
 <script>
+$.ajaxSetup({ cache: false });
 $(function() {
 
     // ══ IMAGE ZOOM ══
