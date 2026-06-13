@@ -121,6 +121,10 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
     #stock-table tbody td::before           { display: none !important; }
     .mod-card .table-responsive             { overflow-x: auto !important; }
 
+    /* Mobile: thead shows icons only */
+    #stock-table thead th .th-txt { display: none; }
+    #stock-table thead th { white-space: nowrap; text-align: center; font-size: 15px; padding: 6px 6px !important; }
+
     /* Hide desktop chrome */
     .mod-header  { display: none !important; }
     .mod-toolbar { display: none !important; }
@@ -218,6 +222,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
     max-width: 170px;
 }
 .wh-sc-code { font-size: 11px; color: #64748b; white-space: nowrap; margin-top: 2px; }
+.wh-sc-size { flex: 0 0 auto; font-size: 11px; font-weight: 700; color: #475569; background: #f1f5f9; border-radius: 6px; padding: 2px 7px; white-space: nowrap; align-self: center; }
 
 #stock-table thead th:first-child,
 #stock-table tbody td:first-child {
@@ -234,7 +239,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
 }
 .wh-tbl-scrolled .wh-sc-text,
 .wh-tbl-scrolled .wh-sc-lbl { display: none !important; }
-.wh-tbl-scrolled .wh-sc-inner { min-width: 0; max-width: none; gap: 4px; }
+.wh-tbl-scrolled .wh-sc-inner { min-width: 0; max-width: none; gap: 6px; }
 </style>
 @endsection
 
@@ -406,9 +411,15 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
                 <thead>
                     <tr>
                         <th><div class="wh-sc-inner"><span class="wh-sc-cb"><input type="checkbox" id="wh-select-all" title="ყველა"></span><span class="wh-sc-lbl" style="font-weight:600;">პროდუქტი</span></div></th>
-                        <th></th><th></th><th></th><th>ზომა</th>
-                        <th>📦 ფიზ.</th><th>🚚 გზაში</th><th>↩ დაბრ. გზაში</th><th>🔒 დაჯავშნ.</th>
-                        <th>✅ ხელმისაწვდ.</th><th>🧮 FIFO</th><th>სტატუსი</th><th></th>
+                        <th></th><th></th><th></th><th></th>
+                        <th><span class="th-icon">📦</span><span class="th-txt"> ფიზ.</span></th>
+                        <th><span class="th-icon">🚚</span><span class="th-txt"> გზაში</span></th>
+                        <th><span class="th-icon">↩</span><span class="th-txt"> დაბრ.</span></th>
+                        <th><span class="th-icon">🔒</span><span class="th-txt"> დაჯავშნ.</span></th>
+                        <th><span class="th-icon">✅</span><span class="th-txt"> ხელმისაწვდ.</span></th>
+                        <th><span class="th-icon">🧮</span><span class="th-txt"> FIFO</span></th>
+                        <th><span class="th-icon">⚡</span><span class="th-txt"> სტატუსი</span></th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -716,13 +727,14 @@ $(function() {
                   var img  = data.product_image || '';
                   var name = data.product_name  || '';
                   var code = data.product_code  || '';
-                  return '<div class="wh-sc-inner">'+cb+img+'<div class="wh-sc-text"><div class="wh-sc-name">'+name+'</div><div class="wh-sc-code">'+code+'</div></div></div>';
+                  var size = data.size           || '';
+                  return '<div class="wh-sc-inner">'+cb+img+'<div class="wh-sc-text"><div class="wh-sc-name">'+name+'</div><div class="wh-sc-code">'+code+'</div></div>'+(size?'<span class="wh-sc-size">'+size+'</span>':'')+'</div>';
               }
             },
             {data:'product_image', orderable:false, searchable:false, visible:false},
             {data:'product_name', visible:false},
             {data:'product_code', visible:false},
-            {data:'size',         responsivePriority: 2},
+            {data:'size',         visible:false},
             {data:'physical_qty', responsivePriority: 5,
              render: v => `<span class="qty-badge ${v>0?'qty-physical':'qty-zero'}">${v}</span>`},
             {data:'incoming_qty', responsivePriority: 8,
@@ -743,6 +755,11 @@ $(function() {
             var d=this.api().rows().data(), ph=0,inc=0,ret=0,res=0,low=0;
             d.each(function(r){ if(r.is_divisible) return; ph+=parseInt(r.physical_qty)||0; inc+=parseInt(r.incoming_qty)||0; ret+=parseInt(r.return_incoming_qty)||0; res+=parseInt(r.reserved_qty)||0; if(parseInt(r.available)<=3)low++; });
             $('#stat-physical').text(ph); $('#stat-incoming').text(inc); $('#stat-return-incoming').text(ret); $('#stat-reserved').text(res); $('#stat-low').text(low);
+        },
+        initComplete: function() {
+            $('#stock-table_wrapper').children('div.d-flex')
+                .detach()
+                .insertAfter('.mod-card .table-responsive');
         }
     });
 
