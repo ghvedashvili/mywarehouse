@@ -41,6 +41,10 @@ class HomeController extends Controller
                 $from = now($tz)->startOfWeek(\Carbon\Carbon::MONDAY);
                 $to   = now($tz)->endOfDay();
                 break;
+            case 'all':
+                $from = \Carbon\Carbon::createFromTimestamp(0, $tz);
+                $to   = now($tz)->endOfDay();
+                break;
             case 'custom':
                 try {
                     $from = \Carbon\Carbon::parse($request->input('from'), $tz)->startOfDay();
