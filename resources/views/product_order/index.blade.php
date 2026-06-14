@@ -810,9 +810,9 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
         </select>
         <select id="dt-page-length" class="po-select" style="width:76px;">
             <option value="10">10</option>
-            <option value="25" selected>25</option>
+            <option value="25">25</option>
             <option value="50">50</option>
-            <option value="100">100</option>
+            <option value="100" selected>100</option>
             <option value="-1">ყველა</option>
         </select>
         <div class="po-filter-sep"></div>
@@ -1367,7 +1367,7 @@ var table = $('#products-out-table').DataTable({
     columns: columns,
     order: [[2, 'desc']],
     dom: 't<"d-flex justify-content-between align-items-center mt-2 px-3 pb-3"ip>',
-    pageLength: 25,
+    pageLength: 100,
     language: { info: '_START_–_END_ / _TOTAL_', paginate: { previous: '‹', next: '›' } },
     createdRow: function(row, data) {
         if (data.is_primary && data.children_count > 1) { $(row).addClass('po-group-row'); return; }

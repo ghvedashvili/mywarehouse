@@ -34,6 +34,7 @@ Route::get('/', function () {
 Auth::routes();
 
 Route::get('/home', [HomeController::class, 'index'])->name('home');
+Route::get('/home/revenue-stats', [HomeController::class, 'revenueStats'])->name('home.revenue-stats');
 Route::post('/motivational/seen', [HomeController::class, 'markMotivationalSeen'])->name('motivational.seen');
 
 Route::get('dashboard', function () {

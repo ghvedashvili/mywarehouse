@@ -606,7 +606,7 @@
 
 {{-- FOOTER --}}
 <footer id="footer">
-    <strong>&copy; {{ date('Y') }} Warehouse Management System</strong>
+    <strong>&copy; {{ date('Y') }} Original 100%</strong>
     <span class="float-end">Developed by Ghvedashvili</span>
 </footer>
 

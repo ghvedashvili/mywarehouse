@@ -106,7 +106,6 @@
 
     $recentOrders = Product_Order::with(['customer','product','orderStatus'])
         ->whereIn('order_type',['sale','change'])
-        ->whereNull('merged_id')
         ->when($isSaleOp, fn($q) => $q->where('user_id', $uid))
         ->latest()
         ->take(6)
@@ -406,6 +405,32 @@
 }
 
 /* ── Revenue highlight ── */
+.rev-filter-bar {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+    margin-bottom: 8px;
+}
+.rev-pill {
+    padding: 5px 13px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; border: 1.5px solid rgba(99,115,150,.2);
+    background: #fff; color: #64748b; cursor: pointer;
+    transition: all .15s; font-family: inherit;
+}
+.rev-pill:hover { border-color: #2d3561; color: #2d3561; }
+.rev-pill.active { background: #2d3561; border-color: #2d3561; color: #fff; }
+.rev-custom-wrap {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.rev-date-input {
+    padding: 4px 8px; border-radius: 6px; border: 1.5px solid rgba(99,115,150,.25);
+    font-size: 12px; font-family: inherit; color: #334155; background: #fff;
+    outline: none;
+}
+.rev-date-input:focus { border-color: #2d3561; }
+.rev-apply {
+    padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    background: #2d3561; color: #fff; border: none; cursor: pointer;
+    font-family: inherit;
+}
 .revenue-card {
     background: linear-gradient(135deg, #1a1f2e 0%, #2d3561 100%);
     border-radius: var(--radius-lg);
@@ -429,11 +454,11 @@
     line-height: 1;
 }
 .rev-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,.5); margin-bottom: 6px; }
-.rev-value { font-size: 32px; font-weight: 900; color: #fff; letter-spacing: -1px; line-height: 1; }
+.rev-value { font-size: 32px; font-weight: 900; color: #fff; letter-spacing: -1px; line-height: 1; min-height: 38px; }
 @media(min-width:768px){ .rev-value { font-size: 40px; } }
 .rev-sub { font-size: 12px; color: rgba(255,255,255,.5); margin-top: 6px; }
-.rev-stats { display: flex; gap: 12px; flex-wrap: wrap; }
-.rev-stat { text-align: center; }
+.rev-stats { display: flex; gap: 14px; flex-wrap: wrap; }
+.rev-stat { text-align: center; min-width: 44px; }
 .rev-stat-val { font-size: 20px; font-weight: 800; color: #fff; }
 .rev-stat-lbl { font-size: 10px; color: rgba(255,255,255,.4); text-transform: uppercase; letter-spacing: .5px; }
 
@@ -455,45 +480,44 @@
 
     {{-- ── Revenue Banner — მხოლოდ admin ── --}}
     @if($isAdmin)
-    <div class="revenue-card mb-4">
-        <div>
-            <div class="rev-label">სულ შემოსავალი</div>
-            <div class="rev-value">
-                {{ number_format($totalRevenue, 2) }} ₾
-                @if($advanceTotal > 0)
-                    <span style="font-size:16px;font-weight:600;color:rgba(255,255,255,.45);margin-left:6px;">(+{{ number_format($advanceTotal, 2) }} ₾ ავანსი)</span>
-                @endif
+    <div class="mb-4">
+        {{-- Filter pills --}}
+        <div class="rev-filter-bar">
+            <button class="rev-pill active" data-filter="today">დღეს</button>
+            <button class="rev-pill" data-filter="yesterday">გუშინ</button>
+            <button class="rev-pill" data-filter="week">ეს კვირა</button>
+            <button class="rev-pill" data-filter="custom">⚙ Custom</button>
+            <div class="rev-custom-wrap" id="rev-custom-wrap" style="display:none;">
+                <input type="date" id="rev-from" class="rev-date-input">
+                <span style="color:#94a3b8;font-size:12px;">—</span>
+                <input type="date" id="rev-to" class="rev-date-input">
+                <button class="rev-apply" onclick="loadRevStats('custom')">გამოყენება</button>
             </div>
-            <div class="rev-sub">{{ $totalSales }} გაყიდვა სულ &middot; <span style="color:#4ade80;">{{ $todaySales }} დღეს</span></div>
         </div>
-        <div class="rev-stats">
-            <div class="rev-stat">
-                <div class="rev-stat-val">{{ $pendingOrders }}</div>
-                <div class="rev-stat-lbl">ახალი</div>
+
+        {{-- Card --}}
+        <div class="revenue-card">
+            <div style="flex:1;min-width:0;">
+                <div class="rev-label" id="rev-period-label">დღეს</div>
+                <div class="rev-sub" id="rev-order-count" style="margin-top:2px;">&nbsp;</div>
+                <div style="display:flex;gap:20px;margin-top:14px;flex-wrap:wrap;">
+                    <div>
+                        <div style="font-size:10px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">✅ გადახდილია</div>
+                        <div id="rev-paid" style="font-size:26px;font-weight:800;color:#4ade80;letter-spacing:-.5px;opacity:.4;">—</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">💛 ავანსი</div>
+                        <div id="rev-advance" style="font-size:26px;font-weight:800;color:#facc15;letter-spacing:-.5px;opacity:.4;">—</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">⏳ გადასახდელია</div>
+                        <div id="rev-debt" style="font-size:26px;font-weight:800;color:#fb923c;letter-spacing:-.5px;opacity:.4;">—</div>
+                    </div>
+                </div>
             </div>
-            <div class="rev-stat">
-                <div class="rev-stat-val">{{ $inTransitOrders }}</div>
-                <div class="rev-stat-lbl">გზაში</div>
-            </div>
-            <div class="rev-stat">
-                <div class="rev-stat-val">{{ $warehouseOrders }}</div>
-                <div class="rev-stat-lbl">საწყობში</div>
-            </div>
-            <div class="rev-stat">
-                <div class="rev-stat-val">{{ $courierOrders }}</div>
-                <div class="rev-stat-lbl">კურიერთ.</div>
-            </div>
-            <div class="rev-stat">
-                <div class="rev-stat-val">{{ $returnedOrders }}</div>
-                <div class="rev-stat-lbl">დაბრუნ.</div>
-            </div>
-            <div class="rev-stat">
-                <div class="rev-stat-val">{{ $exchangedOrders }}</div>
-                <div class="rev-stat-lbl">გაცვლ.</div>
-            </div>
-            <div class="rev-stat">
-                <div class="rev-stat-val">{{ $deletedOrders }}</div>
-                <div class="rev-stat-lbl">წაშლ.</div>
+            <div>
+                <div style="font-size:9px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;text-align:right;">პროდუქტები</div>
+                <div class="rev-stats" id="rev-status-breakdown"></div>
             </div>
         </div>
     </div>
@@ -503,24 +527,6 @@
     <p class="db-section-title">მიმოხილვა</p>
     <div class="kpi-grid">
 
-        @if($perm('sales'))
-        <a href="{{ route('productsOut.index') }}" class="kpi-card" style="--kpi-color:#2d7dd2;--kpi-bg:#eff6ff;">
-            <div class="kpi-top">
-                <div class="kpi-icon"><i class="fa fa-right-from-bracket"></i></div>
-                @if($todaySales > 0)
-                    <span class="kpi-badge">+{{ $todaySales }} დღეს</span>
-                @endif
-            </div>
-            <div class="kpi-value">{{ $totalSales }}</div>
-            <div class="kpi-label">გაყიდვები</div>
-            <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:3px 6px;">
-                <div style="font-size:10px;color:#94a3b8;"><span style="color:#f59e0b;font-weight:700;">{{ $pendingOrders }}</span> მოლოდინში</div>
-                <div style="font-size:10px;color:#94a3b8;"><span style="color:#3b82f6;font-weight:700;">{{ $inTransitOrders }}</span> გზაშია</div>
-                <div style="font-size:10px;color:#94a3b8;"><span style="color:#f97316;font-weight:700;">{{ $warehouseOrders }}</span> საწყობშია</div>
-                <div style="font-size:10px;color:#94a3b8;"><span style="color:#8b5cf6;font-weight:700;">{{ $courierOrders }}</span> კურიერთან</div>
-            </div>
-        </a>
-        @endif
 
         @if($perm('purchases'))
         <a href="{{ route('purchases.index') }}" class="kpi-card" style="--kpi-color:#7c3aed;--kpi-bg:#f5f3ff;">
@@ -769,5 +775,89 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 @endif
 });
+
+@if($isAdmin)
+// ── Revenue stats ──────────────────────────────────────────────
+var _revFilter = 'today';
+var _revLabels = { today:'დღეს', yesterday:'გუშინ', week:'ეს კვირა', custom:'Custom' };
+var _statusLabels = { 1:'ახალი', 2:'გზაში', 3:'საწყობში', 4:'კურიერთ.', 5:'დაბრუნ.', 6:'გაცვლ.' };
+var _statusColors = { 1:'#f59e0b', 2:'#60a5fa', 3:'#fb923c', 4:'#a78bfa', 5:'#f87171', 6:'#f472b6' };
+
+function loadRevStats(filter) {
+    _revFilter = filter || _revFilter;
+    var params = { filter: _revFilter };
+    if (_revFilter === 'custom') {
+        params.from = document.getElementById('rev-from').value;
+        params.to   = document.getElementById('rev-to').value;
+        if (!params.from || !params.to) return;
+    }
+
+    document.getElementById('rev-paid').style.opacity    = '.35';
+    document.getElementById('rev-advance').style.opacity = '.35';
+    document.getElementById('rev-debt').style.opacity    = '.35';
+
+    $.ajax({
+        url: '{{ route("home.revenue-stats") }}',
+        data: params,
+        cache: false,
+        success: function(d) {
+            var fmt = function(n) {
+                return parseFloat(n).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }) + ' ₾';
+            };
+            var activeCount = (d.status_counts[1]||0) + (d.status_counts[2]||0) + (d.status_counts[3]||0) + (d.status_counts[4]||0);
+            document.getElementById('rev-period-label').textContent = _revLabels[_revFilter] || _revFilter;
+            document.getElementById('rev-order-count').textContent  = 'სულ ' + (d.total_orders || 0) + ' ორდერი';
+            var paidEl    = document.getElementById('rev-paid');
+            var advanceEl = document.getElementById('rev-advance');
+            var debtEl    = document.getElementById('rev-debt');
+            paidEl.textContent      = fmt(d.total_fully_paid);
+            paidEl.style.opacity    = '1';
+            advanceEl.textContent   = fmt(d.total_advance);
+            advanceEl.style.opacity = '1';
+            debtEl.textContent      = fmt(d.total_debt);
+            debtEl.style.opacity    = '1';
+
+            var html = '';
+            for (var s = 1; s <= 6; s++) {
+                var cnt = d.status_counts[s] || 0;
+                html += '<div class="rev-stat">'
+                      + '<div class="rev-stat-val" style="color:' + _statusColors[s] + ';">' + cnt + '</div>'
+                      + '<div class="rev-stat-lbl">' + _statusLabels[s] + '</div>'
+                      + '</div>';
+            }
+            if (d.deleted_count > 0) {
+                html += '<div class="rev-stat">'
+                      + '<div class="rev-stat-val" style="color:rgba(255,255,255,.35);">' + d.deleted_count + '</div>'
+                      + '<div class="rev-stat-lbl">წაშლ.</div>'
+                      + '</div>';
+            }
+            document.getElementById('rev-status-breakdown').innerHTML = html;
+
+            // KPI card sub-stats — sync with revenue banner filter
+            var el;
+            if ((el = document.getElementById('kpi-period-label'))) el.textContent = '(' + (_revLabels[_revFilter] || _revFilter) + ')';
+            if ((el = document.getElementById('kpi-pending')))       el.textContent = d.status_counts[1] || 0;
+            if ((el = document.getElementById('kpi-transit')))       el.textContent = d.status_counts[2] || 0;
+            if ((el = document.getElementById('kpi-warehouse')))     el.textContent = d.status_counts[3] || 0;
+            if ((el = document.getElementById('kpi-courier')))       el.textContent = d.status_counts[4] || 0;
+        }
+    });
+}
+
+// Pill click handler
+document.querySelectorAll('.rev-pill').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.rev-pill').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        var f = btn.dataset.filter;
+        var customWrap = document.getElementById('rev-custom-wrap');
+        customWrap.style.display = f === 'custom' ? 'flex' : 'none';
+        if (f !== 'custom') loadRevStats(f);
+    });
+});
+
+// Load today on page init
+loadRevStats('today');
+@endif
 </script>
 @endsection
