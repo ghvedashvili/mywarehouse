@@ -92,6 +92,10 @@
 
 /* ── Scrollable stock info ── */
 .sale-items-wrapper { max-height: 320px; overflow-y: auto; padding-right: 2px; }
+@media (max-width: 767px) {
+    .sale-items-wrapper { max-height: none; overflow-y: visible; }
+    .sale-photo-box { display: none; }
+}
 </style>
 
 <div class="modal fade" id="modal-sale" tabindex="-1" data-bs-backdrop="static">

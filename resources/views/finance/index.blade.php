@@ -295,6 +295,46 @@
 
 /* ─── MODAL ───────────────────────────────────────────────────── */
 .fin-modal-header { background: #f8f9fa; }
+
+/* ─── MOBILE ──────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+    .fin-wrap { padding: 10px 0 !important; }
+    .period-bar { gap: 5px; padding: 10px 12px; }
+    .period-bar .btn-period { padding: 7px 12px; font-size: 11px; }
+    .period-bar .custom-dates { flex-wrap: wrap; }
+    .period-bar input[type=date] { width: 100%; }
+
+    .kpi-row { gap: 8px; }
+    .kpi-card { min-width: calc(50% - 4px); flex: 1 1 calc(50% - 4px); padding: 12px; }
+    .kpi-card .kpi-value { font-size: 18px; }
+
+    .mid-row { gap: 10px; }
+    .mid-row .col-chart,
+    .mid-row .col-breakdown { min-width: 100%; }
+
+    .cp-section { padding: 14px; }
+    .cp-filter { padding: 10px; gap: 8px; }
+    .cp-filter input[type=date] { width: 100%; font-size: 16px; }
+    .cp-cards { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .cp-card .cp-card-val { font-size: 15px; }
+    .cp-actions { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .btn-cp-pay { width: 100%; text-align: center; padding: 12px; }
+    .cp-history-toggle { margin-left: 0; }
+    .cp-history { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .cp-history table { min-width: 420px; }
+
+    .entries-section { padding: 12px; }
+    .entries-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .entries-header > div { width: 100%; }
+    .entries-header > div:last-child { display: flex; gap: 6px; }
+    .entries-header input[type=month] { flex: 1; font-size: 16px; }
+    .btn-add-entry { white-space: nowrap; }
+
+    #salary-sale-table,
+    #salary-wh-table { font-size: 12px; }
+    .salary-amount-input { width: 70px !important; }
+    .salary-note-input { width: 90px !important; }
+}
 </style>
 
 <div class="mod-wrap">
@@ -662,7 +702,8 @@
             <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#636e72; margin-bottom:8px; margin-top:10px; letter-spacing:.4px;">
                 გადახდების ისტორია (ბოლო 15)
             </div>
-            <table>
+            <div style="overflow-x:auto; -webkit-overflow-scrolling:touch;">
+            <table style="min-width:420px;">
                 <thead>
                     <tr>
                         <th>თარიღი</th>
@@ -677,6 +718,7 @@
                     <tr><td colspan="6" style="text-align:center; color:#b2bec3; padding:16px;">იტვირთება...</td></tr>
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
     @endif
