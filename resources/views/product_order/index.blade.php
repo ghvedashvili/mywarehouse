@@ -752,7 +752,6 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     font-size: 13px; color: #475569;
   }
   .mob-adv-body .po-toggle-wrap label { font-weight: 600; cursor: pointer; margin: 0; }
-  /* hide ready toggle from mobile panel — checkbox stays in DOM for JS */
   .mob-adv-body .po-ready-wrap { display: none !important; }
 
   /* ── FILTER BAR MOBILE ── */
@@ -1263,7 +1262,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
             <button class="mab-btn mab-ghost" id="mab-export-btn">
                 <i class="fa fa-download"></i> ექსპ.
             </button>
-            <div id="mab-export-menu" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:9999;background:var(--c-surface);border:1px solid var(--c-border-md);border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.14);min-width:185px;overflow:hidden;">
+            <div id="mab-export-menu" style="display:none;position:fixed;z-index:99999;background:var(--c-surface);border:1px solid var(--c-border-md);border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.14);min-width:185px;overflow:hidden;">
                 <a onclick="openReportDateModal('courier');$('#mab-export-menu').hide();" class="po-drop-item"><i class="fa fa-file-excel" style="color:#16a34a;"></i> კურიერი დღეს</a>
                 <a onclick="openReportDateModal('sent');$('#mab-export-menu').hide();" class="po-drop-item"><i class="fa fa-print" style="color:#0369a1;"></i> გაგზავნილი</a>
                 <div style="height:1px;background:var(--c-border);margin:2px 0;"></div>
@@ -2623,6 +2622,7 @@ $(document).on('change', '#toggle-ready-ship', function() {
     var on = $(this).is(':checked');
     $('#btn-send-all-courier').toggle(on);
     $('#mob-qr-send-all').toggle(on);
+    $('#mob-qr-ready').toggleClass('on-green', on);
     reloadTableWithFilters();
 });
 $(document).on('change', '#toggle-merged',       function() { reloadTableWithFilters(); });
@@ -3437,7 +3437,16 @@ function togglePoTheme() {
 })();
 
 $('#po-export-btn').on('click', function(e) { e.stopPropagation(); $('#po-export-menu').toggle(); });
-$('#mab-export-btn').on('click', function(e) { e.stopPropagation(); $('#mab-export-menu').toggle(); });
+$('#mab-export-btn').on('click', function(e) {
+    e.stopPropagation();
+    var menu = $('#mab-export-menu');
+    if (menu.is(':visible')) { menu.hide(); return; }
+    var r = this.getBoundingClientRect();
+    var menuW = 185;
+    var left = r.left;
+    if (left + menuW > window.innerWidth - 8) left = window.innerWidth - menuW - 8;
+    menu.css({ top: (r.bottom + 4) + 'px', left: left + 'px' }).show();
+});
 $(document).on('click', function(e) {
     if (!$(e.target).closest('#po-export-wrap').length)  $('#po-export-menu').hide();
     if (!$(e.target).closest('#mab-export-wrap').length) $('#mab-export-menu').hide();
