@@ -712,7 +712,8 @@
                             <th>ბაზა (×3₾)</th>
                             <th>ბონუსი (1%)</th>
                             <th>გამოქვ.</th>
-                            <th>სულ</th>
+                            <th>ხელფასი სულ</th>
+                            <th>გაცემული ხელფასი</th>
                             <th>ჩანიშვნა</th>
                             <th>სტატუსი</th>
                         </tr>
@@ -734,8 +735,8 @@
                         <tr>
                             <th>სახელი</th>
                             <th>ყველა ორდ.</th>
-                            <th>გათვლილი</th>
-                            <th>ხელით თანხა</th>
+                            <th>ხელფასი სულ</th>
+                            <th>გაცემული ხელფასი</th>
                             <th>ჩანიშვნა</th>
                             <th>სტატუსი</th>
                         </tr>
@@ -754,7 +755,7 @@
                 <div class="table-responsive">
                 <table class="entries-table" style="min-width:400px;">
                     <thead>
-                        <tr><th>სახელი</th><th>ხელით თანხა</th><th>ჩანიშვნა</th><th>სტატუსი</th></tr>
+                        <tr><th>სახელი</th><th>გაცემული ხელფასი</th><th>ჩანიშვნა</th><th>სტატუსი</th></tr>
                     </thead>
                     <tbody id="salary-admin-body"></tbody>
                 </table>
@@ -763,7 +764,7 @@
 
             <div style="text-align:right; margin-top:10px;">
                 <button class="btn-add-entry" onclick="recordSalaries()" id="btn-record-salary">
-                    <i class="fa fa-save"></i> ხელფასების ჩაფიქსირება
+                    <i class="fa fa-save"></i> ხელფასების გაცემა
                 </button>
             </div>
         </div>
@@ -1199,7 +1200,7 @@ function loadSalary() {
     document.getElementById('salary-result').style.display  = 'none';
     document.getElementById('salary-loading').style.display = 'block';
 
-    fetch(`{{ route('salary.calculate') }}?month=${month}`, {
+    fetch(`{{ route('salary.calculate') }}?month=${month}&_=${Date.now()}`, {
         headers: { 'Accept': 'application/json' },
         cache: 'no-store',
     })
@@ -1244,13 +1245,16 @@ function loadSalary() {
                     <td>${parseFloat(op.base_amount).toFixed(2)} ₾</td>
                     <td>${parseFloat(op.bonus_amount).toFixed(2)} ₾</td>
                     <td style="color:var(--red);">−${parseFloat(op.deduction_amount).toFixed(2)} ₾</td>
-                    <td style="font-weight:700; color:var(--green);">
+                    <td style="color:var(--green); font-weight:600;">${(parseFloat(op.base_amount) + parseFloat(op.bonus_amount)).toFixed(2)} ₾</td>
+                    <td>
                         <input type="number" class="salary-amount-input" step="0.01" min="0"
-                               value="${parseFloat(op.total_amount).toFixed(2)}"
+                               value="${recorded !== null ? recorded.toFixed(2) : ''}"
+                               placeholder="0.00"
                                style="width:90px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
                     </td>
                     <td>
                         <input type="text" class="salary-note-input" placeholder="ჩანიშვნა..."
+                               value="${op.recorded_note ? op.recorded_note.replace(/"/g, '&quot;') : ''}"
                                style="width:120px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
                     </td>
                     <td>${statusHtml}</td>
@@ -1292,11 +1296,13 @@ function loadSalary() {
                     <td>${parseFloat(op.suggested_amount).toFixed(2)} ₾</td>
                     <td>
                         <input type="number" class="salary-amount-input" step="0.01" min="0"
-                               value="${parseFloat(op.suggested_amount).toFixed(2)}"
+                               value="${recorded !== null ? recorded.toFixed(2) : ''}"
+                               placeholder="0.00"
                                style="width:90px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
                     </td>
                     <td>
                         <input type="text" class="salary-note-input" placeholder="ჩანიშვნა..."
+                               value="${op.recorded_note ? op.recorded_note.replace(/"/g, '&quot;') : ''}"
                                style="width:120px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
                     </td>
                     <td>${statusHtml}</td>
@@ -1317,11 +1323,13 @@ function loadSalary() {
                     <td style="font-weight:600;">${op.name}</td>
                     <td>
                         <input type="number" class="salary-amount-input" step="0.01" min="0"
-                               value="${recorded !== null ? recorded.toFixed(2) : '0.00'}"
+                               value="${recorded !== null ? recorded.toFixed(2) : ''}"
+                               placeholder="0.00"
                                style="width:90px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
                     </td>
                     <td>
                         <input type="text" class="salary-note-input" placeholder="ჩანიშვნა..."
+                               value="${op.recorded_note ? op.recorded_note.replace(/"/g, '&quot;') : ''}"
                                style="width:120px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
                     </td>
                     <td>${statusHtml}</td>
@@ -1333,13 +1341,13 @@ function loadSalary() {
     })
     .catch(() => {
         document.getElementById('salary-loading').style.display = 'none';
-        alert('შეცდომა მონაცემების ჩატვირთვისას');
+        Swal.fire({ icon: 'error', title: 'შეცდომა მონაცემების ჩატვირთვისას' });
     });
 }
 
 function recordSalaries() {
     const month = document.getElementById('salary-month').value;
-    if (!month) { alert('თვე არ არის არჩეული'); return; }
+    if (!month) { Swal.fire({ icon: 'warning', title: 'თვე არ არის არჩეული' }); return; }
 
     const payments = [];
 
@@ -1350,7 +1358,7 @@ function recordSalaries() {
         const amount = parseFloat(row.querySelector('.salary-amount-input')?.value || 0);
         const note   = row.querySelector('.salary-note-input')?.value || '';
 
-        if (!uid || isNaN(amount)) return;
+        if (!uid || isNaN(amount) || amount <= 0) return;
 
         const entry = {
             user_id:          uid,
@@ -1367,7 +1375,7 @@ function recordSalaries() {
         payments.push(entry);
     });
 
-    if (!payments.length) { alert('ჩასაფიქსირებელი მონაცემები არ არის'); return; }
+    if (!payments.length) { Swal.fire({ icon: 'info', title: 'შევსებული თანხა არ არის' }); return; }
 
     const btn = document.getElementById('btn-record-salary');
     btn.disabled = true;
@@ -1385,16 +1393,16 @@ function recordSalaries() {
     .then(r => r.json())
     .then(res => {
         if (res.success) {
-            alert('✔ ' + (res.message || 'ხელფასები ჩაფიქსირდა'));
-            loadSalary(); // refresh to show recorded badges
+            loadSalary();
+            Swal.fire({ icon: 'success', title: res.message || 'ხელფასები გაიცა', timer: 2500, showConfirmButton: false });
         } else {
-            alert(res.message || 'შეცდომა');
+            Swal.fire({ icon: 'error', title: res.message || 'შეცდომა' });
         }
     })
-    .catch(() => alert('სერვერის შეცდომა'))
+    .catch(() => Swal.fire({ icon: 'error', title: 'სერვერის შეცდომა' }))
     .finally(() => {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fa fa-save"></i> ხელფასების ჩაფიქსირება';
+        btn.innerHTML = '<i class="fa fa-save"></i> ხელფასების გაცემა';
     });
 }
 
@@ -1518,7 +1526,7 @@ function loadCourierStats() {
 
 function toggleCpHistory() {
     var block = document.getElementById('cp-history-block');
-    block.style.display = block.style.display === 'none' ? 'block' : 'none';
+    block.style.display = window.getComputedStyle(block).display === 'none' ? 'block' : 'none';
 }
 
 function showCpHistoryDetail(date) {
