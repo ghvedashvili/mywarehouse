@@ -428,6 +428,54 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     display: flex; align-items: center; gap: 8px;
     flex-wrap: wrap; margin-top: 5px; font-size: 11.5px;
   }
+
+  /* ── Modal tables → card style (group-view, group-receive, in-transit) ── */
+  .modal-card-table .table-responsive { overflow: visible !important; }
+  .modal-card-table table { min-width: 0 !important; }
+  .modal-card-table thead { display: none !important; }
+  .modal-card-table table,
+  .modal-card-table tbody { display: block !important; width: 100% !important; }
+  .modal-card-table tbody tr {
+    display: block !important;
+    background: #fff;
+    border-radius: 10px;
+    margin: 0 0 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.07);
+    border: 1px solid #e5e7eb !important;
+    overflow: hidden;
+  }
+  .modal-card-table .mc-td-img { display: none !important; }
+  .modal-card-table .mc-td-name {
+    display: block !important;
+    background: #f8fafc;
+    padding: 10px 13px !important;
+    border-bottom: 1px solid #eff3f8 !important;
+    font-size: 14px; font-weight: 600; color: #1e293b;
+  }
+  .modal-card-table td[data-label] {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 13px !important;
+    border-bottom: 1px solid #f8fafc !important;
+    border-top: none !important;
+    font-size: 13px;
+    min-height: 38px;
+  }
+  .modal-card-table td[data-label]::before {
+    content: attr(data-label);
+    font-size: 10px; font-weight: 700;
+    color: #94a3b8; text-transform: uppercase;
+    letter-spacing: .4px; flex-shrink: 0; margin-right: 10px;
+  }
+  .modal-card-table .gr-received,
+  .modal-card-table .gr-lost,
+  .modal-card-table .transit-ml-input {
+    width: 80px !important; font-size: 16px !important;
+    text-align: center; padding: 6px !important;
+  }
+  /* already-received rows in group-receive */
+  #gr-lines-body tr.table-success { border-left: 3px solid #16a34a !important; }
 }
 </style>
 @endsection
@@ -640,14 +688,14 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 
 {{-- ══ Group View Modal ══ --}}
 <div class="modal fade" id="modal-group-view" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content">
             <div class="modal-header bg-light py-2">
                 <h5 class="modal-title fw-bold">📋 ჯგუფის შემადგენლობა</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-3">
-                <div class="table-responsive" id="gv-body"></div>
+                <div class="table-responsive modal-card-table" id="gv-body"></div>
             </div>
             <div class="modal-footer py-2">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">დახურვა</button>
@@ -666,7 +714,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
             </div>
             <div class="modal-body p-3">
                 <input type="hidden" id="gr-group-id">
-                <div class="table-responsive">
+                <div class="table-responsive modal-card-table">
                     <table class="table table-sm table-bordered align-middle mb-0">
                         <thead class="table-light">
                             <tr>
@@ -698,7 +746,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 
 {{-- ══ In-Transit Sales Modal ══ --}}
 <div class="modal fade" id="modal-in-transit" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content">
             <div class="modal-header py-2" style="background:#0ea5e9;color:#fff;">
                 <h5 class="modal-title fw-bold">
@@ -710,7 +758,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                 <div id="in-transit-loading" class="text-center py-4">
                     <div class="spinner-border text-info" role="status"></div>
                 </div>
-                <div class="table-responsive" id="in-transit-body" style="display:none;">
+                <div class="table-responsive modal-card-table" id="in-transit-body" style="display:none;">
                     <table class="table table-sm table-bordered align-middle mb-0">
                         <thead class="table-light">
                             <tr>
@@ -893,14 +941,14 @@ $(function() {
                     : '<span class="text-muted" style="font-size:18px;">📦</span>';
 
                 html += '<tr>'
-                     +  '<td class="text-center align-middle">' + imgCell + '</td>'
-                     +  '<td class="fw-semibold align-middle">' + (it.product_name||'N/A') + '</td>'
-                     +  '<td class="text-muted align-middle" style="font-size:12px;">' + (it.product_code||'—') + '</td>'
-                     +  '<td class="align-middle">' + (it.product_size||'—') + '</td>'
-                     +  '<td class="text-center fw-bold align-middle">' + orig + '</td>'
-                     +  '<td class="text-center align-middle">' + remainCell + '</td>'
-                     +  '<td class="text-center align-middle">' + lostCell + '</td>'
-                     +  (isAdmin ? '<td class="text-end align-middle">' + costCell + '</td>' : '')
+                     +  '<td class="mc-td-img text-center align-middle">' + imgCell + '</td>'
+                     +  '<td class="mc-td-name fw-semibold align-middle">' + (it.product_name||'N/A') + '</td>'
+                     +  '<td class="text-muted align-middle" data-label="კოდი" style="font-size:12px;">' + (it.product_code||'—') + '</td>'
+                     +  '<td class="align-middle" data-label="ზომა">' + (it.product_size||'—') + '</td>'
+                     +  '<td class="text-center fw-bold align-middle" data-label="შეკვ.">' + orig + '</td>'
+                     +  '<td class="text-center align-middle" data-label="გზაში">' + remainCell + '</td>'
+                     +  '<td class="text-center align-middle" data-label="დაკარგ.">' + lostCell + '</td>'
+                     +  (isAdmin ? '<td class="text-end align-middle" data-label="ღირ.">' + costCell + '</td>' : '')
                      +  '</tr>';
             });
 
@@ -1434,7 +1482,7 @@ $(function() {
                 return;
             }
             (allItems || []).forEach(function(it) {
-                var $imgCell = $('<td class="text-center align-middle" style="width:52px;">');
+                var $imgCell = $('<td class="mc-td-img text-center align-middle" style="width:52px;">');
                 if (it.product_image) {
                     $imgCell.append($('<img>').attr('src', it.product_image)
                         .css({ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '4px' }));
@@ -1442,13 +1490,12 @@ $(function() {
                     $imgCell.text('📦');
                 }
                 if (it.status_id === 3) {
-                    // Already fully received — show informational row only
                     var $tr = $('<tr class="table-success opacity-75">').append(
                         $imgCell,
-                        $('<td class="fw-semibold align-middle text-muted">').text(it.product_name),
-                        $('<td class="align-middle text-muted">').text(it.product_size || '—'),
-                        $('<td class="text-center text-muted gr-ordered">').text(it.quantity),
-                        $('<td colspan="2" class="text-center">').html(
+                        $('<td class="mc-td-name fw-semibold align-middle text-muted">').text(it.product_name),
+                        $('<td class="align-middle text-muted">').attr('data-label', 'ზომა').text(it.product_size || '—'),
+                        $('<td class="text-center text-muted gr-ordered">').attr('data-label', 'შეკვ.').text(it.quantity),
+                        $('<td colspan="2" class="text-center">').attr('data-label', 'სტ.').html(
                             '<span class="badge bg-success" style="font-size:12px;">✅ მიღებულია</span>'
                         )
                     );
@@ -1456,14 +1503,14 @@ $(function() {
                 } else {
                     var $tr = $('<tr data-order-id="' + it.id + '">').append(
                         $imgCell,
-                        $('<td class="fw-semibold align-middle">').text(it.product_name),
-                        $('<td class="align-middle">').text(it.product_size || '—'),
-                        $('<td class="text-center fw-bold text-muted gr-ordered">').text(it.quantity),
-                        $('<td>').append(
+                        $('<td class="mc-td-name fw-semibold align-middle">').text(it.product_name),
+                        $('<td class="align-middle">').attr('data-label', 'ზომა').text(it.product_size || '—'),
+                        $('<td class="text-center fw-bold text-muted gr-ordered">').attr('data-label', 'შეკვ.').text(it.quantity),
+                        $('<td>').attr('data-label', '✅ მიღ.').append(
                             $('<input type="number" class="form-control form-control-sm text-center gr-received">')
                                 .val(it.quantity).attr({ min: 0, max: it.quantity })
                         ),
-                        $('<td>').append(
+                        $('<td>').attr('data-label', '❌ დაკარგ.').append(
                             $('<input type="number" class="form-control form-control-sm text-center gr-lost">')
                                 .val(0).attr({ min: 0, max: it.quantity })
                         )
@@ -1563,12 +1610,12 @@ $(function() {
                 }
                 $('#in-transit-rows').append(
                     '<tr>'
-                    + '<td class="text-center">' + img + '</td>'
-                    + '<td class="fw-semibold">' + $('<span>').text(it.product_name).html() + '</td>'
-                    + '<td class="text-muted">' + $('<span>').text(it.product_code).html() + '</td>'
-                    + '<td class="text-center">' + sizeCell + '</td>'
-                    + '<td class="text-center fw-bold">' + it.quantity + '</td>'
-                    + '<td class="text-end">' + price + '</td>'
+                    + '<td class="mc-td-img text-center">' + img + '</td>'
+                    + '<td class="mc-td-name fw-semibold">' + $('<span>').text(it.product_name).html() + '</td>'
+                    + '<td class="text-muted" data-label="კოდი">' + $('<span>').text(it.product_code).html() + '</td>'
+                    + '<td class="text-center" data-label="ზომა">' + sizeCell + '</td>'
+                    + '<td class="text-center fw-bold" data-label="რაოდ.">' + it.quantity + '</td>'
+                    + '<td class="text-end" data-label="ფასი">' + price + '</td>'
                     + '</tr>'
                 );
             });
