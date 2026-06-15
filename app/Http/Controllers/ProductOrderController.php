@@ -1022,15 +1022,16 @@ class ProductOrderController extends Controller
                   ->orWhere('comment', 'like', "%{$search}%")
                   ->orWhere('payment_comment', 'like', "%{$search}%")
                   ->orWhereHas('siblings', function($sq) use ($search) {
-                      $sq->whereHas('product', function($pq) use ($search) {
-                          $pq->where('name', 'like', "%{$search}%")
-                             ->orWhere('product_code', 'like', "%{$search}%");
-                      })
-                      ->orWhereHas('customer', function($cq) use ($search) {
-                          $cq->where('name', 'like', "%{$search}%")
-                             ->orWhere('tel', 'like', "%{$search}%")
-                             ->orWhere('alternative_tel', 'like', "%{$search}%");
-                      });
+                      $sq->where('order_number', 'like', "%{$search}%")
+                         ->orWhereHas('product', function($pq) use ($search) {
+                             $pq->where('name', 'like', "%{$search}%")
+                                ->orWhere('product_code', 'like', "%{$search}%");
+                         })
+                         ->orWhereHas('customer', function($cq) use ($search) {
+                             $cq->where('name', 'like', "%{$search}%")
+                                ->orWhere('tel', 'like', "%{$search}%")
+                                ->orWhere('alternative_tel', 'like', "%{$search}%");
+                         });
                   });
             });
         }
