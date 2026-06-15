@@ -1200,7 +1200,8 @@ function loadSalary() {
     document.getElementById('salary-loading').style.display = 'block';
 
     fetch(`{{ route('salary.calculate') }}?month=${month}`, {
-        headers: { 'Accept': 'application/json' }
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-store',
     })
     .then(r => r.json())
     .then(data => {
