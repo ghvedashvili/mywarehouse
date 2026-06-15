@@ -135,97 +135,47 @@ class SalaryService
         $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $end   = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
 
-        // ყველა წევრი გაუქმდა/დაბრუნდა/გაიცვალა ამ თვეში
-        $cancelledInMonth = function ($order) use ($start, $end): bool {
-            if (!($order->status === 'deleted' || in_array($order->status_id, [5, 6]))) return false;
-            $at = $order->cancelled_at ? Carbon::parse($order->cancelled_at) : null;
-            return $at && $at->between($start, $end);
-        };
+        // მხოლოდ sale_operator-ების ორდერები — ware-ი იგივეს ითვლის რასაც sale, ბონუსის გარეშე
+        $saleOperatorIds = User::where('role', 'sale_operator')->pluck('id');
 
-        $newCount          = 0;
-        $cancelledCount    = 0;
-        $cancelledByMonth  = [];   // 'YYYY-MM' => count (effective date month of cancelled group/order)
-
-        $addCancelledMonth = function (Carbon $effectiveDate) use (&$cancelledByMonth): void {
-            $key = $effectiveDate->format('Y-m');
-            $cancelledByMonth[$key] = ($cancelledByMonth[$key] ?? 0) + 1;
-        };
-
-        // ─── Standalone ორდერები (merged_id=NULL) ────────────────────────────
-        $soloOrders = Product_Order::withoutGlobalScope('active')
+        $positiveOrders = Product_Order::withoutGlobalScope('active')
+            ->with('product:id,bundle_id')
             ->where('order_type', 'sale')
-            ->whereNull('merged_id')
             ->where('is_gift', false)
-            ->where(function ($q) use ($start, $end) {
-                $q->whereBetween('fully_paid_at', [$start, $end])
-                  ->orWhereBetween('cancelled_at', [$start, $end]);
+            ->whereIn('user_id', $saleOperatorIds)
+            ->whereNotNull('fully_paid_at')
+            ->whereBetween('fully_paid_at', [$start, $end])
+            ->get();
+
+        $deductionOrders = Product_Order::withoutGlobalScope('active')
+            ->with('product:id,bundle_id')
+            ->where('order_type', 'sale')
+            ->where('is_gift', false)
+            ->whereIn('user_id', $saleOperatorIds)
+            ->whereNotNull('fully_paid_at')
+            ->whereBetween('cancelled_at', [$start, $end])
+            ->where(function ($q) {
+                $q->where('status', 'deleted')
+                  ->orWhereIn('status_id', [5, 6]);
             })
-            ->get(['id', 'created_at', 'fully_paid_at', 'status', 'status_id', 'cancelled_at']);
+            ->get();
 
-        foreach ($soloOrders as $order) {
-            if ($order->fully_paid_at && Carbon::parse($order->fully_paid_at)->between($start, $end)) $newCount++;
-            if ($cancelledInMonth($order) && $order->fully_paid_at) {
-                $cancelledCount++;
-                $addCancelledMonth(Carbon::parse($order->created_at));
-            }
-        }
+        $newCount       = $this->countEffectiveSales($positiveOrders);
+        $cancelledCount = $this->countEffectiveSales($deductionOrders);
+        $orderCount     = $newCount - $cancelledCount;
 
-        // ─── გაერთიანებული ჯგუფები ───────────────────────────────────────────
-        $mergedPrimaries = Product_Order::withoutGlobalScope('active')
-            ->where('order_type', 'sale')
-            ->where('is_primary', 1)
-            ->where('is_gift', false)
-            ->get(['id', 'created_at', 'fully_paid_at', 'status', 'status_id', 'cancelled_at']);
-
-        if ($mergedPrimaries->isNotEmpty()) {
-            $primaryIds = $mergedPrimaries->pluck('id')->toArray();
-
-            $allMembers     = Product_Order::withoutGlobalScope('active')
-                ->whereIn('merged_id', $primaryIds)
-                ->get(['id', 'merged_id', 'created_at', 'fully_paid_at', 'status', 'status_id', 'cancelled_at']);
-            $membersByGroup = $allMembers->groupBy(fn($m) => (int)$m->merged_id);
-
-            foreach ($mergedPrimaries as $primary) {
-                $members = $membersByGroup->get($primary->id, collect());
-
-                $effectiveDate = $members->isNotEmpty()
-                    ? $members->map(fn($m) => Carbon::parse($m->created_at))->min()
-                    : Carbon::parse($primary->created_at);
-
-                if ($members->isNotEmpty()) {
-                    // საწყობი იღებს ჯამს მხოლოდ მაშინ, თუ ყველა შვილი სრულად გადახდილია
-                    $paidDates = $members->filter(fn($m) => !is_null($m->fully_paid_at))
-                                        ->map(fn($m) => Carbon::parse($m->fully_paid_at));
-                    $allPaid = $paidDates->count() === $members->count();
-                    if ($allPaid) {
-                        $lastPaidAt = $paidDates->max();
-                        if ($lastPaidAt->between($start, $end)) $newCount++;
-                    }
-                    if ($members->every($cancelledInMonth) && $allPaid) {
-                        $cancelledCount++;
-                        $addCancelledMonth($effectiveDate);
-                    }
-                } else {
-                    // შვილები არ არის — primary ჩვეულებრივ solo ორდერივით ითვლება
-                    $paidAt = $primary->fully_paid_at ? Carbon::parse($primary->fully_paid_at) : null;
-                    if ($paidAt && $paidAt->between($start, $end)) $newCount++;
-                    if ($cancelledInMonth($primary) && $primary->fully_paid_at) {
-                        $cancelledCount++;
-                        $addCancelledMonth($effectiveDate);
-                    }
-                }
-            }
-        }
-
-        ksort($cancelledByMonth);
-        $orderCount = $newCount - $cancelledCount;
+        $cancelledByMonth = $deductionOrders
+            ->groupBy(fn($o) => Carbon::parse($o->created_at)->format('Y-m'))
+            ->map->count()
+            ->sortKeys()
+            ->toArray();
 
         return [
-            'order_count'         => $orderCount,
-            'new_count'           => $newCount,
-            'cancelled_count'     => $cancelledCount,
-            'cancelled_by_month'  => $cancelledByMonth,
-            'suggested_amount'    => round($orderCount * $policy->warehouse_per_order, 2),
+            'order_count'        => $orderCount,
+            'new_count'          => $newCount,
+            'cancelled_count'    => $cancelledCount,
+            'cancelled_by_month' => $cancelledByMonth,
+            'suggested_amount'   => round(max(0, $orderCount * $policy->warehouse_per_order), 2),
         ];
     }
 

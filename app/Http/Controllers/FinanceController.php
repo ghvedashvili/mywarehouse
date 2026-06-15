@@ -436,10 +436,8 @@ class FinanceController extends Controller
 
         // order IDs handed to courier in the selected date range
         $deliveredIds = \App\Models\StatusChangeLog::where('status_id_to', 4)
-            ->select('order_id', \DB::raw('MAX(changed_at) as last_delivery'))
-            ->groupBy('order_id')
-            ->havingRaw('DATE(MAX(changed_at)) BETWEEN ? AND ?', [$from, $to])
-            ->pluck('order_id');
+            ->whereBetween(\DB::raw('DATE(changed_at)'), [$from, $to])
+            ->pluck('order_id')->unique()->values();
 
         // Unpaid in date range
         $unpaid = \App\Models\Product_Order::withoutGlobalScope('active')
@@ -553,10 +551,8 @@ class FinanceController extends Controller
         }
 
         $deliveredIds = \App\Models\StatusChangeLog::where('status_id_to', 4)
-            ->select('order_id', \DB::raw('MAX(changed_at) as last_delivery'))
-            ->groupBy('order_id')
-            ->havingRaw('DATE(MAX(changed_at)) BETWEEN ? AND ?', [$from, $to])
-            ->pluck('order_id');
+            ->whereBetween(\DB::raw('DATE(changed_at)'), [$from, $to])
+            ->pluck('order_id')->unique()->values();
 
         $query = \App\Models\Product_Order::withoutGlobalScope('active')
             ->whereNull('courier_paid_at')

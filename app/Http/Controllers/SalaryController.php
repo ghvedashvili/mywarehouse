@@ -44,34 +44,34 @@ class SalaryController extends Controller
         return response()->json([
             'month'              => $month,
             'sale_operators'     => collect($data['saleOperators'])->map(fn($d) => [
-                'user_id'          => $d['user']->id,
-                'name'             => $d['user']->name,
+                'user_id'             => $d['user']->id,
+                'name'                => $d['user']->name,
                 'order_count'         => $d['order_count'],
                 'deduction_count'     => $d['deduction_count'],
                 'deductions_by_month' => $d['deductions_by_month'],
                 'base_amount'         => $d['base_amount'],
-                'bonus_amount'     => $d['bonus_amount'],
-                'deduction_amount' => $d['deduction_amount'],
-                'total_amount'     => $d['total_amount'],
-                'recorded'         => isset($recorded[$d['user']->id])
-                    ? $recorded[$d['user']->id]->total_amount : null,
+                'bonus_amount'        => $d['bonus_amount'],
+                'deduction_amount'    => $d['deduction_amount'],
+                'total_amount'        => $d['total_amount'],
+                'recorded'            => isset($recorded[$d['user']->id]) ? $recorded[$d['user']->id]->total_amount : null,
+                'recorded_note'       => isset($recorded[$d['user']->id]) ? $recorded[$d['user']->id]->note : null,
             ]),
             'warehouse_operators' => collect($data['warehouseOperators'])->map(fn($d) => [
-                'user_id'          => $d['user']->id,
-                'name'             => $d['user']->name,
+                'user_id'            => $d['user']->id,
+                'name'               => $d['user']->name,
                 'order_count'        => $d['order_count'],
                 'new_count'          => $d['new_count'],
                 'cancelled_count'    => $d['cancelled_count'],
                 'cancelled_by_month' => $d['cancelled_by_month'],
                 'suggested_amount'   => $d['suggested_amount'],
-                'recorded'         => isset($recorded[$d['user']->id])
-                    ? $recorded[$d['user']->id]->total_amount : null,
+                'recorded'           => isset($recorded[$d['user']->id]) ? $recorded[$d['user']->id]->total_amount : null,
+                'recorded_note'      => isset($recorded[$d['user']->id]) ? $recorded[$d['user']->id]->note : null,
             ]),
             'admins'             => collect($data['admins'])->map(fn($d) => [
-                'user_id'  => $d['user']->id,
-                'name'     => $d['user']->name,
-                'recorded' => isset($recorded[$d['user']->id])
-                    ? $recorded[$d['user']->id]->total_amount : null,
+                'user_id'       => $d['user']->id,
+                'name'          => $d['user']->name,
+                'recorded'      => isset($recorded[$d['user']->id]) ? $recorded[$d['user']->id]->total_amount : null,
+                'recorded_note' => isset($recorded[$d['user']->id]) ? $recorded[$d['user']->id]->note : null,
             ]),
         ]);
     }
@@ -135,7 +135,7 @@ class SalaryController extends Controller
             }
         }
 
-        return response()->json(['success' => true, 'message' => 'ხელფასები ჩაფიქსირდა']);
+        return response()->json(['success' => true, 'message' => 'ხელფასები გაიცა']);
     }
 
     /**
