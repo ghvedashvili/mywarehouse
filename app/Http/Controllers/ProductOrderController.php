@@ -446,6 +446,7 @@ class ProductOrderController extends Controller
                 $oldProductId = (int) $order->product_id;
                 $oldSize      = $order->product_size;
                 $data         = $request->all();
+                unset($data['order_type']); // order_type შექმნის შემდეგ არ იცვლება
 
                 // ─── order_address / order_alt_tel / order_city_id ───
                 if ($request->filled('order_address')) {

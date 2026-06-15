@@ -1684,7 +1684,7 @@ $(document).on('change', '.sale-product-select', function() {
                 if (!$sizeSelect.find('option[value="'+editSize+'"]').length) {
                     $sizeSelect.append('<option value="'+editSize+'">'+editSize+'</option>');
                 }
-                $sizeSelect.val(editSize);
+                $sizeSelect.val(editSize).trigger('change');
                 $wrap.removeData('edit-size'); // clear so subsequent product changes don't re-apply old size
             }
         }
@@ -1762,7 +1762,7 @@ $(document).on('change', '.sale-size-select', function() {
     var $row      = $(this).closest('.sale-item-row');
     var productId = $row.find('.sale-product-select').val();
     var size      = $(this).val();
-    if (!isEditMode && productId && size) {
+    if (productId && size) {
         $.get("{{ url('api/fifo-prices') }}", { product_id: productId, size: size }, function(fifo) {
             if ((fifo.price_georgia || 0) > 0) {
                 $row.find('.sale-price-gel').text(fifo.price_georgia + ' ₾');
