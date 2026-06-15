@@ -261,7 +261,10 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 @media (max-width: 767px) {
 
   .pu-page { padding: 6px 12px 80px !important; }
-  .pu-page .mod-header { display: none !important; }
+  .pu-page .mod-header { padding: 0 0 10px !important; }
+  .pu-page .mod-header > div:first-child { display: none !important; }
+  .pu-page .mod-header .mod-actions { width: 100%; display: flex; gap: 8px; }
+  .pu-page .mod-header .mod-actions .btn { flex: 1; justify-content: center; }
 
   .pu-stats { grid-template-columns: repeat(2,1fr); gap: 8px; margin-bottom: 10px; }
   .pu-stat { padding: 10px 12px; }
