@@ -1483,7 +1483,7 @@ function loadCourierStats() {
     var qs = 'date_from=' + p.date_from + '&date_to=' + p.date_to;
     p.types.forEach(function(t) { qs += '&types[]=' + t; });
 
-    $.get('{{ route("finance.courierStats") }}?' + qs, function(d) {
+    $.ajax({ url: '{{ route("finance.courierStats") }}?' + qs, cache: false, success: function(d) {
         document.getElementById('cp-unpaid-tbilisi').textContent = fmt(d.unpaid.tbilisi);
         document.getElementById('cp-unpaid-region').textContent  = fmt(d.unpaid.region);
         document.getElementById('cp-unpaid-village').textContent = fmt(d.unpaid.village);
@@ -1512,7 +1512,7 @@ function loadCourierStats() {
                     '</tr>';
             }).join('');
         }
-    });
+    }});
 }
 
 function toggleCpHistory() {
@@ -1544,17 +1544,22 @@ function doCourierPay() {
     var qs = 'date_from=' + p.date_from + '&date_to=' + p.date_to;
     p.types.forEach(function(t) { qs += '&types[]=' + t; });
 
-    $.get('{{ route("finance.courierOrders") }}?' + qs, function(orders) {
-        if (!orders.length) {
-            Swal.fire('ინფო', 'გადაუხდელი ორდერები არ მოიძებნა', 'info');
+    $.ajax({
+        url: '{{ route("finance.courierOrders") }}?' + qs,
+        cache: false,
+        success: function(orders) {
+            if (!orders.length) {
+                Swal.fire('ინფო', 'გადაუხდელი ორდერები არ მოიძებნა', 'info');
+                $btn.prop('disabled', false).css('opacity', '');
+                return;
+            }
+            _cpPayPending = true;
+            showCpOrdersModal(orders, 'გადახდის დადასტურება', true);
             $btn.prop('disabled', false).css('opacity', '');
-            return;
-        }
-        _cpPayPending = true;
-        showCpOrdersModal(orders, 'გადახდის დადასტურება', true);
-        $btn.prop('disabled', false).css('opacity', '');
-    }).fail(function() {
-        $btn.prop('disabled', false).css('opacity', '');
+        },
+        error: function() {
+            $btn.prop('disabled', false).css('opacity', '');
+        },
     });
 }
 
