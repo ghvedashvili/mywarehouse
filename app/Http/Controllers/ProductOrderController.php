@@ -2198,6 +2198,7 @@ class ProductOrderController extends Controller
                 ->with(['product' => fn($q) => $q->withoutGlobalScope('active')])
                 ->where('merged_id', $order->id)
                 ->where('is_primary', 0)
+                ->orderBy('id')
                 ->get();
             foreach ($childRows as $child) {
                 $child->imageBase64 = $this->productImageBase64($child->product);
@@ -2363,6 +2364,7 @@ class ProductOrderController extends Controller
                 ->with(['product' => fn($q) => $q->withoutGlobalScope('active')])
                 ->where('merged_id', $order->id)
                 ->where('is_primary', 0)
+                ->orderBy('id')
                 ->get();
             foreach ($childRows as $child) {
                 $child->imageBase64 = $this->productImageBase64($child->product);
@@ -2972,6 +2974,7 @@ public function exportChangePDF($id)
             ->withoutGlobalScope('active')
             ->where('merged_id', $changeOrder->id)
             ->where('is_primary', 0)
+            ->orderBy('id')
             ->get();
         foreach ($mergedSiblings as $sib) {
             $this->attachImageBase64($sib);
