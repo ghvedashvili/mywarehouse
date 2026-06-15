@@ -1584,6 +1584,7 @@ function editForm(id) {
                 var tpl = $('#product-options-template');
                 tpl.find('option[data-inactive="1"]').remove();
                 tpl.append($('<option>', { value: cp.id, text: cp.name+' (Inactive)' }).attr('data-inactive','1').attr('data-price-ge',cp.price_geo).attr('data-price-us',cp.price_usa).attr('data-sizes',cp.sizes||'').attr('data-image',cp.image||''));
+                _bundleSizesCache = null;
             }
             $('#sale-items-container').empty();
             addSaleLine({ product_id: prodId, product_size: data.product_size, price_georgia: data.price_georgia, price_usa: data.price_usa, discount: data.discount||0, editMode: true, lockProduct: lockProd });
@@ -1702,19 +1703,25 @@ $(document).on('change', '.sale-product-select', function() {
     updateBundleIcons();
 });
 
-function updateBundleIcons() {
-    // Build bundle sizes from the option template (how many distinct products per bundle)
-    var bundleProductSets = {};
+var _bundleSizesCache = null;
+function _getBundleSizes() {
+    if (_bundleSizesCache) return _bundleSizesCache;
+    var sets = {};
     $('#product-options-template option').each(function() {
         var bid = $(this).data('bundle-id');
         var pid = parseInt($(this).val()) || 0;
         if (bid && pid) {
-            if (!bundleProductSets[bid]) bundleProductSets[bid] = {};
-            bundleProductSets[bid][pid] = true;
+            if (!sets[bid]) sets[bid] = {};
+            sets[bid][pid] = true;
         }
     });
-    var bundleSizes = {};
-    Object.keys(bundleProductSets).forEach(function(bid) { bundleSizes[bid] = Object.keys(bundleProductSets[bid]).length; });
+    _bundleSizesCache = {};
+    Object.keys(sets).forEach(function(bid) { _bundleSizesCache[bid] = Object.keys(sets[bid]).length; });
+    return _bundleSizesCache;
+}
+
+function updateBundleIcons() {
+    var bundleSizes = _getBundleSizes();
 
     // Collect selected products from all form lines
     var lines = [];

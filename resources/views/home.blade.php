@@ -406,7 +406,7 @@
 
 /* ── Revenue highlight ── */
 .rev-filter-bar {
-    display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
     margin-bottom: 8px;
 }
 .rev-pill {
@@ -486,8 +486,9 @@
             <button class="rev-pill active" data-filter="today">დღეს</button>
             <button class="rev-pill" data-filter="yesterday">გუშინ</button>
             <button class="rev-pill" data-filter="week">კვირა</button>
+            <button class="rev-pill" data-filter="month">თვე</button>
             <button class="rev-pill" data-filter="all">სულ</button>
-            <button class="rev-pill" data-filter="custom">⚙ Custom</button>
+            <button class="rev-pill" data-filter="custom">⚙</button>
             <div class="rev-custom-wrap" id="rev-custom-wrap" style="display:none;">
                 <input type="date" id="rev-from" class="rev-date-input">
                 <span style="color:#94a3b8;font-size:12px;">—</span>
@@ -780,7 +781,7 @@ document.addEventListener('DOMContentLoaded', function() {
 @if($isAdmin)
 // ── Revenue stats ──────────────────────────────────────────────
 var _revFilter = 'today';
-var _revLabels = { today:'დღეს', yesterday:'გუშინ', week:'კვირა', all:'სულ', custom:'Custom' };
+var _revLabels = { today:'დღეს', yesterday:'გუშინ', week:'კვირა', month:'თვე', all:'სულ', custom:'Custom' };
 var _statusLabels = { 1:'ახალი', 2:'გზაში', 3:'საწყობში', 4:'კურიერთ.', 5:'დაბრუნ.', 6:'გაცვლ.' };
 var _statusColors = { 1:'#f59e0b', 2:'#60a5fa', 3:'#fb923c', 4:'#a78bfa', 5:'#f87171', 6:'#f472b6' };
 
