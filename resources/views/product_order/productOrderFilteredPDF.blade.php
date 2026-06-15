@@ -316,6 +316,7 @@
                 </div>
             </div>
             <div class="exchange-content">
+                {{-- change order: გადაეცი (new) + წამოიღე (original) --}}
                 <div class="prod-row">
                     <div class="pr-img">
                         @if(!empty($primary->imageBase64))
@@ -353,6 +354,33 @@
                     <div class="pr-action"><span class="badge-pickup">&#8617; წამოიღე</span></div>
                 </div>
                 @endif
+                {{-- merged children (sale orders in the same group) --}}
+                @foreach($group['children'] ?? [] as $child)
+                <div class="prod-row">
+                    <div class="pr-img">
+                        @if(!empty($child->imageBase64))
+                            <img src="{{ $child->imageBase64 }}" alt="">
+                        @else
+                            <div class="no-img"></div>
+                        @endif
+                    </div>
+                    <div class="pr-info">
+                        <div class="pr-name">{{ $child->product->name ?? '—' }}</div>
+                        <div class="pr-meta">
+                            @if($child->product?->product_code)<span style="color:#888;font-size:10px;">{{ $child->product->product_code }}</span><br>@endif
+                            @if($child->product_size)ზომა: {{ $child->product_size }}@endif
+                            @if($child->comment)<br><span style="color:#e74c3c;">{{ $child->comment }}</span>@endif
+                        </div>
+                    </div>
+                    <div class="pr-action">
+                        @if($child->order_type === 'change')
+                            <span class="badge-deliver">&#10003; გადაეცი</span>
+                        @else
+                            <span class="badge-deliver">&#10003; გადაეცი</span>
+                        @endif
+                    </div>
+                </div>
+                @endforeach
             </div>
         </div>
     </div>

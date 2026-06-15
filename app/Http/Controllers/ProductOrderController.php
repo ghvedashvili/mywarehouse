@@ -2965,8 +2965,21 @@ public function exportChangePDF($id)
         ->withoutGlobalScope('active')
         ->findOrFail($changeOrder->original_sale_id);
 
+    // merged siblings (same group, not this change order itself)
+    $mergedSiblings = collect();
+    if ($changeOrder->is_primary) {
+        $mergedSiblings = Product_Order::with(['product'])
+            ->withoutGlobalScope('active')
+            ->where('merged_id', $changeOrder->id)
+            ->where('is_primary', 0)
+            ->get();
+        foreach ($mergedSiblings as $sib) {
+            $this->attachImageBase64($sib);
+        }
+    }
+
     // ლოგო base64
-    $logoPath   = public_path('assets/img/logo.png'); // გზა შეცვალე საჭიროებისამებრ
+    $logoPath   = public_path('assets/img/logo.png');
     $logoBase64 = null;
     if (file_exists($logoPath)) {
         $logoBase64 = 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath));
@@ -2979,6 +2992,7 @@ public function exportChangePDF($id)
     $pdf = Pdf::loadView('product_order.productOrderChangePDF', compact(
         'changeOrder',
         'originalSale',
+        'mergedSiblings',
         'logoBase64'
     ))
         ->setPaper('a4')

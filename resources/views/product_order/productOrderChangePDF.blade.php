@@ -125,6 +125,28 @@
             </div>
             <div class="pr-action"><span class="badge-pickup">&#8617; წამოიღე</span></div>
         </div>
+
+        {{-- გაერთიანებული სხვა ორდერები (sale siblings) --}}
+        @foreach($mergedSiblings ?? [] as $sib)
+        <div class="prod-row">
+            <div class="pr-img">
+                @if(!empty($sib->imageBase64))
+                    <img src="{{ $sib->imageBase64 }}" alt="">
+                @else
+                    <div class="no-img"></div>
+                @endif
+            </div>
+            <div class="pr-info">
+                <div class="pr-name">{{ $sib->product->name ?? '—' }}</div>
+                <div class="pr-meta">
+                    @if($sib->product?->product_code)<span style="color:#888;font-size:10px;">{{ $sib->product->product_code }}</span><br>@endif
+                    @if($sib->product_size)ზომა: {{ $sib->product_size }}@endif
+                    @if($sib->comment)<br><span style="color:#e74c3c;">{{ $sib->comment }}</span>@endif
+                </div>
+            </div>
+            <div class="pr-action"><span class="badge-deliver">&#10003; გადაეცი</span></div>
+        </div>
+        @endforeach
     </div>
 </div>
 
