@@ -330,10 +330,96 @@
     .entries-header input[type=month] { flex: 1; font-size: 16px; }
     .btn-add-entry { white-space: nowrap; }
 
-    #salary-sale-table,
-    #salary-wh-table { font-size: 12px; }
-    .salary-amount-input { width: 70px !important; }
-    .salary-note-input { width: 90px !important; }
+    /* ── Salary tables → card style ── */
+    #salary-sale-table, #salary-wh-table, #salary-admin-table {
+        min-width: 0 !important;
+    }
+    #salary-result .table-responsive {
+        overflow: visible !important;
+    }
+    #salary-sale-table thead,
+    #salary-wh-table thead,
+    #salary-admin-table thead { display: none !important; }
+
+    #salary-sale-table, #salary-sale-table tbody,
+    #salary-wh-table,   #salary-wh-table tbody,
+    #salary-admin-table, #salary-admin-table tbody {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    #salary-sale-table tbody tr,
+    #salary-wh-table tbody tr,
+    #salary-admin-table tbody tr {
+        display: block !important;
+        background: #fff !important;
+        border-radius: 12px !important;
+        margin: 0 0 12px !important;
+        box-shadow: 0 2px 10px rgba(0,0,0,.07) !important;
+        border: 1px solid #e9edf3 !important;
+        overflow: hidden;
+    }
+
+    .sal-td-name {
+        display: block !important;
+        font-weight: 700 !important;
+        font-size: 14px !important;
+        padding: 11px 14px !important;
+        background: #f8fafc;
+        border-bottom: 1px solid #eff3f8;
+        color: #1e293b;
+    }
+
+    #salary-sale-table td[data-label],
+    #salary-wh-table td[data-label],
+    #salary-admin-table td[data-label] {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 8px 14px !important;
+        border-bottom: 1px solid #f8fafc !important;
+        font-size: 13px;
+        min-height: 40px;
+    }
+
+    #salary-sale-table td[data-label]::before,
+    #salary-wh-table td[data-label]::before,
+    #salary-admin-table td[data-label]::before {
+        content: attr(data-label);
+        font-size: 10px;
+        font-weight: 700;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: .4px;
+        flex-shrink: 0;
+        margin-right: 8px;
+    }
+
+    .sal-td-pay, .sal-td-note {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 5px !important;
+        padding: 10px 14px !important;
+    }
+    .sal-td-pay::before, .sal-td-note::before {
+        margin-right: 0 !important;
+    }
+    .sal-td-pay .salary-amount-input,
+    .sal-td-note .salary-note-input {
+        width: 100% !important;
+        font-size: 16px !important;
+        padding: 8px 10px !important;
+        box-sizing: border-box !important;
+    }
+
+    .sal-td-status {
+        display: flex !important;
+        justify-content: flex-end !important;
+        padding: 8px 14px !important;
+        background: #f8fafc !important;
+        border-top: 1px solid #eff3f8 !important;
+        border-bottom: none !important;
+    }
 }
 </style>
 
@@ -795,7 +881,7 @@
                     🔑 Admins
                 </div>
                 <div class="table-responsive">
-                <table class="entries-table" style="min-width:400px;">
+                <table class="entries-table" id="salary-admin-table" style="min-width:400px;">
                     <thead>
                         <tr><th>სახელი</th><th>გაცემული ხელფასი</th><th>ჩანიშვნა</th><th>სტატუსი</th></tr>
                     </thead>
@@ -1259,47 +1345,47 @@ function loadSalary() {
                 ? `<span class="badge-type badge-income">✔ ${recorded.toFixed(2)} ₾</span>`
                 : `<span style="color:#b2bec3; font-size:11px;">—</span>`;
 
+            const saleOrdersDetail = (op) => {
+                const geo = ['იან','თებ','მარ','აპრ','მაი','ივნ','ივლ','აგვ','სექ','ოქტ','ნოე','დეკ'];
+                const parts = [];
+                if (op.order_count > 0) parts.push(`${op.order_count} ახ.`);
+                if (op.deduction_count > 0) {
+                    const byM = op.deductions_by_month || {};
+                    const labels = Object.entries(byM).map(([ym, cnt]) => {
+                        const m = parseInt(ym.split('-')[1]) - 1;
+                        return `${geo[m]}×${cnt}`;
+                    }).join(', ');
+                    parts.push(`−${op.deduction_count} გაუქმ.${labels ? ' ('+labels+')' : ''}`);
+                }
+                return parts.join(' ');
+            };
+
             saleBody.insertAdjacentHTML('beforeend', `
                 <tr data-uid="${op.user_id}" data-role="sale_operator"
                     data-orders="${op.order_count}" data-deductions="${op.deduction_count}"
                     data-base="${op.base_amount}" data-bonus="${op.bonus_amount}"
                     data-deduction="${op.deduction_amount}">
-                    <td style="font-weight:600;">${op.name}</td>
-                    <td>
-                        ${op.order_count - op.deduction_count}
-                        <small class="text-muted" style="font-size:10px; display:block; line-height:1.4;">
-                            ${(() => {
-                                const geo = ['იან','თებ','მარ','აპრ','მაი','ივნ','ივლ','აგვ','სექ','ოქტ','ნოე','დეკ'];
-                                const parts = [];
-                                if (op.order_count > 0) parts.push(`${op.order_count} ახ.`);
-                                if (op.deduction_count > 0) {
-                                    const byM = op.deductions_by_month || {};
-                                    const labels = Object.entries(byM).map(([ym, cnt]) => {
-                                        const m = parseInt(ym.split('-')[1]) - 1;
-                                        return `${geo[m]}×${cnt}`;
-                                    }).join(', ');
-                                    parts.push(`−${op.deduction_count} გაუქმ.${labels ? ' ('+labels+')' : ''}`);
-                                }
-                                return parts.join(' ');
-                            })()}
-                        </small>
+                    <td class="sal-td-name">${op.name}</td>
+                    <td class="sal-td-orders" data-label="ორდ.">
+                        <span>${op.order_count - op.deduction_count}
+                        <small class="text-muted" style="font-size:10px; display:block; line-height:1.4;">${saleOrdersDetail(op)}</small></span>
                     </td>
-                    <td>${parseFloat(op.base_amount).toFixed(2)} ₾</td>
-                    <td>${parseFloat(op.bonus_amount).toFixed(2)} ₾</td>
-                    <td style="color:var(--red);">−${parseFloat(op.deduction_amount).toFixed(2)} ₾</td>
-                    <td style="color:var(--green); font-weight:600;">${(parseFloat(op.base_amount) + parseFloat(op.bonus_amount)).toFixed(2)} ₾</td>
-                    <td>
+                    <td class="sal-td-base" data-label="ბაზა">${parseFloat(op.base_amount).toFixed(2)} ₾</td>
+                    <td class="sal-td-bonus" data-label="ბონუსი">${parseFloat(op.bonus_amount).toFixed(2)} ₾</td>
+                    <td class="sal-td-ded" data-label="გამოქვ." style="color:var(--red);">−${parseFloat(op.deduction_amount).toFixed(2)} ₾</td>
+                    <td class="sal-td-total" data-label="სულ" style="color:var(--green); font-weight:600;">${(parseFloat(op.base_amount) + parseFloat(op.bonus_amount)).toFixed(2)} ₾</td>
+                    <td class="sal-td-pay" data-label="გაცემული ₾">
                         <input type="number" class="salary-amount-input" step="0.01" min="0"
                                value="${recorded !== null ? recorded.toFixed(2) : ''}"
                                placeholder="0.00"
                                style="width:90px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
                     </td>
-                    <td>
+                    <td class="sal-td-note" data-label="შენიშვნა">
                         <input type="text" class="salary-note-input" placeholder="ჩანიშვნა..."
                                value="${op.recorded_note ? op.recorded_note.replace(/"/g, '&quot;') : ''}"
                                style="width:120px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
                     </td>
-                    <td>${statusHtml}</td>
+                    <td class="sal-td-status">${statusHtml}</td>
                 </tr>`);
         });
 
@@ -1312,42 +1398,42 @@ function loadSalary() {
                 ? `<span class="badge-type badge-income">✔ ${recorded.toFixed(2)} ₾</span>`
                 : `<span style="color:#b2bec3; font-size:11px;">—</span>`;
 
+            const whOrdersDetail = (op) => {
+                const geo = ['იან','თებ','მარ','აპრ','მაი','ივნ','ივლ','აგვ','სექ','ოქტ','ნოე','დეკ'];
+                const parts = [];
+                if (op.new_count > 0) parts.push(`${op.new_count} ახ.`);
+                if (op.cancelled_count > 0) {
+                    const byM = op.cancelled_by_month || {};
+                    const labels = Object.entries(byM).map(([ym, cnt]) => {
+                        const m = parseInt(ym.split('-')[1]) - 1;
+                        return `${geo[m]}×${cnt}`;
+                    }).join(', ');
+                    parts.push(`−${op.cancelled_count} გაუქმ.${labels ? ' ('+labels+')' : ''}`);
+                }
+                return parts.join(' ');
+            };
+
             whBody.insertAdjacentHTML('beforeend', `
                 <tr data-uid="${op.user_id}" data-role="warehouse_operator"
                     data-orders="${op.order_count}">
-                    <td style="font-weight:600;">${op.name}</td>
-                    <td>
-                        ${op.order_count}
-                        <small class="text-muted" style="font-size:10px; display:block; line-height:1.4;">
-                            ${(() => {
-                                const geo = ['იან','თებ','მარ','აპრ','მაი','ივნ','ივლ','აგვ','სექ','ოქტ','ნოე','დეკ'];
-                                const parts = [];
-                                if (op.new_count > 0) parts.push(`${op.new_count} ახ.`);
-                                if (op.cancelled_count > 0) {
-                                    const byM = op.cancelled_by_month || {};
-                                    const labels = Object.entries(byM).map(([ym, cnt]) => {
-                                        const m = parseInt(ym.split('-')[1]) - 1;
-                                        return `${geo[m]}×${cnt}`;
-                                    }).join(', ');
-                                    parts.push(`−${op.cancelled_count} გაუქმ.${labels ? ' ('+labels+')' : ''}`);
-                                }
-                                return parts.join(' ');
-                            })()}
-                        </small>
+                    <td class="sal-td-name">${op.name}</td>
+                    <td class="sal-td-orders" data-label="ორდ.">
+                        <span>${op.order_count}
+                        <small class="text-muted" style="font-size:10px; display:block; line-height:1.4;">${whOrdersDetail(op)}</small></span>
                     </td>
-                    <td>${parseFloat(op.suggested_amount).toFixed(2)} ₾</td>
-                    <td>
+                    <td class="sal-td-total" data-label="გათვლილი">${parseFloat(op.suggested_amount).toFixed(2)} ₾</td>
+                    <td class="sal-td-pay" data-label="გაცემული ₾">
                         <input type="number" class="salary-amount-input" step="0.01" min="0"
                                value="${recorded !== null ? recorded.toFixed(2) : ''}"
                                placeholder="0.00"
                                style="width:90px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
                     </td>
-                    <td>
+                    <td class="sal-td-note" data-label="შენიშვნა">
                         <input type="text" class="salary-note-input" placeholder="ჩანიშვნა..."
                                value="${op.recorded_note ? op.recorded_note.replace(/"/g, '&quot;') : ''}"
                                style="width:120px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
                     </td>
-                    <td>${statusHtml}</td>
+                    <td class="sal-td-status">${statusHtml}</td>
                 </tr>`);
         });
 
@@ -1362,19 +1448,19 @@ function loadSalary() {
 
             adminBody.insertAdjacentHTML('beforeend', `
                 <tr data-uid="${op.user_id}" data-role="admin">
-                    <td style="font-weight:600;">${op.name}</td>
-                    <td>
+                    <td class="sal-td-name">${op.name}</td>
+                    <td class="sal-td-pay" data-label="გაცემული ₾">
                         <input type="number" class="salary-amount-input" step="0.01" min="0"
                                value="${recorded !== null ? recorded.toFixed(2) : ''}"
                                placeholder="0.00"
                                style="width:90px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
                     </td>
-                    <td>
+                    <td class="sal-td-note" data-label="შენიშვნა">
                         <input type="text" class="salary-note-input" placeholder="ჩანიშვნა..."
                                value="${op.recorded_note ? op.recorded_note.replace(/"/g, '&quot;') : ''}"
                                style="width:120px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
                     </td>
-                    <td>${statusHtml}</td>
+                    <td class="sal-td-status">${statusHtml}</td>
                 </tr>`);
         });
 
