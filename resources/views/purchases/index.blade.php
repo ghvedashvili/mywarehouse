@@ -257,7 +257,9 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 /* Mobile composite cell: hidden on desktop */
 .pu-cell-mobile { display: none; }
 /* Group-view mobile extras: hidden on desktop */
-.gv-mob-extras { display: none; }
+.gv-mob-extras  { display: none; }
+.gv-mob-thumb   { display: none; }
+.gv-name-hdr    { display: none; }
 
 /* ═══════════════ MOBILE CARD VIEW ≤767px ═══════════════ */
 @media (max-width: 767px) {
@@ -529,6 +531,33 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     font-size: 16px !important;
     text-align: center !important;
     padding: 6px 4px !important;
+  }
+
+  /* ── Shared: photo + name header ── */
+  .gv-desktop-name { display: none !important; }
+
+  .gv-mob-extras .gv-name-hdr {
+    display: flex !important;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .gv-mob-thumb {
+    display: block !important;
+    width: 44px !important; height: 44px !important;
+    object-fit: cover;
+    border-radius: 7px;
+    flex-shrink: 0;
+    border: 1px solid rgba(0,0,0,.07);
+  }
+  .gv-mob-nophoto {
+    display: flex !important;
+    align-items: center; justify-content: center;
+    background: #f1f5f9; font-size: 18px;
+    border: 1px solid #e2e8f0;
+  }
+  .gv-name-text {
+    flex: 1; min-width: 0;
+    font-weight: 700; font-size: 13px; line-height: 1.35;
   }
 
   /* ── Group View — card layout ── */
@@ -1039,14 +1068,24 @@ $(function() {
                     + (isAdmin ? '<div class="gv-stat"><div class="gv-sl">ღირ.</div><div class="gv-sv">' + costCell + '</div></div>' : '')
                     + '</div>';
 
+                var imgThumb = it.product_image
+                    ? '<img class="gv-mob-thumb" src="' + it.product_image + '">'
+                    : '<span class="gv-mob-thumb gv-mob-nophoto">📦</span>';
+
                 html += '<tr>'
                      +  '<td class="mc-td-img text-center align-middle">' + imgCell + '</td>'
                      +  '<td class="mc-td-name fw-semibold align-middle">'
-                     +      (it.product_name||'N/A')
+                     +      '<span class="gv-desktop-name">' + (it.product_name||'N/A') + '</span>'
                      +      '<div class="gv-mob-extras">'
-                     +          '<div class="gv-meta">'
-                     +              (it.product_code ? '<span class="gv-code">' + it.product_code + '</span>' : '')
-                     +              (it.product_size ? '<span class="gv-sz">' + it.product_size + '</span>' : '')
+                     +          '<div class="gv-name-hdr">'
+                     +              imgThumb
+                     +              '<div class="gv-name-text">'
+                     +                  (it.product_name||'N/A')
+                     +                  '<div class="gv-meta">'
+                     +                      (it.product_code ? '<span class="gv-code">' + it.product_code + '</span>' : '')
+                     +                      (it.product_size ? '<span class="gv-sz">' + it.product_size + '</span>' : '')
+                     +                  '</div>'
+                     +              '</div>'
                      +          '</div>'
                      +          gvStatsRow
                      +      '</div>'
@@ -1599,13 +1638,21 @@ $(function() {
                 }
 
                 if (it.status_id === 3) {
-                    // Already received — show code + size + badge in name cell for mobile
+                    // Already received — image + code + size + badge in name cell for mobile
                     var $mobMeta3 = $('<div class="gv-meta">');
                     if (it.product_code) $mobMeta3.append($('<span class="gv-code">').text(it.product_code));
                     if (it.product_size) $mobMeta3.append($('<span class="gv-sz">').text(it.product_size));
                     $mobMeta3.append($('<span class="badge bg-success ms-1" style="font-size:11px;font-weight:600;">').text('✅ მიღებულია'));
-                    var $nameCell3 = $('<td class="mc-td-name fw-semibold align-middle text-muted">').text(it.product_name)
-                        .append($('<div class="gv-mob-extras">').append($mobMeta3));
+                    var $thumb3 = it.product_image
+                        ? $('<img class="gv-mob-thumb">').attr('src', it.product_image)
+                        : $('<span class="gv-mob-thumb gv-mob-nophoto">').text('📦');
+                    var $nameHdr3 = $('<div class="gv-name-hdr">').append(
+                        $thumb3,
+                        $('<div class="gv-name-text">').append(document.createTextNode(it.product_name)).append($mobMeta3)
+                    );
+                    var $nameCell3 = $('<td class="mc-td-name fw-semibold align-middle text-muted">')
+                        .append($('<span class="gv-desktop-name">').text(it.product_name))
+                        .append($('<div class="gv-mob-extras">').append($nameHdr3));
 
                     var $tr = $('<tr class="table-success opacity-75">').append(
                         $imgCell,
@@ -1619,12 +1666,20 @@ $(function() {
                     $('#gr-lines-body').append($tr);
 
                 } else {
-                    // Pending — code + size in name header, stat cells in horizontal row
+                    // Pending — image + code + size in name header, stat cells in horizontal row
                     var $mobMeta = $('<div class="gv-meta">');
                     if (it.product_code) $mobMeta.append($('<span class="gv-code">').text(it.product_code));
                     if (it.product_size) $mobMeta.append($('<span class="gv-sz">').text(it.product_size));
-                    var $nameCell = $('<td class="mc-td-name fw-semibold align-middle">').text(it.product_name)
-                        .append($('<div class="gv-mob-extras">').append($mobMeta));
+                    var $thumb = it.product_image
+                        ? $('<img class="gv-mob-thumb">').attr('src', it.product_image)
+                        : $('<span class="gv-mob-thumb gv-mob-nophoto">').text('📦');
+                    var $nameHdr = $('<div class="gv-name-hdr">').append(
+                        $thumb,
+                        $('<div class="gv-name-text">').append(document.createTextNode(it.product_name)).append($mobMeta)
+                    );
+                    var $nameCell = $('<td class="mc-td-name fw-semibold align-middle">')
+                        .append($('<span class="gv-desktop-name">').text(it.product_name))
+                        .append($('<div class="gv-mob-extras">').append($nameHdr));
 
                     var $tr = $('<tr data-order-id="' + it.id + '">').append(
                         $imgCell,
