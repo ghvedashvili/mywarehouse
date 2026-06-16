@@ -484,20 +484,34 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 
   /* ── Group Receive — card layout ── */
   #gr-lines-body .gv-mob-extras { display: block !important; }
-  #gr-lines-body td.mc-td-sz { display: none !important; }
-  /* Already-received rows: hide desktop stat cells (status shown in name) */
+  #gr-lines-body td.mc-td-img { display: none !important; }
+  #gr-lines-body td.mc-td-sz  { display: none !important; }
+
+  /* tr → flex wrap: name fills first row, stat cells fill second row */
+  #gr-lines-body tr {
+    display: flex !important;
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+  #gr-lines-body td.mc-td-name {
+    flex: 0 0 100% !important;
+    display: block !important;
+  }
+
+  /* Already-received: hide desktop stat cells (status shown in name) */
   #gr-lines-body tr.table-success td[data-label] { display: none !important; }
+
   /* Pending: stat cells in one horizontal row */
   #gr-lines-body td.gr-stat {
-    display: inline-flex !important;
+    flex: 1 !important;
+    display: flex !important;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: 33.33%;
     padding: 10px 4px !important;
     border-right: 1px solid #e9edf4 !important;
-    border-bottom: none !important;
     border-top: 1px solid #eff3f8 !important;
+    border-bottom: none !important;
     background: #f8fafc;
     text-align: center;
     min-height: 64px;
@@ -1585,8 +1599,9 @@ $(function() {
                 }
 
                 if (it.status_id === 3) {
-                    // Already received — show size + badge in name cell for mobile
+                    // Already received — show code + size + badge in name cell for mobile
                     var $mobMeta3 = $('<div class="gv-meta">');
+                    if (it.product_code) $mobMeta3.append($('<span class="gv-code">').text(it.product_code));
                     if (it.product_size) $mobMeta3.append($('<span class="gv-sz">').text(it.product_size));
                     $mobMeta3.append($('<span class="badge bg-success ms-1" style="font-size:11px;font-weight:600;">').text('✅ მიღებულია'));
                     var $nameCell3 = $('<td class="mc-td-name fw-semibold align-middle text-muted">').text(it.product_name)
@@ -1604,8 +1619,9 @@ $(function() {
                     $('#gr-lines-body').append($tr);
 
                 } else {
-                    // Pending — size in name header, stat cells in horizontal row
+                    // Pending — code + size in name header, stat cells in horizontal row
                     var $mobMeta = $('<div class="gv-meta">');
+                    if (it.product_code) $mobMeta.append($('<span class="gv-code">').text(it.product_code));
                     if (it.product_size) $mobMeta.append($('<span class="gv-sz">').text(it.product_size));
                     var $nameCell = $('<td class="mc-td-name fw-semibold align-middle">').text(it.product_name)
                         .append($('<div class="gv-mob-extras">').append($mobMeta));
