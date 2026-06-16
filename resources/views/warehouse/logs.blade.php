@@ -2,120 +2,113 @@
 
 @section('top')
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
-<link href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css" rel="stylesheet">
 <style>
-/* Responsive expand control */
-table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before {
-    background-color: #357ca5;
-    border-radius: 50%;
+.log-stat {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 14px 10px; border-right: 1px solid #f1f5f9; text-align: center; flex: 1;
 }
-:root { --wh-dark:#222d32; --wh-border:#dee2e6; }
-.wh-header { background:var(--wh-dark); color:#fff; padding:14px 20px; border-radius:6px 6px 0 0; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
-.wh-header h3 { margin:0; font-size:17px; font-weight:700; }
-.wh-header .wh-subtitle { font-size:11px; color:#aaa; margin-top:2px; }
-.wh-table thead th { background:#f4f4f4; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:#555; border-bottom:2px solid var(--wh-border)!important; white-space:nowrap; }
-.filter-bar { background:#fff; border:1px solid var(--wh-border); border-radius:6px; padding:14px 18px; margin:14px 0; }
+.log-stat:last-child { border-right: none; }
+.log-stat-icon {
+    width: 34px; height: 34px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; margin-bottom: 7px;
+}
+.log-stat-val { font-size: 20px; font-weight: 800; line-height: 1; color: #1e293b; }
+.log-stat-lbl { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .4px; margin-top: 4px; }
 </style>
 @endsection
 
 @section('content')
-<div class="py-3 px-3 px-md-4">
-    <div class="wh-header">
+<div class="mod-wrap">
+
+    <div class="mod-header">
         <div>
-            <h3>📋 საწყობის ლოგი</h3>
-            <div class="wh-subtitle">Warehouse Movement History</div>
+            <h2 class="mod-title"><i class="fa fa-clipboard-list me-2" style="color:#0ea5e9;"></i>საწყობის ლოგი</h2>
+            <p class="mod-subtitle">Warehouse Movement History</p>
         </div>
-        <a href="{{ route('warehouse.index') }}" class="btn btn-default btn-sm fw-bold">
-            <i class="fa fa-arrow-left"></i> საწყობი
-        </a>
+        <div class="mod-actions">
+            <a href="{{ route('warehouse.index') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fa fa-arrow-left me-1"></i> საწყობი
+            </a>
+        </div>
     </div>
 
-    {{-- ფილტრები --}}
-    <div class="filter-bar mt-3">
-        <div class="row g-2 align-items-end">
-            <div class="col-md-3">
-                <label class="form-label fw-semibold" style="font-size:12px;">პროდუქტი</label>
+    <div class="mod-card">
+
+        {{-- Stats row --}}
+        <div class="d-flex border-bottom">
+            <div class="log-stat">
+                <div class="log-stat-icon" style="background:#f0fdf4; color:#16a34a;"><i class="fa fa-arrow-down"></i></div>
+                <div class="log-stat-val text-success" id="stat-in">—</div>
+                <div class="log-stat-lbl">შემოსული</div>
+            </div>
+            <div class="log-stat">
+                <div class="log-stat-icon" style="background:#eff6ff; color:#2563eb;"><i class="fa fa-arrow-up"></i></div>
+                <div class="log-stat-val text-primary" id="stat-out">—</div>
+                <div class="log-stat-lbl">გასული</div>
+            </div>
+            <div class="log-stat">
+                <div class="log-stat-icon" style="background:#fef2f2; color:#dc2626;"><i class="fa fa-xmark"></i></div>
+                <div class="log-stat-val text-danger" id="stat-lost">—</div>
+                <div class="log-stat-lbl">დაკარგული</div>
+            </div>
+        </div>
+
+        {{-- Filter toolbar --}}
+        <div class="mod-toolbar flex-wrap">
+            <div style="min-width:200px; flex:2;">
                 <select id="filter-product" class="form-select form-select-sm select2-filter">
-                    <option value="">— ყველა —</option>
+                    <option value="">— პროდუქტი: ყველა —</option>
                     @foreach($products as $p)
                         <option value="{{ $p->id }}">{{ $p->name }}{{ $p->product_code ? ' ('.$p->product_code.')' : '' }}</option>
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-2">
-                <label class="form-label fw-semibold" style="font-size:12px;">ოპერაცია</label>
+            <div style="min-width:160px; flex:1;">
                 <select id="filter-action" class="form-select form-select-sm">
-                    <option value="">— ყველა —</option>
+                    <option value="">— ოპერაცია: ყველა —</option>
                     <option value="purchase_in">📦 შემოსვლა</option>
-                    <option value="purchase_rollback">↩ უკუქცევა (საწყობ→გზა)</option>
+                    <option value="purchase_rollback">↩ უკუქცევა</option>
                     <option value="sale_out">🚚 გასვლა (გაყიდვა)</option>
                     <option value="lost">❌ დაკარგული</option>
-                    <option value="adjustment">✏️ კორექცია (რაოდენობის შეცვლა)</option>
+                    <option value="adjustment">✏️ კორექცია</option>
                 </select>
             </div>
-            <div class="col-md-2">
-                <label class="form-label fw-semibold" style="font-size:12px;">თარიღიდან</label>
-                <input type="date" id="filter-date-from" class="form-control form-control-sm">
-            </div>
-            <div class="col-md-2">
-                <label class="form-label fw-semibold" style="font-size:12px;">თარიღამდე</label>
-                <input type="date" id="filter-date-to" class="form-control form-control-sm">
-            </div>
-            <div class="col-md-3 d-flex gap-2">
-                <button class="btn btn-primary btn-sm w-100" onclick="applyFilters()">
-                    <i class="fa fa-search"></i> ფილტრი
-                </button>
-                <button class="btn btn-default btn-sm" onclick="resetFilters()" title="გასუფთავება">
-                    <i class="fa fa-times"></i>
-                </button>
-            </div>
+            <input type="date" id="filter-date-from" class="form-control form-control-sm" style="width:140px;">
+            <input type="date" id="filter-date-to"   class="form-control form-control-sm" style="width:140px;">
+            <button class="btn btn-primary btn-sm" onclick="applyFilters()">
+                <i class="fa fa-search me-1"></i> ფილტრი
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="resetFilters()" title="გასუფთავება">
+                <i class="fa fa-xmark"></i>
+            </button>
         </div>
-    </div>
 
-    {{-- ჯამური სტატისტიკა --}}
-    <div class="row g-2 mb-3">
-        <div class="col-6 col-md-4">
-            <div class="small-box bg-green mb-0">
-                <div class="inner"><h3 id="stat-in">—</h3><p>📦 შემოსული</p></div>
-                <div class="icon"><i class="fa fa-arrow-down"></i></div>
-            </div>
+        {{-- Table --}}
+        <div class="table-responsive">
+            <table id="logs-table" class="table table-hover align-middle mb-0 w-100">
+                <thead class="table-dark">
+                    <tr>
+                        <th>თარიღი</th>
+                        <th>პროდუქტი</th>
+                        <th>ზომა</th>
+                        <th>ოპერაცია</th>
+                        <th>ცვლილება</th>
+                        <th>ნაშთი (მდე → შემდ.)</th>
+                        <th>შენიშვნა</th>
+                        <th>მომხ.</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
         </div>
-        <div class="col-6 col-md-4">
-            <div class="small-box bg-blue mb-0">
-                <div class="inner"><h3 id="stat-out">—</h3><p>🚚 გასული</p></div>
-                <div class="icon"><i class="fa fa-arrow-up"></i></div>
-            </div>
-        </div>
-        <div class="col-6 col-md-4">
-            <div class="small-box bg-red mb-0">
-                <div class="inner"><h3 id="stat-lost">—</h3><p>❌ დაკარგული</p></div>
-                <div class="icon"><i class="fa fa-times"></i></div>
-            </div>
-        </div>
-    </div>
 
-    <table id="logs-table" class="table wh-table table-hover table-bordered w-100">
-        <thead>
-            <tr>
-                <th>თარიღი</th>
-                <th>პროდუქტი</th>
-                <th>ზომა</th>
-                <th>ოპერაცია</th>
-                <th>ცვლილება</th>
-                <th>ნაშთი (მდე → შემდ.)</th>
-                <th>შენიშვნა</th>
-                <th>მომხ.</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+    </div>
 </div>
 @endsection
 
 @section('bot')
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
-<script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
 <script>
 $(function() {
 
@@ -147,16 +140,15 @@ $(function() {
                        + row.qty_before + ' → ' + row.qty_after + '</span>';
               }
             },
-            { data: 'note',         orderable: false, defaultContent: '—', responsivePriority: 7,
+            { data: 'note', orderable: false, defaultContent: '—', responsivePriority: 7,
               render: function(v) {
                   if (!v) return '—';
                   return v.length > 40 ? '<span title="' + v + '">' + v.substring(0,40) + '…</span>' : v;
               }
             },
-            { data: 'user_name',    orderable: false, width: '90px', responsivePriority: 6 },
+            { data: 'user_name', orderable: false, width: '90px', responsivePriority: 6 },
         ],
         drawCallback: function() {
-            // სტატისტიკა — მიმდინარე გვერდის მონაცემებიდან
             var d = this.api().rows().data();
             var ins = 0, out = 0, lost = 0;
             d.each(function(r) {
@@ -180,7 +172,6 @@ $(function() {
         logsTable.ajax.reload();
     };
 
-    // Enter key — ფილტრი
     $(document).on('keypress', '#filter-date-from, #filter-date-to', function(e) {
         if (e.which === 13) applyFilters();
     });

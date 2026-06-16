@@ -2,6 +2,64 @@
 @section('page_title')<i class="fa fa-sliders me-2" style="color:#8e44ad;"></i>სახელფასო პოლიტიკა@endsection
 
 @section('content')
+@section('top')
+<style>
+@media (max-width: 767px) {
+    .sp-section .table-responsive { overflow: visible !important; }
+    .sp-section table { min-width: 0 !important; }
+    .sp-section thead { display: none !important; }
+    .sp-section table,
+    .sp-section tbody { display: block !important; width: 100% !important; }
+    .sp-section tr {
+        display: grid !important;
+        grid-template-columns: 1fr auto;
+        background: #fff;
+        border-bottom: 1px solid #f1f5f9 !important;
+        padding: 10px 14px !important;
+    }
+    .sp-section tr:last-child { border-bottom: none !important; }
+    .sp-section td { display: block !important; border: none !important; padding: 1px 0 !important; }
+
+    .sp-td-name   { grid-column: 1; font-size: 14px; font-weight: 700; color: #1e293b; padding-bottom: 4px !important; }
+    .sp-td-status { grid-column: 1; font-size: 12px; }
+    .sp-td-from   { grid-column: 1; font-size: 11px; color: #64748b; }
+    .sp-td-to     { display: none !important; }
+    .sp-td-val    { grid-column: 1; font-size: 12px; color: #475569; }
+    .sp-td-actions {
+        grid-column: 2; grid-row: 1 / 4;
+        display: flex !important; flex-direction: column;
+        align-items: flex-end; justify-content: center;
+        gap: 6px; padding-left: 10px !important;
+    }
+}
+</style>
+@endsection
+
+@php
+$spRoleStyles = [
+    'sale_operator'      => ['icon'=>'fa-cart-shopping', 'label'=>'გამყიდველი',  'sub'=>'sale_operator',      'color'=>'#16a34a','bg'=>'#f0fdf4','border'=>'#bbf7d0'],
+    'warehouse_operator' => ['icon'=>'fa-warehouse',     'label'=>'საწყობი',      'sub'=>'warehouse_operator', 'color'=>'#2563eb','bg'=>'#eff6ff','border'=>'#bfdbfe'],
+    'staff'              => ['icon'=>'fa-user-gear',     'label'=>'სტაფი',        'sub'=>'staff',              'color'=>'#7c3aed','bg'=>'#f5f3ff','border'=>'#ddd6fe'],
+    'admin'              => ['icon'=>'fa-user-shield',   'label'=>'ადმინი',       'sub'=>'admin',              'color'=>'#db2777','bg'=>'#fdf2f8','border'=>'#fbcfe8'],
+];
+@endphp
+<style>
+.sp-role-hdr {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 18px; border-bottom: 1px solid #f1f5f9;
+    background: #fafbfd;
+}
+.sp-role-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; flex-shrink: 0;
+}
+.sp-role-name { font-size: 13px; font-weight: 700; color: #1e293b; }
+.sp-role-sub  { font-size: 11px; color: #94a3b8; font-family: monospace; }
+.sp-section   { border: 1.5px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 18px; }
+.sp-section:last-child { margin-bottom: 0; }
+</style>
+
 <div class="mod-wrap">
 
     <div class="mod-header">
@@ -17,13 +75,14 @@
     </div>
 
     <div class="mod-card">
-    <div class="p-3">
-
-        <div class="alert alert-info py-2 mb-3" style="font-size:13px;">
+    <div class="p-3 border-bottom" style="background:#fffbeb;">
+        <div style="font-size:13px; color:#92400e;">
             <i class="fa fa-info-circle me-1"></i>
             ახალი პოლიტიკის შექმნისას წინა პოლიტიკა ავტომატურად იხურება ახლის ამოქმედების თარიღით.
             ყოველთვის <strong>მხოლოდ ერთი</strong> პოლიტიკა იქნება აქტიური თითოეული როლისთვის.
         </div>
+    </div>
+    <div class="p-3">
 
         @php
             $grouped   = $policies->groupBy('role');
@@ -33,25 +92,30 @@
 
         @foreach($roleOrder as $role)
             @if($grouped->has($role))
-            @php $rolePolicies = $grouped[$role]; @endphp
-            <div class="mb-4">
-                <h6 class="fw-bold mb-2" style="font-size:13px;color:#555;">
-                    @if($role === 'sale_operator')       <i class="fa fa-user-tie me-1"    style="color:#2980b9;"></i> გამყიდველი (sale_operator)
-                    @elseif($role === 'warehouse_operator') <i class="fa fa-warehouse me-1" style="color:#27ae60;"></i> საწყობი (warehouse_operator)
-                    @elseif($role === 'staff')           <i class="fa fa-users me-1"       style="color:#e67e22;"></i> სტაფი (staff)
-                    @elseif($role === 'admin')           <i class="fa fa-user-shield me-1" style="color:#8e44ad;"></i> ადმინი (admin)
-                    @endif
-                </h6>
+            @php
+                $rolePolicies = $grouped[$role];
+                $rs = $spRoleStyles[$role] ?? ['icon'=>'fa-user','label'=>$role,'sub'=>$role,'color'=>'#64748b','bg'=>'#f8fafc','border'=>'#e2e8f0'];
+            @endphp
+            <div class="sp-section">
+                <div class="sp-role-hdr">
+                    <div class="sp-role-icon" style="background:{{ $rs['bg'] }};color:{{ $rs['color'] }};border:1px solid {{ $rs['border'] }};">
+                        <i class="fa {{ $rs['icon'] }}"></i>
+                    </div>
+                    <div>
+                        <div class="sp-role-name">{{ $rs['label'] }}</div>
+                        <div class="sp-role-sub">{{ $rs['sub'] }}</div>
+                    </div>
+                </div>
                 <div class="table-responsive">
-                    <table class="table table-bordered table-hover align-middle mb-0" style="font-size:13px;">
-                        <thead class="table-light">
+                    <table class="table table-hover align-middle mb-0" style="font-size:13px;">
+                        <thead class="table-dark">
                             <tr>
                                 <th>სახელი</th>
                                 <th style="width:100px;">დაწყება</th>
                                 <th style="width:100px;">დასრულება</th>
                                 @if($role === 'sale_operator')
                                     <th style="width:110px;">₾ / ორდ</th>
-                                    <th style="width:110px;">ბონუს %</th>
+                                    <th style="width:110px;" class="d-none d-md-table-cell">ბონუს %</th>
                                 @elseif($role === 'warehouse_operator')
                                     <th style="width:110px;">₾ / ორდ</th>
                                 @else
@@ -74,22 +138,25 @@
                                 }
                             @endphp
                             <tr>
-                                <td class="fw-semibold">{{ $p->name }}</td>
-                                <td>{{ $p->effective_from->format('d.m.Y') }}</td>
-                                <td class="text-muted" style="font-size:12px;">
+                                <td class="sp-td-name fw-semibold">{{ $p->name }}</td>
+                                <td class="sp-td-from">{{ $p->effective_from->format('d.m.Y') }}</td>
+                                <td class="sp-td-to text-muted" style="font-size:12px;">
                                     @if($isForever) <span class="text-muted">უვადო</span>
                                     @else {{ $p->effective_to->format('d.m.Y') }}
                                     @endif
                                 </td>
                                 @if($role === 'sale_operator')
-                                    <td>{{ number_format($p->sale_base_per_order, 2) }} ₾</td>
-                                    <td>{{ number_format($p->sale_bonus_percent * 100, 2) }} %</td>
+                                    <td class="sp-td-val">
+                                        {{ number_format($p->sale_base_per_order, 2) }} ₾
+                                        <span class="d-inline d-md-none text-muted"> / {{ number_format($p->sale_bonus_percent * 100, 2) }}%</span>
+                                    </td>
+                                    <td class="d-none d-md-table-cell">{{ number_format($p->sale_bonus_percent * 100, 2) }} %</td>
                                 @elseif($role === 'warehouse_operator')
-                                    <td>{{ number_format($p->warehouse_per_order, 2) }} ₾</td>
+                                    <td class="sp-td-val">{{ number_format($p->warehouse_per_order, 2) }} ₾ / ორდ</td>
                                 @else
-                                    <td>{{ number_format($p->fixed_salary ?? 0, 2) }} ₾</td>
+                                    <td class="sp-td-val">{{ number_format($p->fixed_salary ?? 0, 2) }} ₾ ფიქსირებული</td>
                                 @endif
-                                <td>
+                                <td class="sp-td-status">
                                     @if($statusType === 'active')
                                         <span class="badge bg-success">აქტიური</span>
                                         @if(!$isForever)
@@ -103,7 +170,7 @@
                                         <div class="text-muted" style="font-size:11px;">დასრულდა {{ $p->effective_to->format('d.m.Y') }}</div>
                                     @endif
                                 </td>
-                                <td>
+                                <td class="sp-td-actions">
                                     <div class="d-flex gap-1">
                                         <button class="btn btn-primary btn-sm py-0 px-2"
                                                 onclick="openEdit(
@@ -130,11 +197,10 @@
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </div>{{-- /sp-section --}}
             @endif
         @endforeach
 
-    </div>
     </div>{{-- /p-3 --}}
     </div>{{-- /mod-card --}}
 
@@ -142,79 +208,84 @@
 
 {{-- Modal --}}
 <div class="modal fade" id="modal-policy" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-light py-2">
-                <h5 class="modal-title fw-bold" id="modal-policy-title">ახალი პოლიტიკა</h5>
+    <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+        <div class="modal-content" style="border-radius:16px;overflow:hidden;">
+            <div class="modal-header py-3 px-4" style="border-bottom:1px solid #f1f5f9;">
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width:32px;height:32px;border-radius:8px;background:#f5f3ff;color:#7c3aed;display:flex;align-items:center;justify-content:center;">
+                        <i class="fa fa-sliders" style="font-size:13px;"></i>
+                    </div>
+                    <h5 class="modal-title fw-bold mb-0" id="modal-policy-title" style="font-size:15px;">ახალი პოლიტიკა</h5>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body px-4 py-3">
                 <form id="form-policy">
                     <input type="hidden" id="policy_id">
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">როლი</label>
+                        <label class="form-label fw-semibold" style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">როლი</label>
                         <select id="f_role" class="form-select" onchange="onRoleChange()">
-                            <option value="sale_operator">👤 გამყიდველი (sale_operator)</option>
-                            <option value="warehouse_operator">🏭 საწყობი (warehouse_operator)</option>
-                            <option value="staff">👥 სტაფი (staff)</option>
-                            <option value="admin">🛡️ ადმინი (admin)</option>
+                            <option value="sale_operator">გამყიდველი — sale_operator</option>
+                            <option value="warehouse_operator">საწყობი — warehouse_operator</option>
+                            <option value="staff">სტაფი — staff</option>
+                            <option value="admin">ადმინი — admin</option>
                         </select>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">სახელი</label>
+                        <label class="form-label fw-semibold" style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">სახელი</label>
                         <input type="text" id="f_name" class="form-control" placeholder="მაგ: 2026 Q3 პოლიტიკა" required>
                     </div>
 
                     <div class="row g-2 mb-3">
                         <div class="col-12 col-sm-6">
-                            <label class="form-label fw-semibold">ამოქმედების თარიღი</label>
+                            <label class="form-label fw-semibold" style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">ამოქმედების თარიღი</label>
                             <input type="date" id="f_effective_from" class="form-control" min="{{ date('Y-m-d') }}" required>
                         </div>
                         <div class="col-12 col-sm-6" id="wrap-effective-to" style="display:none;">
-                            <label class="form-label fw-semibold">დასრულების თარიღი</label>
+                            <label class="form-label fw-semibold" style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">დასრულების თარიღი</label>
                             <input type="date" id="f_effective_to" class="form-control">
                         </div>
                     </div>
                     <div id="info-effective-to" class="form-text mb-3" style="display:none;"></div>
-                    <div id="info-new-policy" class="alert alert-warning py-2 mb-3" style="font-size:12px;display:none;">
+
+                    <div id="info-new-policy" class="mb-3 px-3 py-2 rounded-3" style="font-size:12px;display:none;background:#fffbeb;border:1px solid #fde68a;color:#92400e;">
                         <i class="fa fa-triangle-exclamation me-1"></i>
                         ახალი პოლიტიკის შექმნისას წინა პოლიტიკა ავტომატურად დაიხურება ამ თარიღით.
                     </div>
 
                     {{-- sale_operator --}}
-                    <div id="fields-sale" class="row g-3 mb-3">
-                        <div class="col-12 col-sm-6">
-                            <label class="form-label fw-semibold">₾ / ორდ <small class="text-muted">(საბაზო)</small></label>
-                            <input type="number" id="f_sale_base" class="form-control" step="0.01" min="0">
-                            <div class="form-text">მაგ: 3.00</div>
-                        </div>
-                        <div class="col-12 col-sm-6">
-                            <label class="form-label fw-semibold">ბონუს % <small class="text-muted">(sale_from)</small></label>
-                            <input type="number" id="f_sale_bonus_display" class="form-control" step="0.01" min="0" max="100">
-                            <div class="form-text">მაგ: 1 = 1%</div>
+                    <div id="fields-sale" class="p-3 rounded-3 mb-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+                        <div class="row g-3">
+                            <div class="col-12 col-sm-6">
+                                <label class="form-label fw-semibold" style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">₾ / ორდ <span class="text-muted fw-normal">(საბაზო)</span></label>
+                                <input type="number" id="f_sale_base" class="form-control" step="0.01" min="0" placeholder="3.00">
+                            </div>
+                            <div class="col-12 col-sm-6">
+                                <label class="form-label fw-semibold" style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">ბონუს %</label>
+                                <input type="number" id="f_sale_bonus_display" class="form-control" step="0.01" min="0" max="100" placeholder="1.00">
+                                <div class="form-text">1 = 1%</div>
+                            </div>
                         </div>
                     </div>
 
                     {{-- warehouse_operator --}}
-                    <div id="fields-warehouse" class="mb-3" style="display:none;">
-                        <label class="form-label fw-semibold">₾ / ორდ</label>
-                        <input type="number" id="f_warehouse" class="form-control" step="0.01" min="0">
-                        <div class="form-text">მაგ: 1.00</div>
+                    <div id="fields-warehouse" class="p-3 rounded-3 mb-3" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;">
+                        <label class="form-label fw-semibold" style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">₾ / ორდ</label>
+                        <input type="number" id="f_warehouse" class="form-control" step="0.01" min="0" placeholder="1.00">
                     </div>
 
                     {{-- staff / admin --}}
-                    <div id="fields-fixed" class="mb-3" style="display:none;">
-                        <label class="form-label fw-semibold">ფიქსირებული ხელფასი (₾)</label>
-                        <input type="number" id="f_fixed_salary" class="form-control" step="0.01" min="0">
-                        <div class="form-text">მაგ: 1500.00</div>
+                    <div id="fields-fixed" class="p-3 rounded-3 mb-3" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;">
+                        <label class="form-label fw-semibold" style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">ფიქსირებული ხელფასი (₾)</label>
+                        <input type="number" id="f_fixed_salary" class="form-control" step="0.01" min="0" placeholder="1500.00">
                     </div>
                 </form>
             </div>
-            <div class="modal-footer py-2">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">გაუქმება</button>
-                <button type="button" id="btn-save-policy" class="btn btn-success" onclick="savePolicy()">
+            <div class="modal-footer px-4 py-3" style="border-top:1px solid #f1f5f9;background:#fafbfd;">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">გაუქმება</button>
+                <button type="button" id="btn-save-policy" class="btn btn-success btn-sm" onclick="savePolicy()">
                     <i class="fa fa-save me-1"></i> შენახვა
                 </button>
             </div>
