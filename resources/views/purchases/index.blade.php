@@ -256,6 +256,8 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 
 /* Mobile composite cell: hidden on desktop */
 .pu-cell-mobile { display: none; }
+/* Group-view mobile extras: hidden on desktop */
+.gv-mob-extras { display: none; }
 
 /* ═══════════════ MOBILE CARD VIEW ≤767px ═══════════════ */
 @media (max-width: 767px) {
@@ -479,6 +481,44 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   }
   /* already-received rows in group-receive */
   #gr-lines-body tr.table-success { border-left: 3px solid #16a34a !important; }
+
+  /* ── Group View — card layout ── */
+  #gv-body td.mc-td-code,
+  #gv-body td.mc-td-sz,
+  #gv-body td.mc-td-stat { display: none !important; }
+
+  #gv-body .gv-mob-extras { display: block !important; }
+
+  #gv-body .gv-meta {
+    display: flex; gap: 8px; align-items: center; margin-top: 4px; flex-wrap: wrap;
+  }
+  .gv-code { font-size: 11px; color: #64748b; font-weight: 400; }
+  .gv-sz {
+    font-size: 11px; background: #e2e8f0; border-radius: 4px;
+    padding: 1px 7px; color: #475569; font-weight: 700;
+  }
+
+  #gv-body .gv-stats-row {
+    display: flex !important;
+    margin: 8px -13px -11px;
+    background: #f8fafc;
+    border-top: 1px solid #eff3f8;
+    border-radius: 0 0 9px 9px;
+    overflow: hidden;
+  }
+  .gv-stat {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 9px 4px;
+    border-right: 1px solid #e9edf4;
+    text-align: center;
+  }
+  .gv-stat:last-child { border-right: none; }
+  .gv-sl {
+    font-size: 9px; font-weight: 700; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: .3px; margin-bottom: 4px;
+  }
+  .gv-sv { font-size: 13px; font-weight: 600; line-height: 1.2; }
 }
 </style>
 @endsection
@@ -943,15 +983,31 @@ $(function() {
                     ? '<img src="' + it.product_image + '" style="width:44px;height:44px;object-fit:cover;border-radius:4px;">'
                     : '<span class="text-muted" style="font-size:18px;">📦</span>';
 
+                var gvStatsRow = '<div class="gv-stats-row">'
+                    + '<div class="gv-stat"><div class="gv-sl">შეკვ.</div><div class="gv-sv">' + orig + '</div></div>'
+                    + '<div class="gv-stat"><div class="gv-sl">გზაში</div><div class="gv-sv">' + remainCell + '</div></div>'
+                    + '<div class="gv-stat"><div class="gv-sl">დაკარგ.</div><div class="gv-sv">' + lostCell + '</div></div>'
+                    + (isAdmin ? '<div class="gv-stat"><div class="gv-sl">ღირ.</div><div class="gv-sv">' + costCell + '</div></div>' : '')
+                    + '</div>';
+
                 html += '<tr>'
                      +  '<td class="mc-td-img text-center align-middle">' + imgCell + '</td>'
-                     +  '<td class="mc-td-name fw-semibold align-middle">' + (it.product_name||'N/A') + '</td>'
-                     +  '<td class="text-muted align-middle" data-label="კოდი" style="font-size:12px;">' + (it.product_code||'—') + '</td>'
-                     +  '<td class="align-middle" data-label="ზომა">' + (it.product_size||'—') + '</td>'
-                     +  '<td class="text-center fw-bold align-middle" data-label="შეკვ.">' + orig + '</td>'
-                     +  '<td class="text-center align-middle" data-label="გზაში">' + remainCell + '</td>'
-                     +  '<td class="text-center align-middle" data-label="დაკარგ.">' + lostCell + '</td>'
-                     +  (isAdmin ? '<td class="text-end align-middle" data-label="ღირ.">' + costCell + '</td>' : '')
+                     +  '<td class="mc-td-name fw-semibold align-middle">'
+                     +      (it.product_name||'N/A')
+                     +      '<div class="gv-mob-extras">'
+                     +          '<div class="gv-meta">'
+                     +              (it.product_code ? '<span class="gv-code">' + it.product_code + '</span>' : '')
+                     +              (it.product_size ? '<span class="gv-sz">' + it.product_size + '</span>' : '')
+                     +          '</div>'
+                     +          gvStatsRow
+                     +      '</div>'
+                     +  '</td>'
+                     +  '<td class="mc-td-code text-muted align-middle" style="font-size:12px;">' + (it.product_code||'—') + '</td>'
+                     +  '<td class="mc-td-sz align-middle">' + (it.product_size||'—') + '</td>'
+                     +  '<td class="mc-td-stat text-center fw-bold align-middle">' + orig + '</td>'
+                     +  '<td class="mc-td-stat text-center align-middle">' + remainCell + '</td>'
+                     +  '<td class="mc-td-stat text-center align-middle">' + lostCell + '</td>'
+                     +  (isAdmin ? '<td class="mc-td-stat text-end align-middle">' + costCell + '</td>' : '')
                      +  '</tr>';
             });
 
