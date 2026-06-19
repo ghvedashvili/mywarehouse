@@ -1675,7 +1675,7 @@ $(document).on('change', '.sale-product-select', function() {
                 } else {
                     var placeholder = $wrap.data('edit-size') ? '— ზომა —' : '— საწყობში არ არის —';
                     $sizeSelect.append('<option value="">'+placeholder+'</option>');
-                    $sizeSelect.prop('required', false);
+                    $sizeSelect.prop('required', !$wrap.data('edit-size'));
                 }
             } else {
                 $sizeSelect.append('<option value="">— არ არის —</option>');
@@ -1693,6 +1693,7 @@ $(document).on('change', '.sale-product-select', function() {
         }
 
         if (warehouseOnly && productId) {
+            $sizeSelect.prop('required', true);
             $.get("{{ route('warehouse.availableSizes') }}", { product_id: productId }, function(avail) {
                 fillSizeOptions(avail);
             });
@@ -1866,6 +1867,8 @@ $(document).on('submit', '#form-sale-content', function(e) {
 function submitSaleForm(form, updateCustomer) {
     var $saveBtn = $('#btn-sale-save');
     if ($saveBtn.prop('disabled')) return;
+
+
     $saveBtn.prop('disabled', true).css('opacity', '0.65');
 
     var id  = form.find('input[name="id"]').val();
