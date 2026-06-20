@@ -1043,6 +1043,31 @@ class ProductOrderController extends Controller
             $order->children = $order->is_primary ? $order->siblings : collect();
         }
 
+        // ─── Cross-reference pre-fetch (N+1 fix) ─────────────────────
+        $crossRefIds = $productOrder->flatMap(function ($order) {
+            $allOrders = $order->is_primary
+                ? collect([$order])->merge($order->children)
+                : collect([$order]);
+
+            return $allOrders->flatMap(function ($o) {
+                $ids = [];
+                if ($o->status_id == 6 && $o->changed_to_order_id)    $ids[] = $o->changed_to_order_id;
+                if ($o->status_id == 5 && $o->returned_purchase_id)   $ids[] = $o->returned_purchase_id;
+                if ($o->order_type === 'change' && $o->original_sale_id) $ids[] = $o->original_sale_id;
+                if ($o->order_type === 'purchase' && $o->original_sale_id) $ids[] = $o->original_sale_id;
+                return $ids;
+            });
+        })->filter()->unique()->values();
+
+        $crossRefMap = $crossRefIds->isNotEmpty()
+            ? Product_Order::withoutGlobalScope('active')
+                ->select('id', 'order_number')
+                ->whereIn('id', $crossRefIds)
+                ->get()
+                ->keyBy('id')
+            : collect();
+        // ──────────────────────────────────────────────────────────────
+
         // ─── Bundle pair icons ────────────────────────────────────────
         $bundleProductMap = [];
         $pairedOrderIds   = [];
@@ -1136,16 +1161,14 @@ class ProductOrderController extends Controller
                        + (float)($item->paid_lib ?? 0) + (float)($item->paid_cash ?? 0);
                 return ($total - $paid) <= 0.01 ? 1 : 0;
             })
-            ->addColumn('cross_ref_html', function ($item) {
+            ->addColumn('cross_ref_html', function ($item) use ($crossRefMap) {
                 $html = '';
 
                 $linkStyle = 'cursor:pointer;text-decoration:underline dotted;';
 
                 // გაცვლილი sale (status=6) — change ორდერის სრული ნომერი
                 if ($item->status_id == 6 && $item->changed_to_order_id) {
-                    $changeOrder = \App\Models\Product_Order::withoutGlobalScope('active')
-                        ->select('id', 'order_number')
-                        ->find($item->changed_to_order_id);
+                    $changeOrder = $crossRefMap->get($item->changed_to_order_id);
                     $changeNum = $changeOrder
                         ? ($changeOrder->order_number ?? ('#' . $changeOrder->id))
                         : ('#' . $item->changed_to_order_id);
@@ -1155,9 +1178,7 @@ class ProductOrderController extends Controller
 
                 // დაბრუნებული sale (status=5) — purchase ორდერის სრული ნომერი
                 if ($item->status_id == 5 && $item->returned_purchase_id) {
-                    $retPurchase = \App\Models\Product_Order::withoutGlobalScope('active')
-                        ->select('id', 'order_number')
-                        ->find($item->returned_purchase_id);
+                    $retPurchase = $crossRefMap->get($item->returned_purchase_id);
                     $retNum = $retPurchase
                         ? ($retPurchase->order_number ?? ('#' . $retPurchase->id))
                         : ('#' . $item->returned_purchase_id);
@@ -1168,9 +1189,7 @@ class ProductOrderController extends Controller
 
                 // change ორდერი — original sale-ის სრული ნომერი
                 if ($item->order_type === 'change' && $item->original_sale_id) {
-                    $origSale = \App\Models\Product_Order::withoutGlobalScope('active')
-                        ->select('id', 'order_number')
-                        ->find($item->original_sale_id);
+                    $origSale = $crossRefMap->get($item->original_sale_id);
                     $origNum = $origSale
                         ? ($origSale->order_number ?? ('#' . $origSale->id))
                         : ('#' . $item->original_sale_id);
@@ -1180,9 +1199,7 @@ class ProductOrderController extends Controller
 
                 // purchase ორდერი დაბრუნებიდან — original sale-ის სრული ნომერი
                 if ($item->order_type === 'purchase' && $item->original_sale_id) {
-                    $origSale = \App\Models\Product_Order::withoutGlobalScope('active')
-                        ->select('id', 'order_number')
-                        ->find($item->original_sale_id);
+                    $origSale = $crossRefMap->get($item->original_sale_id);
                     $origNum = $origSale
                         ? ($origSale->order_number ?? ('#' . $origSale->id))
                         : ('#' . $item->original_sale_id);
@@ -1209,10 +1226,10 @@ class ProductOrderController extends Controller
                     ];
                 })->values()->toArray();
             })
-            ->addColumn('children_json', function ($item) use ($isAdmin, $canEdit, $pairedOrderIds) {
+            ->addColumn('children_json', function ($item) use ($isAdmin, $canEdit, $pairedOrderIds, $crossRefMap) {
                 if (!$item->is_primary) return [];
 
-                $buildRow = function ($order) use ($isAdmin, $canEdit, $pairedOrderIds) {
+                $buildRow = function ($order) use ($isAdmin, $canEdit, $pairedOrderIds, $crossRefMap) {
                     $geo  = (float)$order->price_georgia - (float)($order->discount ?? 0);
                     $paid = (float)($order->paid_tbc ?? 0) + (float)($order->paid_bog ?? 0) +
                             (float)($order->paid_lib ?? 0) + (float)($order->paid_cash ?? 0);
@@ -1231,20 +1248,17 @@ class ProductOrderController extends Controller
 
                     $crossRef = '';
                     if ($order->status_id == 6 && $order->changed_to_order_id) {
-                        $ref = \App\Models\Product_Order::withoutGlobalScope('active')
-                            ->select('id','order_number')->find($order->changed_to_order_id);
+                        $ref = $crossRefMap->get($order->changed_to_order_id);
                         $crossRef .= '🔄 → ' . ($ref ? ($ref->order_number ?? ('#'.$ref->id)) : ('#'.$order->changed_to_order_id));
                     }
                     if ($order->status_id == 5 && $order->returned_purchase_id) {
-                        $ref    = \App\Models\Product_Order::withoutGlobalScope('active')
-                            ->select('id','order_number')->find($order->returned_purchase_id);
+                        $ref    = $crossRefMap->get($order->returned_purchase_id);
                         $refNum = $ref ? ($ref->order_number ?? ('#'.$ref->id)) : ('#'.$order->returned_purchase_id);
                         $url    = route('purchases.index') . '?tab=returns&search=' . urlencode($refNum);
                         $crossRef .= '<a href="'.e($url).'" style="color:#c0392b;text-decoration:underline dotted;" title="შესყიდვაზე გადასვლა">↩ → '.e($refNum).'</a>';
                     }
                     if ($order->order_type === 'change' && $order->original_sale_id) {
-                        $ref = \App\Models\Product_Order::withoutGlobalScope('active')
-                            ->select('id','order_number')->find($order->original_sale_id);
+                        $ref = $crossRefMap->get($order->original_sale_id);
                         $crossRef .= '🔄 ' . ($ref ? ($ref->order_number ?? ('#'.$ref->id)) : ('#'.$order->original_sale_id));
                     }
 
