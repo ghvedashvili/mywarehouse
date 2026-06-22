@@ -2283,6 +2283,7 @@ class ProductOrderController extends Controller
     public function exportFilteredOrders(Request $request)
     {
         ini_set('memory_limit', '512M');
+        set_time_limit(300);
 
         $ids = $request->input('ids', []);
         if (empty($ids)) {
@@ -3064,11 +3065,23 @@ private function productImageBase64(?\App\Models\Product $product): ?string
         }
         if (!$contents) return null;
 
-        // dompdf-ი AVIF/WEBP-ს ვერ ახდენს render-ს — GD-ით PNG-ად ვაქცევთ
+        // dompdf-ი AVIF/WEBP-ს ვერ ახდენს render-ს — GD-ით PNG-ად ვაქცევთ, max 200px
         $img = @imagecreatefromstring($contents);
         if ($img !== false) {
+            $origW = imagesx($img);
+            $origH = imagesy($img);
+            $max   = 200;
+            if ($origW > $max || $origH > $max) {
+                $scale   = min($max / $origW, $max / $origH);
+                $newW    = (int)($origW * $scale);
+                $newH    = (int)($origH * $scale);
+                $resized = imagecreatetruecolor($newW, $newH);
+                imagecopyresampled($resized, $img, 0, 0, 0, 0, $newW, $newH, $origW, $origH);
+                imagedestroy($img);
+                $img = $resized;
+            }
             ob_start();
-            imagepng($img);
+            imagepng($img, null, 6);
             $png = ob_get_clean();
             imagedestroy($img);
             return 'data:image/png;base64,' . base64_encode($png);
