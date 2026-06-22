@@ -1041,11 +1041,10 @@ class ProductOrderController extends Controller
         $draw   = (int)request('draw', 1);
         $start  = (int)request('start', 0);
         $length = (int)request('length', 100);
+        $limit  = ($length > 0) ? $length : 500;
 
         $total        = (clone $query)->count();
-        $productOrder = $length > 0
-            ? $query->skip($start)->take($length)->get()
-            : $query->get();
+        $productOrder = $query->skip($start)->take($limit)->get();
 
         foreach ($productOrder as $order) {
             $order->children = $order->is_primary ? $order->siblings : collect();
@@ -2283,6 +2282,8 @@ class ProductOrderController extends Controller
 
     public function exportFilteredOrders(Request $request)
     {
+        ini_set('memory_limit', '512M');
+
         $ids = $request->input('ids', []);
         if (empty($ids)) {
             abort(400, 'No orders selected');
