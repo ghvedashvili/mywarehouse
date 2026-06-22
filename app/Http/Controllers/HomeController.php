@@ -98,6 +98,7 @@ class HomeController extends Controller
             ->whereBetween('created_at', [$from, $to])
             ->selectRaw('
                 COALESCE(price_georgia, 0) as price,
+                COALESCE(discount, 0) as discount,
                 COALESCE(paid_tbc,0)+COALESCE(paid_bog,0)+COALESCE(paid_lib,0)+COALESCE(paid_cash,0) as paid
             ')
             ->get();
@@ -107,7 +108,7 @@ class HomeController extends Controller
         $totalDebt      = 0.0;
 
         foreach ($rows as $row) {
-            $price     = (float) $row->price;
+            $price     = (float) $row->price - (float) $row->discount;
             $paid      = (float) $row->paid;
             $remaining = $price - $paid;
             if ($remaining <= 0.01) {
