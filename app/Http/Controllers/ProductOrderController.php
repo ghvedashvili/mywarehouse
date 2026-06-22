@@ -1043,7 +1043,9 @@ class ProductOrderController extends Controller
         $length = (int)request('length', 100);
 
         $total        = (clone $query)->count();
-        $productOrder = $query->skip($start)->take($length)->get();
+        $productOrder = $length > 0
+            ? $query->skip($start)->take($length)->get()
+            : $query->get();
 
         foreach ($productOrder as $order) {
             $order->children = $order->is_primary ? $order->siblings : collect();
