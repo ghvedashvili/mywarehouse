@@ -1037,7 +1037,13 @@ class ProductOrderController extends Controller
         }
 
         $query->latest();
-        $productOrder = $query->get();
+
+        $draw   = (int)request('draw', 1);
+        $start  = (int)request('start', 0);
+        $length = (int)request('length', 100);
+
+        $total        = (clone $query)->count();
+        $productOrder = $query->skip($start)->take($length)->get();
 
         foreach ($productOrder as $order) {
             $order->children = $order->is_primary ? $order->siblings : collect();
@@ -1143,7 +1149,9 @@ class ProductOrderController extends Controller
         });
         // ──────────────────────────────────────────────────────────────
 
-        return Datatables::of($productOrder)
+        request()->merge(['start' => 0, 'length' => $productOrder->count()]);
+
+        $dtResponse = Datatables::of($productOrder)
             ->filter(function() {})
             ->addColumn('order_id', function ($item) {
                 return $item->order_number ?? ('S' . $item->id);
@@ -1576,6 +1584,13 @@ class ProductOrderController extends Controller
             })
             ->rawColumns(['order_id', 'has_mergeable', 'cross_ref_html', 'show_photo', 'product_info', 'payment', 'customer_name', 'status_label', 'action', 'children_json'])
             ->make(true);
+
+        $json = json_decode($dtResponse->getContent(), true);
+        $json['draw']            = $draw;
+        $json['recordsTotal']    = $total;
+        $json['recordsFiltered'] = $total;
+
+        return response()->json($json);
     }
 
     public function stats(Request $request)

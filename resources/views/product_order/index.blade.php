@@ -1891,7 +1891,7 @@ function submitSaleForm(form, updateCustomer) {
         url: url, type: "POST", data: formData, contentType: false, processData: false,
         success: function(data) {
             $('#modal-sale').modal('hide');
-            table.ajax.reload();
+            table.ajax.reload(null, false);
             if (updateCustomer === '1') {
                 var custId = $('#customer_id_sale').val();
                 var $opt   = $('#customer_id_sale option[value="'+custId+'"]');
