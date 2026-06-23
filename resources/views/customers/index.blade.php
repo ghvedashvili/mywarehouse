@@ -24,6 +24,8 @@
     .invalid-feedback { font-size: 0.75rem; }
 </style>
 
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+
 <div class="mod-wrap">
 
     <div class="mod-header">
@@ -90,7 +92,24 @@
 @endsection
 
 @section('bot')
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
+$('#modal-form').on('show.bs.modal', function () {
+    if (!$('#city_id').data('select2')) {
+        $('#city_id').select2({
+            dropdownParent: $('#modal-form'),
+            placeholder: '-- ქალაქის ძიება --',
+            allowClear: true,
+            language: { noResults: function () { return 'ქალაქი ვერ მოიძებნა'; } }
+        });
+    }
+});
+$('#modal-form').on('shown.bs.modal', function () {
+    $('#city_id').trigger('change');
+});
+</script>
+<script>
+
 var table = $('#customer-table').DataTable({
     processing: true,
     serverSide: true,
@@ -118,6 +137,7 @@ function addForm() {
     save_method = "add";
     $('input[name=_method]').val('POST');
     $('#modal-form form')[0].reset();
+    $('#city_id').val('');
     $('#modal-form form').removeClass('was-validated');
     $('.modal-title').text('კლიენტის დამატება');
     bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-form')).show();
@@ -128,9 +148,10 @@ function editForm(id) {
     $('input[name=_method]').val('PATCH');
     $('#modal-form form').removeClass('was-validated');
     $.ajax({
-        url: "{{ url('customers') }}/" + id + "/edit", 
-        type: "GET", 
+        url: "{{ url('customers') }}/" + id + "/edit",
+        type: "GET",
         dataType: "JSON",
+        cache: false,
         success: function(data) {
             $('.modal-title').text('რედაქტირება');
             $('#id').val(data.id); $('#name').val(data.name); $('#address').val(data.address);

@@ -1227,6 +1227,20 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
 <script type="text/javascript">
 
+$('#modal-form').on('show.bs.modal', function () {
+    if (!$('#city_id').data('select2')) {
+        $('#city_id').select2({
+            dropdownParent: $('#modal-form'),
+            placeholder: '-- ქალაქის ძიება --',
+            allowClear: true,
+            language: { noResults: function () { return 'ქალაქი ვერ მოიძებნა'; } }
+        });
+    }
+});
+$('#modal-form').on('shown.bs.modal', function () {
+    $('#city_id').trigger('change');
+});
+
 $.ajaxSetup({ cache: false });
 
 var save_method;
