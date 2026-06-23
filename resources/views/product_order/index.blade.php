@@ -2025,7 +2025,7 @@ var _reportDateType = null;
 
 window.openReportDateModal = function(type) {
     _reportDateType = type;
-    var today = new Date().toISOString().slice(0, 10);
+    var _d = new Date(); var today = _d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
     document.getElementById('report-date-input').value = today;
     var titles  = { sent: 'გაგზავნილი — თარიღი', courier: 'კურიერის სია — თარიღი' };
     var labels  = { sent: 'დაბეჭდვა', courier: 'Excel-ად ჩამოტვირთვა' };
