@@ -354,7 +354,7 @@
                     <div class="pr-action"><span class="badge-pickup">&#8617; წამოიღე</span></div>
                 </div>
                 @endif
-                {{-- merged children (sale orders in the same group) --}}
+                {{-- merged children --}}
                 @foreach($group['children'] ?? [] as $child)
                 <div class="prod-row">
                     <div class="pr-img">
@@ -372,14 +372,27 @@
                             @if($child->comment)<br><span style="color:#e74c3c;">{{ $child->comment }}</span>@endif
                         </div>
                     </div>
-                    <div class="pr-action">
-                        @if($child->order_type === 'change')
-                            <span class="badge-deliver">&#10003; გადაეცი</span>
+                    <div class="pr-action"><span class="badge-deliver">&#10003; გადაეცი</span></div>
+                </div>
+                @if($child->order_type === 'change' && !empty($child->originalOrderData))
+                <div class="prod-row">
+                    <div class="pr-img">
+                        @if(!empty($child->originalOrderData->imageBase64))
+                            <img src="{{ $child->originalOrderData->imageBase64 }}" alt="">
                         @else
-                            <span class="badge-deliver">&#10003; გადაეცი</span>
+                            <div class="no-img"></div>
                         @endif
                     </div>
+                    <div class="pr-info">
+                        <div class="pr-name">{{ $child->originalOrderData->product->name ?? '—' }}</div>
+                        <div class="pr-meta">
+                            @if($child->originalOrderData->product?->product_code)<span style="color:#888;font-size:10px;">{{ $child->originalOrderData->product->product_code }}</span><br>@endif
+                            @if($child->originalOrderData->product_size)ზომა: {{ $child->originalOrderData->product_size }}@endif
+                        </div>
+                    </div>
+                    <div class="pr-action"><span class="badge-pickup">&#8617; წამოიღე</span></div>
                 </div>
+                @endif
                 @endforeach
             </div>
         </div>

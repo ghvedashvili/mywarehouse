@@ -1867,12 +1867,13 @@ class ProductOrderController extends Controller
 
     public function courierTodayIds(Request $request)
     {
-        $date     = $request->input('date', now()->toDateString());
-        $startUtc = \Carbon\Carbon::parse($date)->startOfDay()->utc();
-        $endUtc   = \Carbon\Carbon::parse($date)->endOfDay()->utc();
+        $date  = $request->input('date', now()->toDateString());
+        $tz    = config('app.timezone', 'UTC');
+        $start = \Carbon\Carbon::parse($date, $tz)->startOfDay();
+        $end   = \Carbon\Carbon::parse($date, $tz)->endOfDay();
 
         $ids = StatusChangeLog::where('status_id_to', 4)
-            ->whereBetween('changed_at', [$startUtc, $endUtc])
+            ->whereBetween('changed_at', [$start, $end])
             ->pluck('order_id')
             ->unique()
             ->values()
@@ -3010,8 +3011,25 @@ public function exportChangePDF($id)
             ->where('is_primary', 0)
             ->orderBy('id')
             ->get();
+
+        $sibOriginalIds = $mergedSiblings
+            ->where('order_type', 'change')
+            ->pluck('original_sale_id')->filter()->unique()->toArray();
+
+        $sibOriginalMap = !empty($sibOriginalIds)
+            ? Product_Order::with(['product'])->withoutGlobalScope('active')
+                ->whereIn('id', $sibOriginalIds)->get()->keyBy('id')
+            : collect();
+
+        foreach ($sibOriginalMap as $orig) {
+            $this->attachImageBase64($orig);
+        }
+
         foreach ($mergedSiblings as $sib) {
             $this->attachImageBase64($sib);
+            $sib->originalSaleData = ($sib->order_type === 'change' && $sib->original_sale_id)
+                ? $sibOriginalMap->get($sib->original_sale_id)
+                : null;
         }
     }
 
