@@ -1037,11 +1037,43 @@ class ProductOrderController extends Controller
         }
 
         $query->latest();
-        $productOrder = $query->get();
+
+        $draw   = (int)request('draw', 1);
+        $start  = (int)request('start', 0);
+        $length = (int)request('length', 100);
+        $limit  = ($length > 0) ? $length : 500;
+
+        $total        = (clone $query)->count();
+        $productOrder = $query->skip($start)->take($limit)->get();
 
         foreach ($productOrder as $order) {
             $order->children = $order->is_primary ? $order->siblings : collect();
         }
+
+        // ─── Cross-reference pre-fetch (N+1 fix) ─────────────────────
+        $crossRefIds = $productOrder->flatMap(function ($order) {
+            $allOrders = $order->is_primary
+                ? collect([$order])->merge($order->children)
+                : collect([$order]);
+
+            return $allOrders->flatMap(function ($o) {
+                $ids = [];
+                if ($o->status_id == 6 && $o->changed_to_order_id)    $ids[] = $o->changed_to_order_id;
+                if ($o->status_id == 5 && $o->returned_purchase_id)   $ids[] = $o->returned_purchase_id;
+                if ($o->order_type === 'change' && $o->original_sale_id) $ids[] = $o->original_sale_id;
+                if ($o->order_type === 'purchase' && $o->original_sale_id) $ids[] = $o->original_sale_id;
+                return $ids;
+            });
+        })->filter()->unique()->values();
+
+        $crossRefMap = $crossRefIds->isNotEmpty()
+            ? Product_Order::withoutGlobalScope('active')
+                ->select('id', 'order_number')
+                ->whereIn('id', $crossRefIds)
+                ->get()
+                ->keyBy('id')
+            : collect();
+        // ──────────────────────────────────────────────────────────────
 
         // ─── Bundle pair icons ────────────────────────────────────────
         $bundleProductMap = [];
@@ -1118,7 +1150,9 @@ class ProductOrderController extends Controller
         });
         // ──────────────────────────────────────────────────────────────
 
-        return Datatables::of($productOrder)
+        request()->merge(['start' => 0, 'length' => $productOrder->count()]);
+
+        $dtResponse = Datatables::of($productOrder)
             ->filter(function() {})
             ->addColumn('order_id', function ($item) {
                 return $item->order_number ?? ('S' . $item->id);
@@ -1136,16 +1170,14 @@ class ProductOrderController extends Controller
                        + (float)($item->paid_lib ?? 0) + (float)($item->paid_cash ?? 0);
                 return ($total - $paid) <= 0.01 ? 1 : 0;
             })
-            ->addColumn('cross_ref_html', function ($item) {
+            ->addColumn('cross_ref_html', function ($item) use ($crossRefMap) {
                 $html = '';
 
                 $linkStyle = 'cursor:pointer;text-decoration:underline dotted;';
 
                 // გაცვლილი sale (status=6) — change ორდერის სრული ნომერი
                 if ($item->status_id == 6 && $item->changed_to_order_id) {
-                    $changeOrder = \App\Models\Product_Order::withoutGlobalScope('active')
-                        ->select('id', 'order_number')
-                        ->find($item->changed_to_order_id);
+                    $changeOrder = $crossRefMap->get($item->changed_to_order_id);
                     $changeNum = $changeOrder
                         ? ($changeOrder->order_number ?? ('#' . $changeOrder->id))
                         : ('#' . $item->changed_to_order_id);
@@ -1155,9 +1187,7 @@ class ProductOrderController extends Controller
 
                 // დაბრუნებული sale (status=5) — purchase ორდერის სრული ნომერი
                 if ($item->status_id == 5 && $item->returned_purchase_id) {
-                    $retPurchase = \App\Models\Product_Order::withoutGlobalScope('active')
-                        ->select('id', 'order_number')
-                        ->find($item->returned_purchase_id);
+                    $retPurchase = $crossRefMap->get($item->returned_purchase_id);
                     $retNum = $retPurchase
                         ? ($retPurchase->order_number ?? ('#' . $retPurchase->id))
                         : ('#' . $item->returned_purchase_id);
@@ -1168,9 +1198,7 @@ class ProductOrderController extends Controller
 
                 // change ორდერი — original sale-ის სრული ნომერი
                 if ($item->order_type === 'change' && $item->original_sale_id) {
-                    $origSale = \App\Models\Product_Order::withoutGlobalScope('active')
-                        ->select('id', 'order_number')
-                        ->find($item->original_sale_id);
+                    $origSale = $crossRefMap->get($item->original_sale_id);
                     $origNum = $origSale
                         ? ($origSale->order_number ?? ('#' . $origSale->id))
                         : ('#' . $item->original_sale_id);
@@ -1180,9 +1208,7 @@ class ProductOrderController extends Controller
 
                 // purchase ორდერი დაბრუნებიდან — original sale-ის სრული ნომერი
                 if ($item->order_type === 'purchase' && $item->original_sale_id) {
-                    $origSale = \App\Models\Product_Order::withoutGlobalScope('active')
-                        ->select('id', 'order_number')
-                        ->find($item->original_sale_id);
+                    $origSale = $crossRefMap->get($item->original_sale_id);
                     $origNum = $origSale
                         ? ($origSale->order_number ?? ('#' . $origSale->id))
                         : ('#' . $item->original_sale_id);
@@ -1230,10 +1256,10 @@ class ProductOrderController extends Controller
                     ];
                 })->values()->toArray();
             })
-            ->addColumn('children_json', function ($item) use ($isAdmin, $canEdit, $pairedOrderIds) {
+            ->addColumn('children_json', function ($item) use ($isAdmin, $canEdit, $pairedOrderIds, $crossRefMap) {
                 if (!$item->is_primary) return [];
 
-                $buildRow = function ($order) use ($isAdmin, $canEdit, $pairedOrderIds) {
+                $buildRow = function ($order) use ($isAdmin, $canEdit, $pairedOrderIds, $crossRefMap) {
                     $geo  = (float)$order->price_georgia - (float)($order->discount ?? 0);
                     $paid = (float)($order->paid_tbc ?? 0) + (float)($order->paid_bog ?? 0) +
                             (float)($order->paid_lib ?? 0) + (float)($order->paid_cash ?? 0);
@@ -1252,20 +1278,17 @@ class ProductOrderController extends Controller
 
                     $crossRef = '';
                     if ($order->status_id == 6 && $order->changed_to_order_id) {
-                        $ref = \App\Models\Product_Order::withoutGlobalScope('active')
-                            ->select('id','order_number')->find($order->changed_to_order_id);
+                        $ref = $crossRefMap->get($order->changed_to_order_id);
                         $crossRef .= '🔄 → ' . ($ref ? ($ref->order_number ?? ('#'.$ref->id)) : ('#'.$order->changed_to_order_id));
                     }
                     if ($order->status_id == 5 && $order->returned_purchase_id) {
-                        $ref    = \App\Models\Product_Order::withoutGlobalScope('active')
-                            ->select('id','order_number')->find($order->returned_purchase_id);
+                        $ref    = $crossRefMap->get($order->returned_purchase_id);
                         $refNum = $ref ? ($ref->order_number ?? ('#'.$ref->id)) : ('#'.$order->returned_purchase_id);
                         $url    = route('purchases.index') . '?tab=returns&search=' . urlencode($refNum);
                         $crossRef .= '<a href="'.e($url).'" style="color:#c0392b;text-decoration:underline dotted;" title="შესყიდვაზე გადასვლა">↩ → '.e($refNum).'</a>';
                     }
                     if ($order->order_type === 'change' && $order->original_sale_id) {
-                        $ref = \App\Models\Product_Order::withoutGlobalScope('active')
-                            ->select('id','order_number')->find($order->original_sale_id);
+                        $ref = $crossRefMap->get($order->original_sale_id);
                         $crossRef .= '🔄 ' . ($ref ? ($ref->order_number ?? ('#'.$ref->id)) : ('#'.$order->original_sale_id));
                     }
 
@@ -1583,6 +1606,13 @@ class ProductOrderController extends Controller
             })
             ->rawColumns(['order_id', 'has_mergeable', 'cross_ref_html', 'show_photo', 'product_info', 'payment', 'customer_name', 'status_label', 'action', 'children_json'])
             ->make(true);
+
+        $json = json_decode($dtResponse->getContent(), true);
+        $json['draw']            = $draw;
+        $json['recordsTotal']    = $total;
+        $json['recordsFiltered'] = $total;
+
+        return response()->json($json);
     }
 
     public function stats(Request $request)
@@ -2273,6 +2303,9 @@ class ProductOrderController extends Controller
 
     public function exportFilteredOrders(Request $request)
     {
+        ini_set('memory_limit', '512M');
+        set_time_limit(300);
+
         $ids = $request->input('ids', []);
         if (empty($ids)) {
             abort(400, 'No orders selected');
@@ -3053,11 +3086,23 @@ private function productImageBase64(?\App\Models\Product $product): ?string
         }
         if (!$contents) return null;
 
-        // dompdf-ი AVIF/WEBP-ს ვერ ახდენს render-ს — GD-ით PNG-ად ვაქცევთ
+        // dompdf-ი AVIF/WEBP-ს ვერ ახდენს render-ს — GD-ით PNG-ად ვაქცევთ, max 200px
         $img = @imagecreatefromstring($contents);
         if ($img !== false) {
+            $origW = imagesx($img);
+            $origH = imagesy($img);
+            $max   = 200;
+            if ($origW > $max || $origH > $max) {
+                $scale   = min($max / $origW, $max / $origH);
+                $newW    = (int)($origW * $scale);
+                $newH    = (int)($origH * $scale);
+                $resized = imagecreatetruecolor($newW, $newH);
+                imagecopyresampled($resized, $img, 0, 0, 0, 0, $newW, $newH, $origW, $origH);
+                imagedestroy($img);
+                $img = $resized;
+            }
             ob_start();
-            imagepng($img);
+            imagepng($img, null, 6);
             $png = ob_get_clean();
             imagedestroy($img);
             return 'data:image/png;base64,' . base64_encode($png);

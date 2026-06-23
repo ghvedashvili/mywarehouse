@@ -1706,8 +1706,10 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                                                 data-sizes="{{ $product->sizes }}"
                                                 data-price-ge="{{ $product->price_geo }}"
                                                 data-divisible="{{ $product->category?->is_divisible ? '1' : '0' }}"
-                                                data-warehouse-only="{{ $product->warehouse_only ? '1' : '0' }}">
-                                                {{ $product->name }}@if($product->product_code) ({{ $product->product_code }})@endif
+                                                data-warehouse-only="{{ $product->warehouse_only ? '1' : '0' }}"
+                                                data-image="{{ $product->image_url }}"
+                                                data-code="{{ $product->product_code ?? '' }}">
+                                                {{ $product->name }}
                                             </option>
                                         @endforeach
                                     </select>
@@ -2283,7 +2285,7 @@ $(document).on('change', '.sale-product-select', function() {
                 } else {
                     var placeholder = $wrap.data('edit-size') ? '— ზომა —' : '— საწყობში არ არის —';
                     $sizeSelect.append('<option value="">'+placeholder+'</option>');
-                    $sizeSelect.prop('required', false);
+                    $sizeSelect.prop('required', !$wrap.data('edit-size'));
                 }
             } else {
                 $sizeSelect.append('<option value="">— არ არის —</option>');
@@ -2301,6 +2303,7 @@ $(document).on('change', '.sale-product-select', function() {
         }
 
         if (warehouseOnly && productId) {
+            $sizeSelect.prop('required', true);
             $.get("{{ route('warehouse.availableSizes') }}", { product_id: productId }, function(avail) {
                 fillSizeOptions(avail);
             });
@@ -2474,6 +2477,8 @@ $(document).on('submit', '#form-sale-content', function(e) {
 function submitSaleForm(form, updateCustomer) {
     var $saveBtn = $('#btn-sale-save');
     if ($saveBtn.prop('disabled')) return;
+
+
     $saveBtn.prop('disabled', true).css('opacity', '0.65');
 
     var id  = form.find('input[name="id"]').val();
@@ -2496,7 +2501,7 @@ function submitSaleForm(form, updateCustomer) {
         url: url, type: "POST", data: formData, contentType: false, processData: false,
         success: function(data) {
             $('#modal-sale').modal('hide');
-            table.ajax.reload();
+            table.ajax.reload(null, false);
             if (updateCustomer === '1') {
                 var custId = $('#customer_id_sale').val();
                 var $opt   = $('#customer_id_sale option[value="'+custId+'"]');
@@ -3344,7 +3349,7 @@ $(document).on('change', 'input[name="change_type"]', function() {
     } else {
         $('#change-ml-input').hide().prop('disabled',true).prop('required',false).val('');
         $('#form-change').data('is-div-size', false);
-        $('#change-product-group').show(); $('#change_product_id').val('');
+        $('#change-product-group').show(); $('#change_product_id').val(null).trigger('change');
         $('#change_size').show().prop('required',true).empty().append('<option value="">— ზომა —</option>').prop('disabled',false);
         $('#change-stock-info').hide(); updateChangePriceDiff();
         $('#courier-refund-block').hide(); $('#courier_refund_hidden').val(0);
@@ -3425,6 +3430,41 @@ $('#modal-change').on('hidden.bs.modal', function() {
     $('#courier-refund-block').hide(); $('#courier-refund-custom').hide();
     $('#courier_refund_hidden').val(0);
     $('input[name="courier_refund_type"][value="none"]').prop('checked', true);
+    $('#change_product_id').val(null).trigger('change');
+});
+
+$('#change_product_id').select2({
+    dropdownParent: $('#modal-change'),
+    placeholder: '— პროდუქტი —',
+    allowClear: true,
+    width: '100%',
+    matcher: function(params, data) {
+        if (!params.term || params.term.trim() === '') return data;
+        var term = params.term.toLowerCase();
+        var name = (data.text || '').toLowerCase();
+        var code = ($(data.element).data('code') || '').toString().toLowerCase();
+        return (name.indexOf(term) > -1 || code.indexOf(term) > -1) ? data : null;
+    },
+    templateResult: function(opt) {
+        if (!opt.id) return $('<span>' + opt.text + '</span>');
+        var img  = $(opt.element).data('image');
+        var code = $(opt.element).data('code');
+        var $el  = $('<span style="display:flex;align-items:center;gap:8px;"></span>');
+        if (img) $el.append('<img src="' + img + '" style="width:32px;height:32px;object-fit:cover;border-radius:3px;flex-shrink:0;">');
+        else $el.append('<span style="width:32px;height:32px;background:#f0f0f0;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa fa-image" style="color:#ccc;font-size:13px;"></i></span>');
+        var $info = $('<span></span>').append('<span>' + opt.text + '</span>');
+        if (code) $info.append('<span style="display:block;font-size:10px;color:#999;">' + code + '</span>');
+        $el.append($info);
+        return $el;
+    },
+    templateSelection: function(opt) {
+        if (!opt.id) return $('<span>' + opt.text + '</span>');
+        var img = $(opt.element).data('image');
+        var $el = $('<span style="display:flex;align-items:center;gap:6px;"></span>');
+        if (img) $el.append('<img src="' + img + '" style="width:22px;height:22px;object-fit:cover;border-radius:2px;flex-shrink:0;">');
+        $el.append('<span>' + opt.text + '</span>');
+        return $el;
+    }
 });
 
 function togglePoTheme() {
