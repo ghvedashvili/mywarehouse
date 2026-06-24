@@ -50,7 +50,12 @@ class WarehouseController extends Controller
         if (!empty($sizes)) {
             $query->whereIn('size', $sizes);
         }
-        $stock = $query->get();
+        $stock = $query->get()->filter(function ($row) {
+            return $row->physical_qty > 0
+                || $row->incoming_qty > 0
+                || $row->return_incoming_qty > 0
+                || $row->reserved_qty > 0;
+        })->values();
 
         // ─── Batch-load purchase orders for cost calculation ──────────
         $allProductIds = $stock->pluck('product_id')->unique()->values()->toArray();
