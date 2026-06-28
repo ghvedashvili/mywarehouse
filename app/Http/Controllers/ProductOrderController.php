@@ -1557,7 +1557,7 @@ class ProductOrderController extends Controller
                 }
 
                 $revertBtn = '';
-                if ($item->status_id == 4 && in_array($item->order_type, ['sale', 'change'])) {
+                if ($isAdmin && $item->status_id == 4 && in_array($item->order_type, ['sale', 'change'])) {
                     $revertBtn = '<a onclick="revertFromCourier(' . $id . ')" class="btn btn-outline-danger btn-xs" title="საწყობში დაბრუნება"><i class="fa fa-rotate-left"></i></a>';
                 }
 
