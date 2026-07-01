@@ -99,7 +99,8 @@ class HomeController extends Controller
             ->selectRaw('
                 COALESCE(price_georgia, 0) as price,
                 COALESCE(discount, 0) as discount,
-                COALESCE(paid_tbc,0)+COALESCE(paid_bog,0)+COALESCE(paid_lib,0)+COALESCE(paid_cash,0) as paid
+                COALESCE(paid_tbc,0)+COALESCE(paid_bog,0)+COALESCE(paid_lib,0)+COALESCE(paid_cash,0) as paid,
+                status_id
             ')
             ->get();
 
@@ -111,7 +112,7 @@ class HomeController extends Controller
             $price     = (float) $row->price - (float) $row->discount;
             $paid      = (float) $row->paid;
             $remaining = $price - $paid;
-            if ($remaining <= 0.01) {
+            if ($remaining <= 0.01 && (int) $row->status_id !== 1) {
                 $totalFullyPaid += $paid;
             } else {
                 $totalAdvance += $paid;

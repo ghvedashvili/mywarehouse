@@ -23,17 +23,20 @@ class SalaryService
             ->where('order_type', 'sale')
             ->where('is_gift', false)
             ->whereNotNull('fully_paid_at')
+            ->where('status_id', '!=', 1)
             ->whereBetween('fully_paid_at', [$start, $end])
             ->get();
 
         // -: ამ თვეში გაუქმებული/დაბრუნებული/გაცვლილი, მაგრამ მხოლოდ ისეთები
         //    რომლებიც ადრე გადახდილი იყო (fully_paid_at NOT NULL) — ანუ კომისია ერიცხებოდა
+        //    status_id != 1: positive-ში მხოლოდ != 1 ხვდება, deduction-ც იგივე ლოგიკით
         $deductionOrders = Product_Order::withoutGlobalScope('active')
             ->with('product:id,bundle_id')
             ->where('user_id', $userId)
             ->where('order_type', 'sale')
             ->where('is_gift', false)
             ->whereNotNull('fully_paid_at')
+            ->where('status_id', '!=', 1)
             ->whereBetween('cancelled_at', [$start, $end])
             ->where(function ($q) {
                 $q->where('status', 'deleted')
@@ -144,6 +147,7 @@ class SalaryService
             ->where('is_gift', false)
             ->whereIn('user_id', $saleOperatorIds)
             ->whereNotNull('fully_paid_at')
+            ->where('status_id', '!=', 1)
             ->whereBetween('fully_paid_at', [$start, $end])
             ->get();
 
@@ -153,6 +157,7 @@ class SalaryService
             ->where('is_gift', false)
             ->whereIn('user_id', $saleOperatorIds)
             ->whereNotNull('fully_paid_at')
+            ->where('status_id', '!=', 1)
             ->whereBetween('cancelled_at', [$start, $end])
             ->where(function ($q) {
                 $q->where('status', 'deleted')
