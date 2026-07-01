@@ -147,7 +147,9 @@ class ProductOrderController extends Controller
             $prices = FifoService::getPrices($saleProdId, $saleSize);
             $data['status_id']         = $nextPurchase->status_id;
             $data['purchase_order_id'] = $nextPurchase->id;
-            $data['price_usa']         = $prices['cost_price'];
+            $data['price_usa']         = FifoService::isDivisibleProduct($saleProdId)
+                ? (float) $prices['cost_price']        // proportional (e.g. 30ml of 100ml bottle)
+                : (float) $nextPurchase->cost_price;   // exact, avoids second getNextPurchase() race
             $data['price_georgia']     = $prices['price_georgia'] ?: $data['price_georgia'];
             $data['sale_from']         = ($nextPurchase->status_id == 3) ? 1 : 0;
             $newOrder = Product_Order::create($data);
@@ -321,7 +323,7 @@ class ProductOrderController extends Controller
                     $prices2 = FifoService::getPrices((int) $productId, $productSize);
                     $data['status_id']         = $nextPurchase->status_id;
                     $data['purchase_order_id'] = $nextPurchase->id;
-                    $data['price_usa']         = $prices2['cost_price'];
+                    $data['price_usa']         = (float) $nextPurchase->cost_price;
                     $data['price_georgia']     = $prices2['price_georgia'] ?: $data['price_georgia'];
                     $data['sale_from']         = ($nextPurchase->status_id == 3) ? 1 : 0;
                     $newOrder = Product_Order::create($data);
@@ -570,7 +572,7 @@ class ProductOrderController extends Controller
 
                         $_wp = \App\Services\FifoService::getPrices($oldProductId, $waitingSale->product_size ?? $oldSize);
                         $waitingSale->purchase_order_id = $waitingNext->id;
-                        $waitingSale->price_usa         = $_wp['cost_price'];
+                        $waitingSale->price_usa         = (float) $waitingNext->cost_price;
                         $waitingSale->status_id         = $waitingNext->status_id; // 2 ან 3
                         $waitingSale->save();
 
@@ -623,7 +625,7 @@ class ProductOrderController extends Controller
                             $_ap = \App\Services\FifoService::getPrices($order->product_id, $order->product_size ?? '');
                             $order->status_id         = $caseANextPurchase->status_id;
                             $order->purchase_order_id = $caseANextPurchase->id;
-                            $order->price_usa         = $_ap['cost_price'];
+                            $order->price_usa         = (float) $caseANextPurchase->cost_price;
 
                             if ($stock) {
                                 $stock->increment('reserved_qty', $newReserveQty);
@@ -861,7 +863,7 @@ class ProductOrderController extends Controller
                         if ($nextPurchase) {
                             $prices = FifoService::getPrices($deletedProdId, $pendingSale->product_size ?? '');
                             $pendingSale->purchase_order_id = $nextPurchase->id;
-                            $pendingSale->price_usa         = $prices['cost_price'];
+                            $pendingSale->price_usa         = (float) $nextPurchase->cost_price;
                             $pendingSale->status_id         = $nextPurchase->status_id;
                             $pendingSale->save();
 
