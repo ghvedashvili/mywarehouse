@@ -28,6 +28,22 @@
             </button>
         </div>
 
+        <div id="filterRow" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;background:#f8f9fa;border:1px solid #dee2e6;border-radius:8px;padding:10px 16px;margin-bottom:16px;">
+            <span style="font-size:13px;font-weight:600;color:#636e72;white-space:nowrap;">
+                <i class="fa fa-calendar"></i> თარიღი:
+            </span>
+            <input type="date" id="dateFrom" onchange="applyFilter()"
+                style="border:1px solid #dee2e6;border-radius:6px;padding:5px 10px;font-size:13px;color:#2d3436;">
+            <span style="color:#b2bec3;">—</span>
+            <input type="date" id="dateTo" onchange="applyFilter()"
+                style="border:1px solid #dee2e6;border-radius:6px;padding:5px 10px;font-size:13px;color:#2d3436;">
+            <button onclick="clearFilter()"
+                style="background:#fff;border:1px solid #dee2e6;border-radius:6px;padding:5px 12px;font-size:12px;color:#636e72;cursor:pointer;">
+                <i class="fa fa-xmark"></i> ყველა
+            </button>
+            <span id="filterCount" style="font-size:12px;color:#b2bec3;margin-left:4px;"></span>
+        </div>
+
         <div id="summary" style="display:none;margin-bottom:16px;"></div>
         <div id="loader" style="display:none;text-align:center;padding:30px;color:#636e72;">
             <i class="fa fa-spinner fa-spin fa-2x"></i><br>იტვირთება...
@@ -77,25 +93,95 @@ let allOrders = [];
 
 document.addEventListener('DOMContentLoaded', findProblematic);
 
-function buildSummary(total, canFix, totalEst) {
+// "30.06.2026 23:54" → "2026-06-30"
+function parseOrderDate(createdAt) {
+    if (!createdAt) return '';
+    const [d, m, y] = createdAt.split(' ')[0].split('.');
+    return `${y}-${m}-${d}`;
+}
+
+function getFilteredOrders() {
+    const from = document.getElementById('dateFrom').value;
+    const to   = document.getElementById('dateTo').value;
+    if (!from && !to) return allOrders;
+    return allOrders.filter(o => {
+        const d = parseOrderDate(o.created_at);
+        if (from && d < from) return false;
+        if (to   && d > to)   return false;
+        return true;
+    });
+}
+
+function applyFilter() {
+    const filtered    = getFilteredOrders();
+    const canFixCount = filtered.filter(o => o.can_fix).length;
+    const totalEst    = filtered
+        .filter(o => o.can_fix && o.estimated_price_usa !== null)
+        .reduce((s, o) => s + parseFloat(o.estimated_price_usa), 0);
+
+    const from = document.getElementById('dateFrom').value;
+    const to   = document.getElementById('dateTo').value;
+    const isFiltered = from || to;
+
+    // summary
+    if (allOrders.length > 0) {
+        const label = isFiltered
+            ? `ფილტრი: <strong>${filtered.length}</strong> / სულ: ${allOrders.length}`
+            : `სულ: <strong>${allOrders.length}</strong>`;
+        document.getElementById('summary').innerHTML = buildSummary(filtered.length, canFixCount, totalEst, label);
+        document.getElementById('summary').style.display = 'block';
+    }
+
+    // filter count hint
+    document.getElementById('filterCount').textContent = isFiltered
+        ? `(ნაჩვენებია ${filtered.length} / ${allOrders.length})`
+        : '';
+
+    // table
+    if (filtered.length === 0 && allOrders.length > 0) {
+        document.getElementById('tableBody').innerHTML =
+            `<tr><td colspan="9" style="text-align:center;padding:30px;color:#b2bec3;">
+                <i class="fa fa-filter"></i> ამ თარიღებში პრობლემები არ მოიძებნა
+            </td></tr>`;
+    } else {
+        renderTable(filtered);
+    }
+
+    // fix buttons
+    const btn1 = document.getElementById('btnFix');
+    btn1.disabled        = canFixCount === 0;
+    btn1.style.opacity   = canFixCount  > 0 ? '1' : '0.5';
+
+    document.getElementById('checkAll').checked = false;
+    document.getElementById('btnFixSelected').disabled      = true;
+    document.getElementById('btnFixSelected').style.opacity = '0.5';
+}
+
+function clearFilter() {
+    document.getElementById('dateFrom').value = '';
+    document.getElementById('dateTo').value   = '';
+    applyFilter();
+}
+
+function buildSummary(total, canFix, totalEst, label) {
     const estHtml = canFix > 0
         ? ` &nbsp;|&nbsp; გასასწორებელი ჯამური თვითღ: <strong style="color:#0984e3;">$${totalEst.toFixed(2)}</strong>`
         : '';
     return `<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 16px;color:#856404;">
-        <strong><i class="fa fa-triangle-exclamation"></i> ნაპოვნია ${total} პრობლემური ორდერი.</strong>
-        შეიძლება ავტომატურად გასწორდეს: <strong>${canFix}</strong>
-        (დანარჩენებს შესყიდვა ან ფასი არ აქვს).${estHtml}
+        <strong><i class="fa fa-triangle-exclamation"></i> ${label ?? ('ნაპოვნია ' + total)}</strong>
+        &nbsp;| შეიძლება გასწორდეს: <strong>${canFix}</strong>${estHtml}
     </div>`;
 }
 
 function findProblematic() {
-    document.getElementById('loader').style.display = 'block';
+    document.getElementById('loader').style.display    = 'block';
     document.getElementById('tableWrap').style.display = 'none';
-    document.getElementById('emptyMsg').style.display = 'none';
-    document.getElementById('summary').style.display = 'none';
-    document.getElementById('btnFix').disabled = true;
-    document.getElementById('btnFix').style.opacity = '0.5';
-    document.getElementById('btnFixSelected').disabled = true;
+    document.getElementById('emptyMsg').style.display  = 'none';
+    document.getElementById('summary').style.display   = 'none';
+    document.getElementById('filterRow').style.display = 'none';
+    document.getElementById('btnFix').disabled         = true;
+    document.getElementById('btnFix').style.opacity    = '0.5';
+    document.getElementById('btnFixSelected').disabled      = true;
     document.getElementById('btnFixSelected').style.opacity = '0.5';
 
     fetch(`{{ route("diagnostic.find") }}?_=${Date.now()}`)
@@ -109,21 +195,9 @@ function findProblematic() {
                 return;
             }
 
-            const canFixCount = allOrders.filter(o => o.can_fix).length;
-            const totalEst    = allOrders
-                .filter(o => o.can_fix && o.estimated_price_usa !== null)
-                .reduce((s, o) => s + parseFloat(o.estimated_price_usa), 0);
-
-            document.getElementById('summary').innerHTML = buildSummary(data.count, canFixCount, totalEst);
-            document.getElementById('summary').style.display = 'block';
-
-            renderTable(allOrders);
+            document.getElementById('filterRow').style.display = 'flex';
             document.getElementById('tableWrap').style.display = 'block';
-
-            if (canFixCount > 0) {
-                document.getElementById('btnFix').disabled = false;
-                document.getElementById('btnFix').style.opacity = '1';
-            }
+            applyFilter();
         })
         .catch(() => {
             document.getElementById('loader').style.display = 'none';
@@ -141,7 +215,7 @@ function renderTable(orders) {
     const rows = orders.map(o => {
         const [diagText, diagClass] = diagLabels[o.diagnosis] || ['უცნობი', 'diag-noset'];
         const statusBadge = `<span class="badge-status label label-${o.status_color}">${o.status_name}</span>`;
-        const canFixHtml = o.can_fix
+        const canFixHtml  = o.can_fix
             ? '<span class="diag-can"><i class="fa fa-check"></i> დიახ</span>'
             : '<span class="diag-cannot"><i class="fa fa-xmark"></i> არა</span>';
         const purchLink = o.purchase_order_id
@@ -180,13 +254,15 @@ function toggleAll(cb) {
 
 function onRowCheck() {
     const anyChecked = [...document.querySelectorAll('.row-check:checked')].length > 0;
-    document.getElementById('btnFixSelected').disabled = !anyChecked;
+    document.getElementById('btnFixSelected').disabled      = !anyChecked;
     document.getElementById('btnFixSelected').style.opacity = anyChecked ? '1' : '0.5';
 }
 
 function fixAll() {
-    if (!confirm('ყველა გასასწორებელ ორდერს მიეწერება ფასი შესყიდვიდან. გავაგრძელოთ?')) return;
-    doFix([]);
+    const ids = getFilteredOrders().filter(o => o.can_fix).map(o => o.id);
+    if (ids.length === 0) return;
+    if (!confirm(`${ids.length} გასასწორებელ ორდერს მიეწერება ფასი. გავაგრძელოთ?`)) return;
+    doFix(ids);
 }
 
 function fixSelected() {
@@ -203,7 +279,6 @@ function doFix(ids) {
     btn2.disabled = true; btn2.style.opacity = '0.5';
     btn1.innerHTML = '<i class="fa fa-spinner fa-spin"></i> მიმდინარეობს...';
 
-    const sentIds = ids.length > 0 ? ids : allOrders.filter(o => o.can_fix).map(o => o.id);
     const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
     fetch('{{ route("diagnostic.fix") }}', {
@@ -216,38 +291,18 @@ function doFix(ids) {
             btn1.innerHTML = '<i class="fa fa-wand-magic-sparkles"></i> ყველას ფასი გასწორება';
 
             const failedSet = new Set(data.failed || []);
-            const fixedIds  = new Set(sentIds.filter(id => !failedSet.has(id)));
+            const fixedIds  = new Set(ids.filter(id => !failedSet.has(id)));
 
-            // წავშალოთ გასწორებული სტრიქონები
-            fixedIds.forEach(id => {
-                const cb = document.querySelector(`.row-check[value="${id}"]`);
-                if (cb) cb.closest('tr').remove();
-            });
-
-            // განვაახლოთ allOrders მასივი
             allOrders = allOrders.filter(o => !fixedIds.has(o.id));
 
-            // განახლებული summary
-            const canFixCount = allOrders.filter(o => o.can_fix).length;
             if (allOrders.length === 0) {
-                document.getElementById('tableWrap').style.display = 'none';
-                document.getElementById('summary').style.display = 'none';
-                document.getElementById('emptyMsg').style.display = 'block';
-                btn1.disabled = true; btn1.style.opacity = '0.5';
+                document.getElementById('tableWrap').style.display  = 'none';
+                document.getElementById('filterRow').style.display  = 'none';
+                document.getElementById('summary').style.display    = 'none';
+                document.getElementById('emptyMsg').style.display   = 'block';
             } else {
-                const totalEstAfter = allOrders
-                    .filter(o => o.can_fix && o.estimated_price_usa !== null)
-                    .reduce((s, o) => s + parseFloat(o.estimated_price_usa), 0);
-                document.getElementById('summary').innerHTML = buildSummary(allOrders.length, canFixCount, totalEstAfter);
-                if (canFixCount === 0) {
-                    btn1.disabled = true; btn1.style.opacity = '0.5';
-                } else {
-                    btn1.disabled = false; btn1.style.opacity = '1';
-                }
+                applyFilter();
             }
-
-            document.getElementById('checkAll').checked = false;
-            btn2.disabled = true; btn2.style.opacity = '0.5';
 
             if (data.fixed > 0) {
                 const msg = document.createElement('div');
