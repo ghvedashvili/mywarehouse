@@ -420,7 +420,9 @@ class PurchaseService
             if ($available < $resQty) continue;
 
             $prices = FifoService::getPrices($productId, $sale->product_size ?? '');
-            $sale->price_usa         = $prices['cost_price'];
+            $sale->price_usa         = $isDivisible
+                ? (float) $prices['cost_price']
+                : (float) $nextPurchase->cost_price;
             $sale->purchase_order_id = $nextPurchase->id;
             $sale->status_id         = $nextPurchase->status_id;
             $stock->increment('reserved_qty', $resQty);
@@ -471,7 +473,9 @@ class PurchaseService
 
             $prices = FifoService::getPrices($productId, $sale->product_size ?? '');
             $sale->purchase_order_id = $nextPurchase->id;
-            $sale->price_usa         = $prices['cost_price'];
+            $sale->price_usa         = $isDivisible
+                ? (float) $prices['cost_price']
+                : (float) $nextPurchase->cost_price;
             $sale->status_id         = $nextPurchase->status_id;
             $stock->increment('reserved_qty', $resQty);
             $sale->save();
