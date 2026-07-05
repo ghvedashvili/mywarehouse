@@ -1811,6 +1811,20 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
 <script type="text/javascript">
 
+$('#modal-form').on('show.bs.modal', function () {
+    if (!$('#city_id').data('select2')) {
+        $('#city_id').select2({
+            dropdownParent: $('#modal-form'),
+            placeholder: '-- ქალაქის ძიება --',
+            allowClear: true,
+            language: { noResults: function () { return 'ქალაქი ვერ მოიძებნა'; } }
+        });
+    }
+});
+$('#modal-form').on('shown.bs.modal', function () {
+    $('#city_id').trigger('change');
+});
+
 $.ajaxSetup({ cache: false });
 
 var save_method;
@@ -2638,7 +2652,7 @@ var _reportDateType = null;
 
 window.openReportDateModal = function(type) {
     _reportDateType = type;
-    var today = new Date().toISOString().slice(0, 10);
+    var _d = new Date(); var today = _d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
     document.getElementById('report-date-input').value = today;
     var titles  = { sent: 'გაგზავნილი — თარიღი', courier: 'კურიერის სია — თარიღი' };
     var labels  = { sent: 'დაბეჭდვა', courier: 'Excel-ად ჩამოტვირთვა' };

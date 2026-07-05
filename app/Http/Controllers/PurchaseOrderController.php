@@ -907,7 +907,9 @@ class PurchaseOrderController extends Controller
                 if ($nextPurchase) {
                     $prices = FifoService::getPrices($delProdId, $sale->product_size ?? '');
                     $sale->purchase_order_id = $nextPurchase->id;
-                    $sale->price_usa         = $prices['cost_price'];
+                    $sale->price_usa         = $isDivisible
+                        ? (float) $prices['cost_price']
+                        : (float) $nextPurchase->cost_price;
                     $sale->status_id         = $nextPurchase->status_id;
                     $sale->save();
                     StatusChangeLog::create([

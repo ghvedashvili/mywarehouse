@@ -168,4 +168,9 @@ Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff']
     Route::get('/roles', [RolePermissionController::class, 'index'])->name('roles.index');
     Route::post('/roles/{role}', [RolePermissionController::class, 'update'])->name('roles.update');
 
+    // ── Diagnostic (admin only) ───────────────────────────────────────
+    Route::get('/diagnostic',       [\App\Http\Controllers\DiagnosticController::class, 'index'])->name('diagnostic.index');
+    Route::get('/diagnostic/find',  [\App\Http\Controllers\DiagnosticController::class, 'findProblematic'])->name('diagnostic.find');
+    Route::post('/diagnostic/fix',  [\App\Http\Controllers\DiagnosticController::class, 'fixPrices'])->name('diagnostic.fix');
+
 });

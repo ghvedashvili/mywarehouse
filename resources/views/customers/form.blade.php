@@ -107,14 +107,36 @@
 
 <style>
     .resize-none { resize: none; }
-    /* Bootstrap-ს არ აქვს fw-600 კლასი, ამიტომ inline სტილის ნაცვლად აქ დავწეროთ */
     .fw-600 { font-weight: 600; }
+    .select2-container { width: 100% !important; }
+    .select2-container--default .select2-selection--single {
+        height: calc(1.5em + 1rem + 2px);
+        padding: .375rem .75rem;
+        font-size: 1rem;
+        border: 1px solid #dee2e6;
+        border-radius: .375rem;
+        background-color: #f8f9fa;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 1.5;
+        color: #212529;
+        padding: 0;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 100%;
+        top: 0;
+    }
+    .select2-dropdown { border-color: #dee2e6; border-radius: .375rem; }
 </style>
 <script>
-    $('#modal-form').on('hidden.bs.modal', function () {
-    if ($('#modal-sale').length && (save_method === 'add' || save_method === undefined)) {
-        $('#modal-sale').modal('show');
-    }
-});
-
+    document.addEventListener('DOMContentLoaded', function () {
+        var el = document.getElementById('modal-form');
+        if (!el) return;
+        el.addEventListener('hidden.bs.modal', function () {
+            if (document.getElementById('modal-sale') &&
+                (typeof save_method === 'undefined' || save_method === 'add')) {
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-sale')).show();
+            }
+        });
+    });
 </script>

@@ -99,6 +99,9 @@
             <a href="{{ route('roles.index') }}" class="sidebar-link {{ request()->is('roles*') ? 'active' : '' }}" onclick="closeSidebar()">
                 <i class="fa fa-shield-halved"></i> როლების უფლებები
             </a>
+            <a href="{{ route('diagnostic.index') }}" class="sidebar-link {{ request()->is('diagnostic*') ? 'active' : '' }}" onclick="closeSidebar()">
+                <i class="fa fa-stethoscope"></i> დიაგნოსტიკა
+            </a>
         @endif
     </div>
 </div>

@@ -713,6 +713,7 @@ $(function() {
         processing: true, serverSide: true,
         responsive: false,
         pageLength: 25,
+        order: [[9, 'desc']],
         dom: 't<"d-flex justify-content-between align-items-center mt-2 px-2"ip>',
         ajax: {
             url: "{{ route('warehouse.apiStock') }}",
