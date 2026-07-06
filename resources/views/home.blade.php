@@ -104,6 +104,39 @@
             ->value('t');
     }
 
+    // ── საუკეთესო დღე + დღეს ──────────────────────────────────
+    $isPgsql2  = DB::getDriverName() === 'pgsql';
+    $dateExpr2 = "DATE(created_at)";
+    $geoMonthsShort = ['იან','თებ','მარ','აპრ','მაი','ივნ','ივლ','აგვ','სექ','ოქტ','ნოე','დეკ'];
+
+    $bestDayRow = Product_Order::where('order_type', 'sale')
+        ->selectRaw("$dateExpr2 as day, COUNT(*) as cnt")
+        ->groupByRaw($dateExpr2)->orderByDesc('cnt')->first();
+
+    $bestDay = null;
+    if ($bestDayRow) {
+        $bd          = $bestDayRow->day;
+        $bdTotal     = (int) $bestDayRow->cnt;
+        $bdChanges   = Product_Order::where('order_type','change')->whereDate('created_at',$bd)->count();
+        $bdReturned  = Product_Order::where('order_type','sale')->where('status_id',5)->whereDate('created_at',$bd)->count();
+        $bdExchanged = Product_Order::where('order_type','sale')->where('status_id',6)->whereDate('created_at',$bd)->count();
+        $bdDeleted   = Product_Order::withoutGlobalScope('active')
+            ->where('order_type','sale')->where('status','deleted')->whereDate('created_at',$bd)->count();
+        $bdNet       = $bdTotal - $bdReturned - $bdExchanged - $bdDeleted;
+        $bdObj       = \Carbon\Carbon::parse($bd);
+        $bdLabel     = $bdObj->day . ' ' . $geoMonthsShort[$bdObj->month-1] . ' \'' . $bdObj->format('y');
+        $bestDay     = compact('bd','bdTotal','bdChanges','bdReturned','bdExchanged','bdDeleted','bdNet','bdLabel');
+    }
+
+    // დღევანდელი სტატისტიკა
+    $tdTotal     = Product_Order::where('order_type','sale')->whereDate('created_at',today())->count();
+    $tdChanges   = Product_Order::where('order_type','change')->whereDate('created_at',today())->count();
+    $tdReturned  = Product_Order::where('order_type','sale')->where('status_id',5)->whereDate('created_at',today())->count();
+    $tdExchanged = Product_Order::where('order_type','sale')->where('status_id',6)->whereDate('created_at',today())->count();
+    $tdDeleted   = Product_Order::withoutGlobalScope('active')
+        ->where('order_type','sale')->where('status','deleted')->whereDate('created_at',today())->count();
+    $tdNet       = $tdTotal - $tdReturned - $tdExchanged - $tdDeleted;
+
     $recentOrders = Product_Order::with(['customer','product','orderStatus'])
         ->whereIn('order_type',['sale','change'])
         ->when($isSaleOp, fn($q) => $q->where('user_id', $uid))
@@ -466,6 +499,67 @@
 .scroll-x { overflow-x: auto; }
 
 @media(min-width:1100px) { .kpi-grid.kpi-saleop { grid-template-columns: repeat(3,1fr); } }
+
+/* ══════════════════════════════════════════════
+   RECORD DAY — two full-width rows
+══════════════════════════════════════════════ */
+@keyframes rd-in  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+@keyframes rd-trophy { 0%,100%{transform:rotate(-7deg) scale(1)} 50%{transform:rotate(7deg) scale(1.12)} }
+
+.rd-wrap { display:flex; flex-direction:column; gap:8px; margin-bottom:20px; }
+
+.rd-row {
+    display:flex; align-items:center;
+    background:#fff; border-radius:14px;
+    border:1px solid rgba(0,0,0,.06);
+    box-shadow:0 1px 3px rgba(0,0,0,.05);
+    padding:12px 16px; gap:12px;
+    animation:rd-in .45s cubic-bezier(.34,1.3,.64,1) both;
+}
+.rd-row:nth-child(2) { animation-delay:.08s; }
+.rd-record { border-left:3px solid #f59e0b; }
+.rd-today  { border-left:3px solid #3b82f6; }
+
+/* Left: icon + title + date */
+.rd-left { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.rd-trophy-icon {
+    font-size:20px; display:inline-block;
+    animation:rd-trophy 2.5s ease-in-out 1.2s infinite;
+}
+.rd-today-icon { font-size:18px; }
+.rd-left-text {}
+.rd-left-label {
+    font-size:10px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.8px; color:#94a3b8; line-height:1;
+}
+.rd-record .rd-left-label { color:#b45309; }
+.rd-today  .rd-left-label { color:#1d4ed8; }
+.rd-left-date { font-size:11px; font-weight:600; color:#64748b; margin-top:2px; }
+
+/* Net block — after icon, before formula */
+.rd-net-block { flex-shrink:0; text-align:center; padding:0 14px; }
+.rd-net-val {
+    font-size:28px; font-weight:900; line-height:1;
+    font-variant-numeric:tabular-nums; letter-spacing:-1px;
+}
+.rd-record .rd-net-val { color:#16a34a; }
+.rd-today  .rd-net-val { color:#16a34a; }
+.rd-net-lbl { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:#94a3b8; }
+
+/* Formula — right side, breakdown */
+.rd-formula {
+    flex:1; min-width:0;
+    display:flex; align-items:center; flex-wrap:wrap;
+    gap:3px 5px; font-size:11px;
+    font-variant-numeric:tabular-nums;
+    justify-content:flex-end;
+}
+.rd-f-total { font-weight:600; color:#64748b; }
+.rd-f-sep   { color:#cbd5e1; }
+.rd-f-red   { font-weight:700; color:#dc2626; }
+.rd-f-amber { font-weight:700; color:#ea580c; }
+.rd-f-gray  { font-weight:600; color:#94a3b8; }
+.rd-f-blue  { font-weight:700; color:#2563eb; }
 </style>
 @endsection
 
@@ -477,6 +571,80 @@
         <h1>გამარჯობა, {{ Auth::user()->name }} 👋</h1>
         <p>{{ now()->format('d F, Y') }} &middot; ყველა მიმდინარე ინფორმაცია</p>
     </div>
+
+    {{-- ── Record Day + Today ── --}}
+    @if($bestDay)
+    @php extract($bestDay); @endphp
+    <div class="rd-wrap" id="rd-card">
+
+        {{-- რეკორდი --}}
+        <div class="rd-row rd-record">
+            <div class="rd-left">
+                <span class="rd-trophy-icon">🏆</span>
+                <div class="rd-left-text">
+                    <div class="rd-left-label">რეკორდი</div>
+                    <div class="rd-left-date">{{ $bdLabel }}</div>
+                </div>
+            </div>
+
+            <div class="rd-net-block">
+                <div class="rd-net-val rd-count" data-target="{{ $bdNet }}">0</div>
+                <div class="rd-net-lbl">სუფთა</div>
+            </div>
+
+            <div class="rd-formula">
+                <span class="rd-f-total">სულ {{ $bdTotal }}</span>
+                @if($bdChanges > 0)
+                    <span class="rd-f-sep">·</span><span class="rd-f-blue">+{{ $bdChanges }}ch</span>
+                @endif
+                @if($bdReturned > 0)
+                    <span class="rd-f-sep">·</span><span class="rd-f-red">−{{ $bdReturned }} დაბრ.</span>
+                @endif
+                @if($bdExchanged > 0)
+                    <span class="rd-f-sep">·</span><span class="rd-f-amber">−{{ $bdExchanged }} გაცვლ.</span>
+                @endif
+                @if($bdDeleted > 0)
+                    <span class="rd-f-sep">·</span><span class="rd-f-gray">−{{ $bdDeleted }} წაშლ.</span>
+                @endif
+            </div>
+        </div>
+
+
+
+        {{-- დღეს --}}
+        <div class="rd-row rd-today">
+            <div class="rd-left">
+                <span class="rd-today-icon">📅</span>
+                <div class="rd-left-text">
+                    <div class="rd-left-label">დღეს</div>
+                    <div class="rd-left-date">{{ now()->day . ' ' . $geoMonthsShort[now()->month-1] }}</div>
+                </div>
+            </div>
+
+            <div class="rd-net-block">
+                <div class="rd-net-val rd-count" data-target="{{ $tdNet }}">0</div>
+                <div class="rd-net-lbl">სუფთა</div>
+            </div>
+
+            <div class="rd-formula">
+                <span class="rd-f-total">სულ {{ $tdTotal }}</span>
+                @if($tdChanges > 0)
+                    <span class="rd-f-sep">·</span><span class="rd-f-blue">+{{ $tdChanges }}ch</span>
+                @endif
+                @if($tdReturned > 0)
+                    <span class="rd-f-sep">·</span><span class="rd-f-red">−{{ $tdReturned }} დაბრ.</span>
+                @endif
+                @if($tdExchanged > 0)
+                    <span class="rd-f-sep">·</span><span class="rd-f-amber">−{{ $tdExchanged }} გაცვლ.</span>
+                @endif
+                @if($tdDeleted > 0)
+                    <span class="rd-f-sep">·</span><span class="rd-f-gray">−{{ $tdDeleted }} წაშლ.</span>
+                @endif
+            </div>
+        </div>
+
+    </div>
+    @endif
 
     {{-- ── Revenue Banner — მხოლოდ admin ── --}}
     @if($isAdmin)
@@ -762,6 +930,35 @@ document.addEventListener('DOMContentLoaded', function() {
         el.style.width = '0';
         setTimeout(function() { el.style.width = w; }, 120);
     });
+
+    // ── Record Day count-up ──────────────────────────────────
+    function animateCount(el, target, delay) {
+        setTimeout(function() {
+            var duration = Math.min(1400, 400 + target * 18);
+            var start    = performance.now();
+            function step(now) {
+                var p = Math.min((now - start) / duration, 1);
+                // ease-out cubic
+                var e = 1 - Math.pow(1 - p, 3);
+                el.textContent = Math.round(e * target);
+                if (p < 1) requestAnimationFrame(step);
+            }
+            requestAnimationFrame(step);
+        }, delay);
+    }
+
+    var rdCard = document.getElementById('rd-card');
+    if (rdCard) {
+        var observer = new IntersectionObserver(function(entries) {
+            if (!entries[0].isIntersecting) return;
+            observer.disconnect();
+            var els = rdCard.querySelectorAll('.rd-count');
+            els.forEach(function(el, i) {
+                animateCount(el, parseInt(el.dataset.target, 10), i * 180);
+            });
+        }, { threshold: 0.3 });
+        observer.observe(rdCard);
+    }
 
 @if(!empty($motivational))
     var motivationalModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-motivational'));
