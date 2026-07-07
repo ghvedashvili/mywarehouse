@@ -680,6 +680,34 @@
             #footer .float-end { float: none !important; display: block; }
         }
 
+        /* ── GLOBAL PAGE LOADER ── */
+        #page-loader {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(255,255,255,.82);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            z-index: 99999;
+            align-items: center;
+            justify-content: center;
+        }
+        #page-loader.active { display: flex; }
+        .pl-icons { display: flex; align-items: center; gap: 14px; }
+        .pl-icon {
+            font-size: 36px;
+            display: inline-block;
+            animation: pl-bounce .7s ease-in-out infinite;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,.15));
+        }
+        .pl-icon:nth-child(1) { animation-delay: 0s; }
+        .pl-icon:nth-child(2) { animation-delay: .14s; }
+        .pl-icon:nth-child(3) { animation-delay: .28s; }
+        @keyframes pl-bounce {
+            0%, 100% { transform: translateY(0) scale(1); }
+            45%       { transform: translateY(-14px) scale(1.12); }
+        }
+
         /* ── MODALS Bootstrap 5 ── */
         .modal-header { border-bottom: 1px solid #edf2f7; }
         .modal-footer { border-top: 1px solid #edf2f7; }
@@ -944,6 +972,15 @@
 </head>
 <body>
 
+{{-- GLOBAL PAGE LOADER --}}
+<div id="page-loader">
+    <div class="pl-icons">
+        <span class="pl-icon">👕</span>
+        <span class="pl-icon">🩳</span>
+        <span class="pl-icon">👟</span>
+    </div>
+</div>
+
 {{-- SIDEBAR --}}
 <div id="sidebar-overlay" onclick="closeSidebar()"></div>
 <nav id="sidebar">
@@ -1089,6 +1126,24 @@ function closeSidebar() {
     document.getElementById('sidebar').classList.remove('open');
     document.getElementById('sidebar-overlay').classList.remove('show');
 }
+
+// ── Global page loader ─────────────────────────────────────────────────
+var _loaderTimer = null;
+function showLoader() {
+    clearTimeout(_loaderTimer);
+    document.getElementById('page-loader').classList.add('active');
+}
+function hideLoader() {
+    _loaderTimer = setTimeout(function() {
+        document.getElementById('page-loader').classList.remove('active');
+    }, 200);
+}
+$(document)
+    .ajaxStart(showLoader)
+    .ajaxStop(hideLoader);
+
+// non-AJAX form submit
+$(document).on('submit', 'form:not([data-no-loader])', showLoader);
 
 // ── Active sidebar link ────────────────────────────────────────────────
 $(function() {
