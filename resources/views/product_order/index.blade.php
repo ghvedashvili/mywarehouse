@@ -291,7 +291,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   border: 1px solid var(--c-border);
   border-radius: var(--r-lg);
   padding: 10px 12px;
-  /* display: flex; */
+  display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 7px;
