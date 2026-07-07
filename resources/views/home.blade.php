@@ -104,6 +104,68 @@
             ->value('t');
     }
 
+    // ── საუკეთესო დღე + დღეს ──────────────────────────────────
+    $isPgsql2  = DB::getDriverName() === 'pgsql';
+    $dateExpr2 = "DATE(created_at)";
+    $geoMonthsShort = ['იან','თებ','მარ','აპრ','მაი','ივნ','ივლ','აგვ','სექ','ოქტ','ნოე','დეკ'];
+
+    $bestDayRow = Product_Order::where('order_type', 'sale')
+        ->selectRaw("$dateExpr2 as day, COUNT(*) as cnt")
+        ->groupByRaw($dateExpr2)->orderByDesc('cnt')->first();
+
+    $bestDay = null;
+    if ($bestDayRow) {
+        $bd          = $bestDayRow->day;
+        $bdTotal     = (int) $bestDayRow->cnt;
+        $bdChanges   = Product_Order::where('order_type','change')->whereDate('created_at',$bd)->count();
+        $bdReturned  = Product_Order::where('order_type','sale')->where('status_id',5)->whereDate('created_at',$bd)->count();
+        $bdExchanged = Product_Order::where('order_type','sale')->where('status_id',6)->whereDate('created_at',$bd)->count();
+        $bdDeleted   = Product_Order::withoutGlobalScope('active')
+            ->where('order_type','sale')->where('status','deleted')->whereDate('created_at',$bd)->count();
+        $bdNet       = $bdTotal - $bdReturned - $bdExchanged - $bdDeleted;
+        $bdObj       = \Carbon\Carbon::parse($bd);
+        $bdLabel     = $bdObj->day . ' ' . $geoMonthsShort[$bdObj->month-1] . ' \'' . $bdObj->format('y');
+        $bestDay     = compact('bd','bdTotal','bdChanges','bdReturned','bdExchanged','bdDeleted','bdNet','bdLabel');
+    }
+
+    // დღევანდელი სტატისტიკა
+    $tdTotal     = Product_Order::where('order_type','sale')->whereDate('created_at',today())->count();
+    $tdChanges   = Product_Order::where('order_type','change')->whereDate('created_at',today())->count();
+    $tdReturned  = Product_Order::where('order_type','sale')->where('status_id',5)->whereDate('created_at',today())->count();
+    $tdExchanged = Product_Order::where('order_type','sale')->where('status_id',6)->whereDate('created_at',today())->count();
+    $tdDeleted   = Product_Order::withoutGlobalScope('active')
+        ->where('order_type','sale')->where('status','deleted')->whereDate('created_at',today())->count();
+    $tdNet       = $tdTotal - $tdReturned - $tdExchanged - $tdDeleted;
+
+    // სამოტივაციო ფრაზა
+    $rdProgress = 0; $rdPhrase = ''; $rdPhraseColor = '#64748b';
+    if ($bestDay) {
+        $gap        = max(0, $bestDay['bdNet'] - $tdNet);
+        $rdProgress = $bestDay['bdNet'] > 0 ? min(100, round($tdNet / $bestDay['bdNet'] * 100)) : 0;
+        if ($tdNet >= $bestDay['bdNet']) {
+            $rdPhrase      = '🏆 რეკორდი დამხობილია! გილოცავ კიდევ ერთხელ ჩაეწერე ისტორიაში!';
+            $rdPhraseColor = '#16a34a';
+        } elseif ($gap <= 10) {
+            $rdPhrase      = "⚡ კიდევ {$gap} ორდერი და ლეგენდა ხდები!";
+            $rdPhraseColor = '#d97706';
+        } elseif ($gap <= 20) {
+            $rdPhrase      = "💪 {$gap} ნაბიჯი რეკორდამდე. შორტი, მაისური, ბოტასი ყველაფერი ითვლება არ გაჩერდე!";
+            $rdPhraseColor = '#2563eb';
+        } elseif ($gap <= 30) {
+            $rdPhrase      = "🚀 {$gap} ორდერი — ცოტა კიდევ გაზარდე სიჩქარე! ერთი კარგი მომხმარებელი და ახლოს ვართ!";
+            $rdPhraseColor = '#7c3aed';
+        } elseif ($gap <= 40) {
+            $rdPhrase      = "😤 {$gap} ორდერი გვაკლია ... ყავა დალიე და ირბინე!";
+            $rdPhraseColor = '#ea580c';
+        } elseif ($gap <= 50) {
+            $rdPhrase      = "კიდევ  {$gap} ორდერი... პანიკა საჭირო არ არის უბრალოდ უნდა მოვიხოდოთ!";
+            $rdPhraseColor = '#64748b';
+        } else {
+            $rdPhrase      = "😅 რეკორდამდე  {$gap} ორდერი გვჭირდება დავამხოთ? 😂";
+            $rdPhraseColor = '#94a3b8';
+        }
+    }
+
     $recentOrders = Product_Order::with(['customer','product','orderStatus'])
         ->whereIn('order_type',['sale','change'])
         ->when($isSaleOp, fn($q) => $q->where('user_id', $uid))
@@ -466,6 +528,116 @@
 .scroll-x { overflow-x: auto; }
 
 @media(min-width:1100px) { .kpi-grid.kpi-saleop { grid-template-columns: repeat(3,1fr); } }
+
+/* ══════════════════════════════════════════════
+   RECORD DAY — two gradient cards side by side
+══════════════════════════════════════════════ */
+@keyframes rd-in  { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+@keyframes rd-trophy { 0%,100%{transform:rotate(-8deg) scale(1)} 50%{transform:rotate(8deg) scale(1.15)} }
+
+.rd-wrap { display:flex; flex-direction:column; gap:10px; margin-bottom:20px; }
+
+/* Grid of 2 cards */
+.rd-grid {
+    display:grid; grid-template-columns:1fr 1fr; gap:12px;
+}
+
+.rd-card {
+    border-radius:18px;
+    padding:20px 16px 16px;
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+    position:relative; overflow:hidden;
+    animation:rd-in .5s cubic-bezier(.34,1.2,.64,1) both;
+}
+.rd-card::before {
+    content:'';
+    position:absolute; top:-28px; right:-18px;
+    width:90px; height:90px;
+    border-radius:50%;
+    background:rgba(255,255,255,.1);
+    pointer-events:none;
+}
+.rd-card::after {
+    content:'';
+    position:absolute; bottom:-20px; left:-14px;
+    width:70px; height:70px;
+    border-radius:50%;
+    background:rgba(255,255,255,.06);
+    pointer-events:none;
+}
+.rd-card-record {
+    background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);
+    box-shadow:0 4px 18px rgba(245,158,11,.35);
+}
+.rd-card-today {
+    background:linear-gradient(135deg,#3b82f6 0%,#1d4ed8 100%);
+    box-shadow:0 4px 18px rgba(59,130,246,.3);
+    animation-delay:.1s;
+}
+
+.rd-card-label {
+    font-size:13px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.9px; color:rgba(255,255,255,.75);
+    margin-bottom:2px; line-height:1;
+}
+.rd-card-date {
+    font-size:13px; font-weight:600;
+    color:rgba(255,255,255,.55);
+    margin-bottom:10px;
+}
+.rd-card-num {
+    font-size:52px; font-weight:900; line-height:1;
+    letter-spacing:-2px; color:#fff;
+    font-variant-numeric:tabular-nums;
+}
+.rd-card-unit {
+    font-size:10px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.6px; color:rgba(255,255,255,.55);
+    margin-top:5px; margin-bottom:12px;
+}
+.rd-card-formula {
+    width:100%;
+    font-size:12px; color:rgba(255,255,255,.6);
+    font-variant-numeric:tabular-nums; line-height:1.7;
+    border-top:1px solid rgba(255,255,255,.15);
+    padding-top:9px;
+}
+.rd-card-formula strong { color:rgba(255,255,255,.9); font-weight:700; }
+
+/* Bottom strip: phrase + progress */
+.rd-bottom {
+    background:#fff; border-radius:14px;
+    border:1px solid rgba(0,0,0,.06);
+    box-shadow:0 1px 4px rgba(0,0,0,.05);
+    padding:10px 14px;
+    display:flex; flex-direction:column; gap:6px;
+}
+.rd-phrase {
+    font-size:13px; font-weight:600;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.rd-prog-row {
+    display:flex; align-items:center; gap:7px;
+}
+.rd-prog-edge {
+    font-size:13px; font-weight:700; color:#94a3b8;
+    flex-shrink:0; font-variant-numeric:tabular-nums;
+}
+.rd-prog-edge.end { color:#d97706; }
+.rd-prog-bar {
+    flex:1; height:7px; background:#f1f5f9;
+    border-radius:99px; overflow:hidden;
+}
+.rd-prog-fill {
+    height:100%; border-radius:99px;
+    background:linear-gradient(90deg,#3b82f6,#f59e0b);
+    transition:width 1.3s cubic-bezier(.4,0,.2,1);
+    width:0;
+}
+.rd-prog-pct {
+    font-size:13px; font-weight:700; color:#94a3b8;
+    flex-shrink:0; min-width:28px; text-align:right;
+}
 </style>
 @endsection
 
@@ -477,6 +649,62 @@
         <h1>გამარჯობა, {{ Auth::user()->name }} 👋</h1>
         <p>{{ now()->format('d F, Y') }} &middot; ყველა მიმდინარე ინფორმაცია</p>
     </div>
+
+    {{-- ── Record Day + Today ── --}}
+    @if($bestDay)
+    @php extract($bestDay); @endphp
+    <div class="rd-wrap" id="rd-card">
+
+        {{-- ── ორი ქარდი გვერდიგვერდ ── --}}
+        <div class="rd-grid">
+
+            {{-- რეკორდი --}}
+            <div class="rd-card rd-card-record">
+                <div class="rd-card-label">🏆 რეკორდი</div>
+                <div class="rd-card-date">{{ $bdLabel }}</div>
+                <div class="rd-card-num rd-count" data-target="{{ $bdNet }}">0</div>
+                <div class="rd-card-unit">ორდერი</div>
+                <div class="rd-card-formula">
+                    <strong>სულ {{ $bdTotal }}</strong>
+                    @if($bdReturned > 0) &nbsp;· −{{ $bdReturned }} დაბრ.@endif
+                    @if($bdExchanged > 0) &nbsp;· −{{ $bdExchanged }} გაცვლ.@endif
+                    @if($bdDeleted > 0) &nbsp;· −{{ $bdDeleted }} წაშლ.@endif
+                    @if($bdChanges > 0) &nbsp;· +{{ $bdChanges }} ch @endif
+                </div>
+            </div>
+
+            {{-- დღეს --}}
+            <div class="rd-card rd-card-today">
+                <div class="rd-card-label">📅 დღეს</div>
+                <div class="rd-card-date">{{ now()->day . ' ' . $geoMonthsShort[now()->month-1] }}</div>
+                <div class="rd-card-num rd-count" data-target="{{ $tdNet }}">0</div>
+                <div class="rd-card-unit">ორდერი</div>
+                <div class="rd-card-formula">
+                    <strong>სულ {{ $tdTotal }}</strong>
+                    @if($tdReturned > 0) &nbsp;· −{{ $tdReturned }} დაბრ.@endif
+                    @if($tdExchanged > 0) &nbsp;· −{{ $tdExchanged }} გაცვლ.@endif
+                    @if($tdDeleted > 0) &nbsp;· −{{ $tdDeleted }} წაშლ.@endif
+                    @if($tdChanges > 0) &nbsp;· +{{ $tdChanges }} ch @endif
+                </div>
+            </div>
+
+        </div>
+
+        {{-- Progress + ფრაზა --}}
+        <div class="rd-bottom">
+            <span class="rd-phrase" style="color:{{ $rdPhraseColor }}">{{ $rdPhrase }}</span>
+            <div class="rd-prog-row">
+                <span class="rd-prog-edge">0</span>
+                <div class="rd-prog-bar">
+                    <div class="rd-prog-fill" id="rd-prog-fill" data-pct="{{ $rdProgress }}"></div>
+                </div>
+                <span class="rd-prog-edge end">{{ $bdNet }} 🏆</span>
+                <span class="rd-prog-pct">{{ $rdProgress }}%</span>
+            </div>
+        </div>
+
+    </div>
+    @endif
 
     {{-- ── Revenue Banner — მხოლოდ admin ── --}}
     @if($isAdmin)
@@ -762,6 +990,38 @@ document.addEventListener('DOMContentLoaded', function() {
         el.style.width = '0';
         setTimeout(function() { el.style.width = w; }, 120);
     });
+
+    // ── Record Day count-up ──────────────────────────────────
+    function animateCount(el, target, delay) {
+        setTimeout(function() {
+            var duration = Math.min(1400, 400 + target * 18);
+            var start    = performance.now();
+            function step(now) {
+                var p = Math.min((now - start) / duration, 1);
+                // ease-out cubic
+                var e = 1 - Math.pow(1 - p, 3);
+                el.textContent = Math.round(e * target);
+                if (p < 1) requestAnimationFrame(step);
+            }
+            requestAnimationFrame(step);
+        }, delay);
+    }
+
+    var rdCard = document.getElementById('rd-card');
+    if (rdCard) {
+        var observer = new IntersectionObserver(function(entries) {
+            if (!entries[0].isIntersecting) return;
+            observer.disconnect();
+            var els = rdCard.querySelectorAll('.rd-count');
+            els.forEach(function(el, i) {
+                animateCount(el, parseInt(el.dataset.target, 10), i * 180);
+            });
+            // progress bar
+            var fill = document.getElementById('rd-prog-fill');
+            if (fill) setTimeout(function() { fill.style.width = fill.dataset.pct + '%'; }, 300);
+        }, { threshold: 0.3 });
+        observer.observe(rdCard);
+    }
 
 @if(!empty($motivational))
     var motivationalModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-motivational'));
