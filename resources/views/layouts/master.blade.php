@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Warehouse</title>
 
@@ -65,6 +65,7 @@
             flex-direction: column;
             transition: transform 0.25s ease;
             overflow-y: auto;
+            padding-top: env(safe-area-inset-top, 0px);
         }
 
         #sidebar .sidebar-brand {
@@ -157,12 +158,14 @@
             top: 0;
             left: var(--sidebar-width);
             right: 0;
-            height: var(--topbar-height);
+            height: calc(var(--topbar-height) + env(safe-area-inset-top, 0px));
+            padding-top: env(safe-area-inset-top, 0px);
             background: var(--topbar-bg);
             border-bottom: 1px solid #e2e8f0;
             display: flex;
             align-items: center;
-            padding: 0 24px;
+            padding-left: 24px;
+            padding-right: 24px;
             z-index: 999;
             gap: 12px;
         }
@@ -212,8 +215,8 @@
         /* ── MAIN CONTENT ── */
         #main-content {
             margin-left: var(--sidebar-width);
-            padding-top: var(--topbar-height);
-            min-height: calc(100vh - var(--topbar-height));
+            padding-top: calc(var(--topbar-height) + env(safe-area-inset-top, 0px));
+            min-height: calc(100vh - var(--topbar-height) - env(safe-area-inset-top, 0px));
         }
 
         /* ── OVERLAY (mobile) ── */
