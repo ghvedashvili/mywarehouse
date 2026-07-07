@@ -613,14 +613,14 @@
     display:flex; flex-direction:column; gap:6px;
 }
 .rd-phrase {
-    font-size:11px; font-weight:600;
+    font-size:13px; font-weight:600;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 .rd-prog-row {
     display:flex; align-items:center; gap:7px;
 }
 .rd-prog-edge {
-    font-size:10px; font-weight:700; color:#94a3b8;
+    font-size:13px; font-weight:700; color:#94a3b8;
     flex-shrink:0; font-variant-numeric:tabular-nums;
 }
 .rd-prog-edge.end { color:#d97706; }
@@ -635,7 +635,7 @@
     width:0;
 }
 .rd-prog-pct {
-    font-size:10px; font-weight:700; color:#94a3b8;
+    font-size:13px; font-weight:700; color:#94a3b8;
     flex-shrink:0; min-width:28px; text-align:right;
 }
 </style>
