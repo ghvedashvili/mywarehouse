@@ -576,12 +576,12 @@
 }
 
 .rd-card-label {
-    font-size:10px; font-weight:700; text-transform:uppercase;
+    font-size:13px; font-weight:700; text-transform:uppercase;
     letter-spacing:.9px; color:rgba(255,255,255,.75);
     margin-bottom:2px; line-height:1;
 }
 .rd-card-date {
-    font-size:11px; font-weight:600;
+    font-size:13px; font-weight:600;
     color:rgba(255,255,255,.55);
     margin-bottom:10px;
 }
@@ -597,7 +597,7 @@
 }
 .rd-card-formula {
     width:100%;
-    font-size:10px; color:rgba(255,255,255,.6);
+    font-size:12px; color:rgba(255,255,255,.6);
     font-variant-numeric:tabular-nums; line-height:1.7;
     border-top:1px solid rgba(255,255,255,.15);
     padding-top:9px;
