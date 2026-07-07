@@ -973,7 +973,7 @@
 <body>
 
 {{-- GLOBAL PAGE LOADER --}}
-<div id="page-loader">
+<div id="page-loader" class="active">
     <div class="pl-icons">
         <span class="pl-icon">👕</span>
         <span class="pl-icon">🩳</span>
@@ -1134,6 +1134,7 @@ function showLoader() {
     document.getElementById('page-loader').classList.add('active');
 }
 function hideLoader() {
+    clearTimeout(_loaderTimer);
     _loaderTimer = setTimeout(function() {
         document.getElementById('page-loader').classList.remove('active');
     }, 200);
@@ -1141,6 +1142,11 @@ function hideLoader() {
 $(document)
     .ajaxStart(showLoader)
     .ajaxStop(hideLoader);
+
+// fallback: hide if no AJAX fires at all (static pages)
+$(function() {
+    setTimeout(hideLoader, 1500);
+});
 
 // non-AJAX form submit
 $(document).on('submit', 'form:not([data-no-loader])', showLoader);
