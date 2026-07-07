@@ -137,6 +137,35 @@
         ->where('order_type','sale')->where('status','deleted')->whereDate('created_at',today())->count();
     $tdNet       = $tdTotal - $tdReturned - $tdExchanged - $tdDeleted;
 
+    // სამოტივაციო ფრაზა
+    $rdProgress = 0; $rdPhrase = ''; $rdPhraseColor = '#64748b';
+    if ($bestDay) {
+        $gap        = max(0, $bestDay['bdNet'] - $tdNet);
+        $rdProgress = $bestDay['bdNet'] > 0 ? min(100, round($tdNet / $bestDay['bdNet'] * 100)) : 0;
+        if ($tdNet >= $bestDay['bdNet']) {
+            $rdPhrase      = '🏆 რეკორდი დამხობილია! გილოცავ კიდევ ერთხელ ჩაეწერე ისტორიაში!';
+            $rdPhraseColor = '#16a34a';
+        } elseif ($gap <= 10) {
+            $rdPhrase      = "⚡ კიდევ {$gap} ორდერი და ლეგენდა ხდები!";
+            $rdPhraseColor = '#d97706';
+        } elseif ($gap <= 20) {
+            $rdPhrase      = "💪 {$gap} ნაბიჯი რეკორდამდე. შორტი, მაისური, ბოტასი ყველაფერი ითვლება არ გაჩერდე!";
+            $rdPhraseColor = '#2563eb';
+        } elseif ($gap <= 30) {
+            $rdPhrase      = "🚀 {$gap} ორდერი — ცოტა კიდევ გაზარდე სიჩქარე! ერთი კარგი მომხმარებელი და ახლოს ვართ!";
+            $rdPhraseColor = '#7c3aed';
+        } elseif ($gap <= 40) {
+            $rdPhrase      = "😤 {$gap} ორდერი გვაკლია ... ყავა დალიე და ირბინე!";
+            $rdPhraseColor = '#ea580c';
+        } elseif ($gap <= 50) {
+            $rdPhrase      = "კიდევ  {$gap} ორდერი... პანიკა საჭირო არ არის უბრალოდ უნდა მოვიხოდოთ!";
+            $rdPhraseColor = '#64748b';
+        } else {
+            $rdPhrase      = "😅 რეკორდამდე  {$gap} ორდერი გვჭირდება დავამხოთ? 😂";
+            $rdPhraseColor = '#94a3b8';
+        }
+    }
+
     $recentOrders = Product_Order::with(['customer','product','orderStatus'])
         ->whereIn('order_type',['sale','change'])
         ->when($isSaleOp, fn($q) => $q->where('user_id', $uid))
@@ -560,6 +589,36 @@
 .rd-f-amber { font-weight:700; color:#ea580c; }
 .rd-f-gray  { font-weight:600; color:#94a3b8; }
 .rd-f-blue  { font-weight:700; color:#2563eb; }
+
+/* Progress strip between rows */
+.rd-middle { display:flex; flex-direction:column; gap:5px; padding:2px 4px; }
+.rd-phrase {
+    font-size:11px; font-weight:600;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.rd-prog-row {
+    display:flex; align-items:center; gap:7px;
+}
+.rd-prog-edge {
+    font-size:10px; font-weight:700; color:#94a3b8;
+    flex-shrink:0; font-variant-numeric:tabular-nums;
+}
+.rd-prog-edge.end { color:#d97706; }
+.rd-prog-bar {
+    flex:1; height:6px; background:#f1f5f9;
+    border-radius:99px; overflow:hidden;
+    position:relative;
+}
+.rd-prog-fill {
+    height:100%; border-radius:99px;
+    background:linear-gradient(90deg,#3b82f6,#16a34a);
+    transition:width 1.2s cubic-bezier(.4,0,.2,1);
+    width:0;
+}
+.rd-prog-pct {
+    font-size:10px; font-weight:700; color:#94a3b8;
+    flex-shrink:0; min-width:26px; text-align:right;
+}
 </style>
 @endsection
 
@@ -589,7 +648,7 @@
 
             <div class="rd-net-block">
                 <div class="rd-net-val rd-count" data-target="{{ $bdNet }}">0</div>
-                <div class="rd-net-lbl">სუფთა</div>
+                <div class="rd-net-lbl">ორდერი</div>
             </div>
 
             <div class="rd-formula">
@@ -611,6 +670,19 @@
 
 
 
+        {{-- Progress + ფრაზა --}}
+        <div class="rd-middle">
+            <span class="rd-phrase" style="color:{{ $rdPhraseColor }}">{{ $rdPhrase }}</span>
+            <div class="rd-prog-row">
+                <span class="rd-prog-edge">0</span>
+                <div class="rd-prog-bar">
+                    <div class="rd-prog-fill" id="rd-prog-fill" data-pct="{{ $rdProgress }}"></div>
+                </div>
+                <span class="rd-prog-edge end">{{ $bestDay['bdNet'] }} 🏆</span>
+                <span class="rd-prog-pct">{{ $rdProgress }}%</span>
+            </div>
+        </div>
+
         {{-- დღეს --}}
         <div class="rd-row rd-today">
             <div class="rd-left">
@@ -623,7 +695,7 @@
 
             <div class="rd-net-block">
                 <div class="rd-net-val rd-count" data-target="{{ $tdNet }}">0</div>
-                <div class="rd-net-lbl">სუფთა</div>
+                <div class="rd-net-lbl">ორედერი</div>
             </div>
 
             <div class="rd-formula">
@@ -956,6 +1028,9 @@ document.addEventListener('DOMContentLoaded', function() {
             els.forEach(function(el, i) {
                 animateCount(el, parseInt(el.dataset.target, 10), i * 180);
             });
+            // progress bar
+            var fill = document.getElementById('rd-prog-fill');
+            if (fill) setTimeout(function() { fill.style.width = fill.dataset.pct + '%'; }, 300);
         }, { threshold: 0.3 });
         observer.observe(rdCard);
     }
