@@ -1338,6 +1338,20 @@ class ProductOrderController extends Controller
                 $oldest = $all->sortBy('created_at')->first();
                 return $oldest->created_at ? $oldest->created_at->format('Y-m-d H:i:s') : null;
             })
+            ->addColumn('group_orig', function ($item) {
+                if (!$item->is_primary || $item->children->isEmpty()) return null;
+                return collect([$item])->merge($item->children)->sum(fn($o) => (float)$o->price_georgia);
+            })
+            ->addColumn('group_disc', function ($item) {
+                if (!$item->is_primary || $item->children->isEmpty()) return null;
+                return collect([$item])->merge($item->children)->sum(fn($o) => (float)($o->discount ?? 0));
+            })
+            ->addColumn('group_paid', function ($item) {
+                if (!$item->is_primary || $item->children->isEmpty()) return null;
+                return collect([$item])->merge($item->children)->sum(fn($o) =>
+                    (float)($o->paid_tbc ?? 0) + (float)($o->paid_bog ?? 0) +
+                    (float)($o->paid_lib ?? 0) + (float)($o->paid_cash ?? 0));
+            })
             ->addColumn('product_info', function ($item) use ($pairedOrderIds) {
                 // Group header: show product count + each product/size
                 if ($item->is_primary && $item->children->isNotEmpty()) {

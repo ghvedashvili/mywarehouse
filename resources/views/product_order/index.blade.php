@@ -1001,9 +1001,10 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   }
   .mob-child-item {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 6px;
     padding: 5px 0;
     border-bottom: 1px solid var(--c-border);
   }
@@ -1031,7 +1032,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   .mob-ci-top  { display: flex; align-items: center; gap: 5px; margin-bottom: 2px; }
   .mob-ci-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mob-ci-fin  { font-size: 11px; color: var(--c-text-2); margin-top: 1px; }
-  .mob-ci-actions { display: flex; gap: 3px; flex-shrink: 0; flex-wrap: wrap; }
+  .mob-ci-actions { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
 
   /* ── footer: DATE left, ACTIONS right ── */
   #products-out-table tbody td.td-date {
