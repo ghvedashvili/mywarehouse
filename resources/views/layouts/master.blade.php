@@ -434,11 +434,41 @@
             }
             .mod-card .dataTables_info { padding: 6px 10px !important; font-size: 11px !important; }
 
-            /* ── Modals full-screen ── */
-            .modal-dialog { margin: 0 !important; max-width: 100% !important; }
-            .modal-content { border-radius: 0 !important; min-height: 100vh; }
-            .modal-dialog.modal-sm { margin: 1rem auto !important; max-width: 320px !important; }
-            .modal-dialog.modal-sm .modal-content { border-radius: 14px !important; min-height: unset; }
+            /* ── Modals: bottom-sheet style ── */
+            .modal { align-items: flex-end !important; }
+            .modal-dialog {
+                margin: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
+            }
+            .modal-content {
+                border-radius: 22px 22px 0 0 !important;
+                min-height: unset !important;
+                max-height: 92vh;
+                overflow-y: auto;
+                padding-bottom: env(safe-area-inset-bottom, 12px);
+            }
+            /* Centered / small dialogs stay centered */
+            .modal-dialog.modal-dialog-centered {
+                align-self: center !important;
+                margin: 0 16px !important;
+                max-width: calc(100% - 32px) !important;
+                width: auto !important;
+            }
+            .modal-dialog.modal-dialog-centered .modal-content {
+                border-radius: 20px !important;
+                max-height: 90vh;
+            }
+            .modal-dialog.modal-sm {
+                align-self: center !important;
+                margin: 0 auto !important;
+                max-width: calc(100% - 40px) !important;
+                width: auto !important;
+            }
+            .modal-dialog.modal-sm .modal-content {
+                border-radius: 18px !important;
+                min-height: unset !important;
+            }
 
             /* ── Buttons bigger touch targets ── */
             .btn-sm { padding: 7px 14px !important; font-size: 13px !important; }
@@ -601,11 +631,41 @@
             }
             .mod-card .dataTables_info { padding: 6px 10px !important; font-size: 11px !important; }
 
-            /* ── Modals full-screen ── */
-            .modal-dialog { margin: 0 !important; max-width: 100% !important; }
-            .modal-content { border-radius: 0 !important; min-height: 100vh; }
-            .modal-dialog.modal-sm { margin: 1rem auto !important; max-width: 320px !important; }
-            .modal-dialog.modal-sm .modal-content { border-radius: 14px !important; min-height: unset; }
+            /* ── Modals: bottom-sheet style ── */
+            .modal { align-items: flex-end !important; }
+            .modal-dialog {
+                margin: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
+            }
+            .modal-content {
+                border-radius: 22px 22px 0 0 !important;
+                min-height: unset !important;
+                max-height: 92vh;
+                overflow-y: auto;
+                padding-bottom: env(safe-area-inset-bottom, 12px);
+            }
+            /* Centered / small dialogs stay centered */
+            .modal-dialog.modal-dialog-centered {
+                align-self: center !important;
+                margin: 0 16px !important;
+                max-width: calc(100% - 32px) !important;
+                width: auto !important;
+            }
+            .modal-dialog.modal-dialog-centered .modal-content {
+                border-radius: 20px !important;
+                max-height: 90vh;
+            }
+            .modal-dialog.modal-sm {
+                align-self: center !important;
+                margin: 0 auto !important;
+                max-width: calc(100% - 40px) !important;
+                width: auto !important;
+            }
+            .modal-dialog.modal-sm .modal-content {
+                border-radius: 18px !important;
+                min-height: unset !important;
+            }
 
             /* ── Buttons bigger touch targets ── */
             .btn-sm { padding: 7px 14px !important; font-size: 13px !important; }
@@ -623,6 +683,21 @@
         /* ── MODALS Bootstrap 5 ── */
         .modal-header { border-bottom: 1px solid #edf2f7; }
         .modal-footer { border-top: 1px solid #edf2f7; }
+
+        /* Bottom-sheet drag handle */
+        @media (max-width: 767px) {
+            .modal-content::before {
+                content: '';
+                display: block;
+                width: 40px; height: 4px;
+                background: #d1d5db;
+                border-radius: 99px;
+                margin: 10px auto 0;
+                flex-shrink: 0;
+            }
+            .modal-dialog.modal-dialog-centered .modal-content::before,
+            .modal-dialog.modal-sm .modal-content::before { display: none; }
+        }
 
         /* ════════════════════════════════════════════
            GLOBAL MODULE DESIGN SYSTEM

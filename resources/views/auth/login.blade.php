@@ -192,8 +192,8 @@
 
                             {{-- მობილურის ლოგო --}}
                             <div class="mobile-logo" id="mobileLogo">
-                                <img src="{{ asset('upload/products/originalslogo.jpg') }}" alt="Originals">
-                                <span class="mobile-logo-name">Originals</span>
+                                <img src="{{ asset('upload/products/originalslogo.jpg') }}" alt="Original 100%">
+                                <span class="mobile-logo-name">Original 100%</span>
                             </div>
 
                             <div class="header">
