@@ -669,7 +669,7 @@
                     @if($bdReturned > 0) &nbsp;· −{{ $bdReturned }} დაბრ.@endif
                     @if($bdExchanged > 0) &nbsp;· −{{ $bdExchanged }} გაცვლ.@endif
                     @if($bdDeleted > 0) &nbsp;· −{{ $bdDeleted }} წაშლ.@endif
-                    @if($bdChanges > 0) &nbsp;· +{{ $bdChanges }}ch@endif
+                    @if($bdChanges > 0) &nbsp;· +{{ $bdChanges }} ch @endif
                 </div>
             </div>
 
@@ -684,7 +684,7 @@
                     @if($tdReturned > 0) &nbsp;· −{{ $tdReturned }} დაბრ.@endif
                     @if($tdExchanged > 0) &nbsp;· −{{ $tdExchanged }} გაცვლ.@endif
                     @if($tdDeleted > 0) &nbsp;· −{{ $tdDeleted }} წაშლ.@endif
-                    @if($tdChanges > 0) &nbsp;· +{{ $tdChanges }}ch@endif
+                    @if($tdChanges > 0) &nbsp;· +{{ $tdChanges }} ch @endif
                 </div>
             </div>
 
