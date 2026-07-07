@@ -530,68 +530,88 @@
 @media(min-width:1100px) { .kpi-grid.kpi-saleop { grid-template-columns: repeat(3,1fr); } }
 
 /* ══════════════════════════════════════════════
-   RECORD DAY — two full-width rows
+   RECORD DAY — two gradient cards side by side
 ══════════════════════════════════════════════ */
-@keyframes rd-in  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-@keyframes rd-trophy { 0%,100%{transform:rotate(-7deg) scale(1)} 50%{transform:rotate(7deg) scale(1.12)} }
+@keyframes rd-in  { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+@keyframes rd-trophy { 0%,100%{transform:rotate(-8deg) scale(1)} 50%{transform:rotate(8deg) scale(1.15)} }
 
-.rd-wrap { display:flex; flex-direction:column; gap:8px; margin-bottom:20px; }
+.rd-wrap { display:flex; flex-direction:column; gap:10px; margin-bottom:20px; }
 
-.rd-row {
-    display:flex; align-items:center;
+/* Grid of 2 cards */
+.rd-grid {
+    display:grid; grid-template-columns:1fr 1fr; gap:12px;
+}
+
+.rd-card {
+    border-radius:18px;
+    padding:20px 16px 16px;
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+    position:relative; overflow:hidden;
+    animation:rd-in .5s cubic-bezier(.34,1.2,.64,1) both;
+}
+.rd-card::before {
+    content:'';
+    position:absolute; top:-28px; right:-18px;
+    width:90px; height:90px;
+    border-radius:50%;
+    background:rgba(255,255,255,.1);
+    pointer-events:none;
+}
+.rd-card::after {
+    content:'';
+    position:absolute; bottom:-20px; left:-14px;
+    width:70px; height:70px;
+    border-radius:50%;
+    background:rgba(255,255,255,.06);
+    pointer-events:none;
+}
+.rd-card-record {
+    background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);
+    box-shadow:0 4px 18px rgba(245,158,11,.35);
+}
+.rd-card-today {
+    background:linear-gradient(135deg,#3b82f6 0%,#1d4ed8 100%);
+    box-shadow:0 4px 18px rgba(59,130,246,.3);
+    animation-delay:.1s;
+}
+
+.rd-card-label {
+    font-size:10px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.9px; color:rgba(255,255,255,.75);
+    margin-bottom:2px; line-height:1;
+}
+.rd-card-date {
+    font-size:11px; font-weight:600;
+    color:rgba(255,255,255,.55);
+    margin-bottom:10px;
+}
+.rd-card-num {
+    font-size:52px; font-weight:900; line-height:1;
+    letter-spacing:-2px; color:#fff;
+    font-variant-numeric:tabular-nums;
+}
+.rd-card-unit {
+    font-size:10px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.6px; color:rgba(255,255,255,.55);
+    margin-top:5px; margin-bottom:12px;
+}
+.rd-card-formula {
+    width:100%;
+    font-size:10px; color:rgba(255,255,255,.6);
+    font-variant-numeric:tabular-nums; line-height:1.7;
+    border-top:1px solid rgba(255,255,255,.15);
+    padding-top:9px;
+}
+.rd-card-formula strong { color:rgba(255,255,255,.9); font-weight:700; }
+
+/* Bottom strip: phrase + progress */
+.rd-bottom {
     background:#fff; border-radius:14px;
     border:1px solid rgba(0,0,0,.06);
-    box-shadow:0 1px 3px rgba(0,0,0,.05);
-    padding:12px 16px; gap:12px;
-    animation:rd-in .45s cubic-bezier(.34,1.3,.64,1) both;
+    box-shadow:0 1px 4px rgba(0,0,0,.05);
+    padding:10px 14px;
+    display:flex; flex-direction:column; gap:6px;
 }
-.rd-row:nth-child(2) { animation-delay:.08s; }
-.rd-record { border-left:3px solid #f59e0b; }
-.rd-today  { border-left:3px solid #3b82f6; }
-
-/* Left: icon + title + date */
-.rd-left { display:flex; align-items:center; gap:8px; flex-shrink:0; }
-.rd-trophy-icon {
-    font-size:20px; display:inline-block;
-    animation:rd-trophy 2.5s ease-in-out 1.2s infinite;
-}
-.rd-today-icon { font-size:18px; }
-.rd-left-text {}
-.rd-left-label {
-    font-size:10px; font-weight:700; text-transform:uppercase;
-    letter-spacing:.8px; color:#94a3b8; line-height:1;
-}
-.rd-record .rd-left-label { color:#b45309; }
-.rd-today  .rd-left-label { color:#1d4ed8; }
-.rd-left-date { font-size:11px; font-weight:600; color:#64748b; margin-top:2px; }
-
-/* Net block — after icon, before formula */
-.rd-net-block { flex-shrink:0; text-align:center; padding:0 14px; }
-.rd-net-val {
-    font-size:28px; font-weight:900; line-height:1;
-    font-variant-numeric:tabular-nums; letter-spacing:-1px;
-}
-.rd-record .rd-net-val { color:#16a34a; }
-.rd-today  .rd-net-val { color:#16a34a; }
-.rd-net-lbl { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:#94a3b8; }
-
-/* Formula — right side, breakdown */
-.rd-formula {
-    flex:1; min-width:0;
-    display:flex; align-items:center; flex-wrap:wrap;
-    gap:3px 5px; font-size:11px;
-    font-variant-numeric:tabular-nums;
-    justify-content:flex-end;
-}
-.rd-f-total { font-weight:600; color:#64748b; }
-.rd-f-sep   { color:#cbd5e1; }
-.rd-f-red   { font-weight:700; color:#dc2626; }
-.rd-f-amber { font-weight:700; color:#ea580c; }
-.rd-f-gray  { font-weight:600; color:#94a3b8; }
-.rd-f-blue  { font-weight:700; color:#2563eb; }
-
-/* Progress strip between rows */
-.rd-middle { display:flex; flex-direction:column; gap:5px; padding:2px 4px; }
 .rd-phrase {
     font-size:11px; font-weight:600;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
@@ -605,19 +625,18 @@
 }
 .rd-prog-edge.end { color:#d97706; }
 .rd-prog-bar {
-    flex:1; height:6px; background:#f1f5f9;
+    flex:1; height:7px; background:#f1f5f9;
     border-radius:99px; overflow:hidden;
-    position:relative;
 }
 .rd-prog-fill {
     height:100%; border-radius:99px;
-    background:linear-gradient(90deg,#3b82f6,#16a34a);
-    transition:width 1.2s cubic-bezier(.4,0,.2,1);
+    background:linear-gradient(90deg,#3b82f6,#f59e0b);
+    transition:width 1.3s cubic-bezier(.4,0,.2,1);
     width:0;
 }
 .rd-prog-pct {
     font-size:10px; font-weight:700; color:#94a3b8;
-    flex-shrink:0; min-width:26px; text-align:right;
+    flex-shrink:0; min-width:28px; text-align:right;
 }
 </style>
 @endsection
@@ -636,82 +655,51 @@
     @php extract($bestDay); @endphp
     <div class="rd-wrap" id="rd-card">
 
-        {{-- რეკორდი --}}
-        <div class="rd-row rd-record">
-            <div class="rd-left">
-                <span class="rd-trophy-icon">🏆</span>
-                <div class="rd-left-text">
-                    <div class="rd-left-label">რეკორდი</div>
-                    <div class="rd-left-date">{{ $bdLabel }}</div>
+        {{-- ── ორი ქარდი გვერდიგვერდ ── --}}
+        <div class="rd-grid">
+
+            {{-- რეკორდი --}}
+            <div class="rd-card rd-card-record">
+                <div class="rd-card-label">🏆 რეკორდი</div>
+                <div class="rd-card-date">{{ $bdLabel }}</div>
+                <div class="rd-card-num rd-count" data-target="{{ $bdNet }}">0</div>
+                <div class="rd-card-unit">ორდერი</div>
+                <div class="rd-card-formula">
+                    <strong>სულ {{ $bdTotal }}</strong>
+                    @if($bdReturned > 0) &nbsp;· −{{ $bdReturned }} დაბრ.@endif
+                    @if($bdExchanged > 0) &nbsp;· −{{ $bdExchanged }} გაცვლ.@endif
+                    @if($bdDeleted > 0) &nbsp;· −{{ $bdDeleted }} წაშლ.@endif
+                    @if($bdChanges > 0) &nbsp;· +{{ $bdChanges }}ch@endif
                 </div>
             </div>
 
-            <div class="rd-net-block">
-                <div class="rd-net-val rd-count" data-target="{{ $bdNet }}">0</div>
-                <div class="rd-net-lbl">ორდერი</div>
+            {{-- დღეს --}}
+            <div class="rd-card rd-card-today">
+                <div class="rd-card-label">📅 დღეს</div>
+                <div class="rd-card-date">{{ now()->day . ' ' . $geoMonthsShort[now()->month-1] }}</div>
+                <div class="rd-card-num rd-count" data-target="{{ $tdNet }}">0</div>
+                <div class="rd-card-unit">ორდერი</div>
+                <div class="rd-card-formula">
+                    <strong>სულ {{ $tdTotal }}</strong>
+                    @if($tdReturned > 0) &nbsp;· −{{ $tdReturned }} დაბრ.@endif
+                    @if($tdExchanged > 0) &nbsp;· −{{ $tdExchanged }} გაცვლ.@endif
+                    @if($tdDeleted > 0) &nbsp;· −{{ $tdDeleted }} წაშლ.@endif
+                    @if($tdChanges > 0) &nbsp;· +{{ $tdChanges }}ch@endif
+                </div>
             </div>
 
-            <div class="rd-formula">
-                <span class="rd-f-total">სულ {{ $bdTotal }}</span>
-                @if($bdChanges > 0)
-                    <span class="rd-f-sep">·</span><span class="rd-f-blue">+{{ $bdChanges }}ch</span>
-                @endif
-                @if($bdReturned > 0)
-                    <span class="rd-f-sep">·</span><span class="rd-f-red">−{{ $bdReturned }} დაბრ.</span>
-                @endif
-                @if($bdExchanged > 0)
-                    <span class="rd-f-sep">·</span><span class="rd-f-amber">−{{ $bdExchanged }} გაცვლ.</span>
-                @endif
-                @if($bdDeleted > 0)
-                    <span class="rd-f-sep">·</span><span class="rd-f-gray">−{{ $bdDeleted }} წაშლ.</span>
-                @endif
-            </div>
         </div>
 
-
-
         {{-- Progress + ფრაზა --}}
-        <div class="rd-middle">
+        <div class="rd-bottom">
             <span class="rd-phrase" style="color:{{ $rdPhraseColor }}">{{ $rdPhrase }}</span>
             <div class="rd-prog-row">
                 <span class="rd-prog-edge">0</span>
                 <div class="rd-prog-bar">
                     <div class="rd-prog-fill" id="rd-prog-fill" data-pct="{{ $rdProgress }}"></div>
                 </div>
-                <span class="rd-prog-edge end">{{ $bestDay['bdNet'] }} 🏆</span>
+                <span class="rd-prog-edge end">{{ $bdNet }} 🏆</span>
                 <span class="rd-prog-pct">{{ $rdProgress }}%</span>
-            </div>
-        </div>
-
-        {{-- დღეს --}}
-        <div class="rd-row rd-today">
-            <div class="rd-left">
-                <span class="rd-today-icon">📅</span>
-                <div class="rd-left-text">
-                    <div class="rd-left-label">დღეს</div>
-                    <div class="rd-left-date">{{ now()->day . ' ' . $geoMonthsShort[now()->month-1] }}</div>
-                </div>
-            </div>
-
-            <div class="rd-net-block">
-                <div class="rd-net-val rd-count" data-target="{{ $tdNet }}">0</div>
-                <div class="rd-net-lbl">ორედერი</div>
-            </div>
-
-            <div class="rd-formula">
-                <span class="rd-f-total">სულ {{ $tdTotal }}</span>
-                @if($tdChanges > 0)
-                    <span class="rd-f-sep">·</span><span class="rd-f-blue">+{{ $tdChanges }}ch</span>
-                @endif
-                @if($tdReturned > 0)
-                    <span class="rd-f-sep">·</span><span class="rd-f-red">−{{ $tdReturned }} დაბრ.</span>
-                @endif
-                @if($tdExchanged > 0)
-                    <span class="rd-f-sep">·</span><span class="rd-f-amber">−{{ $tdExchanged }} გაცვლ.</span>
-                @endif
-                @if($tdDeleted > 0)
-                    <span class="rd-f-sep">·</span><span class="rd-f-gray">−{{ $tdDeleted }} წაშლ.</span>
-                @endif
             </div>
         </div>
 
