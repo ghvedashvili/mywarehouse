@@ -449,6 +449,8 @@ class ProductOrderController extends Controller
                 $oldSize      = $order->product_size;
                 $data         = $request->all();
                 unset($data['order_type']); // order_type შექმნის შემდეგ არ იცვლება
+                // price_usa FIFO-ს მართავს — form input-ი იგნორირდება
+                unset($data['price_usa']);
 
                 // ─── order_address / order_alt_tel / order_city_id ───
                 if ($request->filled('order_address')) {
