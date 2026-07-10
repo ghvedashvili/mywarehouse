@@ -253,6 +253,351 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   font-size: 11.5px; font-weight: 700;
   white-space: nowrap;
 }
+
+/* Mobile composite cell: hidden on desktop */
+.pu-cell-mobile { display: none; }
+/* Group-view mobile extras: hidden on desktop */
+.gv-mob-extras  { display: none; }
+.gv-mob-thumb   { display: none; }
+.gv-name-hdr    { display: none; }
+
+/* ═══════════════ MOBILE CARD VIEW ≤767px ═══════════════ */
+@media (max-width: 767px) {
+
+  .pu-page { padding: 6px 12px 80px !important; }
+  .pu-page .mod-header { padding: 0 0 10px !important; }
+  .pu-page .mod-header > div:first-child { display: none !important; }
+  .pu-page .mod-header .mod-actions { width: 100%; display: flex; gap: 8px; }
+  .pu-page .mod-header .mod-actions .btn { flex: 1; justify-content: center; }
+
+  .pu-stats { grid-template-columns: repeat(2,1fr); gap: 8px; margin-bottom: 10px; }
+  .pu-stat { padding: 10px 12px; }
+  .pu-stat-value { font-size: 17px; }
+
+  /* Tab panel stripped */
+  .pu-tab-panel {
+    background: transparent !important;
+    border: none !important; box-shadow: none !important; padding: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  /* Filter bar stacked */
+  .pu-filter-bar { flex-direction: column !important; gap: 8px !important; }
+  .pu-filter-bar .ms-auto { width: 100% !important; }
+  .pu-filter-bar .pu-dt-search { flex: 1; min-width: 0; }
+  .pu-filter-bar .pu-dt-length { width: 100%; }
+  .pu-filter-sep { display: none !important; }
+
+  /* Tables → card blocks */
+  #purchases-table, #returns-table {
+    display: block !important; width: 100% !important;
+  }
+  #purchases-table thead, #returns-table thead { display: none !important; }
+  #purchases-table tbody, #returns-table tbody { display: block !important; }
+  #purchases-table tfoot, #returns-table tfoot { display: none !important; }
+
+  /* Row = card (CSS grid) */
+  #purchases-table tbody tr,
+  #returns-table tbody tr {
+    display: grid !important;
+    grid-template-columns: 1fr auto;
+    background: var(--c-surface);
+    border-radius: var(--r-md) !important;
+    margin: 0 0 10px !important;
+    box-shadow: var(--sh-sm) !important;
+    border: 1px solid var(--c-border-md) !important;
+    overflow: hidden;
+  }
+  #returns-table tbody tr { border-left: 3px solid var(--c-teal) !important; }
+
+  /* All cells default */
+  #purchases-table tbody td,
+  #returns-table tbody td {
+    display: block !important;
+    grid-column: 1 / -1;
+    padding: 8px 12px !important;
+    border: none !important;
+    font-size: 13px;
+  }
+
+  /* Hidden cells */
+  #purchases-table tbody td.pu-td-hide,
+  #returns-table tbody td.pu-td-hide { display: none !important; }
+
+  /* Product cell: desktop version hidden, mobile version shown */
+  .pu-cell-desktop { display: none !important; }
+  .pu-cell-mobile  { display: block; }
+
+  /* ── Row 1: ORDER NUMBER (left) ── */
+  #purchases-table tbody td.pu-td-num,
+  #returns-table tbody td.pu-td-num {
+    display: flex !important;
+    grid-column: 1; grid-row: 1;
+    align-items: center; gap: 6px;
+    background: var(--c-surface2) !important;
+    border-bottom: 1px solid var(--c-border) !important;
+    padding: 8px 12px !important;
+    font-weight: 700; font-size: 12.5px;
+  }
+
+  /* ── Row 1: STATUS (right) ── */
+  #purchases-table tbody td.pu-td-status,
+  #returns-table tbody td.pu-td-status {
+    display: flex !important;
+    grid-column: 2; grid-row: 1;
+    align-items: center; justify-content: flex-end;
+    background: var(--c-surface2) !important;
+    border-bottom: 1px solid var(--c-border) !important;
+    padding: 6px 10px !important;
+    white-space: nowrap;
+  }
+
+  /* ── Row 2 (returns only): CUSTOMER ── */
+  #returns-table tbody td.pu-td-customer {
+    display: flex !important;
+    grid-column: 1 / -1; grid-row: 2;
+    align-items: center; gap: 6px;
+    padding: 6px 12px !important;
+    font-size: 11.5px; color: var(--c-text-2);
+    border-bottom: 1px solid var(--c-border) !important;
+  }
+
+  /* ── Row 2 / Row 3: PRODUCT composite ── */
+  #purchases-table tbody td.pu-td-product {
+    display: block !important;
+    grid-column: 1 / -1; grid-row: 2;
+    padding: 10px 12px !important;
+    border-bottom: 1px solid var(--c-border) !important;
+  }
+  #returns-table tbody td.pu-td-product {
+    display: block !important;
+    grid-column: 1 / -1; grid-row: 3;
+    padding: 10px 12px !important;
+    border-bottom: 1px solid var(--c-border) !important;
+  }
+
+  /* ── Footer: DATE ── */
+  #purchases-table tbody td.pu-td-date {
+    display: flex !important; grid-column: 1; grid-row: 3;
+    align-items: center; font-size: 11px; color: var(--c-text-3);
+    background: var(--c-surface2) !important;
+    border-top: 1px solid var(--c-border) !important; padding: 7px 12px !important;
+  }
+  #returns-table tbody td.pu-td-date {
+    display: flex !important; grid-column: 1; grid-row: 4;
+    align-items: center; font-size: 11px; color: var(--c-text-3);
+    background: var(--c-surface2) !important;
+    border-top: 1px solid var(--c-border) !important; padding: 7px 12px !important;
+  }
+
+  /* ── Footer: ACTION ── */
+  #purchases-table tbody td.pu-td-action {
+    display: flex !important; grid-column: 2; grid-row: 3;
+    align-items: center; justify-content: flex-end;
+    gap: 5px; flex-wrap: wrap;
+    background: var(--c-surface2) !important;
+    border-top: 1px solid var(--c-border) !important; padding: 5px 10px !important;
+  }
+  #returns-table tbody td.pu-td-action {
+    display: flex !important; grid-column: 2; grid-row: 4;
+    align-items: center; justify-content: flex-end;
+    gap: 5px; flex-wrap: wrap;
+    background: var(--c-surface2) !important;
+    border-top: 1px solid var(--c-border) !important; padding: 5px 10px !important;
+  }
+
+  /* ── Product cell inner ── */
+  .pu-product-cell { display: flex; align-items: flex-start; gap: 10px; }
+  .pu-prod-thumb { flex-shrink: 0; }
+  .pu-prod-thumb img {
+    width: 58px !important; height: 58px !important;
+    object-fit: cover !important; border-radius: 8px !important;
+    border: 1px solid var(--c-border-md); display: block !important;
+  }
+  .pu-group-badge {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    width: 58px; height: 58px; flex-shrink: 0;
+    background: var(--c-blue-dim);
+    border: 1px solid rgba(37,99,235,.25); border-radius: 8px;
+    color: var(--c-blue); gap: 2px; text-align: center;
+  }
+  .pu-group-badge i { font-size: 15px; }
+  .pu-group-badge span { font-size: 10px; font-weight: 700; }
+  .pu-prod-info { flex: 1; min-width: 0; }
+  .pu-prod-name {
+    font-weight: 600; font-size: 13px; line-height: 1.35;
+    overflow: hidden; display: -webkit-box;
+    -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .pu-prod-meta { font-size: 11px; color: var(--c-text-3); margin-top: 3px; }
+  .pu-prod-price {
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap; margin-top: 5px; font-size: 11.5px;
+  }
+
+  /* ── Modal tables → card style (group-view, group-receive, in-transit) ── */
+  .modal-card-table .table-responsive { overflow: visible !important; }
+  .modal-card-table table { min-width: 0 !important; }
+  .modal-card-table thead { display: none !important; }
+  .modal-card-table table,
+  .modal-card-table tbody { display: block !important; width: 100% !important; }
+  .modal-card-table tbody tr {
+    display: block !important;
+    background: #fff;
+    border-radius: 10px;
+    margin: 0 0 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.07);
+    border: 1px solid #e5e7eb !important;
+    overflow: hidden;
+  }
+  .modal-card-table .mc-td-img { display: none !important; }
+  .modal-card-table .mc-td-name {
+    display: block !important;
+    background: #f8fafc;
+    padding: 10px 13px !important;
+    border-bottom: 1px solid #eff3f8 !important;
+    font-size: 14px; font-weight: 600; color: #1e293b;
+  }
+  .modal-card-table td[data-label] {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 13px !important;
+    border-bottom: 1px solid #f8fafc !important;
+    border-top: none !important;
+    font-size: 13px;
+    min-height: 38px;
+  }
+  .modal-card-table td[data-label]::before {
+    content: attr(data-label);
+    font-size: 10px; font-weight: 700;
+    color: #94a3b8; text-transform: uppercase;
+    letter-spacing: .4px; flex-shrink: 0; margin-right: 10px;
+  }
+  .modal-card-table .gr-received,
+  .modal-card-table .gr-lost,
+  .modal-card-table .transit-ml-input {
+    width: 80px !important; font-size: 16px !important;
+    text-align: center; padding: 6px !important;
+  }
+  /* already-received rows in group-receive */
+  #gr-lines-body tr.table-success { border-left: 3px solid #16a34a !important; }
+
+  /* ── Group Receive — card layout ── */
+  #gr-lines-body .gv-mob-extras { display: block !important; }
+  #gr-lines-body td.mc-td-img { display: none !important; }
+  #gr-lines-body td.mc-td-sz  { display: none !important; }
+
+  /* tr → flex wrap: name fills first row, stat cells fill second row */
+  #gr-lines-body tr {
+    display: flex !important;
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+  #gr-lines-body td.mc-td-name {
+    flex: 0 0 100% !important;
+    display: block !important;
+  }
+
+  /* Already-received: hide desktop stat cells (status shown in name) */
+  #gr-lines-body tr.table-success td[data-label] { display: none !important; }
+
+  /* Pending: stat cells in one horizontal row */
+  #gr-lines-body td.gr-stat {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 4px !important;
+    border-right: 1px solid #e9edf4 !important;
+    border-top: 1px solid #eff3f8 !important;
+    border-bottom: none !important;
+    background: #f8fafc;
+    text-align: center;
+    min-height: 64px;
+  }
+  #gr-lines-body td.gr-stat:last-child { border-right: none !important; }
+  #gr-lines-body td.gr-stat[data-label]::before {
+    display: block !important;
+    margin-right: 0 !important;
+    margin-bottom: 6px;
+    font-size: 9px;
+  }
+  #gr-lines-body .gr-received,
+  #gr-lines-body .gr-lost {
+    width: 65px !important;
+    font-size: 16px !important;
+    text-align: center !important;
+    padding: 6px 4px !important;
+  }
+
+  /* ── Shared: photo + name header ── */
+  .gv-desktop-name { display: none !important; }
+
+  .gv-mob-extras .gv-name-hdr {
+    display: flex !important;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .gv-mob-thumb {
+    display: block !important;
+    width: 44px !important; height: 44px !important;
+    object-fit: cover;
+    border-radius: 7px;
+    flex-shrink: 0;
+    border: 1px solid rgba(0,0,0,.07);
+  }
+  .gv-mob-nophoto {
+    display: flex !important;
+    align-items: center; justify-content: center;
+    background: #f1f5f9; font-size: 18px;
+    border: 1px solid #e2e8f0;
+  }
+  .gv-name-text {
+    flex: 1; min-width: 0;
+    font-weight: 700; font-size: 13px; line-height: 1.35;
+  }
+
+  /* ── Group View — card layout ── */
+  #gv-body td.mc-td-code,
+  #gv-body td.mc-td-sz,
+  #gv-body td.mc-td-stat { display: none !important; }
+
+  #gv-body .gv-mob-extras { display: block !important; }
+
+  #gv-body .gv-meta {
+    display: flex; gap: 8px; align-items: center; margin-top: 4px; flex-wrap: wrap;
+  }
+  .gv-code { font-size: 11px; color: #64748b; font-weight: 400; }
+  .gv-sz {
+    font-size: 11px; background: #e2e8f0; border-radius: 4px;
+    padding: 1px 7px; color: #475569; font-weight: 700;
+  }
+
+  #gv-body .gv-stats-row {
+    display: flex !important;
+    margin: 8px -13px -11px;
+    background: #f8fafc;
+    border-top: 1px solid #eff3f8;
+    border-radius: 0 0 9px 9px;
+    overflow: hidden;
+  }
+  .gv-stat {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 9px 4px;
+    border-right: 1px solid #e9edf4;
+    text-align: center;
+  }
+  .gv-stat:last-child { border-right: none; }
+  .gv-sl {
+    font-size: 9px; font-weight: 700; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: .3px; margin-bottom: 4px;
+  }
+  .gv-sv { font-size: 13px; font-weight: 600; line-height: 1.2; }
+}
 </style>
 @endsection
 
@@ -464,14 +809,14 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 
 {{-- ══ Group View Modal ══ --}}
 <div class="modal fade" id="modal-group-view" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content">
             <div class="modal-header bg-light py-2">
                 <h5 class="modal-title fw-bold">📋 ჯგუფის შემადგენლობა</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-3">
-                <div class="table-responsive" id="gv-body"></div>
+                <div class="table-responsive modal-card-table" id="gv-body"></div>
             </div>
             <div class="modal-footer py-2">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">დახურვა</button>
@@ -490,7 +835,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
             </div>
             <div class="modal-body p-3">
                 <input type="hidden" id="gr-group-id">
-                <div class="table-responsive">
+                <div class="table-responsive modal-card-table">
                     <table class="table table-sm table-bordered align-middle mb-0">
                         <thead class="table-light">
                             <tr>
@@ -522,7 +867,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 
 {{-- ══ In-Transit Sales Modal ══ --}}
 <div class="modal fade" id="modal-in-transit" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content">
             <div class="modal-header py-2" style="background:#0ea5e9;color:#fff;">
                 <h5 class="modal-title fw-bold">
@@ -534,7 +879,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                 <div id="in-transit-loading" class="text-center py-4">
                     <div class="spinner-border text-info" role="status"></div>
                 </div>
-                <div class="table-responsive" id="in-transit-body" style="display:none;">
+                <div class="table-responsive modal-card-table" id="in-transit-body" style="display:none;">
                     <table class="table table-sm table-bordered align-middle mb-0">
                         <thead class="table-light">
                             <tr>
@@ -583,6 +928,28 @@ $(function() {
     var isWarehouseOperator = {{ auth()->user()->role === 'warehouse_operator' ? 'true' : 'false' }};
     var isAdmin             = {{ auth()->user()->role === 'admin' ? 'true' : 'false' }};
 
+    function puProductCellRender(data, type, row) {
+        if (type !== 'display') return data || '';
+        // Desktop: original photo only
+        var desktopHtml = '<div class="pu-cell-desktop">' + (data || '') + '</div>';
+        // Mobile: composite card cell
+        var groupItems = [];
+        try { if (row.group_items_json) groupItems = JSON.parse(row.group_items_json); } catch(e) {}
+        var isGroup = groupItems.length > 1;
+        var leftHtml = isGroup
+            ? '<div class="pu-group-badge"><i class="fa fa-layer-group"></i><span>' + groupItems.length + ' პ-ტი</span></div>'
+            : (data ? '<div class="pu-prod-thumb">' + data + '</div>' : '');
+        var name = row.product_name || '';
+        var meta = [row.product_code, row.product_size, row.quantity ? ('×' + row.quantity) : ''].filter(Boolean).join(' · ');
+        var price = (isAdmin && (row.payment || row.price_paid))
+            ? '<div class="pu-prod-price">' + (row.payment || '') + (row.price_paid ? ' &nbsp; ' + row.price_paid : '') + '</div>'
+            : '';
+        var mobileHtml = '<div class="pu-cell-mobile"><div class="pu-product-cell">' + leftHtml +
+            '<div class="pu-prod-info"><div class="pu-prod-name">' + name + '</div>' +
+            (meta ? '<div class="pu-prod-meta">' + meta + '</div>' : '') + price + '</div></div></div>';
+        return desktopHtml + mobileHtml;
+    }
+
     // ══ TAB SWITCHING ══
     var currentTab = isWarehouseOperator ? 'returns' : 'regular';
 
@@ -609,7 +976,7 @@ $(function() {
 
     var purchasesTable = $('#purchases-table').DataTable({
         processing: true, serverSide: true,
-        responsive: true,
+        responsive: false,
         dom: 'rtip',
         ajax: {
             url: "{{ route('purchases.api') }}",
@@ -619,17 +986,17 @@ $(function() {
             }
         },
         columns: [
-            { data: 'order_number',    name: 'order_number',    responsivePriority: 2 },
-            { data: 'show_photo',      name: 'show_photo',      orderable: false, responsivePriority: 3 },
-            { data: 'product_name',    name: 'product_name',    responsivePriority: 1, orderable: false },
-            { data: 'product_code',    name: 'product_code',    responsivePriority: 9 },
-            { data: 'product_size',    name: 'product_size',    responsivePriority: 4 },
-            { data: 'quantity',        name: 'quantity',        responsivePriority: 5 },
-            { data: 'payment',         name: 'payment',         orderable: false, responsivePriority: 7, visible: isAdmin },
-            { data: 'price_paid',      name: 'price_paid',      orderable: false, responsivePriority: 8, visible: isAdmin },
-            { data: 'status_name',     name: 'status_name',     orderable: false, responsivePriority: 6 },
-            { data: 'created_at',      name: 'created_at',      responsivePriority: 9 },
-            { data: 'action',          name: 'action',          orderable: false, responsivePriority: 2 },
+            { data: 'order_number',    name: 'order_number',    responsivePriority: 2, className: 'pu-td-num' },
+            { data: 'show_photo',      name: 'show_photo',      orderable: false, responsivePriority: 3, className: 'pu-td-product', render: puProductCellRender },
+            { data: 'product_name',    name: 'product_name',    responsivePriority: 1, orderable: false, className: 'pu-td-hide' },
+            { data: 'product_code',    name: 'product_code',    responsivePriority: 9, className: 'pu-td-hide' },
+            { data: 'product_size',    name: 'product_size',    responsivePriority: 4, className: 'pu-td-hide' },
+            { data: 'quantity',        name: 'quantity',        responsivePriority: 5, className: 'pu-td-hide' },
+            { data: 'payment',         name: 'payment',         orderable: false, responsivePriority: 7, visible: isAdmin, className: 'pu-td-hide' },
+            { data: 'price_paid',      name: 'price_paid',      orderable: false, responsivePriority: 8, visible: isAdmin, className: 'pu-td-hide' },
+            { data: 'status_name',     name: 'status_name',     orderable: false, responsivePriority: 6, className: 'pu-td-status' },
+            { data: 'created_at',      name: 'created_at',      responsivePriority: 9, className: 'pu-td-date' },
+            { data: 'action',          name: 'action',          orderable: false, responsivePriority: 2, className: 'pu-td-action' },
             { data: 'is_return_purchase', visible: false },
             { data: 'group_items_json',   visible: false },
         ]
@@ -694,15 +1061,41 @@ $(function() {
                     ? '<img src="' + it.product_image + '" style="width:44px;height:44px;object-fit:cover;border-radius:4px;">'
                     : '<span class="text-muted" style="font-size:18px;">📦</span>';
 
+                var gvStatsRow = '<div class="gv-stats-row">'
+                    + '<div class="gv-stat"><div class="gv-sl">შეკვ.</div><div class="gv-sv">' + orig + '</div></div>'
+                    + '<div class="gv-stat"><div class="gv-sl">გზაში</div><div class="gv-sv">' + remainCell + '</div></div>'
+                    + '<div class="gv-stat"><div class="gv-sl">დაკარგ.</div><div class="gv-sv">' + lostCell + '</div></div>'
+                    + (isAdmin ? '<div class="gv-stat"><div class="gv-sl">ღირ.</div><div class="gv-sv">' + costCell + '</div></div>' : '')
+                    + '</div>';
+
+                var imgThumb = it.product_image
+                    ? '<img class="gv-mob-thumb" src="' + it.product_image + '">'
+                    : '<span class="gv-mob-thumb gv-mob-nophoto">📦</span>';
+
                 html += '<tr>'
-                     +  '<td class="text-center align-middle">' + imgCell + '</td>'
-                     +  '<td class="fw-semibold align-middle">' + (it.product_name||'N/A') + '</td>'
-                     +  '<td class="text-muted align-middle" style="font-size:12px;">' + (it.product_code||'—') + '</td>'
-                     +  '<td class="align-middle">' + (it.product_size||'—') + '</td>'
-                     +  '<td class="text-center fw-bold align-middle">' + orig + '</td>'
-                     +  '<td class="text-center align-middle">' + remainCell + '</td>'
-                     +  '<td class="text-center align-middle">' + lostCell + '</td>'
-                     +  (isAdmin ? '<td class="text-end align-middle">' + costCell + '</td>' : '')
+                     +  '<td class="mc-td-img text-center align-middle">' + imgCell + '</td>'
+                     +  '<td class="mc-td-name fw-semibold align-middle">'
+                     +      '<span class="gv-desktop-name">' + (it.product_name||'N/A') + '</span>'
+                     +      '<div class="gv-mob-extras">'
+                     +          '<div class="gv-name-hdr">'
+                     +              imgThumb
+                     +              '<div class="gv-name-text">'
+                     +                  (it.product_name||'N/A')
+                     +                  '<div class="gv-meta">'
+                     +                      (it.product_code ? '<span class="gv-code">' + it.product_code + '</span>' : '')
+                     +                      (it.product_size ? '<span class="gv-sz">' + it.product_size + '</span>' : '')
+                     +                  '</div>'
+                     +              '</div>'
+                     +          '</div>'
+                     +          gvStatsRow
+                     +      '</div>'
+                     +  '</td>'
+                     +  '<td class="mc-td-code text-muted align-middle" style="font-size:12px;">' + (it.product_code||'—') + '</td>'
+                     +  '<td class="mc-td-sz align-middle">' + (it.product_size||'—') + '</td>'
+                     +  '<td class="mc-td-stat text-center fw-bold align-middle">' + orig + '</td>'
+                     +  '<td class="mc-td-stat text-center align-middle">' + remainCell + '</td>'
+                     +  '<td class="mc-td-stat text-center align-middle">' + lostCell + '</td>'
+                     +  (isAdmin ? '<td class="mc-td-stat text-end align-middle">' + costCell + '</td>' : '')
                      +  '</tr>';
             });
 
@@ -715,32 +1108,29 @@ $(function() {
     // ══ RETURNS TABLE ══
     var returnsTable = $('#returns-table').DataTable({
         processing: true, serverSide: true,
-        responsive: true,
+        responsive: false,
         dom: 'rtip',
         ajax: {
             url: "{{ route('purchases.api') }}",
             data: { type: 'returns' }
         },
-        order: [[9, 'desc']],
+        order: [[10, 'desc']],
         columns: [
-            { data: 'order_number',    name: 'order_number',    responsivePriority: 2 },
-            { data: 'customer_info',   name: 'customer_info',   orderable: false, responsivePriority: 1 },
-            { data: 'show_photo',      name: 'show_photo',      orderable: false, responsivePriority: 5 },
-            { data: 'product_name',    name: 'product_name',    responsivePriority: 3, orderable: false },
-            { data: 'product_code',    name: 'product_code',    responsivePriority: 9 },
-            { data: 'product_size',    name: 'product_size',    responsivePriority: 4 },
-            { data: 'quantity',        name: 'quantity',        responsivePriority: 5 },
-            { data: 'payment',         name: 'payment',         orderable: false, responsivePriority: 7, visible: isAdmin },
-            { data: 'price_paid',      name: 'price_paid',      orderable: false, responsivePriority: 8, visible: isAdmin },
-            { data: 'status_name',     name: 'status_name',     orderable: false, responsivePriority: 6 },
-            { data: 'created_at',      name: 'created_at',      responsivePriority: 9 },
-            { data: 'action',          name: 'action',          orderable: false, responsivePriority: 2 },
+            { data: 'order_number',    name: 'order_number',    responsivePriority: 2, className: 'pu-td-num' },
+            { data: 'customer_info',   name: 'customer_info',   orderable: false, responsivePriority: 1, className: 'pu-td-customer' },
+            { data: 'show_photo',      name: 'show_photo',      orderable: false, responsivePriority: 5, className: 'pu-td-product', render: puProductCellRender },
+            { data: 'product_name',    name: 'product_name',    responsivePriority: 3, orderable: false, className: 'pu-td-hide' },
+            { data: 'product_code',    name: 'product_code',    responsivePriority: 9, className: 'pu-td-hide' },
+            { data: 'product_size',    name: 'product_size',    responsivePriority: 4, className: 'pu-td-hide' },
+            { data: 'quantity',        name: 'quantity',        responsivePriority: 5, className: 'pu-td-hide' },
+            { data: 'payment',         name: 'payment',         orderable: false, responsivePriority: 7, visible: isAdmin, className: 'pu-td-hide' },
+            { data: 'price_paid',      name: 'price_paid',      orderable: false, responsivePriority: 8, visible: isAdmin, className: 'pu-td-hide' },
+            { data: 'status_name',     name: 'status_name',     orderable: false, responsivePriority: 6, className: 'pu-td-status' },
+            { data: 'created_at',      name: 'created_at',      responsivePriority: 9, className: 'pu-td-date' },
+            { data: 'action',          name: 'action',          orderable: false, responsivePriority: 2, className: 'pu-td-action' },
             { data: 'is_return_purchase', visible: false },
             { data: 'group_items_json',   visible: false },
-        ],
-        createdRow: function(row) {
-            $(row).css('background-color', '#d9edf7');
-        }
+        ]
     });
 
     // გაყიდვებიდან ?tab=returns&search= პარამეტრი
@@ -1239,36 +1629,68 @@ $(function() {
                 return;
             }
             (allItems || []).forEach(function(it) {
-                var $imgCell = $('<td class="text-center align-middle" style="width:52px;">');
+                var $imgCell = $('<td class="mc-td-img text-center align-middle" style="width:52px;">');
                 if (it.product_image) {
                     $imgCell.append($('<img>').attr('src', it.product_image)
                         .css({ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '4px' }));
                 } else {
                     $imgCell.text('📦');
                 }
+
                 if (it.status_id === 3) {
-                    // Already fully received — show informational row only
+                    // Already received — image + code + size + badge in name cell for mobile
+                    var $mobMeta3 = $('<div class="gv-meta">');
+                    if (it.product_code) $mobMeta3.append($('<span class="gv-code">').text(it.product_code));
+                    if (it.product_size) $mobMeta3.append($('<span class="gv-sz">').text(it.product_size));
+                    $mobMeta3.append($('<span class="badge bg-success ms-1" style="font-size:11px;font-weight:600;">').text('✅ მიღებულია'));
+                    var $thumb3 = it.product_image
+                        ? $('<img class="gv-mob-thumb">').attr('src', it.product_image)
+                        : $('<span class="gv-mob-thumb gv-mob-nophoto">').text('📦');
+                    var $nameHdr3 = $('<div class="gv-name-hdr">').append(
+                        $thumb3,
+                        $('<div class="gv-name-text">').append(document.createTextNode(it.product_name)).append($mobMeta3)
+                    );
+                    var $nameCell3 = $('<td class="mc-td-name fw-semibold align-middle text-muted">')
+                        .append($('<span class="gv-desktop-name">').text(it.product_name))
+                        .append($('<div class="gv-mob-extras">').append($nameHdr3));
+
                     var $tr = $('<tr class="table-success opacity-75">').append(
                         $imgCell,
-                        $('<td class="fw-semibold align-middle text-muted">').text(it.product_name),
-                        $('<td class="align-middle text-muted">').text(it.product_size || '—'),
-                        $('<td class="text-center text-muted gr-ordered">').text(it.quantity),
-                        $('<td colspan="2" class="text-center">').html(
+                        $nameCell3,
+                        $('<td class="mc-td-sz align-middle text-muted">').attr('data-label', 'ზომა').text(it.product_size || '—'),
+                        $('<td class="text-center text-muted gr-ordered">').attr('data-label', 'შეკვ.').text(it.quantity),
+                        $('<td colspan="2" class="text-center">').attr('data-label', 'სტ.').html(
                             '<span class="badge bg-success" style="font-size:12px;">✅ მიღებულია</span>'
                         )
                     );
                     $('#gr-lines-body').append($tr);
+
                 } else {
+                    // Pending — image + code + size in name header, stat cells in horizontal row
+                    var $mobMeta = $('<div class="gv-meta">');
+                    if (it.product_code) $mobMeta.append($('<span class="gv-code">').text(it.product_code));
+                    if (it.product_size) $mobMeta.append($('<span class="gv-sz">').text(it.product_size));
+                    var $thumb = it.product_image
+                        ? $('<img class="gv-mob-thumb">').attr('src', it.product_image)
+                        : $('<span class="gv-mob-thumb gv-mob-nophoto">').text('📦');
+                    var $nameHdr = $('<div class="gv-name-hdr">').append(
+                        $thumb,
+                        $('<div class="gv-name-text">').append(document.createTextNode(it.product_name)).append($mobMeta)
+                    );
+                    var $nameCell = $('<td class="mc-td-name fw-semibold align-middle">')
+                        .append($('<span class="gv-desktop-name">').text(it.product_name))
+                        .append($('<div class="gv-mob-extras">').append($nameHdr));
+
                     var $tr = $('<tr data-order-id="' + it.id + '">').append(
                         $imgCell,
-                        $('<td class="fw-semibold align-middle">').text(it.product_name),
-                        $('<td class="align-middle">').text(it.product_size || '—'),
-                        $('<td class="text-center fw-bold text-muted gr-ordered">').text(it.quantity),
-                        $('<td>').append(
+                        $nameCell,
+                        $('<td class="mc-td-sz align-middle">').attr('data-label', 'ზომა').text(it.product_size || '—'),
+                        $('<td class="text-center fw-bold text-muted gr-ordered gr-stat">').attr('data-label', 'შეკვ.').text(it.quantity),
+                        $('<td class="gr-stat">').attr('data-label', '✅ მიღ.').append(
                             $('<input type="number" class="form-control form-control-sm text-center gr-received">')
                                 .val(it.quantity).attr({ min: 0, max: it.quantity })
                         ),
-                        $('<td>').append(
+                        $('<td class="gr-stat">').attr('data-label', '❌ დაკარგ.').append(
                             $('<input type="number" class="form-control form-control-sm text-center gr-lost">')
                                 .val(0).attr({ min: 0, max: it.quantity })
                         )
@@ -1368,12 +1790,12 @@ $(function() {
                 }
                 $('#in-transit-rows').append(
                     '<tr>'
-                    + '<td class="text-center">' + img + '</td>'
-                    + '<td class="fw-semibold">' + $('<span>').text(it.product_name).html() + '</td>'
-                    + '<td class="text-muted">' + $('<span>').text(it.product_code).html() + '</td>'
-                    + '<td class="text-center">' + sizeCell + '</td>'
-                    + '<td class="text-center fw-bold">' + it.quantity + '</td>'
-                    + '<td class="text-end">' + price + '</td>'
+                    + '<td class="mc-td-img text-center">' + img + '</td>'
+                    + '<td class="mc-td-name fw-semibold">' + $('<span>').text(it.product_name).html() + '</td>'
+                    + '<td class="text-muted" data-label="კოდი">' + $('<span>').text(it.product_code).html() + '</td>'
+                    + '<td class="text-center" data-label="ზომა">' + sizeCell + '</td>'
+                    + '<td class="text-center fw-bold" data-label="რაოდ.">' + it.quantity + '</td>'
+                    + '<td class="text-end" data-label="ფასი">' + price + '</td>'
                     + '</tr>'
                 );
             });

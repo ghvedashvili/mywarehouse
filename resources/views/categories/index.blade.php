@@ -1,8 +1,26 @@
 @extends('layouts.master')
 @section('page_title')<i class="fa fa-tags me-2" style="color:#f39c12;"></i>კატეგორიები@endsection
 
+
 @section('top')
 <style>
+/* ── Design tokens ── */
+:root {
+    --cat-surface:    #ffffff;
+    --cat-surface2:   #f6f7fb;
+    --cat-border:     rgba(99,115,150,.20);
+    --cat-text-1:     #1a2235;
+    --cat-text-2:     #3d4a5c;
+    --cat-text-3:     #7a8a9e;
+    --cat-blue:       #2563eb;
+    --cat-r-md:       12px;
+    --cat-sh-sm:      0 2px 8px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.03);
+}
+
+/* ── Mobile search wrap: hidden on desktop ── */
+.cat-mob-search-wrap { display: none; }
+
+/* ── Toggle switch ── */
 .switch { position: relative; display: inline-block; width: 46px; height: 24px; margin: 0; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .switch-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; border-radius: 24px; transition: .3s; }
@@ -10,16 +28,187 @@
 .switch input:checked + .switch-slider { background-color: #e74c3c; }
 .switch input:checked + .switch-slider:before { transform: translateX(22px); }
 
-/* Categories table layout */
+/* ── Desktop table ── */
 #categories-table { table-layout: fixed; width: 100% !important; word-wrap: break-word; }
 #categories-table td { white-space: normal !important; word-break: break-word; vertical-align: middle; }
 #categories-table td:last-child { white-space: nowrap !important; }
 #categories-table .label { display: inline-block; margin-bottom: 2px; }
 .table-responsive { overflow-x: hidden; }
+
+/* Mobile action bar & sizes toggle: hidden on desktop */
+.cat-mob-action-bar { display: none; }
+.cat-sizes-toggle   { display: none; }
+
+/* ══════════════════════════════════════════════
+   MOBILE CARD VIEW  ≤767px
+══════════════════════════════════════════════ */
+@media (max-width: 767px) {
+
+    /* Hide desktop header + toolbar */
+    .mod-header  { display: none !important; }
+    .mod-toolbar { display: none !important; }
+
+    /* Page padding: leave room for bottom action bar */
+    .mod-wrap { padding: 8px 12px 70px !important; }
+
+    /* Strip card styling from mod-card */
+    .mod-card {
+        background: transparent !important;
+        border: none !important; box-shadow: none !important;
+        border-radius: 0 !important; padding: 0 !important;
+    }
+    .table-responsive { overflow: visible !important; }
+
+    /* ── Mobile action bar ── */
+    .cat-mob-action-bar {
+        display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;
+        padding: 0 0 10px; overflow-x: auto;
+        -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .cat-mob-action-bar::-webkit-scrollbar { display: none; }
+
+    /* ── Mobile search bar ── */
+    .cat-mob-search-wrap { display: block; margin-bottom: 10px; position: relative; }
+    .cat-mob-search {
+        display: flex; align-items: center; gap: 8px;
+        background: #fff; border: 1px solid var(--cat-border);
+        border-radius: 14px; padding: 10px 6px 10px 14px;
+        box-shadow: var(--cat-sh-sm);
+    }
+    .cat-mob-search > i { font-size: 13px; color: var(--cat-text-3); flex-shrink: 0; }
+    .cat-mob-search input {
+        flex: 1; min-width: 0; background: none; border: none; outline: none;
+        font-size: 14px; color: var(--cat-text-1); font-family: inherit;
+    }
+    .cat-mob-search input::placeholder { color: var(--cat-text-3); font-size: 13px; }
+    /* filter btn — no color change, only badge appears */
+    #cat-filter-btn.active, #cat-filter-btn.has-active { color: inherit !important; background: transparent !important; }
+    #cat-filter-btn.has-active .mob-ts-filter-badge { display: flex !important; }
+
+    /* ── Inline filter panel ── */
+    @keyframes catPanelIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+    .cat-filter-panel {
+        display: none; position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+        background: #fff; border: 1px solid var(--cat-border);
+        border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.12); z-index: 200;
+        overflow: hidden;
+    }
+    .cat-filter-panel.open { display: block; animation: catPanelIn .18s ease; }
+    .cat-filter-panel-body { display: flex; flex-direction: column; padding: 12px 16px 14px; gap: 10px; }
+    .cat-filter-panel .cat-fp-label { font-size: 11.5px; font-weight: 600; color: #64748b; margin-bottom: 3px; }
+    .cat-filter-panel select {
+        width: 100%; height: 40px; font-size: 13.5px;
+        border-radius: 10px; border: 1.5px solid #e2e8f0; padding: 0 10px;
+        background: #fff; color: #1e293b; font-family: inherit;
+    }
+    .cat-filter-panel .cat-fp-row {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 6px 0; border-top: 1px solid #f1f5f9; font-size: 13px; color: #475569; font-weight: 600;
+    }
+
+    .cat-mab-btn {
+        display: inline-flex; align-items: center; gap: 5px;
+        white-space: nowrap; cursor: pointer; font-family: inherit;
+        font-size: 12.5px; font-weight: 600; line-height: 1;
+        padding: 7px 13px; border-radius: 22px; border: 1.5px solid transparent;
+        touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+        transition: background .15s, transform .1s; flex-shrink: 0; text-decoration: none;
+    }
+    .cat-mab-btn:active { transform: scale(.93); }
+    .cat-mab-btn > i { font-size: 10px; }
+    .cat-mab-primary { background: var(--cat-blue); border-color: var(--cat-blue); color: #fff; box-shadow: 0 2px 10px rgba(37,99,235,.28); }
+    .cat-mab-ghost   { background: var(--cat-surface); border-color: var(--cat-border); color: var(--cat-text-2); }
+    .cat-mab-sep     { width: 1px; height: 20px; background: var(--cat-border); flex-shrink: 0; }
+
+    /* ── Table → block ── */
+    #categories-table       { display: block !important; width: 100% !important; }
+    #categories-table thead { display: none !important; }
+    #categories-table tbody { display: block !important; }
+    #categories-table tfoot { display: none !important; }
+
+    /* ── Row = card (2-column grid: content | action) ── */
+    #categories-table tbody tr {
+        display: grid !important;
+        grid-template-columns: 1fr auto;
+        background: var(--cat-surface) !important;
+        border-radius: var(--cat-r-md) !important;
+        margin: 0 0 10px !important;
+        box-shadow: var(--cat-sh-sm) !important;
+        border: 1px solid var(--cat-border) !important;
+        overflow: hidden;
+    }
+
+    /* All cells: full width by default */
+    #categories-table tbody td {
+        display: block !important;
+        grid-column: 1 / -1;
+        padding: 8px 12px !important;
+        border: none !important;
+        font-size: 13px;
+    }
+
+    /* ── 1. NAME: card header, col 1 ── */
+    #categories-table tbody td:nth-child(1) {
+        display: flex !important;
+        align-items: center; gap: 6px; flex-wrap: wrap;
+        grid-column: 1; grid-row: 1;
+        background: var(--cat-surface2) !important;
+        border-bottom: 1px solid var(--cat-border) !important;
+        padding: 10px 12px !important;
+        font-size: 14px !important; font-weight: 600 !important;
+        color: var(--cat-text-1);
+    }
+
+    /* ── 2. SIZES: below header, full width ── */
+    #categories-table tbody td:nth-child(2) {
+        display: block !important;
+        grid-column: 1 / -1; grid-row: 2;
+        padding: 8px 12px 8px !important;
+        min-height: 36px;
+    }
+
+    /* ── 3. STATUS: always hidden on mobile ── */
+    #categories-table tbody td:nth-child(3) { display: none !important; }
+
+    /* ── 4. ACTION: card header, col 2 ── */
+    #categories-table tbody td:last-child {
+        display: flex !important;
+        align-items: center; justify-content: flex-end; gap: 4px;
+        grid-column: 2; grid-row: 1;
+        background: var(--cat-surface2) !important;
+        border-bottom: 1px solid var(--cat-border) !important;
+        padding: 8px 10px !important;
+    }
+    /* Make action buttons touch-friendly */
+    #categories-table tbody td:last-child .btn-xs {
+        padding: 5px 9px !important; font-size: 12px !important;
+        border-radius: 8px !important; touch-action: manipulation;
+    }
+
+    /* ── Sizes expand/collapse ── */
+    .cat-sizes-inner {
+        overflow: hidden;
+        max-height: 30px;   /* clips to one label row */
+        transition: max-height 0.25s ease;
+        line-height: 1.9;
+    }
+    #categories-table tbody td.cat-expanded .cat-sizes-inner {
+        max-height: 400px;
+    }
+    .cat-sizes-toggle {
+        display: inline-flex; align-items: center; gap: 3px;
+        margin-top: 4px; padding: 2px 0;
+        font-size: 11.5px; font-weight: 700;
+        color: var(--cat-blue); background: none; border: none;
+        cursor: pointer; font-family: inherit;
+        touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+    }
+}
 </style>
 @endsection
 
 @section('content')
+
 <div class="mod-wrap">
 
     <div class="mod-header">
@@ -40,6 +229,58 @@
                 <i class="fa fa-file-excel me-1"></i><span class="d-none d-sm-inline">Excel</span>
             </a>
         </div>
+    </div>
+
+    {{-- ── MOBILE ACTION BAR ── --}}
+    <div class="cat-mob-action-bar">
+        @if(\App\Models\RolePermission::check(auth()->user()->role, 'categories', 'can_create'))
+        <button onclick="addForm()" class="cat-mab-btn cat-mab-primary">
+            <i class="fa fa-plus"></i> ახალი
+        </button>
+        <div class="cat-mab-sep"></div>
+        @endif
+        <a href="{{ route('exportPDF.categoriesAll') }}" class="cat-mab-btn cat-mab-ghost">
+            <i class="fa fa-file-pdf" style="color:#ef4444;"></i> PDF
+        </a>
+        <a href="{{ route('exportExcel.categoriesAll') }}" class="cat-mab-btn cat-mab-ghost">
+            <i class="fa fa-file-excel" style="color:#16a34a;"></i> Excel
+        </a>
+    </div>
+
+    {{-- ── MOBILE SEARCH BAR + inline filter panel ── --}}
+    <div class="cat-mob-search-wrap">
+        <div class="cat-mob-search">
+            <i class="fa fa-magnifying-glass"></i>
+            <input type="search" id="mob-cat-search" placeholder="კატეგორიის ძებნა..." autocomplete="off">
+            @if(Auth::user()->role === 'admin')
+            <button type="button" class="mob-ts-filter-btn" id="cat-filter-btn" onclick="toggleCatDrawer()">
+                <i class="fa fa-sliders"></i>
+                <span class="mob-ts-filter-badge" id="cat-filter-badge"></span>
+            </button>
+            @endif
+        </div>
+        @if(Auth::user()->role === 'admin')
+        <div class="cat-filter-panel" id="cat-filter-drawer">
+            <div class="cat-filter-panel-body">
+                <div class="cat-fp-row">
+                    <span>წაშლილი კატეგორიები</span>
+                    <label class="switch mb-0">
+                        <input type="checkbox" id="mob-toggle-deleted">
+                        <span class="switch-slider"></span>
+                    </label>
+                </div>
+                <div>
+                    <div class="cat-fp-label">ჩანაწ. რაოდ.</div>
+                    <select id="mob-dt-page-length">
+                        <option value="10" selected>10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="-1">ყველა</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        @endif
     </div>
 
     <div class="mod-card">
@@ -82,7 +323,6 @@
 @section('bot')
 <script src="{{ asset('assets/validator/validator.min.js') }}"></script>
 <script>
-// Bootstrap tooltips
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(el) {
         new bootstrap.Tooltip(el);
@@ -100,7 +340,6 @@ var table = $('#categories-table').DataTable({
     pageLength: 10,
     autoWidth: false,
     columns: [
-       // {data: 'id',             name: 'id'},
         {data: 'name', name: 'name', width: '30%', render: function(data, type, row) {
             if (type === 'display' && row.is_divisible) {
                 return '<span style="font-weight:600;">' + $('<div>').text(data).html() + '</span> <span style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:4px;">დაშლადი</span>';
@@ -110,17 +349,25 @@ var table = $('#categories-table').DataTable({
         {data: 'sizes_display',  name: 'sizes_display',  orderable: false, searchable: false, width: '45%'},
         {data: 'status_display', name: 'status_display', orderable: false, searchable: false, visible: false, width: '60px'},
         {data: 'action',         name: 'action',         orderable: false, searchable: false, width: '70px'}
-    ]
+    ],
+    drawCallback: function() {
+        setupCatMobileCards();
+    }
 });
 
+/* ── Desktop controls ── */
 $('#dt-page-length').on('change', function() {
     table.page.len(parseInt($(this).val())).draw();
 });
+(function() {
+    var _t;
+    $('#dt-search').on('input', function() {
+        clearTimeout(_t); var v = $(this).val();
+        _t = setTimeout(function() { table.search(v).draw(); }, 300);
+    });
+})();
 
-$('#dt-search').on('input', function() {
-    table.search($(this).val()).draw();
-});
-
+/* ── Desktop deleted toggle ── */
 $('#toggle-deleted').on('change', function() {
     showingDeleted = $(this).is(':checked');
     if (showingDeleted) {
@@ -130,8 +377,84 @@ $('#toggle-deleted').on('change', function() {
         table.column(2).visible(false);
         table.ajax.url("{{ route('api.categories') }}").load();
     }
+    updateCatFilterBadge();
 });
 
+/* ── Mobile topbar search ── */
+(function() {
+    var _t;
+    $('#mob-cat-search').on('input', function() {
+        clearTimeout(_t); var v = $(this).val();
+        _t = setTimeout(function() { table.search(v).draw(); }, 300);
+        $('#dt-search').val(v);
+    });
+})();
+
+/* ── Mobile filter panel ── */
+function toggleCatDrawer() {
+    var panel  = $('#cat-filter-drawer');
+    var isOpen = panel.hasClass('open');
+    panel.toggleClass('open', !isOpen);
+    $('#cat-filter-btn').toggleClass('active', !isOpen);
+}
+
+$(document).on('click', function(e) {
+    if (!$(e.target).closest('.cat-mob-search-wrap').length) {
+        $('#cat-filter-drawer').removeClass('open');
+        $('#cat-filter-btn').removeClass('active');
+    }
+});
+
+function updateCatFilterBadge() {
+    var count = showingDeleted ? 1 : 0;
+    $('#cat-filter-badge').text(count || '');
+    $('#cat-filter-btn').toggleClass('has-active', count > 0);
+}
+
+/* ── Mobile drawer: deleted toggle ── */
+$('#mob-toggle-deleted').on('change', function() {
+    $('#toggle-deleted').prop('checked', $(this).is(':checked')).trigger('change');
+});
+/* Sync desktop → mobile */
+$('#toggle-deleted').on('change', function() {
+    $('#mob-toggle-deleted').prop('checked', $(this).is(':checked'));
+});
+
+/* ── Mobile drawer: page length ── */
+$('#mob-dt-page-length').on('change', function() {
+    table.page.len(parseInt($(this).val())).draw();
+    $('#dt-page-length').val($(this).val());
+});
+
+/* ── Mobile card: sizes expand/collapse ── */
+function setupCatMobileCards() {
+    if (window.innerWidth > 767) return;
+    $('#categories-table tbody td:nth-child(2)').each(function() {
+        var td = $(this);
+        // Wrap content if not already done
+        if (!td.find('.cat-sizes-inner').length) {
+            var html = td.html();
+            td.html('<div class="cat-sizes-inner">' + html + '</div><button type="button" class="cat-sizes-toggle">ყველა ▾</button>');
+        }
+        // Show toggle only if content overflows one line
+        var inner = td.find('.cat-sizes-inner')[0];
+        var toggle = td.find('.cat-sizes-toggle');
+        if (inner.scrollHeight > inner.clientHeight + 2) {
+            toggle.show();
+        } else {
+            toggle.hide();
+        }
+    });
+}
+
+$(document).on('click', '.cat-sizes-toggle', function() {
+    var td = $(this).closest('td');
+    var expanded = td.hasClass('cat-expanded');
+    td.toggleClass('cat-expanded', !expanded);
+    $(this).text(expanded ? 'ყველა ▾' : 'ნაკლები ▴');
+});
+
+/* ── CRUD ── */
 function restoreData(id) {
     var csrf_token = $('meta[name="csrf-token"]').attr('content');
     swal({ title: 'Restore Category?', text: 'კატეგორია დაბრუნდება active სტატუსში', icon: 'warning', showCancelButton: true, confirmButtonText: 'დიახ' })
@@ -162,7 +485,7 @@ function editForm(id) {
     $('#modal-form form')[0].reset();
     $.ajax({
         url: "{{ url('categories') }}/" + id + "/edit",
-        type: "GET", dataType: "JSON",
+        type: "GET", dataType: "JSON", cache: false,
         success: function(data) {
             bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-form')).show();
             $('.modal-title').text('Edit Category');
