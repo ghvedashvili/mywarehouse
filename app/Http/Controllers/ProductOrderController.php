@@ -1908,7 +1908,7 @@ class ProductOrderController extends Controller
                 if (!$root) continue;
 
                 $orders = $root->is_primary
-                    ? collect([$root])->merge(Product_Order::where('merged_id', $root->id)->get())
+                    ? Product_Order::where('merged_id', $root->id)->get()
                     : collect([$root]);
 
                 // status_id=3 შემოწმება

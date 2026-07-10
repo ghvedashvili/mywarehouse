@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 use App\Models\City;
 
 class Product_Order extends Model
@@ -35,6 +36,45 @@ class Product_Order extends Model
     {
         static::addGlobalScope('active', function ($query) {
             $query->where('status', 'active');
+        });
+
+        static::saving(function ($order) {
+            $isSaleOrChange = in_array($order->order_type, ['sale', 'change']);
+            $isNowZero      = (float) ($order->price_usa ?? 0) === 0.0;
+
+            if (!$isSaleOrChange || !$isNowZero) {
+                return;
+            }
+
+            $trace = collect(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 12))
+                ->map(fn($f) => ($f['class'] ?? '') . ($f['type'] ?? '') . ($f['function'] ?? '') . ' ' . basename($f['file'] ?? '') . ':' . ($f['line'] ?? ''))
+                ->implode(' → ');
+
+            $wasNonZero        = (float) $order->getOriginal('price_usa') > 0;
+            $hasPurchaseLinked = !empty($order->purchase_order_id);
+
+            if ($wasNonZero) {
+                Log::warning('price_usa dropped to 0', [
+                    'order_id'          => $order->id,
+                    'order_number'      => $order->order_number,
+                    'order_type'        => $order->order_type,
+                    'status_id'         => $order->status_id,
+                    'old_price'         => $order->getOriginal('price_usa'),
+                    'purchase_order_id' => $order->purchase_order_id,
+                    'trace'             => $trace,
+                ]);
+            }
+
+            if ($hasPurchaseLinked) {
+                Log::warning('price_usa is 0 but purchase_order_id is set', [
+                    'order_id'          => $order->id,
+                    'order_number'      => $order->order_number,
+                    'order_type'        => $order->order_type,
+                    'status_id'         => $order->status_id,
+                    'purchase_order_id' => $order->purchase_order_id,
+                    'trace'             => $trace,
+                ]);
+            }
         });
 
         // ახალი ორდერის შექმნის შემდეგ order_number ავტომატურად გენერირდება
