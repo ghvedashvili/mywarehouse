@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product_Order;
+use App\Models\PriceUsaAuditLog;
 use App\Services\FifoService;
 use Illuminate\Http\Request;
 
@@ -41,7 +42,14 @@ class DiagnosticController extends Controller
                 'created_at', 'order_type',
             ]);
 
-        $result = $orders->map(function ($o) {
+        $orderIds = $orders->pluck('id');
+        $auditLogs = PriceUsaAuditLog::whereIn('order_id', $orderIds)
+            ->orderBy('created_at', 'desc')
+            ->get(['order_id', 'trigger', 'trace', 'old_price', 'created_at'])
+            ->groupBy('order_id')
+            ->map(fn($entries) => $entries->first());
+
+        $result = $orders->map(function ($o) use ($auditLogs) {
             $purchaseCost = $o->purchaseOrder?->cost_price;
             $purchaseSize = $o->purchaseOrder?->product_size;
 
@@ -66,6 +74,8 @@ class DiagnosticController extends Controller
                 }
             }
 
+            $audit = $auditLogs->get($o->id);
+
             return [
                 'id'                  => $o->id,
                 'order_number'        => $o->order_number ?? ('S' . $o->id),
@@ -83,6 +93,9 @@ class DiagnosticController extends Controller
                 'diagnosis'           => $diagnosis,
                 'can_fix'             => $canFix,
                 'estimated_price_usa' => $estimatedPrice,
+                'audit_trigger'       => $audit?->trigger,
+                'audit_trace'         => $audit?->trace,
+                'audit_at'            => $audit?->created_at?->format('d.m.Y H:i'),
             ];
         });
 
@@ -151,6 +164,30 @@ class DiagnosticController extends Controller
             'fixed'  => $fixed,
             'failed' => $failed,
             'message' => "გასწორდა: {$fixed}, ვერ გასწორდა: " . count($failed),
+        ]);
+    }
+
+    public function auditLog(Request $request)
+    {
+        $logs = PriceUsaAuditLog::orderBy('created_at', 'desc')
+            ->limit(200)
+            ->get()
+            ->map(fn($l) => [
+                'id'                => $l->id,
+                'order_id'          => $l->order_id,
+                'order_number'      => $l->order_number,
+                'order_type'        => $l->order_type,
+                'status_id'         => $l->status_id,
+                'old_price'         => $l->old_price,
+                'purchase_order_id' => $l->purchase_order_id,
+                'trigger'           => $l->trigger,
+                'trace'             => $l->trace,
+                'created_at'        => $l->created_at,
+            ]);
+
+        return response()->json([
+            'count' => $logs->count(),
+            'logs'  => $logs->values(),
         ]);
     }
 }

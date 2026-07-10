@@ -170,7 +170,8 @@ Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff']
 
     // ── Diagnostic (admin only) ───────────────────────────────────────
     Route::get('/diagnostic',       [\App\Http\Controllers\DiagnosticController::class, 'index'])->name('diagnostic.index');
-    Route::get('/diagnostic/find',  [\App\Http\Controllers\DiagnosticController::class, 'findProblematic'])->name('diagnostic.find');
-    Route::post('/diagnostic/fix',  [\App\Http\Controllers\DiagnosticController::class, 'fixPrices'])->name('diagnostic.fix');
+    Route::get('/diagnostic/find',     [\App\Http\Controllers\DiagnosticController::class, 'findProblematic'])->name('diagnostic.find');
+    Route::post('/diagnostic/fix',     [\App\Http\Controllers\DiagnosticController::class, 'fixPrices'])->name('diagnostic.fix');
+    Route::get('/diagnostic/audit-log', [\App\Http\Controllers\DiagnosticController::class, 'auditLog'])->name('diagnostic.auditLog');
 
 });

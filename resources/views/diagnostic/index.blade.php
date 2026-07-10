@@ -62,6 +62,7 @@
                         <th style="padding:10px 8px;text-align:left;">შესყიდვა #</th>
                         <th style="padding:10px 8px;text-align:right;">შეს. ღირ.</th>
                         <th style="padding:10px 8px;text-align:left;">მიზეზი</th>
+                        <th style="padding:10px 8px;text-align:left;">რატომ გაუნულდა</th>
                         <th style="padding:10px 8px;text-align:center;">შეიძლება გასწორება</th>
                     </tr>
                 </thead>
@@ -140,7 +141,7 @@ function applyFilter() {
     // table
     if (filtered.length === 0 && allOrders.length > 0) {
         document.getElementById('tableBody').innerHTML =
-            `<tr><td colspan="9" style="text-align:center;padding:30px;color:#b2bec3;">
+            `<tr><td colspan="10" style="text-align:center;padding:30px;color:#b2bec3;">
                 <i class="fa fa-filter"></i> ამ თარიღებში პრობლემები არ მოიძებნა
             </td></tr>`;
     } else {
@@ -225,6 +226,13 @@ function renderTable(orders) {
             ? `$${parseFloat(o.purchase_cost).toFixed(2)}`
             : '<span style="color:#b2bec3;">—</span>';
 
+        const auditHtml = o.audit_trigger
+            ? `<span class="diag-pill ${o.audit_trigger === 'dropped_to_zero' ? 'diag-zero' : 'diag-null'}"
+                  title="${o.audit_trace || ''}"
+                  style="cursor:help;display:block;margin-bottom:2px;">${o.audit_trigger === 'dropped_to_zero' ? '↓ dropped' : '⚠ w/purchase'}</span>
+               <div style="font-size:10px;color:#b2bec3;">${o.audit_at || ''}</div>`
+            : '<span style="color:#b2bec3;font-size:11px;">— ჯერ არ დაფიქსირებულა</span>';
+
         return `<tr>
             <td><input type="checkbox" class="row-check" value="${o.id}" ${!o.can_fix ? 'disabled' : ''} onchange="onRowCheck()"></td>
             <td>
@@ -240,6 +248,7 @@ function renderTable(orders) {
             <td>${purchLink}</td>
             <td style="text-align:right;">${purchCost}</td>
             <td><span class="diag-pill ${diagClass}">${diagText}</span></td>
+            <td>${auditHtml}</td>
             <td style="text-align:center;">${canFixHtml}</td>
         </tr>`;
     });

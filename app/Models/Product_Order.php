@@ -3,8 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Log;
 use App\Models\City;
+use App\Models\PriceUsaAuditLog;
 
 class Product_Order extends Model
 {
@@ -46,33 +46,42 @@ class Product_Order extends Model
                 return;
             }
 
+            $wasNonZero        = (float) $order->getOriginal('price_usa') > 0;
+            $hasPurchaseLinked = !empty($order->purchase_order_id);
+
+            if (!$wasNonZero && !$hasPurchaseLinked) {
+                return;
+            }
+
             $trace = collect(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 12))
                 ->map(fn($f) => ($f['class'] ?? '') . ($f['type'] ?? '') . ($f['function'] ?? '') . ' ' . basename($f['file'] ?? '') . ':' . ($f['line'] ?? ''))
                 ->implode(' → ');
 
-            $wasNonZero        = (float) $order->getOriginal('price_usa') > 0;
-            $hasPurchaseLinked = !empty($order->purchase_order_id);
-
             if ($wasNonZero) {
-                Log::warning('price_usa dropped to 0', [
+                PriceUsaAuditLog::create([
                     'order_id'          => $order->id,
                     'order_number'      => $order->order_number,
                     'order_type'        => $order->order_type,
                     'status_id'         => $order->status_id,
                     'old_price'         => $order->getOriginal('price_usa'),
                     'purchase_order_id' => $order->purchase_order_id,
+                    'trigger'           => 'dropped_to_zero',
                     'trace'             => $trace,
+                    'created_at'        => now(),
                 ]);
             }
 
             if ($hasPurchaseLinked) {
-                Log::warning('price_usa is 0 but purchase_order_id is set', [
+                PriceUsaAuditLog::create([
                     'order_id'          => $order->id,
                     'order_number'      => $order->order_number,
                     'order_type'        => $order->order_type,
                     'status_id'         => $order->status_id,
+                    'old_price'         => null,
                     'purchase_order_id' => $order->purchase_order_id,
+                    'trigger'           => 'zero_with_purchase',
                     'trace'             => $trace,
+                    'created_at'        => now(),
                 ]);
             }
         });
