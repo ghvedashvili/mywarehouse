@@ -1895,11 +1895,25 @@ var columns = [
         data: null, orderable: false, searchable: false, responsivePriority: 3,
         render: function(data) {
             var photo = data.show_photo ? '<div class="po-product-thumb">'+data.show_photo.replace(/<img /g,'<img loading="lazy" ')+'</div>' : '';
-            // mobile-only finance line — use group aggregates for merged primary orders
-            var orig = parseFloat(data.group_orig || data.price_georgia || 0);
-            var disc = parseFloat(data.group_disc || data.discount || 0);
+            // compute group totals from children_json for merged primaries
+            var children = [];
+            if (data.is_primary && data.children_count > 1 && data.children_json) {
+                children = Array.isArray(data.children_json) ? data.children_json
+                    : (typeof data.children_json === 'string' ? JSON.parse(data.children_json || '[]') : []);
+            }
+            var orig, disc, paid, totalCost;
+            if (children.length > 0) {
+                orig      = children.reduce(function(s,c){ return s + parseFloat(c.price_georgia||0); }, 0);
+                disc      = children.reduce(function(s,c){ return s + parseFloat(c.discount||0); }, 0);
+                paid      = children.reduce(function(s,c){ return s + parseFloat(c.paid_tbc||0) + parseFloat(c.paid_bog||0) + parseFloat(c.paid_lib||0) + parseFloat(c.paid_cash||0); }, 0);
+                totalCost = children.reduce(function(s,c){ return s + parseFloat(c.price_usa||c.cost_price||0); }, 0);
+            } else {
+                orig      = parseFloat(data.price_georgia || 0);
+                disc      = parseFloat(data.discount || 0);
+                paid      = parseFloat(data.paid_tbc||0) + parseFloat(data.paid_bog||0) + parseFloat(data.paid_lib||0) + parseFloat(data.paid_cash||0);
+                totalCost = parseFloat(data.price_usa || 0);
+            }
             var geo  = orig - disc;
-            var paid = parseFloat(data.group_paid || 0);
             var diff = geo - paid;
             var finTag;
             if (diff < -0.01)    finTag = '<span style="color:var(--c-green);font-weight:700;"><i class="fa fa-plus" style="font-size:9px;"></i> +'+Math.abs(diff).toFixed(2)+'₾</span>';
@@ -1909,6 +1923,7 @@ var columns = [
                 + '<span class="mob-fin-price">'+orig.toFixed(2)+'₾</span>'
                 + (disc>0.01 ? '<span class="mob-fin-disc">🏷️−'+disc.toFixed(2)+'₾</span><span class="mob-fin-net">'+geo.toFixed(2)+'₾</span>' : '')
                 + finTag
+                + (isAdmin && totalCost > 0 ? '<span style="color:#888;font-size:10px;margin-left:4px;">· $'+totalCost.toFixed(2)+'</span>' : '')
                 + '</div>';
             var custLine = data.customer_name
                 ? '<div class="mob-customer">'+(data.customer_name||'')+'</div>'
@@ -3077,6 +3092,7 @@ $(document).on('click', '.expand-btn', function() {
                 ? '<span style="color:var(--c-green);"><i class="fa fa-check" style="font-size:9px;"></i> გადახდ.</span>'
                 : '<span style="color:var(--c-red);font-weight:700;">−'+chDiff.toFixed(2)+'₾</span>';
             var chPayClass = chDiff <= 0.01 ? 'po-pay-paid' : (chPct > 0 ? 'po-pay-partial' : 'po-pay-debt');
+            var chCost = parseFloat(order.price_usa||0);
             window._payComments = window._payComments || {};
             window._payComments[order.id] = order.payment_comment || '';
             var actHtml = '';
@@ -3093,7 +3109,7 @@ $(document).on('click', '.expand-btn', function() {
                 + '<div class="mob-ci-info">'
                 + '<div class="mob-ci-top"><span class="po-order-num" style="font-size:11px;">'+(order.order_number||'S'+order.id)+'</span> '+statusBadge+'</div>'
                 + '<div class="mob-ci-name">'+(order.product_name||'')+(order.product_size ? ' · <span class="label label-info" style="font-size:10px;">'+order.product_size+'</span>' : '')+'</div>'
-                + '<div class="mob-ci-fin"><span style="font-weight:700;">'+chOrig.toFixed(2)+'₾</span>'+(chDisc>0.01 ? ' <span style="color:#8e44ad;font-size:10px;">🏷️−'+chDisc.toFixed(2)+'₾</span>' : '')+' '+chTag+'</div>'
+                + '<div class="mob-ci-fin"><span style="font-weight:700;">'+chOrig.toFixed(2)+'₾</span>'+(chDisc>0.01 ? ' <span style="color:#8e44ad;font-size:10px;">🏷️−'+chDisc.toFixed(2)+'₾</span>' : '')+' '+chTag+(isAdmin && chCost > 0 ? ' <span style="color:#888;font-size:10px;">· $'+chCost.toFixed(2)+'</span>' : '')+'</div>'
                 + '</div>'
                 + '</div>'
                 + '<div class="mob-ci-actions">'+actHtml+'</div>'

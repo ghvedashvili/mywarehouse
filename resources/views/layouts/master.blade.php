@@ -476,7 +476,7 @@
 
             /* ── Topbar title shorter ── */
             #topbar .topbar-title { font-size: 14px; }
-            #topbar .uname { display: none; }
+            #topbar .uname { max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 
             /* ── Footer mobile ── */
             #footer { margin-left: 0; font-size: 11px; text-align: center; }
@@ -673,7 +673,7 @@
 
             /* ── Topbar title shorter ── */
             #topbar .topbar-title { font-size: 14px; }
-            #topbar .uname { display: none; }
+            #topbar .uname { max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 
             /* ── Footer mobile ── */
             #footer { margin-left: 0; font-size: 11px; text-align: center; }
