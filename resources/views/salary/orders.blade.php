@@ -24,6 +24,7 @@
 .sal-table thead th {
     background:#8e44ad; color:#fff; font-weight:700; padding:8px 10px;
     white-space:nowrap; border-bottom:2px solid #7d3c98;
+    position:sticky; top:0; z-index:10;
 }
 .sal-table tbody tr:nth-child(even) { background:#faf7fc; }
 .sal-table tbody tr:hover { background:#f3e8ff; }
@@ -32,6 +33,7 @@
 .sal-total td {
     background:#f0f4ff; font-weight:700; color:#2c3e50;
     border-top:2px solid #c3aed6; padding:8px 10px;
+    position:sticky; bottom:0; z-index:9;
 }
 .sal-total td.label-cell { text-align:right; color:#8e44ad; }
 .sal-badge {
@@ -102,7 +104,7 @@
     {{ \Carbon\Carbon::createFromFormat('Y-m', $month)->translatedFormat('F Y') }}-ში გადახდილი ორდერები ვერ მოიძებნა
 </div>
 @else
-<div style="overflow-x:auto;">
+<div style="overflow:auto;max-height:calc(100vh - 220px);">
 <table class="sal-table">
     <thead>
         <tr>
@@ -120,7 +122,22 @@
             <th class="th-profit">წმინდა ₾</th>
             <th>გადახდ. ₾</th>
             <th>ვალი ₾</th>
-            <th>სტატუსი</th>
+            <th style="position:relative;">
+                <span style="cursor:pointer;user-select:none;" onclick="toggleStatusFilter(event)">
+                    სტატუსი <i class="fa fa-filter" id="status-filter-icon" style="font-size:10px;opacity:.7;"></i>
+                </span>
+                <div id="status-filter-dropdown" style="display:none;position:absolute;top:100%;left:0;z-index:9999;background:#fff;border:1.5px solid #c3aed6;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);min-width:170px;padding:8px 0;">
+                    <div style="padding:4px 12px 6px;border-bottom:1px solid #f0eaf7;">
+                        <label style="font-size:11px;font-weight:600;color:#8e44ad;cursor:pointer;">
+                            <input type="checkbox" id="status-all" checked onchange="statusFilterAll(this)"> ყველა
+                        </label>
+                    </div>
+                    <div id="status-filter-list" style="max-height:220px;overflow-y:auto;padding:4px 0;"></div>
+                    <div style="padding:6px 12px 2px;border-top:1px solid #f0eaf7;">
+                        <button onclick="applyStatusFilter()" class="btn btn-sm" style="width:100%;background:#8e44ad;color:#fff;font-size:12px;padding:4px;">გამოყენება</button>
+                    </div>
+                </div>
+            </th>
             <th>ორდ. #</th>
             <th>შექ. თარ.</th>
             <th>გადახდ. თარ.</th>
@@ -139,7 +156,7 @@
             $net     = $orig - $disc - $cost - $courier;
             $debt    = max(0, ($orig - $disc) - $paid);
         @endphp
-        <tr>
+        <tr class="sal-row" data-status="{{ $o->orderStatus?->name ?? '' }}">
             <td style="color:#888;font-size:11px;">{{ $i + 1 }}</td>
             @if($isAdmin && !$userId)<td style="font-size:12px;color:#6c3483;">{{ $o->user?->name ?? '—' }}</td>@endif
             <td style="font-weight:600;">{{ $o->product?->name ?? '—' }}</td>
@@ -207,5 +224,63 @@ document.getElementById('filterMonth').addEventListener('change', function() {
     document.getElementById('excelBtn').href =
         '{{ route('salary.orders.export') }}?month=' + month + (userId ? '&user_id=' + userId : '');
 });
+
+// ── Status filter ─────────────────────────────────────────────
+(function() {
+    // collect unique statuses from rows
+    var statuses = {};
+    document.querySelectorAll('.sal-row').forEach(function(tr) {
+        var s = tr.dataset.status;
+        if (s) statuses[s] = true;
+    });
+
+    var list = document.getElementById('status-filter-list');
+    Object.keys(statuses).sort().forEach(function(s) {
+        var label = document.createElement('label');
+        label.style.cssText = 'display:block;padding:4px 12px;font-size:13px;cursor:pointer;white-space:nowrap;';
+        label.innerHTML = '<input type="checkbox" class="status-cb" value="' + s.replace(/"/g,'&quot;') + '" checked style="margin-right:6px;">' + s;
+        label.querySelector('input').addEventListener('change', syncAllCheckbox);
+        list.appendChild(label);
+    });
+
+    function syncAllCheckbox() {
+        var cbs = document.querySelectorAll('.status-cb');
+        var allChecked = Array.from(cbs).every(function(cb){ return cb.checked; });
+        document.getElementById('status-all').checked = allChecked;
+    }
+})();
+
+window.statusFilterAll = function(el) {
+    document.querySelectorAll('.status-cb').forEach(function(cb){ cb.checked = el.checked; });
+};
+
+window.toggleStatusFilter = function(e) {
+    e.stopPropagation();
+    var dd = document.getElementById('status-filter-dropdown');
+    dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+};
+
+document.addEventListener('click', function(e) {
+    var dd = document.getElementById('status-filter-dropdown');
+    if (dd && !dd.contains(e.target) && !e.target.closest('th')) {
+        dd.style.display = 'none';
+    }
+});
+
+window.applyStatusFilter = function() {
+    var selected = new Set();
+    document.querySelectorAll('.status-cb:checked').forEach(function(cb){ selected.add(cb.value); });
+    var allChecked = document.getElementById('status-all').checked;
+
+    document.querySelectorAll('.sal-row').forEach(function(tr) {
+        tr.style.display = (allChecked || selected.has(tr.dataset.status)) ? '' : 'none';
+    });
+
+    var icon = document.getElementById('status-filter-icon');
+    icon.style.color = allChecked ? '' : '#f39c12';
+    icon.style.opacity = allChecked ? '.7' : '1';
+
+    document.getElementById('status-filter-dropdown').style.display = 'none';
+};
 </script>
 @endsection
