@@ -122,21 +122,8 @@
             <th class="th-profit">წმინდა ₾</th>
             <th>გადახდ. ₾</th>
             <th>ვალი ₾</th>
-            <th style="position:relative;">
-                <span style="cursor:pointer;user-select:none;" onclick="toggleStatusFilter(event)">
-                    სტატუსი <i class="fa fa-filter" id="status-filter-icon" style="font-size:10px;opacity:.7;"></i>
-                </span>
-                <div id="status-filter-dropdown" style="display:none;position:absolute;top:100%;left:0;z-index:9999;background:#fff;border:1.5px solid #c3aed6;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);min-width:170px;padding:8px 0;">
-                    <div style="padding:4px 12px 6px;border-bottom:1px solid #f0eaf7;">
-                        <label style="font-size:11px;font-weight:600;color:#8e44ad;cursor:pointer;">
-                            <input type="checkbox" id="status-all" checked onchange="statusFilterAll(this)"> ყველა
-                        </label>
-                    </div>
-                    <div id="status-filter-list" style="max-height:220px;overflow-y:auto;padding:4px 0;"></div>
-                    <div style="padding:6px 12px 2px;border-top:1px solid #f0eaf7;">
-                        <button onclick="applyStatusFilter()" class="btn btn-sm" style="width:100%;background:#8e44ad;color:#fff;font-size:12px;padding:4px;">გამოყენება</button>
-                    </div>
-                </div>
+            <th id="status-th" style="cursor:pointer;user-select:none;" onclick="toggleStatusFilter(event)">
+                სტატუსი <i class="fa fa-filter" id="status-filter-icon" style="font-size:10px;opacity:.7;"></i>
             </th>
             <th>ორდ. #</th>
             <th>შექ. თარ.</th>
@@ -156,7 +143,15 @@
             $net     = $orig - $disc - $cost - $courier;
             $debt    = max(0, ($orig - $disc) - $paid);
         @endphp
-        <tr class="sal-row" data-status="{{ $o->orderStatus?->name ?? '' }}">
+        <tr class="sal-row"
+            data-status="{{ $o->orderStatus?->name ?? '' }}"
+            data-price="{{ $orig }}"
+            data-disc="{{ $disc }}"
+            data-cost="{{ $cost }}"
+            data-courier="{{ $courier }}"
+            data-net="{{ $net }}"
+            data-paid="{{ $paid }}"
+            data-debt="{{ $debt }}">
             <td style="color:#888;font-size:11px;">{{ $i + 1 }}</td>
             @if($isAdmin && !$userId)<td style="font-size:12px;color:#6c3483;">{{ $o->user?->name ?? '—' }}</td>@endif
             <td style="font-weight:600;">{{ $o->product?->name ?? '—' }}</td>
@@ -187,26 +182,39 @@
     <tfoot>
         <tr class="sal-total">
             <td class="label-cell" colspan="{{ $labelColspan }}" style="text-align:right;font-size:13px;">სულ:</td>
-            <td>{{ number_format($sumPrice, 2) }}</td>
-            <td style="color:#8e44ad;">{{ $sumDisc > 0 ? number_format($sumDisc, 2) : '—' }}</td>
-            <td style="color:#2980b9;">{{ $sumCost > 0 ? '$'.number_format($sumCost, 2) : '—' }}</td>
-            <td style="color:#e67e22;">{{ $sumCourier > 0 ? number_format($sumCourier, 2) : '—' }}</td>
-            <td style="color:{{ $sumNet >= 0 ? '#16a085' : '#c0392b' }};">{{ number_format($sumNet, 2) }}</td>
-            <td style="color:#16a085;">{{ number_format($sumPaid, 2) }}</td>
-            <td @class(['debt' => $sumDebt > 0.01])>{{ $sumDebt > 0.01 ? number_format($sumDebt, 2) : '—' }}</td>
+            <td id="sum-price">{{ number_format($sumPrice, 2) }}</td>
+            <td id="sum-disc" style="color:#8e44ad;">{{ $sumDisc > 0 ? number_format($sumDisc, 2) : '—' }}</td>
+            <td id="sum-cost" style="color:#2980b9;">{{ $sumCost > 0 ? '$'.number_format($sumCost, 2) : '—' }}</td>
+            <td id="sum-courier" style="color:#e67e22;">{{ $sumCourier > 0 ? number_format($sumCourier, 2) : '—' }}</td>
+            <td id="sum-net">{{ number_format($sumNet, 2) }}</td>
+            <td id="sum-paid" style="color:#16a085;">{{ number_format($sumPaid, 2) }}</td>
+            <td id="sum-debt" @class(['debt' => $sumDebt > 0.01])>{{ $sumDebt > 0.01 ? number_format($sumDebt, 2) : '—' }}</td>
             <td colspan="4"></td>
         </tr>
     </tfoot>
 </table>
 </div>
 <div style="padding:10px 16px;font-size:12px;color:#888;">
-    სულ {{ $orders->count() }} ორდერი ·
+    <span id="visible-count">{{ $orders->count() }}</span> ორდერი ·
     {{ \Carbon\Carbon::createFromFormat('Y-m', $month)->format('F Y') }} ·
-    <span style="color:#16a085;font-weight:600;">წმინდა სულ: {{ number_format($sumNet, 2) }} ₾</span>
+    <span id="footer-net" style="color:#16a085;font-weight:600;">წმინდა სულ: {{ number_format($sumNet, 2) }} ₾</span>
 </div>
 @endif
 </div>
 
+</div>
+
+{{-- Status filter dropdown — body-ზე mount-ი z-index პრობლემის გარეშე --}}
+<div id="status-filter-dropdown" style="display:none;position:fixed;z-index:99999;background:#fff;color:#2c3e50;border:1.5px solid #c3aed6;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.18);min-width:180px;padding:8px 0;">
+    <div style="padding:4px 12px 6px;border-bottom:1px solid #f0eaf7;">
+        <label style="font-size:12px;font-weight:600;color:#8e44ad;cursor:pointer;display:flex;align-items:center;gap:6px;">
+            <input type="checkbox" id="status-all" checked onchange="statusFilterAll(this)"> ყველა
+        </label>
+    </div>
+    <div id="status-filter-list" style="max-height:240px;overflow-y:auto;padding:4px 0;color:#2c3e50;"></div>
+    <div style="padding:6px 12px 2px;border-top:1px solid #f0eaf7;">
+        <button onclick="applyStatusFilter()" class="btn btn-sm" style="width:100%;background:#8e44ad;color:#fff;font-size:12px;padding:4px 0;">გამოყენება</button>
+    </div>
 </div>
 
 <script>
@@ -227,26 +235,25 @@ document.getElementById('filterMonth').addEventListener('change', function() {
 
 // ── Status filter ─────────────────────────────────────────────
 (function() {
-    // collect unique statuses from rows
     var statuses = {};
     document.querySelectorAll('.sal-row').forEach(function(tr) {
         var s = tr.dataset.status;
         if (s) statuses[s] = true;
     });
-
     var list = document.getElementById('status-filter-list');
     Object.keys(statuses).sort().forEach(function(s) {
         var label = document.createElement('label');
-        label.style.cssText = 'display:block;padding:4px 12px;font-size:13px;cursor:pointer;white-space:nowrap;';
-        label.innerHTML = '<input type="checkbox" class="status-cb" value="' + s.replace(/"/g,'&quot;') + '" checked style="margin-right:6px;">' + s;
-        label.querySelector('input').addEventListener('change', syncAllCheckbox);
+        label.style.cssText = 'display:flex;align-items:center;gap:6px;padding:5px 12px;font-size:13px;cursor:pointer;color:#2c3e50;white-space:nowrap;';
+        var cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.className = 'status-cb'; cb.value = s; cb.checked = true;
+        cb.addEventListener('change', syncAllCheckbox);
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(s));
         list.appendChild(label);
     });
-
     function syncAllCheckbox() {
         var cbs = document.querySelectorAll('.status-cb');
-        var allChecked = Array.from(cbs).every(function(cb){ return cb.checked; });
-        document.getElementById('status-all').checked = allChecked;
+        document.getElementById('status-all').checked = Array.from(cbs).every(function(cb){ return cb.checked; });
     }
 })();
 
@@ -256,28 +263,72 @@ window.statusFilterAll = function(el) {
 
 window.toggleStatusFilter = function(e) {
     e.stopPropagation();
-    var dd = document.getElementById('status-filter-dropdown');
-    dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+    var dd  = document.getElementById('status-filter-dropdown');
+    var th  = document.getElementById('status-th');
+    var rect = th.getBoundingClientRect();
+    if (dd.style.display === 'none') {
+        dd.style.top  = (rect.bottom + 2) + 'px';
+        dd.style.left = rect.left + 'px';
+        dd.style.display = 'block';
+    } else {
+        dd.style.display = 'none';
+    }
 };
 
 document.addEventListener('click', function(e) {
     var dd = document.getElementById('status-filter-dropdown');
-    if (dd && !dd.contains(e.target) && !e.target.closest('th')) {
+    var th = document.getElementById('status-th');
+    if (dd && !dd.contains(e.target) && e.target !== th && !th.contains(e.target)) {
         dd.style.display = 'none';
     }
 });
+
+function fmt(v) { return v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
 
 window.applyStatusFilter = function() {
     var selected = new Set();
     document.querySelectorAll('.status-cb:checked').forEach(function(cb){ selected.add(cb.value); });
     var allChecked = document.getElementById('status-all').checked;
 
+    var sPrice=0, sDisc=0, sCost=0, sCourier=0, sNet=0, sPaid=0, sDebt=0, cnt=0;
+
     document.querySelectorAll('.sal-row').forEach(function(tr) {
-        tr.style.display = (allChecked || selected.has(tr.dataset.status)) ? '' : 'none';
+        var show = allChecked || selected.has(tr.dataset.status);
+        tr.style.display = show ? '' : 'none';
+        if (show) {
+            sPrice   += parseFloat(tr.dataset.price   || 0);
+            sDisc    += parseFloat(tr.dataset.disc    || 0);
+            sCost    += parseFloat(tr.dataset.cost    || 0);
+            sCourier += parseFloat(tr.dataset.courier || 0);
+            sNet     += parseFloat(tr.dataset.net     || 0);
+            sPaid    += parseFloat(tr.dataset.paid    || 0);
+            sDebt    += parseFloat(tr.dataset.debt    || 0);
+            cnt++;
+        }
     });
 
+    document.getElementById('sum-price').textContent   = fmt(sPrice);
+    document.getElementById('sum-disc').textContent    = sDisc > 0 ? fmt(sDisc) : '—';
+    document.getElementById('sum-cost').textContent    = sCost > 0 ? '$'+fmt(sCost) : '—';
+    document.getElementById('sum-courier').textContent = sCourier > 0 ? fmt(sCourier) : '—';
+
+    var netEl = document.getElementById('sum-net');
+    netEl.textContent = fmt(sNet);
+    netEl.style.color = sNet >= 0 ? '#16a085' : '#c0392b';
+
+    document.getElementById('sum-paid').textContent = fmt(sPaid);
+
+    var debtEl = document.getElementById('sum-debt');
+    debtEl.textContent = sDebt > 0.01 ? fmt(sDebt) : '—';
+    debtEl.className   = sDebt > 0.01 ? 'debt' : '';
+
+    document.getElementById('visible-count').textContent = cnt;
+    var footNet = document.getElementById('footer-net');
+    footNet.textContent = 'წმინდა სულ: ' + fmt(sNet) + ' ₾';
+    footNet.style.color = sNet >= 0 ? '#16a085' : '#c0392b';
+
     var icon = document.getElementById('status-filter-icon');
-    icon.style.color = allChecked ? '' : '#f39c12';
+    icon.style.color   = allChecked ? '' : '#f39c12';
     icon.style.opacity = allChecked ? '.7' : '1';
 
     document.getElementById('status-filter-dropdown').style.display = 'none';
