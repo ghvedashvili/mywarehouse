@@ -103,6 +103,7 @@ class ExportSalaryOrders implements FromArray, WithHeadings, WithStyles, WithEve
                 $cityName,
                 round($orig, 2),
                 $disc > 0 ? round($disc, 2) : '',
+                round($orig - $disc, 2),
                 $paid > 0 ? round($paid, 2) : '',
                 $debt > 0 ? $debt : '',
                 $order->orderStatus?->name ?? '',
@@ -121,6 +122,7 @@ class ExportSalaryOrders implements FromArray, WithHeadings, WithStyles, WithEve
             '', '', 'სულ', '', '', '', '', '',
             round($this->sumOrig, 2),
             round($this->sumDisc, 2),
+            round($this->sumOrig - $this->sumDisc, 2),
             round($this->sumPaid, 2),
             round($this->sumDebt, 2),
             '', '', '', '',
@@ -134,7 +136,7 @@ class ExportSalaryOrders implements FromArray, WithHeadings, WithStyles, WithEve
         return [
             '#', 'სურათი', 'გამყიდველი', 'პროდუქტი', 'ზომა',
             'კლიენტი', 'ტელ', 'ქ-ი',
-            'ფასი ₾', 'ფასდ. ₾', 'გადახდ. ₾', 'ვალი ₾',
+            'ფასი ₾', 'ფასდ. ₾', 'წმინდა ₾', 'გადახდ. ₾', 'ვალი ₾',
             'სტატუსი', 'ორდ. #', 'შექ. თარ.', 'გადახდ. თარ.',
         ];
     }
@@ -153,11 +155,12 @@ class ExportSalaryOrders implements FromArray, WithHeadings, WithStyles, WithEve
             'I' => 10,
             'J' => 8,
             'K' => 10,
-            'L' => 8,
-            'M' => 14,
+            'L' => 10,
+            'M' => 8,
             'N' => 14,
-            'O' => 12,
-            'P' => 14,
+            'O' => 14,
+            'P' => 12,
+            'Q' => 14,
         ];
     }
 
@@ -209,7 +212,7 @@ class ExportSalaryOrders implements FromArray, WithHeadings, WithStyles, WithEve
                 }
 
                 foreach ($this->debts as $rowNum => $_) {
-                    $sheet->getStyle('L' . $rowNum)->applyFromArray([
+                    $sheet->getStyle('M' . $rowNum)->applyFromArray([
                         'font' => ['bold' => true, 'color' => ['argb' => 'FFB91C1C']],
                         'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFFEE2E2']],
                     ]);

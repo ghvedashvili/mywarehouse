@@ -70,6 +70,7 @@
 @php
     $sumPrice   = 0;
     $sumDisc    = 0;
+    $sumNet     = 0;
     $sumPaid    = 0;
     $sumDebt    = 0;
     foreach ($orders as $o) {
@@ -79,6 +80,7 @@
         $debt      = max(0, $orig - $disc - $paid);
         $sumPrice += $orig;
         $sumDisc  += $disc;
+        $sumNet   += ($orig - $disc);
         $sumPaid  += $paid;
         $sumDebt  += $debt;
     }
@@ -103,6 +105,7 @@
             <th>ქ-ი</th>
             <th>ფასი ₾</th>
             <th>ფასდ. ₾</th>
+            <th>წმინდა ₾</th>
             <th>გადახდ. ₾</th>
             <th>ვალი ₾</th>
             <th>სტატუსი</th>
@@ -128,9 +131,10 @@
             <td style="font-size:12px;color:#555;">{{ $o->order_alt_tel ?: ($o->customer?->tel ?? '') }}</td>
             <td style="font-size:12px;color:#555;">{{ $o->customer?->city?->name ?? '' }}</td>
             <td style="font-weight:600;">{{ number_format($orig, 2) }}</td>
-            <td style="color:#8e44ad;">{{ $disc > 0 ? number_format($disc, 2) : '' }}</td>
-            <td style="color:#16a085;">{{ $paid > 0 ? number_format($paid, 2) : '' }}</td>
-            <td @class(['debt' => $debt > 0.01])>{{ $debt > 0.01 ? number_format($debt, 2) : '' }}</td>
+            <td style="color:#8e44ad;">{{ $disc > 0 ? number_format($disc, 2) : '—' }}</td>
+            <td style="font-weight:600;color:#2c3e50;">{{ number_format($orig - $disc, 2) }}</td>
+            <td style="color:#16a085;">{{ $paid > 0 ? number_format($paid, 2) : '—' }}</td>
+            <td @class(['debt' => $debt > 0.01])>{{ $debt > 0.01 ? number_format($debt, 2) : '—' }}</td>
             <td>
                 <span class="sal-badge" style="background:#{{ $o->orderStatus?->color === 'success' ? 'd1fae5;color:#065f46' : ($o->orderStatus?->color === 'danger' ? 'fee2e2;color:#b91c1c' : 'e0e7ff;color:#3730a3') }}">
                     {{ $o->orderStatus?->name ?? '—' }}
@@ -146,8 +150,9 @@
         <tr class="sal-total">
             <td class="label-cell" colspan="{{ $isAdmin && !$userId ? 7 : 6 }}" style="text-align:right;font-size:13px;">სულ:</td>
             <td style="font-weight:700;">{{ number_format($sumPrice, 2) }}</td>
-            <td style="color:#8e44ad;">{{ $sumDisc > 0 ? number_format($sumDisc, 2) : '—' }}</td>
-            <td style="color:#16a085;">{{ number_format($sumPaid, 2) }}</td>
+            <td style="color:#8e44ad;font-weight:700;">{{ $sumDisc > 0 ? number_format($sumDisc, 2) : '—' }}</td>
+            <td style="font-weight:700;color:#2c3e50;">{{ number_format($sumNet, 2) }}</td>
+            <td style="color:#16a085;font-weight:700;">{{ number_format($sumPaid, 2) }}</td>
             <td @class(['debt' => $sumDebt > 0.01]) style="font-weight:700;">{{ $sumDebt > 0.01 ? number_format($sumDebt, 2) : '—' }}</td>
             <td colspan="4"></td>
         </tr>
