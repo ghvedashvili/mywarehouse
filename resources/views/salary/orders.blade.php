@@ -38,10 +38,9 @@
     display:inline-block; padding:2px 8px; border-radius:10px;
     font-size:11px; font-weight:600;
 }
-.empty-state {
-    text-align:center; padding:60px 20px; color:#aaa;
-}
+.empty-state { text-align:center; padding:60px 20px; color:#aaa; }
 .empty-state i { font-size:40px; margin-bottom:10px; display:block; color:#d8b4fe; }
+.th-profit { background:#6c3483 !important; }
 </style>
 
 <div class="sal-header">
@@ -70,20 +69,31 @@
 @php
     $sumPrice   = 0;
     $sumDisc    = 0;
+    $sumCost    = 0;
+    $sumCourier = 0;
     $sumNet     = 0;
     $sumPaid    = 0;
     $sumDebt    = 0;
     foreach ($orders as $o) {
-        $orig      = (float)$o->price_georgia;
-        $disc      = (float)($o->discount ?? 0);
-        $paid      = (float)($o->paid_tbc??0)+(float)($o->paid_bog??0)+(float)($o->paid_lib??0)+(float)($o->paid_cash??0);
-        $debt      = max(0, $orig - $disc - $paid);
-        $sumPrice += $orig;
-        $sumDisc  += $disc;
-        $sumNet   += ($orig - $disc);
-        $sumPaid  += $paid;
-        $sumDebt  += $debt;
+        $orig    = (float)$o->price_georgia;
+        $disc    = (float)($o->discount ?? 0);
+        $cost    = (float)($o->price_usa ?? 0);
+        $courier = (float)($o->courier_price_tbilisi ?? 0)
+                 + (float)($o->courier_price_region  ?? 0)
+                 + (float)($o->courier_price_village ?? 0);
+        $paid    = (float)($o->paid_tbc??0)+(float)($o->paid_bog??0)+(float)($o->paid_lib??0)+(float)($o->paid_cash??0);
+        $net     = $orig - $disc - $cost - $courier;
+        $debt    = max(0, ($orig - $disc) - $paid);
+        $sumPrice   += $orig;
+        $sumDisc    += $disc;
+        $sumCost    += $cost;
+        $sumCourier += $courier;
+        $sumNet     += $net;
+        $sumPaid    += $paid;
+        $sumDebt    += $debt;
     }
+    $extraCols = ($isAdmin && !$userId) ? 1 : 0; // გამყიდველი column
+    $labelColspan = 6 + $extraCols; // # + (გამყ.) + პროდ. + ზომა + კლი. + ტელ + ქ-ი
 @endphp
 
 @if($orders->isEmpty())
@@ -105,7 +115,9 @@
             <th>ქ-ი</th>
             <th>ფასი ₾</th>
             <th>ფასდ. ₾</th>
-            <th>წმინდა ₾</th>
+            <th>ფასი $</th>
+            <th>საკ. ₾</th>
+            <th class="th-profit">წმინდა ₾</th>
             <th>გადახდ. ₾</th>
             <th>ვალი ₾</th>
             <th>სტატუსი</th>
@@ -117,10 +129,15 @@
     <tbody>
     @foreach($orders as $i => $o)
         @php
-            $orig = (float)$o->price_georgia;
-            $disc = (float)($o->discount ?? 0);
-            $paid = (float)($o->paid_tbc??0)+(float)($o->paid_bog??0)+(float)($o->paid_lib??0)+(float)($o->paid_cash??0);
-            $debt = max(0, $orig - $disc - $paid);
+            $orig    = (float)$o->price_georgia;
+            $disc    = (float)($o->discount ?? 0);
+            $cost    = (float)($o->price_usa ?? 0);
+            $courier = (float)($o->courier_price_tbilisi ?? 0)
+                     + (float)($o->courier_price_region  ?? 0)
+                     + (float)($o->courier_price_village ?? 0);
+            $paid    = (float)($o->paid_tbc??0)+(float)($o->paid_bog??0)+(float)($o->paid_lib??0)+(float)($o->paid_cash??0);
+            $net     = $orig - $disc - $cost - $courier;
+            $debt    = max(0, ($orig - $disc) - $paid);
         @endphp
         <tr>
             <td style="color:#888;font-size:11px;">{{ $i + 1 }}</td>
@@ -132,7 +149,11 @@
             <td style="font-size:12px;color:#555;">{{ $o->customer?->city?->name ?? '' }}</td>
             <td style="font-weight:600;">{{ number_format($orig, 2) }}</td>
             <td style="color:#8e44ad;">{{ $disc > 0 ? number_format($disc, 2) : '—' }}</td>
-            <td style="font-weight:600;color:#2c3e50;">{{ number_format($orig - $disc, 2) }}</td>
+            <td style="color:#2980b9;font-weight:600;">{{ $cost > 0 ? '$'.number_format($cost, 2) : '—' }}</td>
+            <td style="color:#e67e22;">{{ $courier > 0 ? number_format($courier, 2) : '—' }}</td>
+            <td style="font-weight:700;color:{{ $net >= 0 ? '#16a085' : '#c0392b' }};background:{{ $net >= 0 ? '#f0fdf4' : '#fef2f2' }};">
+                {{ number_format($net, 2) }}
+            </td>
             <td style="color:#16a085;">{{ $paid > 0 ? number_format($paid, 2) : '—' }}</td>
             <td @class(['debt' => $debt > 0.01])>{{ $debt > 0.01 ? number_format($debt, 2) : '—' }}</td>
             <td>
@@ -148,19 +169,23 @@
     </tbody>
     <tfoot>
         <tr class="sal-total">
-            <td class="label-cell" colspan="{{ $isAdmin && !$userId ? 7 : 6 }}" style="text-align:right;font-size:13px;">სულ:</td>
-            <td style="font-weight:700;">{{ number_format($sumPrice, 2) }}</td>
-            <td style="color:#8e44ad;font-weight:700;">{{ $sumDisc > 0 ? number_format($sumDisc, 2) : '—' }}</td>
-            <td style="font-weight:700;color:#2c3e50;">{{ number_format($sumNet, 2) }}</td>
-            <td style="color:#16a085;font-weight:700;">{{ number_format($sumPaid, 2) }}</td>
-            <td @class(['debt' => $sumDebt > 0.01]) style="font-weight:700;">{{ $sumDebt > 0.01 ? number_format($sumDebt, 2) : '—' }}</td>
+            <td class="label-cell" colspan="{{ $labelColspan }}" style="text-align:right;font-size:13px;">სულ:</td>
+            <td>{{ number_format($sumPrice, 2) }}</td>
+            <td style="color:#8e44ad;">{{ $sumDisc > 0 ? number_format($sumDisc, 2) : '—' }}</td>
+            <td style="color:#2980b9;">{{ $sumCost > 0 ? '$'.number_format($sumCost, 2) : '—' }}</td>
+            <td style="color:#e67e22;">{{ $sumCourier > 0 ? number_format($sumCourier, 2) : '—' }}</td>
+            <td style="color:{{ $sumNet >= 0 ? '#16a085' : '#c0392b' }};">{{ number_format($sumNet, 2) }}</td>
+            <td style="color:#16a085;">{{ number_format($sumPaid, 2) }}</td>
+            <td @class(['debt' => $sumDebt > 0.01])>{{ $sumDebt > 0.01 ? number_format($sumDebt, 2) : '—' }}</td>
             <td colspan="4"></td>
         </tr>
     </tfoot>
 </table>
 </div>
 <div style="padding:10px 16px;font-size:12px;color:#888;">
-    სულ {{ $orders->count() }} ორდერი · {{ \Carbon\Carbon::createFromFormat('Y-m', $month)->format('F Y') }}
+    სულ {{ $orders->count() }} ორდერი ·
+    {{ \Carbon\Carbon::createFromFormat('Y-m', $month)->format('F Y') }} ·
+    <span style="color:#16a085;font-weight:600;">წმინდა სულ: {{ number_format($sumNet, 2) }} ₾</span>
 </div>
 @endif
 </div>
@@ -175,14 +200,12 @@ function applyFilter() {
     var url = '{{ route('salary.orders') }}?month=' + month + (userId ? '&user_id=' + userId : '');
     window.location.href = url;
 }
-
-// keep excel download link in sync
 document.getElementById('filterMonth').addEventListener('change', function() {
     var month  = this.value;
     var userEl = document.getElementById('filterUser');
     var userId = userEl ? userEl.value : '';
-    var excelUrl = '{{ route('salary.orders.export') }}?month=' + month + (userId ? '&user_id=' + userId : '');
-    document.getElementById('excelBtn').href = excelUrl;
+    document.getElementById('excelBtn').href =
+        '{{ route('salary.orders.export') }}?month=' + month + (userId ? '&user_id=' + userId : '');
 });
 </script>
 @endsection

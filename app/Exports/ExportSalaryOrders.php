@@ -27,10 +27,13 @@ class ExportSalaryOrders implements FromArray, WithHeadings, WithStyles, WithEve
     private array $debts     = [];
     private int   $totalRow  = 0;
 
-    private float $sumOrig   = 0;
-    private float $sumDisc   = 0;
-    private float $sumPaid   = 0;
-    private float $sumDebt   = 0;
+    private float $sumOrig    = 0;
+    private float $sumDisc    = 0;
+    private float $sumCost    = 0;
+    private float $sumCourier = 0;
+    private float $sumNet     = 0;
+    private float $sumPaid    = 0;
+    private float $sumDebt    = 0;
 
     public function __construct(
         private string  $month,
@@ -73,16 +76,24 @@ class ExportSalaryOrders implements FromArray, WithHeadings, WithStyles, WithEve
             $cityName = $customer?->city?->name ?? '';
             $phone    = $order->order_alt_tel ?: ($customer?->tel ?? '');
 
-            $orig = (float)$order->price_georgia;
-            $disc = (float)($order->discount ?? 0);
-            $paid = (float)($order->paid_tbc  ?? 0) + (float)($order->paid_bog  ?? 0)
-                  + (float)($order->paid_lib  ?? 0) + (float)($order->paid_cash ?? 0);
-            $debt = round(max(0, $orig - $disc - $paid), 2);
+            $orig    = (float)$order->price_georgia;
+            $disc    = (float)($order->discount ?? 0);
+            $cost    = (float)($order->price_usa ?? 0);
+            $courier = (float)($order->courier_price_tbilisi    ?? 0)
+                     + (float)($order->courier_price_region     ?? 0)
+                     + (float)($order->courier_price_village    ?? 0);
+            $paid    = (float)($order->paid_tbc  ?? 0) + (float)($order->paid_bog  ?? 0)
+                     + (float)($order->paid_lib  ?? 0) + (float)($order->paid_cash ?? 0);
+            $net     = $orig - $disc - $cost - $courier;
+            $debt    = round(max(0, ($orig - $disc) - $paid), 2);
 
-            $this->sumOrig += $orig;
-            $this->sumDisc += $disc;
-            $this->sumPaid += $paid;
-            $this->sumDebt += $debt;
+            $this->sumOrig    += $orig;
+            $this->sumDisc    += $disc;
+            $this->sumCost    += $cost;
+            $this->sumCourier += $courier;
+            $this->sumNet     += $net;
+            $this->sumPaid    += $paid;
+            $this->sumDebt    += $debt;
 
             $gd = $this->loadImageResource($order->product);
             if ($gd) {
@@ -103,7 +114,9 @@ class ExportSalaryOrders implements FromArray, WithHeadings, WithStyles, WithEve
                 $cityName,
                 round($orig, 2),
                 $disc > 0 ? round($disc, 2) : '',
-                round($orig - $disc, 2),
+                $cost > 0 ? round($cost, 2) : '',
+                $courier > 0 ? round($courier, 2) : '',
+                round($net, 2),
                 $paid > 0 ? round($paid, 2) : '',
                 $debt > 0 ? $debt : '',
                 $order->orderStatus?->name ?? '',
@@ -121,10 +134,12 @@ class ExportSalaryOrders implements FromArray, WithHeadings, WithStyles, WithEve
         $this->rows[] = [
             '', '', 'სულ', '', '', '', '', '',
             round($this->sumOrig, 2),
-            round($this->sumDisc, 2),
-            round($this->sumOrig - $this->sumDisc, 2),
+            $this->sumDisc > 0 ? round($this->sumDisc, 2) : '',
+            $this->sumCost > 0 ? round($this->sumCost, 2) : '',
+            $this->sumCourier > 0 ? round($this->sumCourier, 2) : '',
+            round($this->sumNet, 2),
             round($this->sumPaid, 2),
-            round($this->sumDebt, 2),
+            $this->sumDebt > 0 ? round($this->sumDebt, 2) : '',
             '', '', '', '',
         ];
 
@@ -136,7 +151,7 @@ class ExportSalaryOrders implements FromArray, WithHeadings, WithStyles, WithEve
         return [
             '#', 'სურათი', 'გამყიდველი', 'პროდუქტი', 'ზომა',
             'კლიენტი', 'ტელ', 'ქ-ი',
-            'ფასი ₾', 'ფასდ. ₾', 'წმინდა ₾', 'გადახდ. ₾', 'ვალი ₾',
+            'ფასი ₾', 'ფასდ. ₾', 'ფასი $', 'საკ. ₾', 'წმინდა ₾', 'გადახდ. ₾', 'ვალი ₾',
             'სტატუსი', 'ორდ. #', 'შექ. თარ.', 'გადახდ. თარ.',
         ];
     }
@@ -152,15 +167,17 @@ class ExportSalaryOrders implements FromArray, WithHeadings, WithStyles, WithEve
             'F' => 20,
             'G' => 14,
             'H' => 14,
-            'I' => 10,
-            'J' => 8,
-            'K' => 10,
-            'L' => 10,
-            'M' => 8,
-            'N' => 14,
-            'O' => 14,
-            'P' => 12,
-            'Q' => 14,
+            'I' => 10,  // ფასი ₾
+            'J' => 8,   // ფასდ. ₾
+            'K' => 9,   // ფასი $
+            'L' => 9,   // საკ. ₾
+            'M' => 10,  // წმინდა ₾
+            'N' => 10,  // გადახდ. ₾
+            'O' => 8,   // ვალი ₾
+            'P' => 14,  // სტატუსი
+            'Q' => 14,  // ორდ. #
+            'R' => 12,  // შექ. თარ.
+            'S' => 14,  // გადახდ. თარ.
         ];
     }
 
@@ -212,7 +229,7 @@ class ExportSalaryOrders implements FromArray, WithHeadings, WithStyles, WithEve
                 }
 
                 foreach ($this->debts as $rowNum => $_) {
-                    $sheet->getStyle('M' . $rowNum)->applyFromArray([
+                    $sheet->getStyle('O' . $rowNum)->applyFromArray([
                         'font' => ['bold' => true, 'color' => ['argb' => 'FFB91C1C']],
                         'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFFEE2E2']],
                     ]);
