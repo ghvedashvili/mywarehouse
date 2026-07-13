@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Services\SalaryService;
+use App\Models\Product_Order;
 use App\Models\SalaryPayment;
 use App\Models\FinanceEntry;
 use App\Models\User;
@@ -136,6 +137,87 @@ class SalaryController extends Controller
         }
 
         return response()->json(['success' => true, 'message' => 'ხელფასები გაიცა']);
+    }
+
+    /**
+     * ხელფასში შემავალი ორდერების ანგარიში.
+     */
+    public function orderReport(Request $request)
+    {
+        $isAdmin = auth()->user()->role === 'admin';
+        $month   = $request->get('month', now()->format('Y-m'));
+
+        try { Carbon::createFromFormat('Y-m', $month); }
+        catch (\Exception) { $month = now()->format('Y-m'); }
+
+        $userId  = $isAdmin ? ($request->get('user_id') ?: null) : auth()->id();
+        $start   = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        $end     = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
+
+        $q = Product_Order::withoutGlobalScope('active')
+            ->with([
+                'product'     => fn($q) => $q->withoutGlobalScope('active'),
+                'customer.city',
+                'orderStatus',
+                'user:id,name',
+            ])
+            ->where('order_type', 'sale')
+            ->where('is_gift', false)
+            ->whereNotNull('fully_paid_at')
+            ->whereBetween('fully_paid_at', [$start, $end]);
+
+        if ($userId) {
+            $q->where('user_id', $userId);
+        } else {
+            $saleOperatorIds = User::where('role', 'sale_operator')->pluck('id');
+            $q->whereIn('user_id', $saleOperatorIds);
+        }
+
+        $orders = $q->orderBy('fully_paid_at')->get();
+
+        $saleOperators = $isAdmin
+            ? User::where('role', 'sale_operator')->orderBy('name')->get(['id', 'name'])
+            : collect();
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'orders' => $orders->map(fn($o) => [
+                    'id'             => $o->id,
+                    'order_number'   => $o->order_number ?? ('S'.$o->id),
+                    'seller'         => $o->user?->name ?? '—',
+                    'product'        => $o->product?->name ?? '—',
+                    'size'           => $o->product_size ?? '',
+                    'customer'       => $o->customer?->name ?? '—',
+                    'phone'          => $o->order_alt_tel ?: ($o->customer?->tel ?? ''),
+                    'city'           => $o->customer?->city?->name ?? '',
+                    'price'          => (float)$o->price_georgia,
+                    'discount'       => (float)($o->discount ?? 0),
+                    'paid'           => (float)($o->paid_tbc??0)+(float)($o->paid_bog??0)+(float)($o->paid_lib??0)+(float)($o->paid_cash??0),
+                    'status'         => $o->orderStatus?->name ?? '',
+                    'status_color'   => $o->orderStatus?->color ?? 'default',
+                    'created_at'     => $o->created_at?->format('d.m.Y') ?? '',
+                    'fully_paid_at'  => $o->fully_paid_at?->format('d.m.Y') ?? '',
+                ]),
+            ]);
+        }
+
+        return view('salary.orders', compact('orders', 'month', 'saleOperators', 'userId', 'isAdmin'));
+    }
+
+    /**
+     * ხელფასის ორდერების Excel export.
+     */
+    public function exportOrderReport(Request $request)
+    {
+        $isAdmin = auth()->user()->role === 'admin';
+        $month   = $request->get('month', now()->format('Y-m'));
+        try { Carbon::createFromFormat('Y-m', $month); }
+        catch (\Exception) { $month = now()->format('Y-m'); }
+
+        $userId = $isAdmin ? ($request->get('user_id') ?: null) : auth()->id();
+
+        $filename = 'salary_orders_' . $month . '.xlsx';
+        return (new \App\Exports\ExportSalaryOrders($month, $userId))->download($filename);
     }
 
     /**

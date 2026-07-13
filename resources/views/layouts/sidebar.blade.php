@@ -96,6 +96,9 @@
             <a href="{{ route('salary-policy.index') }}" class="sidebar-link {{ request()->is('salary-policy*') ? 'active' : '' }}" onclick="closeSidebar()">
                 <i class="fa fa-sliders"></i> სახელფასო პოლიტიკა
             </a>
+            <a href="{{ route('salary.orders') }}" class="sidebar-link {{ request()->is('salary/orders*') ? 'active' : '' }}" onclick="closeSidebar()">
+                <i class="fa fa-list-check"></i> ხელფასის ორდერები
+            </a>
             <a href="{{ route('roles.index') }}" class="sidebar-link {{ request()->is('roles*') ? 'active' : '' }}" onclick="closeSidebar()">
                 <i class="fa fa-shield-halved"></i> როლების უფლებები
             </a>

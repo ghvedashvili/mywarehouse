@@ -30,6 +30,7 @@ class Product_Order extends Model
     protected $casts = [
         'cancelled_at'    => 'datetime',
         'courier_paid_at' => 'datetime',
+        'fully_paid_at'   => 'datetime',
     ];
 
     protected static function booted()
@@ -114,6 +115,11 @@ class Product_Order extends Model
     public function scopeDeleted($query)
     {
         return $query->withoutGlobalScope('active')->where('status', 'deleted');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'user_id');
     }
 
     public function orderStatus()

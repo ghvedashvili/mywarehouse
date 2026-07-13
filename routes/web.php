@@ -75,9 +75,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/finance/courier-pay',   [FinanceController::class, 'courierPay'])->name('finance.courierPay');
 
     // ── Salary ────────────────────────────────────────────────────────
-    Route::get('/salary/calculate',  [SalaryController::class, 'calculate'])->name('salary.calculate');
-    Route::post('/salary/record',    [SalaryController::class, 'record'])->name('salary.record');
-    Route::get('/salary/history',    [SalaryController::class, 'history'])->name('salary.history');
+    Route::get('/salary/calculate',     [SalaryController::class, 'calculate'])->name('salary.calculate');
+    Route::post('/salary/record',       [SalaryController::class, 'record'])->name('salary.record');
+    Route::get('/salary/history',       [SalaryController::class, 'history'])->name('salary.history');
+    Route::get('/salary/orders',        [SalaryController::class, 'orderReport'])->name('salary.orders');
+    Route::get('/salary/orders/export', [SalaryController::class, 'exportOrderReport'])->name('salary.orders.export');
 
     // ── Salary Policy ─────────────────────────────────────────────────
     Route::get('/couriers',        [CourierController::class, 'index'])->name('couriers.index');

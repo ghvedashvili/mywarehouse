@@ -694,6 +694,10 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                     <a onclick="exportFilteredPDF();" class="po-drop-item"><i class="fa fa-file-pdf" style="color:var(--c-red);"></i> Filtered PDF</a>
                     <a onclick="exportFilteredExcel();" class="po-drop-item"><i class="fa fa-file-excel" style="color:#16a34a;"></i> Filtered Excel</a>
                     <a href="{{ route('exportPDF.productOrderAll') }}" class="po-drop-item"><i class="fa fa-file-pdf" style="color:#aaa;"></i> All PDF</a>
+                    @if(auth()->user()->role === 'admin' || auth()->user()->role === 'sale_operator')
+                    <hr style="margin:4px 0;border-color:var(--c-border-md);">
+                    <a onclick="openSalaryReportModal()" class="po-drop-item"><i class="fa fa-money-check-dollar" style="color:#8e44ad;"></i> ხელფასის ორდ.</a>
+                    @endif
                 </div>
             </div>
             <button onclick="mergeSelected()" class="po-btn po-btn-accent-soft" id="btn-merge" style="display:none;">
@@ -1028,6 +1032,31 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">გაუქმება</button>
                 <button type="button" class="btn btn-primary btn-sm" id="btn-report-date-ok">
                     <i class="fa fa-download"></i> <span id="report-date-ok-label">ჩამოტვირთვა</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- ── Salary Report Month Picker ── --}}
+<div class="modal fade" id="modal-salary-report" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content" style="border-radius:12px;">
+            <div class="modal-header" style="background:#f3e8ff;">
+                <h5 class="modal-title"><i class="fa fa-money-check-dollar me-1" style="color:#8e44ad;"></i> ხელფასის ორდერები</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <label style="font-size:13px;font-weight:600;color:#555;display:block;margin-bottom:6px;">
+                    <i class="fa fa-calendar me-1"></i> თვე / წელი
+                </label>
+                <input type="month" id="salary-report-month" class="form-control"
+                       value="{{ now()->format('Y-m') }}" style="font-size:14px;">
+            </div>
+            <div class="modal-footer" style="justify-content:space-between;">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">გაუქმება</button>
+                <button type="button" class="btn btn-sm" style="background:#8e44ad;color:#fff;" onclick="goToSalaryReport()">
+                    <i class="fa fa-arrow-right me-1"></i>ნახვა
                 </button>
             </div>
         </div>
@@ -2034,6 +2063,16 @@ $(document).on('change', '#toggle-ready-ship', function() {
 $(document).on('change', '#toggle-merged',       function() { reloadTableWithFilters(); });
 $(document).on('change', '#toggle-deleted',      function() { reloadTableWithFilters(); });
 $(document).on('change', '#toggle-show-deleted', function() { reloadTableWithFilters(); });
+
+window.openSalaryReportModal = function() {
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-salary-report')).show();
+};
+
+window.goToSalaryReport = function() {
+    var month = document.getElementById('salary-report-month').value;
+    if (!month) return;
+    window.location.href = '{{ route('salary.orders') }}?month=' + month;
+};
 
 var _reportDateType = null;
 
