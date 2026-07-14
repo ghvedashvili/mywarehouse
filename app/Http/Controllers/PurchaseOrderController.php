@@ -41,8 +41,9 @@ class PurchaseOrderController extends Controller
             'in_transit'        => Product_Order::where('order_type', 'purchase')->whereNull('original_sale_id')->where('status_id', 2)->count(),
             'in_warehouse'      => Product_Order::where('order_type', 'purchase')->whereNull('original_sale_id')->where('status_id', 3)->count(),
             'purchase_total'    => Product_Order::where('order_type', 'purchase')->whereNull('original_sale_id')->count(),
-            'returns_in_transit'=> Product_Order::where('order_type', 'purchase')->whereNotNull('original_sale_id')->where('status_id', 2)->count(),
-            'returns_total'     => Product_Order::where('order_type', 'purchase')->whereNotNull('original_sale_id')->count(),
+            'returns_in_transit' => Product_Order::where('order_type', 'purchase')->whereNotNull('original_sale_id')->where('status_id', 2)->count(),
+            'returns_received'   => Product_Order::where('order_type', 'purchase')->whereNotNull('original_sale_id')->where('status_id', 3)->count(),
+            'returns_total'      => Product_Order::where('order_type', 'purchase')->whereNotNull('original_sale_id')->count(),
         ]);
     }
 
@@ -64,18 +65,26 @@ class PurchaseOrderController extends Controller
             return response()->json(['data' => [], 'recordsTotal' => 0, 'recordsFiltered' => 0]);
         }
 
-        $statusFilter = $request->input('status_filter', '2');
+        $statusFilter  = $request->input('status_filter', '2');
+        $returnsFilter = $request->input('returns_filter', 'all');
 
         $query = Product_Order::with(['product', 'orderStatus', 'customer'])
             ->where('order_type', 'purchase');
 
         if ($type === 'returns') {
             $query->whereNotNull('original_sale_id');
+            if ($returnsFilter === 'in_transit') {
+                $query->where('status_id', 2);
+            } elseif ($returnsFilter === 'received') {
+                $query->where('status_id', 3);
+            }
         } else {
             $query->whereNull('original_sale_id');
         }
 
-        $all = $query->latest()->get();
+        $all = ($type === 'returns' && $returnsFilter === 'in_transit')
+            ? $query->oldest()->get()
+            : $query->latest()->get();
 
         // Group by purchase_group_id; orders without a group use their own id
         $grouped = $all->groupBy(fn($r) => $r->purchase_group_id ?? $r->id);
@@ -123,7 +132,13 @@ class PurchaseOrderController extends Controller
             ])->values()->all();
 
             return $primary;
-        })->sortByDesc('created_at')->values();
+        });
+
+        if ($type === 'returns' && $returnsFilter === 'in_transit') {
+            $rows = $rows->sortBy('created_at')->values();
+        } else {
+            $rows = $rows->sortByDesc('created_at')->values();
+        }
 
         return DataTables::of($rows)
             ->addColumn('order_number', function ($row) {

@@ -7,6 +7,7 @@
     $purchaseInWarehouse = Product_Order::where('order_type','purchase')->whereNull('original_sale_id')->where('status_id',3)->count();
     $purchaseTotal       = Product_Order::where('order_type','purchase')->whereNull('original_sale_id')->count();
     $returnsInTransit    = Product_Order::where('order_type','purchase')->whereNotNull('original_sale_id')->where('status_id',2)->count();
+    $returnsReceived     = Product_Order::where('order_type','purchase')->whereNotNull('original_sale_id')->where('status_id',3)->count();
     $returnsTotal        = Product_Order::where('order_type','purchase')->whereNotNull('original_sale_id')->count();
 @endphp
 
@@ -253,6 +254,35 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   font-size: 11.5px; font-weight: 700;
   white-space: nowrap;
 }
+
+/* ── SUB-TABS (returns panel) ─────────────────────────────────── */
+.pu-subtabs {
+  display: flex; gap: 3px;
+  margin-bottom: 10px;
+  border-bottom: 2px solid var(--c-border-md);
+}
+.pu-subtab {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  font-size: 12px; font-weight: 600;
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: var(--c-surface2);
+  color: var(--c-text-3);
+  cursor: pointer;
+  transition: all var(--t-fast);
+  font-family: inherit;
+  margin-bottom: -2px;
+}
+.pu-subtab:hover { background: var(--c-surface); color: var(--c-text-2); }
+.pu-subtab.active {
+  background: var(--c-surface);
+  color: var(--c-teal);
+  border-color: var(--c-border-md);
+  border-bottom-color: var(--c-surface);
+  box-shadow: 0 -2px 0 var(--c-teal) inset;
+}
 </style>
 @endsection
 
@@ -389,22 +419,6 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 
         {{-- ══ დაბრუნება / გაცვლა ══ --}}
         <div id="tab-returns" style="{{ auth()->user()->role === 'warehouse_operator' ? '' : 'display:none;' }}">
-            {{-- Returns filter bar --}}
-            <div class="pu-filter-bar mb-2">
-                <span class="pu-filter-label">დაბრუნება / გაცვლა</span>
-                <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
-                    <div class="pu-dt-search">
-                        <i class="fa fa-search"></i>
-                        <input type="text" id="pu-search-returns" placeholder="ძებნა...">
-                    </div>
-                    <select id="pu-length-returns" class="pu-dt-length">
-                        <option value="10">10 ხაზი</option>
-                        <option value="25">25 ხაზი</option>
-                        <option value="50">50 ხაზი</option>
-                        <option value="100">100 ხაზი</option>
-                    </select>
-                </div>
-            </div>
 
             {{-- Returns header info --}}
             <div class="pu-returns-header">
@@ -421,25 +435,98 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                 @endif
             </div>
 
-            <table id="returns-table" class="table pu-table table-hover table-bordered w-100">
-                <thead>
-                    <tr>
-                        <th>ნომერი</th>
-                        <th>კლიენტი</th>
-                        <th style="width:52px"></th>
-                        <th>პროდუქტი</th>
-                        <th>კოდი</th>
-                        <th>ზომა</th>
-                        <th>რაოდ.</th>
-                        <th>თვიტ. ღირ.($)</th>
-                        <th>Price (₾)</th>
-                        <th>სტატუსი</th>
-                        <th>თარიღი</th>
-                        <th>მოქმედება</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+            {{-- Sub-tabs --}}
+            <div class="pu-subtabs">
+                <button class="pu-subtab active" id="subtab-btn-intransit" onclick="switchReturnSubtab('intransit')" type="button">
+                    <i class="fa fa-truck" style="font-size:11px;"></i> გზაში
+                    @if($returnsInTransit > 0)
+                        <span class="tab-badge" id="subtab-intransit-badge">{{ $returnsInTransit }}</span>
+                    @endif
+                </button>
+                <button class="pu-subtab" id="subtab-btn-received" onclick="switchReturnSubtab('received')" type="button">
+                    <i class="fa fa-check" style="font-size:11px;"></i> მიღებული
+                    @if($returnsReceived > 0)
+                        <span class="tab-badge" id="subtab-received-badge" style="background:var(--c-teal);">{{ $returnsReceived }}</span>
+                    @endif
+                </button>
+            </div>
+
+            {{-- Sub-tab: გზაში --}}
+            <div id="subtab-intransit">
+                <div class="pu-filter-bar mb-2">
+                    <span class="pu-filter-label">გზაში (ძველიდან)</span>
+                    <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
+                        <div class="pu-dt-search">
+                            <i class="fa fa-search"></i>
+                            <input type="text" id="pu-search-ret-intransit" placeholder="ძებნა...">
+                        </div>
+                        <select id="pu-length-ret-intransit" class="pu-dt-length">
+                            <option value="10">10 ხაზი</option>
+                            <option value="25">25 ხაზი</option>
+                            <option value="50">50 ხაზი</option>
+                            <option value="100">100 ხაზი</option>
+                        </select>
+                    </div>
+                </div>
+                <table id="returns-intransit-table" class="table pu-table table-hover table-bordered w-100">
+                    <thead>
+                        <tr>
+                            <th>ნომერი</th>
+                            <th>კლიენტი</th>
+                            <th style="width:52px"></th>
+                            <th>პროდუქტი</th>
+                            <th>კოდი</th>
+                            <th>ზომა</th>
+                            <th>რაოდ.</th>
+                            <th>თვიტ. ღირ.($)</th>
+                            <th>Price (₾)</th>
+                            <th>სტატუსი</th>
+                            <th>თარიღი</th>
+                            <th>მოქმედება</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            {{-- Sub-tab: მიღებული --}}
+            <div id="subtab-received" style="display:none;">
+                <div class="pu-filter-bar mb-2">
+                    <span class="pu-filter-label">მიღებული</span>
+                    <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
+                        <div class="pu-dt-search">
+                            <i class="fa fa-search"></i>
+                            <input type="text" id="pu-search-ret-received" placeholder="ძებნა...">
+                        </div>
+                        <select id="pu-length-ret-received" class="pu-dt-length">
+                            <option value="10">10 ხაზი</option>
+                            <option value="25">25 ხაზი</option>
+                            <option value="50">50 ხაზი</option>
+                            <option value="100">100 ხაზი</option>
+                        </select>
+                    </div>
+                </div>
+                <table id="returns-received-table" class="table pu-table table-hover table-bordered w-100">
+                    <thead>
+                        <tr>
+                            <th>ნომერი</th>
+                            <th>კლიენტი</th>
+                            <th style="width:52px"></th>
+                            <th>პროდუქტი</th>
+                            <th>კოდი</th>
+                            <th>ზომა</th>
+                            <th>რაოდ.</th>
+                            <th>თვიტ. ღირ.($)</th>
+                            <th>Price (₾)</th>
+                            <th>სტატუსი</th>
+                            <th>თარიღი</th>
+                            <th>მოქმედება</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
         </div>
 
     </div>{{-- /pu-tab-panel --}}
@@ -585,6 +672,7 @@ $(function() {
 
     // ══ TAB SWITCHING ══
     var currentTab = isWarehouseOperator ? 'returns' : 'regular';
+    var currentReturnSubtab = 'intransit';
 
     window.switchPurchaseTab = function(tab) {
         currentTab = tab;
@@ -600,7 +688,27 @@ $(function() {
         if (tab === 'regular') {
             purchasesTable.columns.adjust().draw(false);
         } else {
-            returnsTable.columns.adjust().draw(false);
+            if (currentReturnSubtab === 'intransit') {
+                returnsInTransitTable.columns.adjust().draw(false);
+            } else {
+                returnsReceivedTable.columns.adjust().draw(false);
+            }
+        }
+    };
+
+    window.switchReturnSubtab = function(subtab) {
+        currentReturnSubtab = subtab;
+
+        $('.pu-subtab').removeClass('active');
+        $('#subtab-btn-' + subtab).addClass('active');
+
+        $('#subtab-intransit, #subtab-received').hide();
+        $('#subtab-' + subtab).show();
+
+        if (subtab === 'intransit') {
+            returnsInTransitTable.columns.adjust().draw(false);
+        } else {
+            returnsReceivedTable.columns.adjust().draw(false);
         }
     };
 
@@ -638,8 +746,10 @@ $(function() {
     // ══ CUSTOM DATATABLE CONTROLS ══
     $('#pu-search-regular').on('keyup', function() { purchasesTable.search(this.value).draw(); });
     $('#pu-length-regular').on('change', function() { purchasesTable.page.len(+this.value).draw(); });
-    $('#pu-search-returns').on('keyup', function() { returnsTable.search(this.value).draw(); });
-    $('#pu-length-returns').on('change', function() { returnsTable.page.len(+this.value).draw(); });
+    $('#pu-search-ret-intransit').on('keyup', function() { returnsInTransitTable.search(this.value).draw(); });
+    $('#pu-length-ret-intransit').on('change', function() { returnsInTransitTable.page.len(+this.value).draw(); });
+    $('#pu-search-ret-received').on('keyup', function() { returnsReceivedTable.search(this.value).draw(); });
+    $('#pu-length-ret-received').on('change', function() { returnsReceivedTable.page.len(+this.value).draw(); });
 
     // ══ STATUS FILTER (pill style) ══
     $('#purchase-status-filter .pu-pill').on('click', function() {
@@ -712,16 +822,47 @@ $(function() {
         }});
     };
 
-    // ══ RETURNS TABLE ══
-    var returnsTable = $('#returns-table').DataTable({
+    // ══ RETURNS IN-TRANSIT TABLE ══
+    var returnsInTransitTable = $('#returns-intransit-table').DataTable({
         processing: true, serverSide: true,
         responsive: true,
         dom: 'rtip',
         ajax: {
             url: "{{ route('purchases.api') }}",
-            data: { type: 'returns' }
+            data: { type: 'returns', returns_filter: 'in_transit' }
         },
-        order: [[9, 'desc']],
+        order: [[10, 'asc']],
+        columns: [
+            { data: 'order_number',    name: 'order_number',    responsivePriority: 2 },
+            { data: 'customer_info',   name: 'customer_info',   orderable: false, responsivePriority: 1 },
+            { data: 'show_photo',      name: 'show_photo',      orderable: false, responsivePriority: 5 },
+            { data: 'product_name',    name: 'product_name',    responsivePriority: 3, orderable: false },
+            { data: 'product_code',    name: 'product_code',    responsivePriority: 9 },
+            { data: 'product_size',    name: 'product_size',    responsivePriority: 4 },
+            { data: 'quantity',        name: 'quantity',        responsivePriority: 5 },
+            { data: 'payment',         name: 'payment',         orderable: false, responsivePriority: 7, visible: isAdmin },
+            { data: 'price_paid',      name: 'price_paid',      orderable: false, responsivePriority: 8, visible: isAdmin },
+            { data: 'status_name',     name: 'status_name',     orderable: false, responsivePriority: 6 },
+            { data: 'created_at',      name: 'created_at',      responsivePriority: 9 },
+            { data: 'action',          name: 'action',          orderable: false, responsivePriority: 2 },
+            { data: 'is_return_purchase', visible: false },
+            { data: 'group_items_json',   visible: false },
+        ],
+        createdRow: function(row) {
+            $(row).css('background-color', '#fff8e1');
+        }
+    });
+
+    // ══ RETURNS RECEIVED TABLE ══
+    var returnsReceivedTable = $('#returns-received-table').DataTable({
+        processing: true, serverSide: true,
+        responsive: true,
+        dom: 'rtip',
+        ajax: {
+            url: "{{ route('purchases.api') }}",
+            data: { type: 'returns', returns_filter: 'received' }
+        },
+        order: [[10, 'desc']],
         columns: [
             { data: 'order_number',    name: 'order_number',    responsivePriority: 2 },
             { data: 'customer_info',   name: 'customer_info',   orderable: false, responsivePriority: 1 },
@@ -750,8 +891,8 @@ $(function() {
             switchPurchaseTab('returns');
             var s = params.get('search');
             if (s) {
-                $('#pu-search-returns').val(s);
-                returnsTable.search(s).draw();
+                $('#pu-search-ret-intransit').val(s);
+                returnsInTransitTable.search(s).draw();
             }
             history.replaceState(null, '', window.location.pathname);
         }
@@ -1097,7 +1238,7 @@ $(function() {
                 data: { _method: 'DELETE', _token: "{{ csrf_token() }}" },
                 success: function(res) {
                     purchasesTable.ajax.reload();
-                    returnsTable.ajax.reload();
+                    returnsInTransitTable.ajax.reload(); returnsReceivedTable.ajax.reload();
                     refreshPurchaseStats();
                     swal({ title: 'წაიშალა!', text: res.message, type: 'success', timer: 1500 });
                 },
@@ -1164,7 +1305,7 @@ $(function() {
                     $saveBtn.prop('disabled', false).css('opacity', '');
                     $('#modal-purchase').modal('hide');
                     purchasesTable.ajax.reload();
-                    returnsTable.ajax.reload();
+                    returnsInTransitTable.ajax.reload(); returnsReceivedTable.ajax.reload();
                     refreshPurchaseStats();
                     swal({ title: '✅', text: 'ჯგუფი განახლდა!', type: 'success', timer: 1800 });
                     return;
@@ -1212,7 +1353,7 @@ $(function() {
             success: function(res) {
                 $('#modal-purchase').modal('hide');
                 purchasesTable.ajax.reload();
-                returnsTable.ajax.reload();
+                returnsInTransitTable.ajax.reload(); returnsReceivedTable.ajax.reload();
                 refreshPurchaseStats();
                 swal({ title: '✅', text: res.message, type: 'success', timer: 1800 });
             },
@@ -1318,7 +1459,7 @@ $(function() {
             success: function(res) {
                 bootstrap.Modal.getInstance(document.getElementById('modal-group-receive')).hide();
                 purchasesTable.ajax.reload();
-                returnsTable.ajax.reload();
+                returnsInTransitTable.ajax.reload(); returnsReceivedTable.ajax.reload();
                 refreshPurchaseStats();
                 swal({ title: '✅', text: res.message, type: 'success' });
             },
@@ -1435,11 +1576,25 @@ $(function() {
                 $returnsSub.text('ყველა დამუშავებულია');
             }
 
-            // tab badge
+            // tab badge (main tab)
             var $tabBtn = $('#tab-btn-returns');
             $tabBtn.find('.tab-badge').remove();
             if (d.returns_in_transit > 0) {
                 $tabBtn.append('<span class="tab-badge">' + d.returns_in_transit + '</span>');
+            }
+
+            // sub-tab intransit badge
+            var $siBtn = $('#subtab-btn-intransit');
+            $siBtn.find('.tab-badge').remove();
+            if (d.returns_in_transit > 0) {
+                $siBtn.append('<span class="tab-badge">' + d.returns_in_transit + '</span>');
+            }
+
+            // sub-tab received badge
+            var $srBtn = $('#subtab-btn-received');
+            $srBtn.find('.tab-badge').remove();
+            if (d.returns_received > 0) {
+                $srBtn.append('<span class="tab-badge" style="background:var(--c-teal);">' + d.returns_received + '</span>');
             }
 
             // returns header intransit badge
