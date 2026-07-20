@@ -901,6 +901,7 @@ $(function() {
     // ══ MULTI-LINE PURCHASE FORM ══
     var purchaseLineIndex    = 0;
     var isGroupEdit          = false;
+    var removedGroupOrderIds = [];
     var isPurchaseLineInit   = false;   // suppresses change handler during addPurchaseLine init
     var productOptionsTpl    = document.getElementById('tpl-product-options').innerHTML;
 
@@ -1097,7 +1098,9 @@ $(function() {
     });
 
     $(document).on('click', '#purchase-lines-body .remove-line', function() {
-        var $tr = $(this).closest('tr');
+        var $tr    = $(this).closest('tr');
+        var orderId = $tr.data('order-id');
+        if (isGroupEdit && orderId) removedGroupOrderIds.push(orderId);
         $tr.find('.line-product').select2('destroy');
         $tr.remove();
         updateRemoveButtons();
@@ -1211,7 +1214,8 @@ $(function() {
     };
 
     $('#modal-purchase').on('hidden.bs.modal', function() {
-        isGroupEdit = false;
+        isGroupEdit          = false;
+        removedGroupOrderIds = [];
         $('#purchase-lines-body .line-product').each(function() {
             if ($(this).data('select2')) $(this).select2('destroy');
         });
@@ -1300,14 +1304,32 @@ $(function() {
 
             $locked.prop('disabled', true);
 
-            function sendNext(idx) {
-                if (idx >= groupRows.length) {
+            function sendDeletes(idx) {
+                if (idx >= removedGroupOrderIds.length) {
                     $saveBtn.prop('disabled', false).css('opacity', '');
                     $('#modal-purchase').modal('hide');
                     purchasesTable.ajax.reload();
                     returnsInTransitTable.ajax.reload(); returnsReceivedTable.ajax.reload();
                     refreshPurchaseStats();
                     swal({ title: '✅', text: 'ჯგუფი განახლდა!', type: 'success', timer: 1800 });
+                    return;
+                }
+                $.ajax({
+                    url: "{{ url('purchases') }}/" + removedGroupOrderIds[idx] + '/line',
+                    type: 'POST',
+                    data: { _method: 'DELETE', _token: "{{ csrf_token() }}" },
+                    success: function() { sendDeletes(idx + 1); },
+                    error: function(xhr) {
+                        $saveBtn.prop('disabled', false).css('opacity', '');
+                        var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'შეცდომა!';
+                        swal({ title: 'შეცდომა', text: msg, type: 'error' });
+                    }
+                });
+            }
+
+            function sendNext(idx) {
+                if (idx >= groupRows.length) {
+                    sendDeletes(0);
                     return;
                 }
                 var row = groupRows[idx];

@@ -889,6 +889,37 @@ class PurchaseOrderController extends Controller
         });
     }
 
+    // ─── ჯგუფიდან ერთი ხაზის წაშლა (group edit-ის save-ზე) ──────────────
+    public function destroyLine($id)
+    {
+        return \DB::transaction(function () use ($id) {
+            $order = Product_Order::where('order_type', 'purchase')->findOrFail($id);
+
+            $soldSales = Product_Order::withoutGlobalScope('active')
+                ->where('purchase_order_id', $id)
+                ->whereIn('status_id', [4, 5, 6])
+                ->count();
+
+            if ($soldSales > 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'წაშლა შეუძლებელია: ' . $soldSales . ' გაყიდვა უკვე განხორციელდა.'
+                ], 422);
+            }
+
+            if ($order->status_id === 3) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'წაშლა შეუძლებელია: საწყობშია შემოტანილი.'
+                ], 422);
+            }
+
+            $this->deleteSinglePurchase($order);
+
+            return response()->json(['success' => true, 'message' => 'პროდუქტი წაიშალა!']);
+        });
+    }
+
     private function deleteSinglePurchase(Product_Order $order): void
     {
         if (in_array($order->status_id, [2, 3])) {
