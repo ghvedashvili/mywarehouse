@@ -1,5 +1,5 @@
 @extends('layouts.master')
-@section('page_title')<i class="fa fa-user-shield me-2" style="color:#c0392b;"></i>მომხმარებლები@endsection
+@section('page_title')<i class="fa fa-user-shield me-2" style="color:#c0392b;"></i>თანამშრომლები@endsection
 
 @section('top')
 <style>
@@ -9,6 +9,22 @@
 .mod-toolbar-search { position:relative; }
 .mod-toolbar-search .search-icon { position:absolute; left:9px; top:50%; transform:translateY(-50%); color:#aaa; font-size:13px; pointer-events:none; }
 .mod-toolbar-search input { padding-left:30px; width:220px; border-radius:6px; }
+
+@media (max-width:767px) {
+    .mod-card .table-responsive { overflow-x:visible; }
+    #user-table.dataTable thead                        { display:none !important; }
+    #user-table tbody tr td:not(.usr-mob-cell)         { display:none !important; }
+    #user-table tbody tr td.usr-mob-cell               { display:block !important; padding:0 !important; border:none !important; max-width:100%; overflow:hidden; }
+    .usr-mob-hdr   { display:flex; align-items:center; gap:12px; padding:12px 14px 10px; }
+    .usr-mob-avatar{ width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:700; color:#fff; flex-shrink:0; }
+    .usr-mob-info  { flex:1; min-width:0; }
+    .usr-mob-name  { font-size:15px; font-weight:700; color:var(--c-text,#222); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .usr-mob-email { font-size:12px; color:#888; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
+    .usr-mob-sep   { border:none; border-top:1px solid #f1f5f9; margin:0; }
+    .usr-mob-footer{ display:flex; align-items:center; justify-content:space-between; padding:10px 14px; gap:8px; }
+    .usr-mob-act   { display:flex; gap:6px; }
+    .usr-mob-act .btn { border-radius:8px; font-size:12px; font-weight:600; padding:5px 10px; }
+}
 </style>
 @endsection
 
@@ -17,8 +33,8 @@
 
     <div class="mod-header">
         <div>
-            <h2 class="mod-title"><i class="fa fa-user-shield me-2" style="color:#c0392b;"></i>სისტემის მომხმარებლები</h2>
-            <p class="mod-subtitle">მომხმარებლებისა და როლების მართვა</p>
+            <h2 class="mod-title"><i class="fa fa-user-shield me-2" style="color:#c0392b;"></i>თანამშრომლები</h2>
+            <p class="mod-subtitle">თანამშრომლებისა და როლების მართვა</p>
         </div>
         <div class="mod-actions">
             <button class="btn btn-secondary btn-sm" onclick="openChangePassword()">
@@ -197,6 +213,8 @@
 
 @section('bot')
 <script>
+var _usrIsAdmin = {{ Auth::user()->role === 'admin' ? 'true' : 'false' }};
+
 var table = $('#user-table').DataTable({
     processing: true, serverSide: true,
     dom: 't<"d-flex justify-content-between align-items-center mt-2 px-2"ip>',
@@ -207,8 +225,54 @@ var table = $('#user-table').DataTable({
         {data:'email'},
         {data:'role',    orderable:false},
         {data:'action',  orderable:false, searchable:false}
-    ]
+    ],
+    drawCallback: function() { buildMobileUserCards(); },
+    initComplete: function() { buildMobileUserCards(); }
 });
+
+function buildMobileUserCards() {
+    if ($(window).width() > 767) return;
+    table.rows().every(function() {
+        var d   = this.data();
+        var $tr = $(this.node());
+        if ($tr.find('.usr-mob-cell').length) return;
+
+        var $badge = $('<div>').html(d.role).find('.badge');
+        var bc = $badge.attr('class') || '';
+        var avatarBg = '#888';
+        if      (bc.indexOf('bg-danger')  !== -1) avatarBg = '#c0392b';
+        else if (bc.indexOf('bg-primary') !== -1) avatarBg = '#2980b9';
+        else if (bc.indexOf('bg-success') !== -1) avatarBg = '#27ae60';
+        else if (bc.indexOf('bg-warning') !== -1) avatarBg = '#e67e22';
+
+        var initial = ($('<span>').text((d.name || '?')[0].toUpperCase()).html());
+        var safeName  = $('<span>').text(d.name).html();
+        var safeEmail = $('<span>').text(d.email).html();
+        var id = d.id;
+
+        var actHtml = '<button class="btn btn-primary btn-sm" onclick="editForm(' + id + ')"><i class="fa fa-edit me-1"></i>Edit</button>';
+        if (_usrIsAdmin) {
+            actHtml += '<button class="btn btn-danger btn-sm" onclick="deleteData(' + id + ')"><i class="fa fa-trash me-1"></i></button>';
+        }
+
+        var card = '<td class="usr-mob-cell" colspan="5">'
+            +   '<div class="usr-mob-hdr">'
+            +     '<div class="usr-mob-avatar" style="background:' + avatarBg + '">' + initial + '</div>'
+            +     '<div class="usr-mob-info">'
+            +       '<div class="usr-mob-name">' + safeName + '</div>'
+            +       '<div class="usr-mob-email">' + safeEmail + '</div>'
+            +     '</div>'
+            +   '</div>'
+            +   '<hr class="usr-mob-sep">'
+            +   '<div class="usr-mob-footer">'
+            +     '<div>' + d.role + '</div>'
+            +     '<div class="usr-mob-act">' + actHtml + '</div>'
+            +   '</div>'
+            + '</td>';
+
+        $tr.append(card);
+    });
+}
 
 $('#dt-search').on('keyup',  function() { table.search(this.value).draw(); });
 $('#dt-page-length').on('change', function() { table.page.len(this.value).draw(); });

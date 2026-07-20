@@ -2,6 +2,39 @@
 #purchase-lines-table th, #purchase-lines-table td { vertical-align: middle; }
 .line-price-geo { color: #00a65a; font-weight: 700; }
 .line-fifo      { font-size: 10px; color: #8e44ad; display: block; margin-top: 2px; }
+
+@media (max-width: 767px) {
+    #modal-purchase .table-responsive { overflow: visible !important; }
+    #purchase-lines-table { min-width: 0 !important; }
+    #purchase-lines-table thead { display: none !important; }
+    #purchase-lines-table, #purchase-lines-table tbody { display: block !important; width: 100% !important; }
+    #purchase-lines-table tr.purchase-line {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        padding: 10px;
+        background: #fff;
+        border-radius: 10px;
+        margin-bottom: 8px;
+        border: 1px solid #e5e7eb !important;
+        box-shadow: 0 1px 6px rgba(0,0,0,.07);
+    }
+    #purchase-lines-table tr.purchase-line td {
+        display: block !important;
+        padding: 0 !important;
+        border: none !important;
+    }
+    /* Product select — full width */
+    #purchase-lines-table tr.purchase-line td:first-child { grid-column: 1 / -1; }
+    /* Remove button — full width, right-aligned */
+    #purchase-lines-table tr.purchase-line td:last-child { grid-column: 1 / -1; text-align: right; }
+    #purchase-lines-table .select2-container { width: 100% !important; }
+    #purchase-lines-table .line-size,
+    #purchase-lines-table .line-qty,
+    #purchase-lines-table .line-price-usa,
+    #purchase-lines-table .line-transport,
+    #purchase-lines-table .line-price-geo { width: 100% !important; font-size: 16px !important; }
+}
 </style>
 
 <div class="modal fade" id="modal-purchase" tabindex="-1" data-bs-backdrop="static">

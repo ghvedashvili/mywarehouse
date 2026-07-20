@@ -5,55 +5,241 @@
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
 <link href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css" rel="stylesheet">
 <style>
-:root { --wh-green:#00a65a; --wh-orange:#f39c12; --wh-red:#dd4b39; --wh-blue:#357ca5; --wh-purple:#8e44ad; --wh-dark:#222d32; --wh-border:#dee2e6; }
-.stat-card { background:#fff; border:1px solid var(--wh-border); border-radius:8px; padding:14px 18px; border-left:4px solid var(--wh-green); box-shadow:0 1px 4px rgba(0,0,0,0.06); }
-.stat-card.orange { border-left-color:var(--wh-orange); }
-.stat-card.blue   { border-left-color:var(--wh-blue); }
-.stat-card.purple { border-left-color:var(--wh-purple); }
-.stat-card.red    { border-left-color:var(--wh-red); }
-.stat-card .val { font-size:26px; font-weight:800; color:var(--wh-dark); line-height:1; }
-.stat-card .lbl { font-size:11px; color:#888; text-transform:uppercase; letter-spacing:0.6px; margin-top:4px; }
-.wh-table thead th { background:#f4f4f4; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:#555; border-bottom:2px solid var(--wh-border)!important; white-space:nowrap; }
-.qty-badge { display:inline-block; min-width:32px; text-align:center; font-weight:700; padding:2px 8px; border-radius:4px; font-size:13px; }
-.qty-physical         { background:#dff0d8; color:#3c763d; }
-.qty-incoming         { background:#d9edf7; color:#31708f; }
-.qty-return-incoming  { background:#f5e6ff; color:#8e44ad; }
-.qty-reserved         { background:#fcf8e3; color:#8a6d3b; }
-.qty-available        { background:#222d32; color:#fff; }
-.qty-zero             { background:#f2dede; color:#a94442; }
+/* ── Design tokens ── */
+:root {
+    --wh-surface:    #ffffff;
+    --wh-surface2:   #f6f7fb;
+    --wh-border:     rgba(99,115,150,.16);
+    --wh-border-md:  rgba(99,115,150,.24);
+    --wh-text-1:     #1a2235;
+    --wh-text-2:     #3d4a5c;
+    --wh-text-3:     #7a8a9e;
+    --wh-green:      #059669;
+    --wh-orange:     #d97706;
+    --wh-red:        #dc2626;
+    --wh-blue:       #2563eb;
+    --wh-purple:     #7c3aed;
+    --wh-dark:       #1a2235;
+    --wh-r-md:       12px;
+    --wh-sh-sm:      0 2px 8px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.03);
+}
 
-/* Financial summary bar */
+/* ── Mobile search bar: hidden on desktop ── */
+.wh-mob-search-wrap  { display: none; }
+.wh-mob-action-bar   { display: none; }
+
+/* ── Stat cards ── */
+.stat-card {
+    background: var(--wh-surface);
+    border: 1px solid var(--wh-border-md);
+    border-radius: var(--wh-r-md);
+    padding: 14px 18px;
+    border-left: 4px solid var(--wh-green);
+    box-shadow: var(--wh-sh-sm);
+    height: 100%;
+}
+.stat-card.orange { border-left-color: var(--wh-orange); }
+.stat-card.blue   { border-left-color: var(--wh-blue); }
+.stat-card.purple { border-left-color: var(--wh-purple); }
+.stat-card.red    { border-left-color: var(--wh-red); }
+.stat-card .val   { font-size: 28px; font-weight: 800; color: var(--wh-dark); line-height: 1; }
+.stat-card .lbl   { font-size: 11px; color: var(--wh-text-3); text-transform: uppercase; letter-spacing: 0.6px; margin-top: 5px; }
+
+/* ── Table header ── */
+.wh-table thead th {
+    background: var(--wh-surface2);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--wh-text-3);
+    border-bottom: 1.5px solid var(--wh-border-md) !important;
+    white-space: nowrap;
+}
+
+/* ── Quantity badges ── */
+.qty-badge {
+    display: inline-block;
+    min-width: 34px;
+    text-align: center;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+}
+.qty-physical        { background: #d1fae5; color: #065f46; }
+.qty-incoming        { background: #dbeafe; color: #1e40af; }
+.qty-return-incoming { background: #ede9fe; color: #5b21b6; }
+.qty-reserved        { background: #fef3c7; color: #92400e; }
+.qty-available       { background: var(--wh-dark); color: #fff; }
+.qty-zero            { background: #fee2e2; color: #991b1b; }
+
+/* ── Financial bar ── */
 .fin-bar {
     display: flex; align-items: center; flex-wrap: wrap; gap: 0;
-    background: #fff; border: 1px solid var(--wh-border); border-radius: 8px;
-    padding: 10px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    background: var(--wh-surface);
+    border: 1px solid var(--wh-border-md);
+    border-radius: var(--wh-r-md);
+    padding: 12px 20px;
+    box-shadow: var(--wh-sh-sm);
 }
-.fin-item {
-    display: flex; align-items: center; gap: 10px;
-    flex: 1 1 0; min-width: 160px; padding: 4px 8px;
-}
-.fin-icon { font-size: 22px; line-height: 1; }
-.fin-val  { font-size: 18px; font-weight: 800; color: var(--wh-dark); line-height: 1.1; }
-.fin-lbl  { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
-.fin-sep  { width: 1px; height: 40px; background: var(--wh-border); margin: 0 4px; flex-shrink: 0; }
+.fin-item  { display: flex; align-items: center; gap: 10px; flex: 1 1 0; min-width: 160px; padding: 4px 8px; }
+.fin-icon  { font-size: 22px; line-height: 1; }
+.fin-val   { font-size: 18px; font-weight: 800; color: var(--wh-dark); line-height: 1.1; }
+.fin-lbl   { font-size: 10px; color: var(--wh-text-3); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+.fin-sep   { width: 1px; height: 40px; background: var(--wh-border-md); margin: 0 4px; flex-shrink: 0; }
 
-/* Responsive expand control dot */
+/* ── Responsive expand control ── */
 table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before,
 table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
     background-color: var(--wh-green);
     border-radius: 50%;
 }
-/* Bulk bar */
+
+/* ── Bulk bar ── */
 #wh-bulk-bar {
-    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
-    background:#1e293b; color:#fff; border-radius:12px;
-    padding:10px 18px; display:none; align-items:center; gap:12px;
-    box-shadow:0 8px 32px rgba(0,0,0,.3); z-index:9999; white-space:nowrap;
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #1e293b; color: #fff; border-radius: 14px;
+    padding: 10px 18px; display: none; align-items: center; gap: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.3); z-index: 9999; white-space: nowrap;
 }
-#wh-bulk-bar.show { display:flex; }
-#wh-bulk-bar .bulk-count { font-size:13px; font-weight:600; }
-#wh-bulk-bar button { border:none; border-radius:8px; padding:6px 14px; font-size:12px; font-weight:600; cursor:pointer; }
-.wh-bulk-clear { background:transparent; color:#94a3b8; font-size:18px; padding:0 4px !important; }
+#wh-bulk-bar.show { display: flex; }
+#wh-bulk-bar .bulk-count { font-size: 13px; font-weight: 600; }
+#wh-bulk-bar button { border: none; border-radius: 8px; padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.wh-bulk-clear { background: transparent; color: #94a3b8; font-size: 18px; padding: 0 4px !important; }
+
+/* ══════════════════════════════════════════════
+   MOBILE CARD VIEW  ≤767px
+══════════════════════════════════════════════ */
+@media (max-width: 767px) {
+
+    /* ── Override master.blade.php global card layout for this table ── */
+    #stock-table                            { display: table !important; width: 100% !important; min-width: 700px; }
+    #stock-table thead                      { display: table-header-group !important; }
+    #stock-table tbody                      { display: table-row-group !important; }
+    #stock-table tbody tr                   { display: table-row !important; background: transparent !important; border-radius: 0 !important; margin: 0 !important; box-shadow: none !important; overflow: visible; }
+    #stock-table tbody td                   { display: table-cell !important; padding: 6px 8px !important; border: 1px solid #dee2e6 !important; min-height: auto; justify-content: initial; }
+    #stock-table tbody td::before           { display: none !important; }
+    .mod-card .table-responsive             { overflow-x: auto !important; }
+
+    /* Mobile: thead shows icons only */
+    #stock-table thead th .th-txt { display: none; }
+    #stock-table thead th { white-space: nowrap; text-align: center; font-size: 15px; padding: 6px 6px !important; }
+
+    /* Hide desktop chrome */
+    .mod-header  { display: none !important; }
+    .mod-toolbar { display: none !important; }
+
+    /* Page padding: leave room for bulk bar */
+    .mod-wrap { padding: 8px 12px 80px !important; }
+
+    /* Strip card styling from mod-card */
+    .mod-card {
+        background: transparent !important;
+        border: none !important; box-shadow: none !important;
+        border-radius: 0 !important; padding: 0 !important;
+    }
+    .mod-card .table-responsive { overflow-x: auto !important; }
+
+    /* Stat cards: compact */
+    .stat-card { padding: 10px 12px; }
+    .stat-card .val { font-size: 22px; }
+
+    /* Fin-bar: compact + stack separators */
+    .fin-bar  { padding: 8px 10px; }
+    .fin-item { min-width: 110px; padding: 5px 6px; }
+    .fin-val  { font-size: 15px; }
+    .fin-sep  { display: none; }
+
+    /* ── Mobile action bar ── */
+    .wh-mob-action-bar {
+        display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;
+        padding: 0 0 10px; overflow-x: auto;
+        -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .wh-mob-action-bar::-webkit-scrollbar { display: none; }
+
+    /* ── Mobile search bar ── */
+    .wh-mob-search-wrap { display: block; margin-bottom: 10px; position: relative; }
+    .wh-mob-search {
+        display: flex; align-items: center; gap: 8px;
+        background: #fff; border: 1px solid var(--wh-border-md);
+        border-radius: 14px; padding: 10px 6px 10px 14px;
+        box-shadow: var(--wh-sh-sm);
+    }
+    .wh-mob-search > i { font-size: 13px; color: var(--wh-text-3); flex-shrink: 0; }
+    .wh-mob-search input {
+        flex: 1; min-width: 0; background: none; border: none; outline: none;
+        font-size: 14px; color: var(--wh-text-1); font-family: inherit;
+    }
+    .wh-mob-search input::placeholder { color: var(--wh-text-3); font-size: 13px; }
+    #wh-filter-btn.has-active .mob-ts-filter-badge { display: flex !important; }
+
+    /* ── Filter drawer panel ── */
+    @keyframes whPanelIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+    .wh-filter-panel {
+        display: none; position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+        background: #fff; border: 1px solid var(--wh-border-md);
+        border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.12);
+        z-index: 200; overflow: hidden;
+    }
+    .wh-filter-panel.open { display: block; animation: whPanelIn .18s ease; }
+    .wh-filter-panel-body { display: flex; flex-direction: column; padding: 12px 16px 14px; gap: 10px; }
+    .wh-fp-label { font-size: 11.5px; font-weight: 600; color: #64748b; margin-bottom: 3px; }
+    .wh-filter-panel select {
+        width: 100%; height: 40px; font-size: 13.5px;
+        border-radius: 10px; border: 1.5px solid #e2e8f0; padding: 0 10px;
+        background: #fff; color: #1e293b; font-family: inherit;
+    }
+
+    /* Action bar buttons */
+    .wh-mab-btn {
+        display: inline-flex; align-items: center; gap: 5px;
+        white-space: nowrap; cursor: pointer; font-family: inherit;
+        font-size: 12.5px; font-weight: 600; line-height: 1;
+        padding: 7px 13px; border-radius: 22px; border: 1.5px solid transparent;
+        touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+        transition: background .15s, transform .1s; flex-shrink: 0; text-decoration: none;
+    }
+    .wh-mab-btn:active     { transform: scale(.93); }
+    .wh-mab-btn > i        { font-size: 10px; }
+    .wh-mab-primary { background: var(--wh-blue);   border-color: var(--wh-blue);   color: #fff; box-shadow: 0 2px 10px rgba(37,99,235,.28); }
+    .wh-mab-orange  { background: var(--wh-orange);  border-color: var(--wh-orange);  color: #fff; }
+    .wh-mab-ghost   { background: var(--wh-surface); border-color: var(--wh-border-md); color: var(--wh-text-2); }
+    .wh-mab-sep     { width: 1px; height: 20px; background: var(--wh-border-md); flex-shrink: 0; }
+
+}
+
+/* ══ STICKY FIRST COLUMN ══ */
+.wh-sc-inner {
+    display: flex; align-items: center; gap: 8px;
+    min-width: 200px; max-width: 260px;
+}
+.wh-sc-cb  { flex: 0 0 auto; }
+.wh-sc-text { flex: 1; min-width: 0; }
+.wh-sc-name {
+    font-weight: 600; font-size: 13px; line-height: 1.3;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 170px;
+}
+.wh-sc-code { font-size: 11px; color: #64748b; white-space: nowrap; margin-top: 2px; }
+.wh-sc-size { flex: 0 0 auto; font-size: 11px; font-weight: 700; color: #475569; background: #f1f5f9; border-radius: 6px; padding: 2px 7px; white-space: nowrap; align-self: center; }
+
+#stock-table thead th:first-child,
+#stock-table tbody td:first-child {
+    position: sticky; left: 0; z-index: 2;
+    background: #fff;
+    box-shadow: 2px 0 8px rgba(0,0,0,.09);
+}
+#stock-table thead th:first-child { z-index: 3; background: #f8fafc; }
+
+/* When table is scrolled — collapse first column to image only */
+.wh-tbl-scrolled #stock-table thead th:first-child,
+.wh-tbl-scrolled #stock-table tbody td:first-child {
+    box-shadow: 3px 0 14px rgba(0,0,0,.14);
+}
+.wh-tbl-scrolled .wh-sc-text,
+.wh-tbl-scrolled .wh-sc-lbl { display: none !important; }
+.wh-tbl-scrolled .wh-sc-inner { min-width: 0; max-width: none; gap: 6px; }
 </style>
 @endsection
 
@@ -77,6 +263,21 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
                 <i class="fa fa-cart-shopping me-1"></i><span class="d-none d-sm-inline"> შესყიდვები</span>
             </a>
         </div>
+        @endif
+    </div>
+
+    {{-- Mobile action bar --}}
+    <div class="wh-mob-action-bar">
+        @if(!in_array(auth()->user()->role, ['sale_operator', 'warehouse_operator']))
+        <button class="wh-mab-btn wh-mab-orange" onclick="openWriteOffModal()">
+            <i class="fa fa-minus-circle"></i> ჩამოწერა
+        </button>
+        <a href="{{ route('warehouse.logs') }}" class="wh-mab-btn wh-mab-ghost">
+            <i class="fa fa-history"></i> ლოგი
+        </a>
+        <a href="{{ url('purchases') }}" class="wh-mab-btn wh-mab-ghost">
+            <i class="fa fa-cart-shopping"></i> შესყიდვები
+        </a>
         @endif
     </div>
 
@@ -136,6 +337,50 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
     </div>
     @endif
 
+    {{-- Mobile search bar + filter drawer --}}
+    <div class="wh-mob-search-wrap">
+        <div class="wh-mob-search">
+            <i class="fa fa-search"></i>
+            <input type="search" id="mob-wh-search" placeholder="ძებნა..." autocomplete="off">
+            <button type="button" class="mob-ts-filter-btn" id="wh-filter-btn" onclick="toggleWhDrawer()">
+                <i class="fa fa-sliders"></i>
+                <span class="mob-ts-filter-badge" id="wh-filter-badge"></span>
+            </button>
+        </div>
+        <div class="wh-filter-panel" id="wh-filter-drawer">
+            <div class="wh-filter-panel-body">
+                <div>
+                    <div class="wh-fp-label">კატეგორია</div>
+                    <select id="mob-filter-category">
+                        <option value="">ყველა კატეგორია</option>
+                        @foreach($categories as $cat)
+                            <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <div class="wh-fp-label">ზომა</div>
+                    <select id="mob-filter-size">
+                        <option value="">ყველა ზომა</option>
+                        @foreach($sizes as $size)
+                            <option value="{{ $size }}">{{ $size }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <div class="wh-fp-label">ჩანაწ. რაოდ.</div>
+                    <select id="mob-dt-page-length">
+                        <option value="10">10</option>
+                        <option value="25" selected>25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="-1">ყველა</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="mod-card">
         <div class="mod-toolbar">
             <select id="dt-page-length" class="form-select form-select-sm" style="width:75px;">
@@ -165,10 +410,16 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
             <table id="stock-table" class="table wh-table table-hover table-bordered w-100">
                 <thead>
                     <tr>
-                        <th style="width:32px;"><input type="checkbox" id="wh-select-all" title="ყველა"></th>
-                        <th></th><th>პროდუქტი</th><th>კოდი</th><th>ზომა</th>
-                        <th>📦 ფიზ.</th><th>🚚 გზაში</th><th>↩ დაბრ. გზაში</th><th>🔒 დაჯავშნ.</th>
-                        <th>✅ ხელმისაწვდ.</th><th>🧮 FIFO</th><th>სტატუსი</th><th></th>
+                        <th><div class="wh-sc-inner"><span class="wh-sc-cb"><input type="checkbox" id="wh-select-all" title="ყველა"></span><span class="wh-sc-lbl" style="font-weight:600;">პროდუქტი</span></div></th>
+                        <th></th><th></th><th></th><th></th>
+                        <th><span class="th-icon">📦</span><span class="th-txt"> ფიზ.</span></th>
+                        <th><span class="th-icon">🚚</span><span class="th-txt"> გზაში</span></th>
+                        <th><span class="th-icon">↩</span><span class="th-txt"> დაბრ.</span></th>
+                        <th><span class="th-icon">🔒</span><span class="th-txt"> დაჯავშნ.</span></th>
+                        <th><span class="th-icon">✅</span><span class="th-txt"> ხელმისაწვდ.</span></th>
+                        <th><span class="th-icon">🧮</span><span class="th-txt"> FIFO</span></th>
+                        <th><span class="th-icon">⚡</span><span class="th-txt"> სტატუსი</span></th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -460,7 +711,7 @@ $(function() {
 
     var stockTable = $('#stock-table').DataTable({
         processing: true, serverSide: true,
-        responsive: true,
+        responsive: false,
         pageLength: 25,
         order: [[9, 'desc']],
         dom: 't<"d-flex justify-content-between align-items-center mt-2 px-2"ip>',
@@ -469,17 +720,22 @@ $(function() {
             data: function(d) { d.category_id = $('#filter-category').val(); d.sizes = $('#filter-size').val() || []; }
         },
         columns: [
-            { data: null, orderable:false, searchable:false, width:'32px', className:'text-center',
-              render: function(data) {
-                  var url = data.image_url_raw || '';
-                  if (!url) return '';
-                  return '<input type="checkbox" class="wh-cb" data-url="'+url+'" data-price="'+(data.price_raw||'')+'" data-size="'+(data.size||'')+'">';
+            { data: null, orderable:false, searchable:false,
+              render: function(data, type) {
+                  if (type !== 'display') return '';
+                  var url  = data.image_url_raw || '';
+                  var cb   = url ? '<span class="wh-sc-cb"><input type="checkbox" class="wh-cb" data-url="'+url+'" data-price="'+(data.price_raw||'')+'" data-size="'+(data.size||'')+'"></span>' : '<span class="wh-sc-cb"></span>';
+                  var img  = data.product_image || '';
+                  var name = data.product_name  || '';
+                  var code = data.product_code  || '';
+                  var size = data.size           || '';
+                  return '<div class="wh-sc-inner">'+cb+img+'<div class="wh-sc-text"><div class="wh-sc-name">'+name+'</div><div class="wh-sc-code">'+code+'</div></div>'+(size?'<span class="wh-sc-size">'+size+'</span>':'')+'</div>';
               }
             },
-            {data:'product_image', orderable:false, searchable:false, responsivePriority: 3, width:'46px'},
-            {data:'product_name', responsivePriority: 1},
-            {data:'product_code', responsivePriority: 9},
-            {data:'size',         responsivePriority: 2},
+            {data:'product_image', orderable:false, searchable:false, visible:false},
+            {data:'product_name', visible:false},
+            {data:'product_code', visible:false},
+            {data:'size',         visible:false},
             {data:'physical_qty', responsivePriority: 5,
              render: v => `<span class="qty-badge ${v>0?'qty-physical':'qty-zero'}">${v}</span>`},
             {data:'incoming_qty', responsivePriority: 8,
@@ -500,6 +756,11 @@ $(function() {
             var d=this.api().rows().data(), ph=0,inc=0,ret=0,res=0,low=0;
             d.each(function(r){ if(r.is_divisible) return; ph+=parseInt(r.physical_qty)||0; inc+=parseInt(r.incoming_qty)||0; ret+=parseInt(r.return_incoming_qty)||0; res+=parseInt(r.reserved_qty)||0; if(parseInt(r.available)<=3)low++; });
             $('#stat-physical').text(ph); $('#stat-incoming').text(inc); $('#stat-return-incoming').text(ret); $('#stat-reserved').text(res); $('#stat-low').text(low);
+        },
+        initComplete: function() {
+            $('#stock-table_wrapper').children('div.d-flex')
+                .detach()
+                .insertAfter('.mod-card .table-responsive');
         }
     });
 
@@ -652,5 +913,71 @@ $(function() {
         return "{{ route('warehouse.apiLogs') }}?product_id=" + productId + "&size=" + encodeURIComponent(size);
     }
 });
+
+/* ══ STICKY COLUMN SCROLL COLLAPSE ══ */
+(function() {
+    var wrap = document.querySelector('.mod-card .table-responsive');
+    if (wrap) {
+        wrap.addEventListener('scroll', function() {
+            this.classList.toggle('wh-tbl-scrolled', this.scrollLeft > 5);
+        });
+    }
+})();
+
+/* ══ MOBILE FILTER DRAWER ══ */
+window.toggleWhDrawer = function() {
+    var panel = document.getElementById('wh-filter-drawer');
+    var btn   = document.getElementById('wh-filter-btn');
+    var open  = panel.classList.contains('open');
+    panel.classList.toggle('open', !open);
+    btn.classList.toggle('active', !open);
+};
+$(document).on('click', function(e) {
+    if (!$(e.target).closest('.wh-mob-search-wrap').length) {
+        $('#wh-filter-drawer').removeClass('open');
+        $('#wh-filter-btn').removeClass('active');
+    }
+});
+
+/* Mobile search → DataTable */
+(function() {
+    var _t;
+    $('#mob-wh-search').on('input', function() {
+        clearTimeout(_t); var v = $(this).val();
+        _t = setTimeout(function() { $('#dt-search').val(v).trigger('keyup'); }, 300);
+    });
+})();
+
+/* Mobile category ↔ desktop */
+$('#mob-filter-category').on('change', function() {
+    $('#filter-category').val($(this).val()).trigger('change');
+    updateWhFilterBadge();
+});
+$('#filter-category').on('change', function() {
+    $('#mob-filter-category').val($(this).val());
+    updateWhFilterBadge();
+});
+
+/* Mobile size → desktop */
+$('#mob-filter-size').on('change', function() {
+    var val = $(this).val() ? [$(this).val()] : [];
+    $('#filter-size').val(val).trigger('change');
+    updateWhFilterBadge();
+});
+
+/* Mobile page length → desktop */
+$('#mob-dt-page-length').on('change', function() {
+    $('#dt-page-length').val($(this).val()).trigger('change');
+});
+
+/* Filter badge counter */
+function updateWhFilterBadge() {
+    var count = 0;
+    if ($('#filter-category').val()) count++;
+    var sz = $('#filter-size').val();
+    if (sz && sz.length > 0) count++;
+    $('#wh-filter-badge').text(count || '');
+    $('#wh-filter-btn').toggleClass('has-active', count > 0);
+}
 </script>
 @endsection

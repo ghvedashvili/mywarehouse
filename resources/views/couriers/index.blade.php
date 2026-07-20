@@ -87,6 +87,28 @@
 .price-card { background: #f8f9fa; border-radius: 10px; padding: 12px 14px; }
 .price-card .pc-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #b2bec3; margin-bottom: 6px; }
 .price-card input { background: #fff; }
+
+@media (max-width: 767px) {
+    .cr-wrap { padding: 10px; max-width: 100%; }
+    .cr-table thead { display: none; }
+    .cr-table, .cr-table tbody { display: block; }
+    .cr-table tr {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 0;
+        background: #fff; border-radius: 12px; margin: 0 0 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,.07); border: 1px solid #e9edf3;
+        overflow: hidden; padding: 12px 14px 10px;
+    }
+    .cr-table td { display: block; border: none !important; padding: 0; }
+    .cr-td-id   { display: none !important; }
+    .cr-td-name { width: 100%; margin-bottom: 10px; }
+    .cr-td-name .cr-name { font-size: 15px; }
+    .cr-td-tbs, .cr-td-reg, .cr-td-vil { flex: 1; text-align: center !important; }
+    .cr-td-tbs::before { content: 'თბ'; display: block; font-size: 10px; font-weight: 700; color: #00b894; margin-bottom: 2px; }
+    .cr-td-reg::before { content: 'რეგ'; display: block; font-size: 10px; font-weight: 700; color: #e17055; margin-bottom: 2px; }
+    .cr-td-vil::before { content: 'სოფ'; display: block; font-size: 10px; font-weight: 700; color: #6c5ce7; margin-bottom: 2px; }
+    .cr-price { font-size: 13px !important; }
+    .cr-td-act { width: 100%; text-align: right !important; margin-top: 10px; padding-top: 10px !important; border-top: 1px solid #f0f0f0 !important; }
+}
 </style>
 
 <div class="cr-wrap">
@@ -112,18 +134,18 @@
             <tbody>
                 @foreach($couriers as $courier)
                 <tr>
-                    <td style="color:#b2bec3; font-size:12px; width:32px;">{{ $courier->id }}</td>
-                    <td><span class="cr-name">{{ $courier->name }}</span></td>
-                    <td class="cr-price" style="color:#00b894;">
+                    <td class="cr-td-id" style="color:#b2bec3; font-size:12px; width:32px;">{{ $courier->id }}</td>
+                    <td class="cr-td-name"><span class="cr-name">{{ $courier->name }}</span></td>
+                    <td class="cr-td-tbs cr-price" style="color:#00b894;">
                         {{ number_format($courier->tbilisi_price, 2) }}<span class="currency">₾</span>
                     </td>
-                    <td class="cr-price" style="color:#e17055;">
+                    <td class="cr-td-reg cr-price" style="color:#e17055;">
                         {{ number_format($courier->region_price, 2) }}<span class="currency">₾</span>
                     </td>
-                    <td class="cr-price" style="color:#6c5ce7;">
+                    <td class="cr-td-vil cr-price" style="color:#6c5ce7;">
                         {{ number_format($courier->village_price, 2) }}<span class="currency">₾</span>
                     </td>
-                    <td style="text-align:right; width:110px;">
+                    <td class="cr-td-act" style="text-align:right; width:110px;">
                         <button class="btn-cr-edit" onclick="editCourier({{ $courier->id }}, {{ json_encode($courier) }})">
                             <i class="fa fa-pen me-1"></i> რედაქტ.
                         </button>

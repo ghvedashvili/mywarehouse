@@ -3,9 +3,17 @@
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Warehouse</title>
+
+    {{-- PWA --}}
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#2d7dd2">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Warehouse">
+    <link rel="apple-touch-icon" href="{{ asset('upload/favicon.png') }}">
 
     {{-- Bootstrap 5 --}}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -15,6 +23,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     {{-- DataTables Bootstrap 5 --}}
     <link href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    {{-- DataTables Responsive --}}
+    <link href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css" rel="stylesheet">
     {{-- SweetAlert2 --}}
     <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
     <link rel="icon" type="image/png" href="{{ asset('upload/favicon.png') }}">
@@ -55,6 +65,7 @@
             flex-direction: column;
             transition: transform 0.25s ease;
             overflow-y: auto;
+            padding-top: env(safe-area-inset-top, 0px);
         }
 
         #sidebar .sidebar-brand {
@@ -147,12 +158,14 @@
             top: 0;
             left: var(--sidebar-width);
             right: 0;
-            height: var(--topbar-height);
+            height: calc(var(--topbar-height) + env(safe-area-inset-top, 0px));
+            padding-top: env(safe-area-inset-top, 0px);
             background: var(--topbar-bg);
             border-bottom: 1px solid #e2e8f0;
             display: flex;
             align-items: center;
-            padding: 0 24px;
+            padding-left: 24px;
+            padding-right: 24px;
             z-index: 999;
             gap: 12px;
         }
@@ -202,8 +215,8 @@
         /* ── MAIN CONTENT ── */
         #main-content {
             margin-left: var(--sidebar-width);
-            padding-top: var(--topbar-height);
-            min-height: calc(100vh - var(--topbar-height));
+            padding-top: calc(var(--topbar-height) + env(safe-area-inset-top, 0px));
+            min-height: calc(100vh - var(--topbar-height) - env(safe-area-inset-top, 0px));
         }
 
         /* ── OVERLAY (mobile) ── */
@@ -261,42 +274,458 @@
 
         /* ── RESPONSIVE ── */
         @media (max-width: 768px) {
-            #sidebar {
-                transform: translateX(-100%);
-            }
-            #sidebar.open {
-                transform: translateX(0);
-            }
+            #sidebar { transform: translateX(-100%); }
+            #sidebar.open { transform: translateX(0); }
             #sidebar-overlay.show { display: block; }
             #topbar, #main-content, #footer {
-                left: 0;
-                margin-left: 0;
-                width: 100%;
+                left: 0; margin-left: 0; width: 100%;
             }
             #topbar .topbar-toggle { display: block; }
-
-            /* მოდალები full-screen small-ზე უკეთ გამოიყურება */
-            .modal-dialog:not(.modal-sm):not(.modal-dialog-centered) {
-                margin: 0.5rem;
-            }
-
-            /* DataTables filter/length კომპაქტური */
+            .modal-dialog:not(.modal-sm):not(.modal-dialog-centered) { margin: 0.5rem; }
             .dataTables_wrapper .dataTables_length,
-            .dataTables_wrapper .dataTables_filter {
-                text-align: left;
-                margin-bottom: 6px;
+            .dataTables_wrapper .dataTables_filter { text-align: left; margin-bottom: 6px; }
+            .btn-xs { padding: 4px 10px; font-size: 12px; }
+        }
+
+        /* ── Topbar search (hidden on desktop, pages inject via blade sections) ── */
+        .mob-topbar-search { display: none; }
+        .mob-drawer-backdrop { display: none; }
+        .mob-drawer { display: none; }
+        .mob-ts-filter-btn { display: none; }
+        @keyframes mobFadeBackdrop { from { opacity:0; } to { opacity:1; } }
+        @keyframes mobSlideDownPanel { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+
+        /* ════════════════════════════════════════════
+           MOBILE CARD VIEW  (≤767px)
+        ════════════════════════════════════════════ */
+        @media (max-width: 767px) {
+
+            /* Prevent iOS auto-zoom on input focus (font-size must be ≥16px) */
+            input, select, textarea,
+            .form-control, .form-select,
+            .select2-search__field {
+                font-size: 16px !important;
             }
 
-            /* btn-xs უფრო კარგი touch target */
-            .btn-xs {
-                padding: 4px 10px;
-                font-size: 12px;
+            /* Page padding */
+            .mod-wrap { padding: 12px 10px 60px; }
+            .mod-header .mod-title,
+            .mod-header .mod-subtitle,
+            .mod-header > div:first-child { display: none !important; }
+            .mod-toolbar { padding: 8px 10px; gap: 6px; }
+
+            /* Hide table wrapper overflow so cards don't scroll sideways */
+            .mod-card .table-responsive { overflow: visible !important; }
+
+            /* ── thead hidden ── */
+            .mod-card table.dataTable thead,
+            .po-table-card table.dataTable thead { display: none !important; }
+
+            /* ── tbody: no table layout ── */
+            .mod-card table.dataTable,
+            .mod-card table.dataTable tbody,
+            .po-table-card table.dataTable,
+            .po-table-card table.dataTable tbody { display: block !important; width: 100% !important; }
+
+            /* ── Each row = card ── */
+            .mod-card table.dataTable tbody tr,
+            .po-table-card table.dataTable tbody tr {
+                display: block !important;
+                background: #fff !important;
+                border-radius: 12px !important;
+                margin: 0 0 10px !important;
+                box-shadow: 0 2px 10px rgba(0,0,0,.07) !important;
+                border: 1px solid #e9edf3 !important;
+                overflow: hidden;
+                transition: box-shadow .15s;
             }
+            .mod-card table.dataTable tbody tr:hover {
+                box-shadow: 0 4px 16px rgba(0,0,0,.10) !important;
+                background: #fff !important;
+            }
+
+
+            /* ── Each cell = row inside card ── */
+            .mod-card table.dataTable tbody td {
+                display: flex !important;
+                align-items: center;
+                justify-content: space-between;
+                padding: 9px 14px !important;
+                border: none !important;
+                border-bottom: 1px solid #f1f5f9 !important;
+                font-size: 13px;
+                min-height: 40px;
+                vertical-align: middle !important;
+            }
+            .mod-card table.dataTable tbody td:last-child {
+                border-bottom: none !important;
+            }
+
+            /* ── data-label as left side label ── */
+            .mod-card table.dataTable tbody td[data-label]::before {
+                content: attr(data-label);
+                font-size: 10px;
+                font-weight: 700;
+                color: #94a3b8;
+                text-transform: uppercase;
+                letter-spacing: .5px;
+                flex-shrink: 0;
+                margin-right: 12px;
+                min-width: 80px;
+            }
+
+            /* ── Actions cell: full width, centered buttons ── */
+            .mod-card table.dataTable tbody td.td-actions {
+                justify-content: flex-end;
+                gap: 6px;
+                padding: 10px 14px !important;
+                background: #fafbfd;
+                flex-wrap: wrap;
+            }
+            .mod-card table.dataTable tbody td.td-actions::before { display: none; }
+
+            /* ── DataTables Responsive child row ── */
+            .mod-card table.dataTable tbody tr.child td {
+                background: #f8fafc !important;
+                border-radius: 0 0 12px 12px !important;
+                padding: 0 !important;
+                border: none !important;
+            }
+            .mod-card table.dataTable tbody tr.child td ul.dtr-details {
+                margin: 0 !important;
+                padding: 6px 14px 10px !important;
+                list-style: none;
+            }
+            .mod-card table.dataTable tbody tr.child td ul.dtr-details li {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 6px 0;
+                border-bottom: 1px solid #edf2f7;
+                font-size: 13px;
+            }
+            .mod-card table.dataTable tbody tr.child td ul.dtr-details li:last-child {
+                border-bottom: none;
+            }
+            .mod-card table.dataTable tbody tr.child td ul.dtr-details li span.dtr-title {
+                font-size: 10px;
+                font-weight: 700;
+                color: #94a3b8;
+                text-transform: uppercase;
+                letter-spacing: .5px;
+                min-width: 80px;
+                flex-shrink: 0;
+            }
+
+            /* ── Responsive expand control ── */
+            table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before,
+            table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
+                background-color: var(--accent) !important;
+                border-color: var(--accent) !important;
+            }
+
+            /* ── Pagination compact ── */
+            .mod-card .dataTables_wrapper .dataTables_paginate {
+                padding: 8px 10px !important;
+            }
+            .mod-card .dataTables_wrapper .dataTables_paginate .paginate_button {
+                padding: 4px 8px !important;
+                font-size: 12px !important;
+            }
+            .mod-card .dataTables_info { padding: 6px 10px !important; font-size: 11px !important; }
+
+            /* ── Modals: bottom-sheet style ── */
+            .modal { align-items: flex-end !important; }
+            .modal-dialog {
+                margin: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
+            }
+            .modal-content {
+                border-radius: 22px 22px 0 0 !important;
+                min-height: unset !important;
+                max-height: 92vh;
+                overflow-y: auto;
+                padding-bottom: env(safe-area-inset-bottom, 12px);
+            }
+            /* Centered / small dialogs stay centered */
+            .modal-dialog.modal-dialog-centered {
+                align-self: center !important;
+                margin: 0 16px !important;
+                max-width: calc(100% - 32px) !important;
+                width: auto !important;
+            }
+            .modal-dialog.modal-dialog-centered .modal-content {
+                border-radius: 20px !important;
+                max-height: 90vh;
+            }
+            .modal-dialog.modal-sm {
+                align-self: center !important;
+                margin: 0 auto !important;
+                max-width: calc(100% - 40px) !important;
+                width: auto !important;
+            }
+            .modal-dialog.modal-sm .modal-content {
+                border-radius: 18px !important;
+                min-height: unset !important;
+            }
+
+            /* ── Buttons bigger touch targets ── */
+            .btn-sm { padding: 7px 14px !important; font-size: 13px !important; }
+            .btn-xs { padding: 5px 10px !important; font-size: 12px !important; }
+
+            /* ── Topbar title shorter ── */
+            #topbar .topbar-title { font-size: 14px; }
+            #topbar .uname { max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+
+            /* ── Footer mobile ── */
+            #footer { margin-left: 0; font-size: 11px; text-align: center; }
+            #footer .float-end { float: none !important; display: block; }
+
+            /* ── Topbar injected search ── */
+            .mob-topbar-search { display: flex; flex: 1; align-items: center; min-width: 0; }
+            .mob-ts-bar {
+                flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;
+                background: #f0f2f5; border-radius: 10px; padding: 8px 6px 8px 12px;
+                border: 1.5px solid transparent; transition: all .15s;
+            }
+            .mob-ts-bar:focus-within { border-color: #2d7dd2; background: #fff; }
+            .mob-ts-bar > i { font-size: 12px; color: #94a3b8; flex-shrink: 0; }
+            .mob-ts-bar input {
+                flex: 1; min-width: 0; background: none; border: none; outline: none;
+                font-size: 15px !important; color: #1e293b; font-family: inherit;
+            }
+            .mob-ts-bar input::placeholder { color: #94a3b8; }
+            /* Filter button sits INSIDE the search bar on the right */
+            .mob-ts-filter-btn {
+                position: relative; width: 34px; height: 34px; flex-shrink: 0;
+                border-radius: 8px; border: none; background: transparent; color: #94a3b8;
+                display: flex; align-items: center; justify-content: center;
+                cursor: pointer; font-family: inherit; transition: all .15s; font-size: 14px;
+            }
+            .mob-ts-filter-btn.active,
+            .mob-ts-filter-btn.has-active { color: #2d7dd2; background: rgba(45,125,210,.1); }
+            .mob-ts-filter-badge {
+                position: absolute; top: -4px; right: -4px;
+                background: #2d7dd2; color: #fff; border-radius: 7px;
+                font-size: 9px; font-weight: 700; padding: 0 3px;
+                min-width: 14px; height: 14px; line-height: 14px; text-align: center;
+                border: 2px solid #f0f2f5;
+                display: none; align-items: center; justify-content: center;
+            }
+            .mob-ts-filter-btn.has-active .mob-ts-filter-badge { display: flex; }
+            .mob-ts-bar:focus-within .mob-ts-filter-badge { border-color: #fff; }
+            /* collapse title + spacer when search slot is filled */
+            #topbar:has(.mob-topbar-search) .topbar-title { display: none !important; }
+            #topbar:has(.mob-topbar-search) .topbar-spacer { flex: 0 !important; min-width: 0 !important; }
+
+            /* ── Generic mobile top-down panel ── */
+            .mob-drawer-backdrop {
+                display: none; position: fixed;
+                top: var(--topbar-height, 56px); left: 0; right: 0; bottom: 0;
+                z-index: 8997; background: rgba(0,0,0,.28);
+            }
+            .mob-drawer-backdrop.show { display: block !important; animation: mobFadeBackdrop .18s ease; }
+            .mob-drawer {
+                display: none !important; flex-direction: column;
+                position: fixed; top: var(--topbar-height, 56px); left: 0; right: 0; z-index: 8998;
+                background: #fff; border-radius: 0 0 18px 18px;
+                box-shadow: 0 6px 24px rgba(0,0,0,.14);
+                max-height: calc(80vh - var(--topbar-height, 56px)); overflow-y: auto;
+            }
+            .mob-drawer.open { display: flex !important; animation: mobSlideDownPanel .2s ease; }
+            .mob-drawer-header {
+                display: flex; align-items: center; justify-content: space-between;
+                padding: 12px 16px 10px; border-bottom: 1px solid #f1f5f9; flex-shrink: 0;
+            }
+            .mob-drawer-title { font-size: 14px; font-weight: 700; color: #1e293b; }
+            .mob-drawer-close {
+                width: 28px; height: 28px; border-radius: 50%; border: none;
+                background: #f1f5f9; color: #64748b; font-size: 13px;
+                cursor: pointer; display: flex; align-items: center; justify-content: center; font-family: inherit;
+            }
+            .mob-drawer-body { display: flex; flex-direction: column; padding: 12px 16px 16px; gap: 9px; }
+            .mob-drawer-label { font-size: 11.5px; font-weight: 600; color: #64748b; margin-bottom: 2px; }
+            .mob-drawer-body select, .mob-drawer-body .form-select {
+                width: 100% !important; height: 42px !important; font-size: 13.5px !important;
+                border-radius: 10px !important; border: 1.5px solid #e2e8f0 !important; padding: 0 10px !important;
+            }
+            .mob-drawer-row {
+                display: flex; align-items: center; justify-content: space-between;
+                padding: 9px 0; border-top: 1px solid #f1f5f9; font-size: 13px; color: #475569;
+            }
+            .mod-card table.dataTable tbody td:last-child {
+                border-bottom: none !important;
+            }
+
+            /* ── data-label as left side label ── */
+            .mod-card table.dataTable tbody td[data-label]::before {
+                content: attr(data-label);
+                font-size: 10px;
+                font-weight: 700;
+                color: #94a3b8;
+                text-transform: uppercase;
+                letter-spacing: .5px;
+                flex-shrink: 0;
+                margin-right: 12px;
+                min-width: 80px;
+            }
+
+            /* ── Actions cell: full width, centered buttons ── */
+            .mod-card table.dataTable tbody td.td-actions {
+                justify-content: flex-end;
+                gap: 6px;
+                padding: 10px 14px !important;
+                background: #fafbfd;
+                flex-wrap: wrap;
+            }
+            .mod-card table.dataTable tbody td.td-actions::before { display: none; }
+
+            /* ── DataTables Responsive child row ── */
+            .mod-card table.dataTable tbody tr.child td {
+                background: #f8fafc !important;
+                border-radius: 0 0 12px 12px !important;
+                padding: 0 !important;
+                border: none !important;
+            }
+            .mod-card table.dataTable tbody tr.child td ul.dtr-details {
+                margin: 0 !important;
+                padding: 6px 14px 10px !important;
+                list-style: none;
+            }
+            .mod-card table.dataTable tbody tr.child td ul.dtr-details li {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 6px 0;
+                border-bottom: 1px solid #edf2f7;
+                font-size: 13px;
+            }
+            .mod-card table.dataTable tbody tr.child td ul.dtr-details li:last-child {
+                border-bottom: none;
+            }
+            .mod-card table.dataTable tbody tr.child td ul.dtr-details li span.dtr-title {
+                font-size: 10px;
+                font-weight: 700;
+                color: #94a3b8;
+                text-transform: uppercase;
+                letter-spacing: .5px;
+                min-width: 80px;
+                flex-shrink: 0;
+            }
+
+            /* ── Responsive expand control ── */
+            table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control::before,
+            table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
+                background-color: var(--accent) !important;
+                border-color: var(--accent) !important;
+            }
+
+            /* ── Pagination compact ── */
+            .mod-card .dataTables_wrapper .dataTables_paginate {
+                padding: 8px 10px !important;
+            }
+            .mod-card .dataTables_wrapper .dataTables_paginate .paginate_button {
+                padding: 4px 8px !important;
+                font-size: 12px !important;
+            }
+            .mod-card .dataTables_info { padding: 6px 10px !important; font-size: 11px !important; }
+
+            /* ── Modals: bottom-sheet style ── */
+            .modal { align-items: flex-end !important; }
+            .modal-dialog {
+                margin: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
+            }
+            .modal-content {
+                border-radius: 22px 22px 0 0 !important;
+                min-height: unset !important;
+                max-height: 92vh;
+                overflow-y: auto;
+                padding-bottom: env(safe-area-inset-bottom, 12px);
+            }
+            /* Centered / small dialogs stay centered */
+            .modal-dialog.modal-dialog-centered {
+                align-self: center !important;
+                margin: 0 16px !important;
+                max-width: calc(100% - 32px) !important;
+                width: auto !important;
+            }
+            .modal-dialog.modal-dialog-centered .modal-content {
+                border-radius: 20px !important;
+                max-height: 90vh;
+            }
+            .modal-dialog.modal-sm {
+                align-self: center !important;
+                margin: 0 auto !important;
+                max-width: calc(100% - 40px) !important;
+                width: auto !important;
+            }
+            .modal-dialog.modal-sm .modal-content {
+                border-radius: 18px !important;
+                min-height: unset !important;
+            }
+
+            /* ── Buttons bigger touch targets ── */
+            .btn-sm { padding: 7px 14px !important; font-size: 13px !important; }
+            .btn-xs { padding: 5px 10px !important; font-size: 12px !important; }
+
+            /* ── Topbar title shorter ── */
+            #topbar .topbar-title { font-size: 14px; }
+            #topbar .uname { max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+
+            /* ── Footer mobile ── */
+            #footer { margin-left: 0; font-size: 11px; text-align: center; }
+            #footer .float-end { float: none !important; display: block; }
+        }
+
+        /* ── GLOBAL PAGE LOADER ── */
+        #page-loader {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(255,255,255,.82);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            z-index: 99999;
+            align-items: center;
+            justify-content: center;
+        }
+        #page-loader.active { display: flex; }
+        .pl-icons { display: flex; align-items: center; gap: 14px; }
+        .pl-icon {
+            font-size: 36px;
+            display: inline-block;
+            animation: pl-bounce .7s ease-in-out infinite;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,.15));
+        }
+        .pl-icon:nth-child(1) { animation-delay: 0s; }
+        .pl-icon:nth-child(2) { animation-delay: .14s; }
+        .pl-icon:nth-child(3) { animation-delay: .28s; }
+        @keyframes pl-bounce {
+            0%, 100% { transform: translateY(0) scale(1); }
+            45%       { transform: translateY(-14px) scale(1.12); }
         }
 
         /* ── MODALS Bootstrap 5 ── */
         .modal-header { border-bottom: 1px solid #edf2f7; }
         .modal-footer { border-top: 1px solid #edf2f7; }
+
+        /* Bottom-sheet drag handle */
+        @media (max-width: 767px) {
+            .modal-content::before {
+                content: '';
+                display: block;
+                width: 40px; height: 4px;
+                background: #d1d5db;
+                border-radius: 99px;
+                margin: 10px auto 0;
+                flex-shrink: 0;
+            }
+            .modal-dialog.modal-dialog-centered .modal-content::before,
+            .modal-dialog.modal-sm .modal-content::before { display: none; }
+        }
 
         /* ════════════════════════════════════════════
            GLOBAL MODULE DESIGN SYSTEM
@@ -543,6 +972,15 @@
 </head>
 <body>
 
+{{-- GLOBAL PAGE LOADER --}}
+<div id="page-loader" class="active">
+    <div class="pl-icons">
+        <span class="pl-icon">👕</span>
+        <span class="pl-icon">🩳</span>
+        <span class="pl-icon">👟</span>
+    </div>
+</div>
+
 {{-- SIDEBAR --}}
 <div id="sidebar-overlay" onclick="closeSidebar()"></div>
 <nav id="sidebar">
@@ -571,8 +1009,10 @@
     </button>
 
     @hasSection('page_title')
-        <div class="topbar-title">@yield('page_title')</div>
+        <a class="topbar-title" href="javascript:location.reload()" style="text-decoration:none;color:inherit;">@yield('page_title')</a>
     @endif
+
+    @yield('topbar_search')
 
     <div class="topbar-spacer"></div>
 
@@ -618,6 +1058,9 @@
 {{-- DataTables + Bootstrap 5 --}}
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
+{{-- DataTables Responsive --}}
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
 {{-- SweetAlert2 --}}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 
@@ -684,6 +1127,30 @@ function closeSidebar() {
     document.getElementById('sidebar-overlay').classList.remove('show');
 }
 
+// ── Global page loader ─────────────────────────────────────────────────
+var _loaderTimer = null;
+function showLoader() {
+    clearTimeout(_loaderTimer);
+    document.getElementById('page-loader').classList.add('active');
+}
+function hideLoader() {
+    clearTimeout(_loaderTimer);
+    _loaderTimer = setTimeout(function() {
+        document.getElementById('page-loader').classList.remove('active');
+    }, 200);
+}
+$(document)
+    .ajaxStart(showLoader)
+    .ajaxStop(hideLoader);
+
+// fallback: hide if no AJAX fires at all (static pages)
+$(function() {
+    setTimeout(hideLoader, 1500);
+});
+
+// non-AJAX form submit
+$(document).on('submit', 'form:not([data-no-loader])', showLoader);
+
 // ── Active sidebar link ────────────────────────────────────────────────
 $(function() {
     var path = window.location.pathname;
@@ -696,6 +1163,21 @@ $(function() {
         }
     });
 });
+
+// ── DataTables global responsive default ──────────────────────────────
+$.extend(true, $.fn.dataTable.defaults, {
+    responsive: {
+        details: {
+            display: $.fn.dataTable.Responsive.display.childRow,
+            renderer: $.fn.dataTable.Responsive.renderer.listHiddenNodes()
+        }
+    }
+});
+
+// ── PWA Service Worker ─────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(function() {});
+}
 </script>
 
 @if(session('role_restricted'))

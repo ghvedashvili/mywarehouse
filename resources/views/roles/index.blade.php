@@ -1,6 +1,51 @@
 @extends('layouts.master')
 
 @section('content')
+<style>
+@php
+$roleStyles = [
+    'sale_operator'      => ['icon' => 'fa-cart-shopping', 'color' => '#16a34a', 'bg' => '#f0fdf4', 'border' => '#bbf7d0'],
+    'warehouse_operator' => ['icon' => 'fa-warehouse',     'color' => '#2563eb', 'bg' => '#eff6ff', 'border' => '#bfdbfe'],
+    'staff'              => ['icon' => 'fa-user-gear',     'color' => '#7c3aed', 'bg' => '#f5f3ff', 'border' => '#ddd6fe'],
+];
+@endphp
+
+.role-tabs { display: flex; gap: 8px; margin-bottom: 0; padding: 0; list-style: none; }
+.role-tabs li { flex: 1; min-width: 0; }
+.role-tab-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%;
+    padding: 10px 12px; border-radius: 10px 10px 0 0;
+    border: 1.5px solid #e2e8f0; border-bottom: none;
+    background: #f8fafc; color: #64748b;
+    font-weight: 600; font-size: clamp(10px, 1.2vw, 13.5px);
+    cursor: pointer; transition: all .15s;
+    text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.role-tab-btn .rt-icon {
+    width: 28px; height: 28px; border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; flex-shrink: 0;
+    background: #e2e8f0; color: #64748b;
+    transition: all .15s;
+}
+.role-tab-btn.active { background: #fff; color: #1e293b; border-color: #cbd5e1; }
+
+@foreach($roles as $roleKey => $roleLabel)
+@php $st = $roleStyles[$roleKey] ?? ['icon'=>'fa-user','color'=>'#64748b','bg'=>'#f8fafc','border'=>'#e2e8f0']; @endphp
+.role-tab-btn[href="#tab-{{ $roleKey }}"].active .rt-icon,
+.role-tab-btn[href="#tab-{{ $roleKey }}"]:hover .rt-icon {
+    background: {{ $st['bg'] }}; color: {{ $st['color'] }}; border: 1px solid {{ $st['border'] }};
+}
+.role-tab-btn[href="#tab-{{ $roleKey }}"].active {
+    border-top: 2.5px solid {{ $st['color'] }} !important;
+}
+@endforeach
+
+.role-tab-btn:hover:not(.active) { background: #f1f5f9; color: #334155; }
+.role-tab-pane { border: 1.5px solid #cbd5e1; border-radius: 0 10px 10px 10px; background: #fff; }
+</style>
+
 <div class="container-fluid px-4 py-4">
 
     <div class="d-flex align-items-center mb-4 gap-3">
@@ -15,13 +60,15 @@
     </div>
 
     {{-- Role tabs --}}
-    <ul class="nav nav-tabs mb-0" id="roleTabs">
+    <ul class="role-tabs" id="roleTabs" role="tablist">
         @foreach($roles as $roleKey => $roleLabel)
-        <li class="nav-item">
-            <a class="nav-link {{ $loop->first ? 'active' : '' }}"
+        @php $st = $roleStyles[$roleKey] ?? ['icon'=>'fa-user','color'=>'#64748b','bg'=>'#f8fafc','border'=>'#e2e8f0']; @endphp
+        <li>
+            <a class="role-tab-btn {{ $loop->first ? 'active' : '' }}"
                data-bs-toggle="tab"
                href="#tab-{{ $roleKey }}">
-                <i class="fa fa-user-tag me-1 opacity-50"></i> {{ $roleLabel }}
+                <span class="rt-icon"><i class="fa {{ $st['icon'] }}"></i></span>
+                {{ $roleLabel }}
             </a>
         </li>
         @endforeach
@@ -29,8 +76,8 @@
 
     <div class="tab-content">
         @foreach($roles as $roleKey => $roleLabel)
-        <div class="tab-pane fade {{ $loop->first ? 'show active' : '' }}" id="tab-{{ $roleKey }}">
-            <div class="card border-top-0 rounded-0 rounded-bottom">
+        <div class="tab-pane fade {{ $loop->first ? 'show active' : '' }} role-tab-pane" id="tab-{{ $roleKey }}">
+            <div class="card border-0 rounded-0 rounded-bottom shadow-none">
                 <div class="card-body p-0">
                     <form class="permission-form" data-role="{{ $roleKey }}">
                         @csrf
@@ -43,7 +90,7 @@
                                             <i class="fa fa-eye me-1"></i> ხედვა
                                         </th>
                                         <th class="text-center" style="width:20%">
-                                            <i class="fa fa-pen me-1"></i> რედაქტირება
+                                            <i class="fa fa-pen me-1"></i> რედ.
                                         </th>
                                         <th class="text-center" style="width:20%">
                                             <i class="fa fa-plus me-1"></i> შექმნა

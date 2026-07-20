@@ -114,6 +114,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   border: 1px solid var(--c-border-md) !important;
   border-radius: var(--r-md) !important;
   box-shadow: var(--sh-lg) !important;
+  z-index: 9999 !important;
 }
 
 /* ── HEADER ───────────────────────────────────────────────── */
@@ -304,6 +305,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   border-radius: var(--r-sm);
   padding: 6px 10px;
   flex: 1; min-width: 140px; max-width: 240px;
+  order: -1;
   transition: border-color var(--t-base), box-shadow var(--t-base);
 }
 .po-search:focus-within { border-color: var(--c-blue); box-shadow: var(--sh-focus); background: var(--c-surface); }
@@ -332,6 +334,20 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 
 .po-filter-sep { width: 1px; height: 22px; background: var(--c-border-md); flex-shrink: 0; }
 @media (max-width: 600px) { .po-filter-sep { display: none; } }
+
+/* desktop: wrappers are layout-transparent or hidden */
+.po-filter-pills-row { display: contents; }
+.po-filter-adv { display: contents; }
+.mob-adv-header { display: none; }
+.mob-adv-body { display: contents; }
+.mob-action-bar { display: none; }
+.mob-adv-date-section { display: none; }
+.mob-filter-badge {
+    background: var(--c-blue); color: #fff;
+    border-radius: 20px; font-size: 9.5px; font-weight: 700;
+    padding: 1px 4px; min-width: 15px; text-align: center; line-height: 1.5;
+    display: none;
+}
 
 .po-select {
   background: var(--c-surface2);
@@ -634,6 +650,9 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   margin-top: 3px;
 }
 
+/* mob-fin / mob-customer: visible only on mobile */
+.mob-fin, .mob-customer { display: none; }
+
 /* ── MOBILE ───────────────────────────────────────────────── */
 @media (max-width: 640px) {
   .po-page .mod-title { font-size: 17px; }
@@ -657,6 +676,502 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   .po-pill-group { display: none; }
   .po-stats { gap: 6px; }
   .po-stat-value { font-size: 15px; }
+}
+
+/* ══════════════════════════════════════════════════════════
+   MOBILE CARD VIEW  ≤767px
+══════════════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+
+  /* ── page ── */
+  .po-page { padding: 6px 16px 70px !important; }
+  .po-stats { grid-template-columns: repeat(2,1fr); gap: 8px; margin-bottom: 10px; }
+  .po-page .mod-header { display: none !important; }
+  .po-page .mod-actions { display: none !important; }
+  .po-table-card {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+  .po-table-card .table-responsive { overflow: visible !important; }
+
+  /* ── Mobile action bar ── */
+  .po-page .mod-actions { display: none !important; }
+  .mob-action-bar {
+    display: flex !important; flex-wrap: nowrap; align-items: center;
+    gap: 6px; padding: 2px 0 12px;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .mob-action-bar::-webkit-scrollbar { display: none; }
+  .mab-sep { flex-shrink: 0; }
+  /* base chip */
+  .mab-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    white-space: nowrap; cursor: pointer; font-family: inherit;
+    font-size: 12.5px; font-weight: 600; line-height: 1;
+    padding: 7px 13px; border-radius: 22px; border: 1.5px solid transparent;
+    transition: background .15s, border-color .15s, color .15s, transform .1s;
+    touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+    flex-shrink: 0;
+  }
+  .mab-btn:active { transform: scale(.93); }
+  .mab-btn > i { font-size: 10px; flex-shrink: 0; }
+  /* primary */
+  .mab-primary {
+    background: var(--c-blue); border-color: var(--c-blue); color: #fff;
+    box-shadow: 0 2px 10px rgba(37,99,235,.28);
+  }
+  /* toggle — off */
+  .mab-toggle {
+    background: var(--c-surface); border-color: var(--c-border-md); color: var(--c-text-2);
+  }
+  /* toggle — on */
+  .mab-toggle.on-green { background: var(--c-green-dim); border-color: var(--c-green); color: var(--c-green); }
+  .mab-toggle.on-amber { background: var(--c-amber-dim); border-color: var(--c-amber); color: var(--c-amber); }
+  .mab-toggle.on-red   { background: var(--c-red-dim);   border-color: var(--c-red);   color: var(--c-red);   }
+  /* conditional green (send-all) */
+  .mab-cond-green { background: var(--c-green-dim); border-color: var(--c-green); color: var(--c-green); }
+  /* report */
+  .mab-report { background: var(--c-surface); border-color: var(--c-border-md); color: var(--c-text-2); }
+  /* ghost / export */
+  .mab-ghost { background: var(--c-surface); border-color: var(--c-border-md); color: var(--c-text-2); }
+  /* icon-only */
+  .mab-icon  { background: var(--c-surface); border-color: var(--c-border-md); color: var(--c-text-2); padding: 7px 10px; }
+  /* visual group separator */
+  .mab-sep { width: 1px; height: 20px; background: var(--c-border-md); flex-shrink: 0; }
+  /* hide action buttons from filter panel on mobile */
+  .mob-adv-body #btn-send-all-courier,
+  .mob-adv-body #btn-sent-report { display: none !important; }
+  /* switcher rows in filter panel */
+  .mob-adv-body .po-toggle-wrap {
+    display: flex !important; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-top: 1px solid rgba(99,115,150,.15);
+    font-size: 13px; color: #475569;
+  }
+  .mob-adv-body .po-toggle-wrap label { font-weight: 600; cursor: pointer; margin: 0; }
+  .mob-adv-body .po-ready-wrap { display: none !important; }
+
+  /* ── FILTER BAR MOBILE ── */
+  .po-filter-bar {
+    flex-direction: column !important; align-items: stretch !important; gap: 0 !important;
+    padding: 0 !important; background: transparent !important;
+    border: none !important; box-shadow: none !important; margin-bottom: 8px !important;
+    position: relative !important;
+  }
+  /* Pills row card: column — search on top, pills on bottom */
+  .po-filter-pills-row {
+    display: flex !important; flex-direction: column !important; gap: 0;
+    background: var(--c-surface); border: 1px solid var(--c-border-md);
+    border-radius: 14px; padding: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,.07); overflow: hidden;
+  }
+  /* Search row — full width */
+  .po-filter-pills-row .po-search {
+    display: flex !important; flex-wrap: nowrap !important; order: -1;
+    align-items: center; gap: 6px; width: 100% !important;
+    max-width: none !important; min-width: 0 !important;
+    border: none !important; border-bottom: 1px solid var(--c-border-md) !important;
+    border-radius: 14px 14px 0 0 !important;
+    background: var(--c-surface2) !important;
+    padding: 10px 6px 10px 14px !important;
+    box-shadow: none !important; margin: 0 !important;
+    transition: none !important;
+  }
+  .po-filter-pills-row .po-search:focus-within {
+    background: var(--c-blue-dim) !important;
+    border-bottom-color: var(--c-blue) !important;
+  }
+  .po-filter-pills-row .po-search > i { font-size: 13px !important; flex-shrink: 0; }
+  .po-filter-pills-row .po-search input {
+    flex: 1 !important; min-width: 0 !important; width: 0 !important;
+    font-size: 14px !important;
+  }
+  .po-filter-pills-row .po-search input::placeholder { font-size: 13px !important; }
+  /* Pills row */
+  .po-filter-pills-row .po-pill-group {
+    display: flex !important;
+    flex: 1; min-width: 0; flex-wrap: nowrap !important; overflow-x: auto;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none; gap: 4px !important;
+    padding: 8px 10px;
+  }
+  .po-filter-pills-row .po-pill-group::-webkit-scrollbar { display: none; }
+  .po-filter-pills-row .po-pill { font-size: 12px !important; padding: 5px 12px !important; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  /* Mobile drawer — date period section */
+  .mob-adv-date-section {
+    display: flex; flex-direction: column; gap: 8px;
+    padding-bottom: 12px; border-bottom: 1px solid var(--c-border-md);
+  }
+  .mob-adv-date-label {
+    font-size: 11px; font-weight: 700; color: var(--c-text-3);
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .mob-adv-period-pills {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .mob-adv-period-pills .po-pill {
+    font-size: 12px !important; padding: 6px 14px !important;
+    touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  }
+  /* filter btn — no color change, only badge appears */
+  #mob-ts-filter-btn.active, #mob-ts-filter-btn.has-active { color: inherit !important; background: transparent !important; }
+  #mob-ts-filter-btn.has-active .mob-ts-filter-badge { display: flex !important; }
+  /* Custom dates */
+  .po-custom-dates.show {
+    flex-wrap: wrap !important; margin-top: 8px; width: 100%;
+    background: var(--c-surface); border: 1px solid var(--c-border-md);
+    border-radius: 14px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.07);
+  }
+  .po-custom-dates.show input[type=date] { flex: 1 !important; width: auto !important; min-width: 100px !important; }
+  /* Top-down filter panel — drops below the filter bar */
+  .po-filter-adv { display: none !important; }
+  .po-filter-adv.open {
+    display: flex !important; flex-direction: column;
+    position: absolute !important;
+    top: calc(100% + 6px); left: 0; right: 0; z-index: 200;
+    background: #fff;
+    border: 1px solid rgba(99,115,150,.20);
+    border-radius: 14px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.12);
+    max-height: 70vh;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    animation: poSlideDownPanel .2s ease;
+  }
+  @keyframes poSlideDownPanel { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+  .po-filter-adv.open::before { display: none !important; }
+  .mob-adv-header { display: none !important; }
+  /* Drawer body */
+  .mob-adv-body {
+    display: flex !important; flex-direction: column; padding: 12px 16px 4px; gap: 8px;
+  }
+  .mob-adv-body .po-filter-sep { display: none !important; }
+  .mob-adv-body #po-status-wrap #status-filter-btn {
+    width: 100% !important; min-width: 0 !important;
+    height: 44px !important; font-size: 13.5px !important; border-radius: 12px !important;
+  }
+  .mob-adv-body .select2-container { width: 100% !important; }
+  .mob-adv-body .select2-container .select2-selection--single { height: 44px !important; border-radius: 12px !important; }
+  .mob-adv-body .select2-container .select2-selection__rendered { line-height: 44px !important; font-size: 13.5px !important; }
+  .mob-adv-body .select2-container .select2-selection__arrow { height: 44px !important; }
+  .mob-adv-body #dt-page-length {
+    width: 100% !important; height: 44px !important; font-size: 13.5px !important;
+    border-radius: 12px !important; border: 1px solid var(--c-border-md) !important;
+  }
+  /* ── table → block ── */
+  #products-out-table            { display: block !important; width: 100% !important; }
+  #products-out-table thead      { display: none !important; }
+  #products-out-table tbody      { display: block !important; }
+  #products-out-table tfoot      { display: none !important; }
+
+  /* ── row = card (CSS Grid: left content | right auto for footer split) ── */
+  #products-out-table tbody tr {
+    display: grid !important;
+    grid-template-columns: 1fr auto;
+    background: var(--c-surface) !important;
+    border-radius: var(--r-md) !important;
+    margin: 0 0 10px !important;
+    box-shadow: var(--sh-sm) !important;
+    border: 1px solid var(--c-border-md) !important;
+    overflow: hidden;
+  }
+  /* sale orders: blue left stripe */
+  #products-out-table tbody tr.po-row-sale {
+    border-left: 3px solid var(--c-blue) !important;
+  }
+
+  /* ── all cells base: full width by default ── */
+  #products-out-table tbody td {
+    display: block !important;
+    grid-column: 1 / -1;
+    padding: 8px 12px !important;
+    border: none !important;
+    font-size: 13px;
+  }
+
+  /* ── cancel ≤640px column-hiding ── */
+  #products-out-table tbody td:nth-child(5),
+  #products-out-table tbody td:nth-child(6) { display: block !important; }
+
+  /* ── HIDDEN ── */
+  #products-out-table tbody td.td-mob-hide { display: none !important; }
+
+  /* ── 1. ORDER: card header, full width ── */
+  #products-out-table tbody td.td-order {
+    display: flex !important;
+    grid-column: 1 / -1;
+    grid-row: 1;
+    background: var(--c-surface2) !important;
+    padding: 9px 12px !important;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--c-border-md) !important;
+  }
+
+  /* ── 2. PRODUCT: photo on right, text left ── */
+  #products-out-table tbody td.td-product {
+    display: block !important;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    padding: 8px 12px 5px !important;
+    border-bottom: none !important;
+  }
+  #products-out-table tbody td.td-product .po-product-cell {
+    display: flex !important;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  /* po-prod-text: flex-1 container for name + finance + customer */
+  #products-out-table tbody td.td-product .po-product-cell > div:not(.po-product-thumb) {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.45;
+  }
+  /* po-prod-name: only the product name/code/size row gets max 2 lines */
+  #products-out-table tbody td.td-product .po-prod-name {
+    overflow: hidden;
+    max-height: 2.9em;
+    line-height: 1.45;
+  }
+  /* inner divs (name, code, size) → inline with · separator */
+  #products-out-table tbody td.td-product .po-prod-name > div {
+    display: inline !important;
+    font-weight: 600;
+    white-space: normal;
+  }
+  #products-out-table tbody td.td-product .po-prod-name > div + div::before {
+    content: " · ";
+    color: var(--c-text-3);
+    font-weight: 400;
+    font-size: 11px;
+  }
+  /* photo: pushed right with order:2, large circle */
+  #products-out-table tbody td.td-product .po-product-thumb {
+    display: block !important;
+    order: 2;
+    flex-shrink: 0;
+    width: 68px !important;
+    height: 68px !important;
+    border-radius: var(--r-sm) !important;
+    overflow: hidden;
+    border: 1px solid var(--c-border-md);
+    margin-top: 1px;
+  }
+  #products-out-table tbody td.td-product .po-product-thumb img {
+    width: 68px !important;
+    height: 68px !important;
+    object-fit: cover !important;
+    border-radius: 0 !important;
+    display: block !important;
+    padding: 0 !important;
+    border: none !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  /* ── 3. PAYMENT: hidden (content moved into td-product) ── */
+  #products-out-table tbody td.td-payment { display: none !important; }
+
+  /* ── 3. CUSTOMER: hidden (moved into td-product) ── */
+  #products-out-table tbody td.td-customer { display: none !important; }
+
+  /* ── mob-customer: shown inside product cell ── */
+  .mob-customer {
+    display: block !important;
+    margin-top: 5px;
+    padding-top: 5px;
+    border-top: 1px solid var(--c-border-md);
+    font-size: 11.5px;
+    color: var(--c-text-2);
+    line-height: 1.35;
+  }
+  .mob-customer hr { display: none !important; }
+  .mob-customer strong { font-size: 12px; color: var(--c-text-1); }
+  .mob-customer small  { font-size: 10.5px; display: block; }
+
+  /* ── mob-children: accordion inside parent card ── */
+  .mob-children {
+    margin-top: 8px;
+    border-top: 1px solid var(--c-border-md);
+    padding-top: 6px;
+  }
+  .mob-child-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--c-border);
+  }
+  .mob-child-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .mob-ci-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+  .mob-ci-thumb {
+    width: 36px; height: 36px;
+    border-radius: 6px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .mob-ci-thumb img {
+    width: 36px !important; height: 36px !important;
+    object-fit: cover !important;
+    display: block !important;
+    padding: 0 !important; border: none !important;
+  }
+  .mob-ci-info { flex: 1; min-width: 0; }
+  .mob-ci-top  { display: flex; align-items: center; gap: 5px; margin-bottom: 2px; }
+  .mob-ci-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mob-ci-fin  { font-size: 11px; color: var(--c-text-2); margin-top: 1px; }
+  .mob-ci-actions { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
+
+  /* ── footer: DATE left, ACTIONS right ── */
+  #products-out-table tbody td.td-date {
+    display: flex !important;
+    grid-column: 1;
+    align-items: center;
+    padding: 6px 12px !important;
+    font-size: 11px;
+    color: var(--c-text-3);
+    background: var(--c-surface2) !important;
+    border-top: 1px solid var(--c-border-md) !important;
+  }
+  #products-out-table tbody td.td-actions {
+    display: flex !important;
+    grid-column: 2;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 6px 10px !important;
+    gap: 5px;
+    flex-wrap: wrap;
+    background: var(--c-surface2) !important;
+    border-top: 1px solid var(--c-border-md) !important;
+  }
+
+  /* ── mob-fin: finance line inside product cell (show on mobile) ── */
+  .mob-fin {
+    display: flex !important;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: nowrap;
+    overflow: hidden;
+    white-space: nowrap;
+    margin-top: 5px;
+    font-size: 12px;
+    line-height: 1.3;
+  }
+  .mob-fin-price { font-weight: 700; color: var(--c-text-1); }
+  .mob-fin-disc  { color: #8e44ad; font-size: 11px; }
+  .mob-fin-net   { color: var(--c-text-2); font-size: 11px; }
+
+  /* ── merge hint: larger pill so it's tappable ── */
+  .po-merge-hint {
+    display: inline-flex !important; align-items: center !important;
+    gap: 4px !important; padding: 5px 10px !important;
+    background: rgba(220,38,38,.1) !important;
+    border-radius: 20px !important;
+    font-size: 12px !important;
+    animation: none !important; opacity: 1 !important;
+    margin-left: 2px !important;
+  }
+  .po-merge-hint::after { content: 'გაერთ.'; font-size: 11px; font-weight: 700; }
+
+  /* ── merge mode: checkbox column + selection visuals ── */
+
+  /* widen grid: 44px checkbox col | content | actions */
+  .po-merge-mode #products-out-table tbody tr:not(.po-child-row) {
+    grid-template-columns: 44px 1fr auto !important;
+    cursor: default !important;
+  }
+  /* show checkbox td in left col of header row */
+  .po-merge-mode #products-out-table tbody td.td-mob-hide {
+    display: flex !important;
+    grid-column: 1 !important; grid-row: 1 !important;
+    align-items: center; justify-content: center;
+    padding: 0 !important;
+    background: var(--c-surface2) !important;
+    border-right: 1px solid var(--c-border-md) !important;
+    border-bottom: 1px solid var(--c-border-md) !important;
+  }
+  /* push order header to cols 2+ */
+  .po-merge-mode #products-out-table tbody td.td-order {
+    grid-column: 2 / -1 !important;
+  }
+  /* large touch-friendly checkbox */
+  .po-merge-mode #products-out-table tbody .row-check {
+    width: 20px; height: 20px; cursor: pointer;
+    accent-color: var(--c-blue, #2563eb);
+  }
+  /* selected card */
+  .po-merge-mode #products-out-table tbody tr.mob-merge-selected {
+    border-color: var(--c-blue) !important;
+    box-shadow: 0 0 0 2px rgba(37,99,235,.35), var(--sh-sm) !important;
+  }
+  .po-merge-mode #products-out-table tbody tr.mob-merge-selected td.td-mob-hide {
+    background: var(--c-blue-dim) !important;
+  }
+  .po-merge-mode #products-out-table tbody tr.mob-merge-selected td.td-order {
+    background: rgba(37,99,235,.06) !important;
+  }
+
+  /* ── child rows (expanded group members) ── */
+  #products-out-table tbody tr.po-child-row {
+    display: block !important;
+    background: var(--c-surface2) !important;
+    border-top: 1px dashed var(--c-border-md) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+  }
+  #products-out-table tbody tr.po-child-row td {
+    display: block !important;
+    grid-column: 1 / -1;
+    padding: 8px 12px 8px 20px !important;
+    background: transparent !important;
+    border: none !important;
+  }
+  /* override the inline fixed-width grid inside child td */
+  #products-out-table tbody tr.po-child-row td > div {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 5px !important;
+    grid-template-columns: unset !important;
+  }
+  /* child: order info row */
+  #products-out-table tbody tr.po-child-row td > div > div:nth-child(1) {
+    font-size: 12px;
+  }
+  /* child: product (thumb + name) */
+  #products-out-table tbody tr.po-child-row td > div > div:nth-child(2) {
+    font-size: 12px;
+  }
+  /* child: payment */
+  #products-out-table tbody tr.po-child-row td > div > div:nth-child(3) {
+    font-size: 12px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* child: date — show inline before actions */
+  #products-out-table tbody tr.po-child-row td > div > div:nth-child(4) {
+    font-size: 11px; color: var(--c-text-3);
+  }
+  /* child: actions */
+  #products-out-table tbody tr.po-child-row td > div > div:nth-child(5) {
+    display: flex !important; flex-direction: row !important;
+    flex-wrap: wrap; gap: 4px;
+  }
+
+  /* ── pagination compact ── */
+  .dataTables_wrapper .dataTables_paginate { padding: 8px 10px !important; }
+  .dataTables_info { font-size: 11px !important; padding: 6px 10px !important; }
 }
 </style>
 @endsection
@@ -708,6 +1223,63 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                 <i class="fa fa-moon" id="po-theme-icon"></i>
             </button>
         </div>
+    </div>
+
+    {{-- ── MOBILE ACTION BAR (mobile only) ── --}}
+    <div class="mob-action-bar">
+        @if(\App\Models\RolePermission::check(auth()->user()->role, 'sales', 'can_create'))
+        <button onclick="addSaleForm()" class="mab-btn mab-primary">
+            <i class="fa fa-plus"></i> ახალი
+        </button>
+        @endif
+
+        <div class="mab-sep"></div>
+
+        <button type="button" class="mab-btn mab-toggle" id="mob-qr-ready" onclick="mobQrToggle('ready')">
+            <i class="fa fa-truck"></i> მზად
+        </button>
+        <button type="button" class="mab-btn mab-cond-green" id="mob-qr-send-all" onclick="sendAllReadyToCourier()" style="display:none;">
+            <i class="fa fa-paper-plane"></i> ყველა გაგზ.
+        </button>
+        <button type="button" class="mab-btn mab-primary" id="mob-btn-merge" onclick="mergeSelected()" style="display:none;">
+            <i class="fa fa-link"></i> გაერთ.
+        </button>
+
+        <button type="button" class="mab-btn mab-primary" id="mob-btn-merge" onclick="mergeSelected()" style="display:none;">
+            <i class="fa fa-link"></i> გაერთ.
+        </button>
+
+        <button type="button" class="mab-btn mab-primary" id="mob-btn-merge" onclick="mergeSelected()" style="display:none;">
+            <i class="fa fa-link"></i> გაერთ.
+        </button>
+
+        <button type="button" class="mab-btn mab-primary" id="mob-btn-merge" onclick="mergeSelected()" style="display:none;">
+            <i class="fa fa-link"></i> გაერთ.
+        </button>
+
+        <button type="button" class="mab-btn mab-primary" id="mob-btn-merge" onclick="mergeSelected()" style="display:none;">
+            <i class="fa fa-link"></i> გაერთ.
+        </button>
+
+        <div class="mab-sep"></div>
+
+        <div style="position:relative;" id="mab-export-wrap">
+            <button class="mab-btn mab-ghost" id="mab-export-btn">
+                <i class="fa fa-download"></i> ექსპ.
+            </button>
+            <div id="mab-export-menu" style="display:none;position:fixed;z-index:99999;background:var(--c-surface);border:1px solid var(--c-border-md);border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.14);min-width:185px;overflow:hidden;">
+                <a onclick="openReportDateModal('courier');$('#mab-export-menu').hide();" class="po-drop-item"><i class="fa fa-file-excel" style="color:#16a34a;"></i> კურიერი დღეს</a>
+                <a onclick="openReportDateModal('sent');$('#mab-export-menu').hide();" class="po-drop-item"><i class="fa fa-print" style="color:#0369a1;"></i> გაგზავნილი</a>
+                <div style="height:1px;background:var(--c-border);margin:2px 0;"></div>
+                <a onclick="exportFilteredPDF();$('#mab-export-menu').hide();" class="po-drop-item"><i class="fa fa-file-pdf" style="color:var(--c-red);"></i> Filtered PDF</a>
+                <a onclick="exportFilteredExcel();$('#mab-export-menu').hide();" class="po-drop-item"><i class="fa fa-file-excel" style="color:#16a34a;"></i> Filtered Excel</a>
+                <a href="{{ route('exportPDF.productOrderAll') }}" class="po-drop-item"><i class="fa fa-file-pdf" style="color:#aaa;"></i> All PDF</a>
+            </div>
+        </div>
+
+        <button onclick="togglePoTheme()" class="mab-btn mab-icon" id="mab-theme-btn">
+            <i class="fa fa-moon" id="mab-theme-icon"></i>
+        </button>
     </div>
 
     {{-- ── STATS ── --}}
@@ -768,16 +1340,22 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 
     {{-- ── FILTER BAR ── --}}
     <div class="po-filter-bar">
-        <div class="po-search">
-            <i class="fa fa-magnifying-glass"></i>
-            <input type="search" id="dt-search" placeholder="ძებნა ორდერი, კლიენტი...">
-        </div>
-        <div class="po-pill-group">
-            <button class="po-pill active" data-period="all">ყველა</button>
-            <button class="po-pill" data-period="today">დღეს</button>
-            <button class="po-pill" data-period="week">კვირა</button>
-            <button class="po-pill" data-period="month">თვე</button>
-            <button class="po-pill" data-period="custom">Custom</button>
+        <div class="po-filter-pills-row">
+            <div class="po-pill-group">
+                <button class="po-pill active" data-period="all">ყველა</button>
+                <button class="po-pill" data-period="today">დღეს</button>
+                <button class="po-pill" data-period="week">კვირა</button>
+                <button class="po-pill" data-period="month">თვე</button>
+                <button class="po-pill" data-period="custom">Custom</button>
+            </div>
+            <div class="po-search">
+                <i class="fa fa-magnifying-glass"></i>
+                <input type="search" id="dt-search" placeholder="ძებნა ორდერი, კლიენტი...">
+                <button type="button" class="mob-ts-filter-btn" id="mob-ts-filter-btn" onclick="toggleMobFilter()">
+                    <i class="fa fa-sliders"></i>
+                    <span class="mob-ts-filter-badge" id="mob-ts-filter-badge"></span>
+                </button>
+            </div>
         </div>
         <div class="po-custom-dates" id="customDates">
             <input type="date" id="filter-date-from">
@@ -785,73 +1363,80 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
             <input type="date" id="filter-date-to">
             <button class="po-apply-btn" id="applyCustom">გამოყენება</button>
         </div>
-        <div class="po-filter-sep"></div>
-        <div style="position:relative;" id="po-status-wrap">
-            <button id="status-filter-btn" type="button" class="po-select" style="cursor:pointer;min-width:130px;text-align:left;display:flex;align-items:center;gap:6px;">
-                <i class="fa fa-filter" style="font-size:9px;opacity:.5;"></i>
-                <span id="status-filter-label" style="flex:1;">სტატუსი</span>
-                <span style="opacity:.4;font-size:10px;">▾</span>
-            </button>
-            <div id="po-status-dropdown">
-                @foreach($statuses as $status)
-                <label>
-                    <input type="checkbox" class="status-filter-check" value="{{ $status->id }}"> {{ $status->name }}
-                </label>
+        <div class="po-filter-adv" id="po-filter-adv">
+            <div class="mob-adv-header">
+                <span class="mob-adv-title"><i class="fa fa-sliders" style="font-size:12px;margin-right:7px;opacity:.6;"></i>ფილტრები</span>
+                <button type="button" class="mob-adv-close" onclick="toggleMobFilter()"><i class="fa fa-xmark"></i></button>
+            </div>
+            <div class="mob-adv-body">
+            {{-- Mobile-only: date period filter at top of drawer --}}
+            <div style="position:relative;" id="po-status-wrap">
+                <button id="status-filter-btn" type="button" class="po-select" style="cursor:pointer;min-width:130px;text-align:left;display:flex;align-items:center;gap:6px;">
+                    <i class="fa fa-filter" style="font-size:9px;opacity:.5;"></i>
+                    <span id="status-filter-label" style="flex:1;">სტატუსი</span>
+                    <span style="opacity:.4;font-size:10px;">▾</span>
+                </button>
+                <div id="po-status-dropdown">
+                    @foreach($statuses as $status)
+                    <label>
+                        <input type="checkbox" class="status-filter-check" value="{{ $status->id }}"> {{ $status->name }}
+                    </label>
+                    @endforeach
+                </div>
+            </div>
+            <select id="filter-product" style="width:200px;">
+                <option value="">— ყველა პროდუქტი —</option>
+                @foreach($all_products as $product)
+                <option value="{{ $product->id }}">{{ $product->name }}</option>
                 @endforeach
+            </select>
+            <select id="filter-customer" style="width:200px;">
+                <option value="">— ყველა კლიენტი —</option>
+                @foreach($customers as $customer)
+                <option value="{{ $customer->id }}">{{ $customer->name }}{{ $customer->tel ? ' ('.$customer->tel.')' : '' }}</option>
+                @endforeach
+            </select>
+            <select id="dt-page-length" class="po-select" style="width:76px;">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100" selected>100</option>
+                <option value="-1">ყველა</option>
+            </select>
+            <div class="po-filter-sep"></div>
+            <div class="po-toggle-wrap po-ready-wrap">
+                <label for="toggle-ready-ship" style="color:#16a34a;font-weight:700;"><i class="fa fa-truck" style="font-size:10px;"></i> მზად</label>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="toggle-ready-ship" role="switch" style="cursor:pointer;">
+                </div>
             </div>
-        </div>
-        <select id="filter-product" style="width:200px;">
-            <option value="">— ყველა პროდუქტი —</option>
-            @foreach($all_products as $product)
-            <option value="{{ $product->id }}">{{ $product->name }}</option>
-            @endforeach
-        </select>
-        <select id="filter-customer" style="width:200px;">
-            <option value="">— ყველა კლიენტი —</option>
-            @foreach($customers as $customer)
-            <option value="{{ $customer->id }}">{{ $customer->name }}{{ $customer->tel ? ' ('.$customer->tel.')' : '' }}</option>
-            @endforeach
-        </select>
-        <select id="dt-page-length" class="po-select" style="width:76px;">
-            <option value="10">10</option>
-            <option value="25">25</option>
-            <option value="50">50</option>
-            <option value="100" selected>100</option>
-            <option value="-1">ყველა</option>
-        </select>
-        <div class="po-filter-sep"></div>
-        <div class="po-toggle-wrap">
-            <label for="toggle-ready-ship" style="color:#16a34a;font-weight:700;"><i class="fa fa-truck" style="font-size:10px;"></i> მზად</label>
-            <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" id="toggle-ready-ship" role="switch" style="cursor:pointer;">
+            <button id="btn-send-all-courier" onclick="sendAllReadyToCourier()" class="po-btn po-btn-success" style="display:none;">
+                <i class="fa fa-truck"></i> ყველას გაგზავნა
+            </button>
+            <button id="btn-sent-report" onclick="openReportDateModal('sent')" class="po-btn" style="background:#f0f9ff;border-color:#0ea5e9;color:#0369a1;">
+                <i class="fa fa-print"></i> გაგზავნილი
+            </button>
+            <div class="po-toggle-wrap">
+                <label for="toggle-merged" style="color:#7c3aed;font-weight:700;"><i class="fa fa-layer-group" style="font-size:10px;"></i> გაერთ.</label>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="toggle-merged" role="switch" style="cursor:pointer;">
+                </div>
             </div>
-        </div>
-        <button id="btn-send-all-courier" onclick="sendAllReadyToCourier()" class="po-btn po-btn-success" style="display:none;">
-            <i class="fa fa-truck"></i> ყველას გაგზავნა
-        </button>
-        <button onclick="openReportDateModal('sent')" class="po-btn" style="background:#f0f9ff;border-color:#0ea5e9;color:#0369a1;">
-            <i class="fa fa-print"></i> გაგზავნილი
-        </button>
-        <div class="po-toggle-wrap">
-            <label for="toggle-merged" style="color:#7c3aed;font-weight:700;"><i class="fa fa-layer-group" style="font-size:10px;"></i> გაერთ.</label>
-            <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" id="toggle-merged" role="switch" style="cursor:pointer;">
+            <div class="po-toggle-wrap">
+                <label for="toggle-deleted"><i class="fa fa-coins" style="font-size:10px;opacity:.7;margin-right:4px;"></i>დავალიანება</label>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="toggle-deleted" role="switch" style="cursor:pointer;">
+                </div>
             </div>
-        </div>
-        <div class="po-toggle-wrap">
-            <label for="toggle-deleted">დავ.</label>
-            <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" id="toggle-deleted" role="switch" style="cursor:pointer;">
+            <div class="po-toggle-wrap">
+                <label for="toggle-show-deleted"><i class="fa fa-trash" style="font-size:10px;opacity:.7;margin-right:4px;"></i>წაშლილები</label>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="toggle-show-deleted" role="switch" style="cursor:pointer;">
+                </div>
             </div>
-        </div>
-        <div class="po-toggle-wrap">
-            <label for="toggle-show-deleted">წაშ.</label>
-            <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" id="toggle-show-deleted" role="switch" style="cursor:pointer;">
-            </div>
-        </div>
+            </div>{{-- /mob-adv-body --}}
+        </div>{{-- /po-filter-adv --}}
     </div>
-
     {{-- ── BULK BAR ── --}}
     <div class="po-bulk-bar" id="po-bulk-bar" style="display:none;">
         <i class="fa fa-check-square" style="font-size:13px;"></i>
@@ -1338,8 +1923,41 @@ var columns = [
     {
         data: null, orderable: false, searchable: false, responsivePriority: 3,
         render: function(data) {
-            var photo = data.show_photo ? '<div class="po-product-thumb">'+data.show_photo+'</div>' : '';
-            return '<div class="po-product-cell">'+photo+'<div style="font-size:12.5px;min-width:0;">'+(data.product_info || '')+'</div></div>';
+            var photo = data.show_photo ? '<div class="po-product-thumb">'+data.show_photo.replace(/<img /g,'<img loading="lazy" ')+'</div>' : '';
+            // compute group totals from children_json for merged primaries
+            var children = [];
+            if (data.is_primary && data.children_count > 1 && data.children_json) {
+                children = Array.isArray(data.children_json) ? data.children_json
+                    : (typeof data.children_json === 'string' ? JSON.parse(data.children_json || '[]') : []);
+            }
+            var orig, disc, paid, totalCost;
+            if (children.length > 0) {
+                orig      = children.reduce(function(s,c){ return s + parseFloat(c.price_georgia||0); }, 0);
+                disc      = children.reduce(function(s,c){ return s + parseFloat(c.discount||0); }, 0);
+                paid      = children.reduce(function(s,c){ return s + parseFloat(c.paid_tbc||0) + parseFloat(c.paid_bog||0) + parseFloat(c.paid_lib||0) + parseFloat(c.paid_cash||0); }, 0);
+                totalCost = children.reduce(function(s,c){ return s + parseFloat(c.price_usa||c.cost_price||0); }, 0);
+            } else {
+                orig      = parseFloat(data.price_georgia || 0);
+                disc      = parseFloat(data.discount || 0);
+                paid      = parseFloat(data.paid_tbc||0) + parseFloat(data.paid_bog||0) + parseFloat(data.paid_lib||0) + parseFloat(data.paid_cash||0);
+                totalCost = parseFloat(data.price_usa || 0);
+            }
+            var geo  = orig - disc;
+            var diff = geo - paid;
+            var finTag;
+            if (diff < -0.01)    finTag = '<span style="color:var(--c-green);font-weight:700;"><i class="fa fa-plus" style="font-size:9px;"></i> +'+Math.abs(diff).toFixed(2)+'₾</span>';
+            else if (diff<=0.01) finTag = '<span style="color:var(--c-green);"><i class="fa fa-check" style="font-size:9px;"></i> გადახდილი</span>';
+            else                 finTag = '<span style="color:var(--c-red);font-weight:700;"><i class="fa fa-circle-exclamation" style="font-size:9px;"></i> '+diff.toFixed(2)+'₾</span>';
+            var finLine = '<div class="mob-fin">'
+                + '<span class="mob-fin-price">'+orig.toFixed(2)+'₾</span>'
+                + (disc>0.01 ? '<span class="mob-fin-disc">🏷️−'+disc.toFixed(2)+'₾</span><span class="mob-fin-net">'+geo.toFixed(2)+'₾</span>' : '')
+                + finTag
+                + (isAdmin && totalCost > 0 ? '<span style="color:#888;font-size:10px;margin-left:4px;">· $'+totalCost.toFixed(2)+'</span>' : '')
+                + '</div>';
+            var custLine = data.customer_name
+                ? '<div class="mob-customer">'+(data.customer_name||'')+'</div>'
+                : '';
+            return '<div class="po-product-cell">'+photo+'<div class="po-prod-text" style="font-size:12.5px;min-width:0;"><div class="po-prod-name">'+(data.product_info||'')+'</div>'+finLine+custLine+'</div></div>';
         }
     },
     {
@@ -1407,7 +2025,7 @@ var columns = [
 ];
 
 var table = $('#products-out-table').DataTable({
-    processing: true, serverSide: true, responsive: true,
+    processing: true, serverSide: true, responsive: false,
     ajax: "{{ route('api.productsOut') }}",
     columns: columns,
     order: [[2, 'desc']],
@@ -1415,18 +2033,26 @@ var table = $('#products-out-table').DataTable({
     pageLength: 100,
     language: { info: '_START_–_END_ / _TOTAL_', paginate: { previous: '‹', next: '›' } },
     createdRow: function(row, data) {
-        if (data.is_primary && data.children_count > 1) { $(row).addClass('po-group-row'); return; }
-        if (data.status_id == 6) { $(row).addClass('po-row-exchanged'); return; }
-        if (data.status_id == 5) { $(row).addClass('po-row-returned');  return; }
-        if (data.original_sale_id) { $(row).addClass('po-row-change'); return; }
+        if (data.is_primary && data.children_count > 1) { $(row).addClass('po-group-row'); }
+        if (data.status_id == 6) { $(row).addClass('po-row-exchanged'); }
+        if (data.status_id == 5) { $(row).addClass('po-row-returned');  }
+        if (data.original_sale_id) { $(row).addClass('po-row-change'); }
+        if (data.order_type === 'sale' && !data.original_sale_id) { $(row).addClass('po-row-sale'); }
         var geo  = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
         var paid = parseFloat(data.paid_tbc || 0) + parseFloat(data.paid_bog || 0) + parseFloat(data.paid_lib || 0) + parseFloat(data.paid_cash || 0);
         if ((geo - paid) > 0.01) { $(row).addClass('po-row-debt'); }
+        // mobile cell classes (visible cols: 0=chk,1=order,2=product,3=customer,4=payment,5=date,6=actions)
+        var cellClasses = ['td-mob-hide','td-order','td-product','td-customer','td-payment','td-date','td-actions'];
+        $('td', row).each(function(i) {
+            if (cellClasses[i]) $(this).addClass(cellClasses[i]);
+        });
     },
 });
 
 $('#dt-page-length').on('change', function() { table.page.len(parseInt($(this).val())).draw(); });
-$('#dt-search').on('input', function() { table.search($(this).val()).draw(); });
+(function() {
+    var _st; $('#dt-search').on('input', function() { clearTimeout(_st); var v=$(this).val(); _st=setTimeout(function(){ table.search(v).draw(); },300); });
+})();
 
 // შესყიდვებიდან ?search= პარამეტრი
 (function() {
@@ -2057,7 +2683,10 @@ function exportFilteredExcel() {
 }
 
 $(document).on('change', '#toggle-ready-ship', function() {
-    $('#btn-send-all-courier').toggle($(this).is(':checked'));
+    var on = $(this).is(':checked');
+    $('#btn-send-all-courier').toggle(on);
+    $('#mob-qr-send-all').toggle(on);
+    $('#mob-qr-ready').toggleClass('on-green', on);
     reloadTableWithFilters();
 });
 $(document).on('change', '#toggle-merged',       function() { reloadTableWithFilters(); });
@@ -2237,8 +2866,16 @@ function applyPeriod(period) {
 $(document).on('click', '.po-pill[data-period]', function() {
     $('.po-pill[data-period]').removeClass('active'); $(this).addClass('active');
     var period = $(this).data('period');
-    if (period === 'custom') $('#customDates').addClass('show');
-    else { $('#customDates').removeClass('show'); applyPeriod(period); }
+    if (period === 'custom') {
+        $('#customDates').addClass('show');
+        // On mobile: close drawer so custom date inputs are visible below filter card
+        if (window.innerWidth <= 767 && $('#po-filter-adv').hasClass('open')) { toggleMobFilter(); }
+    } else {
+        $('#customDates').removeClass('show');
+        applyPeriod(period);
+        // On mobile: close drawer after selecting a period
+        if (window.innerWidth <= 767 && $('#po-filter-adv').hasClass('open')) { toggleMobFilter(); }
+    }
 });
 $(document).on('click', '#applyCustom', function() { reloadTableWithFilters(); });
 
@@ -2362,17 +2999,28 @@ function showStatusLog(orderId) {
     });
 }
 
-$(document).on('change', '#check-all', function() { $('.row-check').prop('checked', $(this).is(':checked')); toggleMergeBtn(); });
-$(document).on('change', '.row-check', function() { toggleMergeBtn(); });
+$(document).on('change', '#check-all', function() {
+    var on = $(this).is(':checked');
+    $('.row-check').prop('checked', on);
+    $('#products-out-table tbody tr').toggleClass('mob-merge-selected', on);
+    toggleMergeBtn();
+});
+$(document).on('change', '.row-check', function() {
+    $(this).closest('tr').toggleClass('mob-merge-selected', $(this).prop('checked'));
+    toggleMergeBtn();
+});
 
 function toggleMergeBtn() {
     var count = $('.row-check:checked').length;
     if (count >= 1) { $('#po-bulk-count').text(count+' მონიშნული'); $('#po-bulk-bar').show(); } else { $('#po-bulk-bar').hide(); }
-    if (count >= 2) $('#btn-merge').show(); else $('#btn-merge').hide();
+    if (count >= 2) { $('#btn-merge').show(); $('#mob-btn-merge').show(); }
+    else            { $('#btn-merge').hide(); $('#mob-btn-merge').hide(); }
 }
 
 function clearPoSelection() {
-    $('.row-check').prop('checked',false); $('#check-all').prop('checked',false); $('#po-bulk-bar').hide(); $('#btn-merge').hide();
+    $('.row-check').prop('checked',false); $('#check-all').prop('checked',false);
+    $('#po-bulk-bar').hide(); $('#btn-merge').hide(); $('#mob-btn-merge').hide();
+    $('#products-out-table tbody tr').removeClass('mob-merge-selected');
     if (mergeMode) { mergeMode = false; $('#po-page-root').removeClass('po-merge-mode'); reloadTableWithFilters(); }
 }
 
@@ -2388,7 +3036,8 @@ function mergeSelected() {
             success: function(data) {
                 mergeMode = false; $('#po-page-root').removeClass('po-merge-mode');
                 table.ajax.url("{{ route('api.productsOut') }}").load();
-                $('#btn-merge').hide(); $('#check-all').prop('checked',false); $('#po-bulk-bar').hide();
+                $('#btn-merge').hide(); $('#mob-btn-merge').hide(); $('#check-all').prop('checked',false); $('#po-bulk-bar').hide();
+                $('#products-out-table tbody tr').removeClass('mob-merge-selected');
                 swal("წარმატება!", data.message, "success");
             },
             error: function(xhr) { swal("შეცდომა", xhr.responseJSON ? xhr.responseJSON.message : "ვერ გაერთიანდა", "error"); }
@@ -2400,7 +3049,26 @@ $(document).on('click', '.merge-search-btn', function(e) {
     e.stopPropagation();
     var customerId = $(this).data('customer-id');
     mergeMode = true; $('#po-page-root').addClass('po-merge-mode');
-    table.ajax.url("{{ route('api.productsOut') }}?merge_customer_id="+customerId).load(function() { $('.row-check').each(function() { $(this).prop('checked', $(this).data('ready') == 1); }); toggleMergeBtn(); });
+    table.ajax.url("{{ route('api.productsOut') }}?merge_customer_id="+customerId).load(function() {
+        $('.row-check').each(function() {
+            var on = $(this).data('ready') == 1;
+            $(this).prop('checked', on);
+            if (on) $(this).closest('tr').addClass('mob-merge-selected');
+        });
+        toggleMergeBtn();
+    });
+});
+
+// Mobile: tap a card to toggle its merge selection
+$(document).on('click', '#products-out-table tbody tr', function(e) {
+    if (!mergeMode || window.innerWidth > 767) return;
+    if ($(e.target).closest('.po-merge-hint,.po-expand-btn,.po-actions,a,button,input').length) return;
+    var cb = $(this).find('.row-check');
+    if (!cb.length) return;
+    var on = !cb.prop('checked');
+    cb.prop('checked', on);
+    $(this).toggleClass('mob-merge-selected', on);
+    toggleMergeBtn();
 });
 
 function unmergeOrder(id) {
@@ -2429,9 +3097,70 @@ $(document).on('click', '.expand-btn', function() {
     var btn = $(this); var parentId = btn.data('id');
     var allOrders = (window._childrenStore || {})[parentId] || [];
     var parentRow = btn.closest('tr');
-    if (btn.hasClass('open')) { btn.removeClass('open'); $('tr.child-row-'+parentId).remove(); window._openParentIds.delete(parentId); return; }
+    var isMobile = window.innerWidth <= 767;
+
+    if (btn.hasClass('open')) {
+        btn.removeClass('open');
+        window._openParentIds.delete(parentId);
+        if (isMobile) {
+            parentRow.find('.mob-children').slideUp(150, function(){ $(this).remove(); });
+        } else {
+            $('tr.child-row-'+parentId).remove();
+        }
+        return;
+    }
     btn.addClass('open'); window._openParentIds.add(parentId);
     if (!allOrders || allOrders.length === 0) return;
+
+    // ── MOBILE: accordion inside the card ──────────────────────
+    if (isMobile) {
+        var mobHtml = '<div class="mob-children">';
+        allOrders.forEach(function(order) {
+            var thumbHtml = '';
+            if (order.product_image) {
+                var decoded = $('<textarea/>').html(order.product_image).text().replace(/<img /g,'<img loading="lazy" ');
+                thumbHtml = '<div class="mob-ci-thumb" style="cursor:zoom-in;" onclick="var s=$(this).find(\'img\').attr(\'src\');if(s){$(\'#preview-img-full\').attr(\'src\',s);$(\'#modal-image-preview\').modal(\'show\');}">'+decoded+'</div>';
+            }
+            var chOrig = parseFloat(order.price_georgia||0);
+            var chDisc = parseFloat(order.discount||0);
+            var chGeo  = chOrig - chDisc;
+            var chPaid = parseFloat(order.paid_tbc||0)+parseFloat(order.paid_bog||0)+parseFloat(order.paid_lib||0)+parseFloat(order.paid_cash||0);
+            var chDiff = chGeo - chPaid;
+            var chPct  = chGeo > 0 ? Math.min(chPaid/chGeo,1) : 1;
+            var chTag  = chDiff <= 0.01
+                ? '<span style="color:var(--c-green);"><i class="fa fa-check" style="font-size:9px;"></i> გადახდ.</span>'
+                : '<span style="color:var(--c-red);font-weight:700;">−'+chDiff.toFixed(2)+'₾</span>';
+            var chPayClass = chDiff <= 0.01 ? 'po-pay-paid' : (chPct > 0 ? 'po-pay-partial' : 'po-pay-debt');
+            var chCost = parseFloat(order.price_usa||0);
+            window._payComments = window._payComments || {};
+            window._payComments[order.id] = order.payment_comment || '';
+            var actHtml = '';
+            if (order.is_admin) actHtml += '<a onclick="openPayModal('+order.id+','+(order.price_georgia||0)+','+(order.discount||0)+','+(order.paid_tbc||0)+','+(order.paid_bog||0)+','+(order.paid_lib||0)+','+(order.paid_cash||0)+')" class="btn btn-xs '+chPayClass+'" title="გადახდა"><i class="fa fa-credit-card"></i></a>';
+            actHtml += '<a onclick="splitFromGroup('+order.id+')" class="btn btn-xs btn-warning" title="გამოყოფა"><i class="fa fa-scissors"></i></a>';
+            if (order.can_edit) {
+                actHtml += '<a onclick="editForm('+order.id+')" class="btn btn-xs btn-primary" title="რედ."><i class="fa fa-pen"></i></a>';
+                if (order.status_id != 4) actHtml += '<a onclick="deleteData('+order.id+')" class="btn btn-xs btn-danger" title="წაშლა"><i class="fa fa-trash"></i></a>';
+            }
+            var statusBadge = '<span class="label label-'+order.status_color+'" style="font-size:10px;">'+order.status_name+'</span>';
+            mobHtml += '<div class="mob-child-item">'
+                + '<div class="mob-ci-left">'
+                + thumbHtml
+                + '<div class="mob-ci-info">'
+                + '<div class="mob-ci-top"><span class="po-order-num" style="font-size:11px;">'+(order.order_number||'S'+order.id)+'</span> '+statusBadge+'</div>'
+                + '<div class="mob-ci-name">'+(order.product_name||'')+(order.product_size ? ' · <span class="label label-info" style="font-size:10px;">'+order.product_size+'</span>' : '')+'</div>'
+                + '<div class="mob-ci-fin"><span style="font-weight:700;">'+chOrig.toFixed(2)+'₾</span>'+(chDisc>0.01 ? ' <span style="color:#8e44ad;font-size:10px;">🏷️−'+chDisc.toFixed(2)+'₾</span>' : '')+' '+chTag+(isAdmin && chCost > 0 ? ' <span style="color:#888;font-size:10px;">· $'+chCost.toFixed(2)+'</span>' : '')+'</div>'
+                + '</div>'
+                + '</div>'
+                + '<div class="mob-ci-actions">'+actHtml+'</div>'
+                + '</div>';
+        });
+        mobHtml += '</div>';
+        parentRow.find('.td-order').append(mobHtml);
+        parentRow.find('.mob-children').hide().slideDown(180);
+        return;
+    }
+
+    // ── DESKTOP: insert rows after parent ──────────────────────
     var totalCols = columns.length; var rowsHtml = '';
     allOrders.forEach(function(order) {
         var orderNo = order.order_number || ('S'+order.id);
@@ -2451,7 +3180,7 @@ $(document).on('click', '.expand-btn', function() {
             + commentHtml;
         var thumbHtml = '';
         if (order.product_image) {
-            var decoded = $('<textarea/>').html(order.product_image).text();
+            var decoded = $('<textarea/>').html(order.product_image).text().replace(/<img /g,'<img loading="lazy" ');
             thumbHtml = '<div class="po-product-thumb" style="width:36px;height:36px;flex-shrink:0;cursor:zoom-in;" onclick="var s=$(this).find(\'img\').attr(\'src\');if(s){$(\'#preview-img-full\').attr(\'src\',s);$(\'#modal-image-preview\').modal(\'show\');}">'+decoded+'</div>';
         }
         var pairIcon = order.is_paired ? ' <i class="fa fa-link" style="color:#198754;font-size:9px;" title="კომპლექტი შედგა"></i>' : '';
@@ -2501,7 +3230,7 @@ $(document).on('click', '.expand-btn', function() {
     parentRow.after(rowsHtml);
 });
 
-table.on('draw', function() { $('#check-all').prop('checked',false); $('#btn-merge').hide(); $('#po-bulk-bar').hide(); });
+table.on('draw', function() { $('#check-all').prop('checked',false); $('#btn-merge').hide(); $('#mob-btn-merge').hide(); $('#po-bulk-bar').hide(); });
 
 function restoreOpenRows() {
     window._openParentIds.forEach(function(parentId) {
@@ -2810,17 +3539,30 @@ $('#change_product_id').select2({
 
 function togglePoTheme() {
     var $root = $('#po-page-root'); var isDark = $root.toggleClass('po-dark').hasClass('po-dark');
-    $('#po-theme-icon').toggleClass('fa-moon', !isDark).toggleClass('fa-sun', isDark);
+    $('#po-theme-icon, #mab-theme-icon').toggleClass('fa-moon', !isDark).toggleClass('fa-sun', isDark);
     try { localStorage.setItem('po-theme', isDark ? 'dark' : 'light'); } catch(e) {}
 }
 (function() {
-    try { if (localStorage.getItem('po-theme') === 'dark') { $('#po-page-root').addClass('po-dark'); $('#po-theme-icon').removeClass('fa-moon').addClass('fa-sun'); } } catch(e) {}
+    try { if (localStorage.getItem('po-theme') === 'dark') { $('#po-page-root').addClass('po-dark'); $('#po-theme-icon, #mab-theme-icon').removeClass('fa-moon').addClass('fa-sun'); } } catch(e) {}
 })();
 
 $('#po-export-btn').on('click', function(e) { e.stopPropagation(); $('#po-export-menu').toggle(); });
-$(document).on('click', function(e) { if (!$(e.target).closest('#po-export-wrap').length) $('#po-export-menu').hide(); });
+$('#mab-export-btn').on('click', function(e) {
+    e.stopPropagation();
+    var menu = $('#mab-export-menu');
+    if (menu.is(':visible')) { menu.hide(); return; }
+    var r = this.getBoundingClientRect();
+    var menuW = 185;
+    var left = r.left;
+    if (left + menuW > window.innerWidth - 8) left = window.innerWidth - menuW - 8;
+    menu.css({ top: (r.bottom + 4) + 'px', left: left + 'px' }).show();
+});
+$(document).on('click', function(e) {
+    if (!$(e.target).closest('#po-export-wrap').length)  $('#po-export-menu').hide();
+    if (!$(e.target).closest('#mab-export-wrap').length) $('#mab-export-menu').hide();
+});
 
-function loadPoStats() {
+var _statsTimer; function loadPoStats() { clearTimeout(_statsTimer); _statsTimer = setTimeout(_doLoadPoStats, 250); } function _doLoadPoStats() {
     var selected = []; $('.status-filter-check:checked').each(function() { selected.push($(this).val()); });
     var data = { date_from:$('#filter-date-from').val(), date_to:$('#filter-date-to').val() };
     if (selected.length)                          data['statuses[]'] = selected;
@@ -2849,7 +3591,7 @@ function loadPoStats() {
             $('#stat-ready').text(d.ready_to_ship||0);
         }
     });
-}
+}   // end _doLoadPoStats
 loadPoStats();
 
 function editComment(id) {
@@ -2872,6 +3614,48 @@ $('#comment-edit-save').on('click', function() {
         }
     });
 });
+
+/* ── MOBILE QUICK-ROW TOGGLES ── */
+function mobQrToggle(type) {
+    var map = {
+        'ready': { btn: '#mob-qr-ready', cls: 'on-green', cb: '#toggle-ready-ship' }
+    };
+    var m = map[type]; if (!m) return;
+    var isOn = !$(m.btn).hasClass(m.cls);
+    $(m.btn).toggleClass(m.cls, isOn);
+    $(m.cb).prop('checked', isOn).trigger('change');
+}
+
+/* ── MOBILE FILTER PANEL ── */
+function toggleMobFilter() {
+    var adv = $('#po-filter-adv');
+    var isOpen = adv.hasClass('open');
+    adv.toggleClass('open', !isOpen);
+    $('#mob-ts-filter-btn').toggleClass('active', !isOpen);
+}
+
+$(document).on('click', function(e) {
+    if (!$(e.target).closest('.po-filter-bar').length) {
+        $('#po-filter-adv').removeClass('open');
+        $('#mob-ts-filter-btn').removeClass('active');
+    }
+});
+
+function updateMobFilterBadge() {
+    var count = 0;
+    if ($('.status-filter-check:checked').length > 0) count++;
+    if ($('#filter-product').val()) count++;
+    if ($('#filter-customer').val()) count++;
+    if ($('#toggle-ready-ship').is(':checked')) count++;
+    if ($('#toggle-deleted').is(':checked')) count++;
+    if ($('#toggle-show-deleted').is(':checked')) count++;
+    var hasActive = count > 0;
+    $('#mob-ts-filter-badge').text(count || '');
+    $('#mob-ts-filter-btn').toggleClass('has-active', hasActive);
+}
+
+$(document).on('change', '.status-filter-check, #toggle-ready-ship, #toggle-deleted, #toggle-show-deleted', updateMobFilterBadge);
+$('#filter-product, #filter-customer').on('change', updateMobFilterBadge);
 
 </script>
 @endsection
