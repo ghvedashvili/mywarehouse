@@ -1661,6 +1661,7 @@ $(function() {
             if (price <= 0 || transport <= 0) { hasError = true; return false; }
         });
         if (hasError) {
+            hideLoader();
             swal('შეცდომა', 'ყველა პროდუქტს უნდა ჰქონდეს ფასი ($) და ტრანსპ. ($) — ორივე 0-ზე მეტი', 'error');
             return;
         }

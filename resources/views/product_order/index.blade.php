@@ -3481,7 +3481,7 @@ $('#form-change').on('submit', function(e) {
     var productId = $('#change_product_id').val();
     var isDivSize = $('#form-change').data('is-div-size');
     var size = isDivSize ? $('#change-ml-input').val() : $('#change_size').val();
-    if (!productId || !size) { swal('შეცდომა', 'პროდუქტი და ზომა სავალდებულოა', 'error'); return; }
+    if (!productId || !size) { hideLoader(); swal('შეცდომა', 'პროდუქტი და ზომა სავალდებულოა', 'error'); return; }
     $saveBtn.prop('disabled', true).css('opacity', '0.65');
     var $disabledSize = isDivSize ? $() : $('#change_size').filter(':disabled');
     $disabledSize.prop('disabled',false);
