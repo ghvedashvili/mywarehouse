@@ -158,6 +158,7 @@ Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff']
         Route::delete('purchases/{id}/line',          [PurchaseOrderController::class, 'destroyLine'])->name('purchases.destroyLine');
         Route::get('purchases/group/{groupId}/items',           [PurchaseOrderController::class, 'getGroupItems'])->name('purchases.groupItems');
         Route::post('purchases/group/{groupId}/partial-receive',[PurchaseOrderController::class, 'groupPartialReceive'])->name('purchases.groupPartialReceive');
+        Route::post('purchases/group/{groupId}/undo-receipt',   [PurchaseOrderController::class, 'undoGroupReceipt'])->name('purchases.undoGroupReceipt');
         Route::get('purchases/stats', [PurchaseOrderController::class, 'stats'])->name('purchases.stats');
     });
     // ── Users ─────────────────────────────────────────────────────────
