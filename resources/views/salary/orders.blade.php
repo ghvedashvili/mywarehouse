@@ -117,7 +117,9 @@
             <th>ქ-ი</th>
             <th>ფასი ₾</th>
             <th>ფასდ. ₾</th>
-            <th>ფასი $</th>
+            <th id="cost-th" style="cursor:pointer;user-select:none;white-space:nowrap;" onclick="toggleCostSort()">
+                ფასი $ <span id="cost-sort-icon" style="font-size:10px;opacity:.6;">↕</span>
+            </th>
             <th>საკ. ₾</th>
             <th class="th-profit">წმინდა ₾</th>
             <th>გადახდ. ₾</th>
@@ -286,31 +288,33 @@ document.addEventListener('click', function(e) {
     }
 });
 
-var _createdSortDir = 0; // 0=original, 1=asc, -1=desc
+var _createdSortDir = 0;
+var _costSortDir    = 0;
 var _originalOrder  = null;
+
+function _sortRows(tbody, rows, getValue, dirVar, iconId, newDir) {
+    if (_originalOrder === null) _originalOrder = Array.from(tbody.querySelectorAll('.sal-row'));
+    rows.sort(function(a, b) { var va = getValue(a), vb = getValue(b); return newDir * (va < vb ? -1 : va > vb ? 1 : 0); });
+    rows.forEach(function(tr, i) { tbody.appendChild(tr); var c = tr.querySelector('td:first-child'); if (c) c.textContent = i + 1; });
+    ['created-sort-icon', 'cost-sort-icon'].forEach(function(id) {
+        document.getElementById(id).textContent = id === iconId ? (newDir === 1 ? '↑' : '↓') : '↕';
+    });
+}
 
 window.toggleCreatedSort = function() {
     var tbody = document.querySelector('.sal-table tbody');
     var rows  = Array.from(tbody.querySelectorAll('.sal-row'));
-
-    if (_originalOrder === null) {
-        _originalOrder = rows.slice();
-    }
-
     _createdSortDir = _createdSortDir === 1 ? -1 : 1;
-    document.getElementById('created-sort-icon').textContent = _createdSortDir === 1 ? '↑' : '↓';
+    _costSortDir    = 0;
+    _sortRows(tbody, rows, function(r) { return r.dataset.created || ''; }, '_createdSortDir', 'created-sort-icon', _createdSortDir);
+};
 
-    rows.sort(function(a, b) {
-        var da = a.dataset.created || '';
-        var db = b.dataset.created || '';
-        return _createdSortDir * (da < db ? -1 : da > db ? 1 : 0);
-    });
-
-    rows.forEach(function(tr, i) {
-        tbody.appendChild(tr);
-        var numCell = tr.querySelector('td:first-child');
-        if (numCell) numCell.textContent = i + 1;
-    });
+window.toggleCostSort = function() {
+    var tbody = document.querySelector('.sal-table tbody');
+    var rows  = Array.from(tbody.querySelectorAll('.sal-row'));
+    _costSortDir    = _costSortDir === 1 ? -1 : 1;
+    _createdSortDir = 0;
+    _sortRows(tbody, rows, function(r) { return parseFloat(r.dataset.cost) || 0; }, '_costSortDir', 'cost-sort-icon', _costSortDir);
 };
 
 function fmt(v) { return v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
