@@ -126,7 +126,9 @@
                 სტატუსი <i class="fa fa-filter" id="status-filter-icon" style="font-size:10px;opacity:.7;"></i>
             </th>
             <th>ორდ. #</th>
-            <th>შექ. თარ.</th>
+            <th id="created-th" style="cursor:pointer;user-select:none;white-space:nowrap;" onclick="toggleCreatedSort()">
+                შექ. თარ. <span id="created-sort-icon" style="font-size:10px;opacity:.6;">↕</span>
+            </th>
             <th>გადახდ. თარ.</th>
         </tr>
     </thead>
@@ -144,6 +146,7 @@
             $debt    = max(0, ($orig - $disc) - $paid);
         @endphp
         <tr class="sal-row"
+            data-created="{{ $o->created_at?->format('Y-m-d') ?? '' }}"
             data-status="{{ $o->orderStatus?->name ?? '' }}"
             data-price="{{ $orig }}"
             data-disc="{{ $disc }}"
@@ -282,6 +285,33 @@ document.addEventListener('click', function(e) {
         dd.style.display = 'none';
     }
 });
+
+var _createdSortDir = 0; // 0=original, 1=asc, -1=desc
+var _originalOrder  = null;
+
+window.toggleCreatedSort = function() {
+    var tbody = document.querySelector('.sal-table tbody');
+    var rows  = Array.from(tbody.querySelectorAll('.sal-row'));
+
+    if (_originalOrder === null) {
+        _originalOrder = rows.slice();
+    }
+
+    _createdSortDir = _createdSortDir === 1 ? -1 : 1;
+    document.getElementById('created-sort-icon').textContent = _createdSortDir === 1 ? '↑' : '↓';
+
+    rows.sort(function(a, b) {
+        var da = a.dataset.created || '';
+        var db = b.dataset.created || '';
+        return _createdSortDir * (da < db ? -1 : da > db ? 1 : 0);
+    });
+
+    rows.forEach(function(tr, i) {
+        tbody.appendChild(tr);
+        var numCell = tr.querySelector('td:first-child');
+        if (numCell) numCell.textContent = i + 1;
+    });
+};
 
 function fmt(v) { return v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
 

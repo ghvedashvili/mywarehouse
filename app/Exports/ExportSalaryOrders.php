@@ -26,6 +26,8 @@ class ExportSalaryOrders implements FromArray, WithHeadings, WithStyles, WithEve
     private array $images    = [];
     private array $debts     = [];
     private int   $totalRow  = 0;
+    private float $imgBudget = 20.0; // წამი სულ სურათებისთვის
+    private float $imgStart  = 0.0;
 
     private float $sumOrig    = 0;
     private float $sumDisc    = 0;
@@ -67,8 +69,9 @@ class ExportSalaryOrders implements FromArray, WithHeadings, WithStyles, WithEve
 
         $orders = $q->orderBy('fully_paid_at')->get();
 
-        $excelRow = 2;
-        $seq      = 0;
+        $excelRow       = 2;
+        $seq            = 0;
+        $this->imgStart = microtime(true);
 
         foreach ($orders as $order) {
             $seq++;
@@ -95,9 +98,9 @@ class ExportSalaryOrders implements FromArray, WithHeadings, WithStyles, WithEve
             $this->sumPaid    += $paid;
             $this->sumDebt    += $debt;
 
-            $gd = $this->loadImageResource($order->product);
-            if ($gd) {
-                $this->images[$excelRow] = $gd;
+            if ((microtime(true) - $this->imgStart) < $this->imgBudget) {
+                $gd = $this->loadImageResource($order->product);
+                if ($gd) $this->images[$excelRow] = $gd;
             }
             if ($debt > 0) {
                 $this->debts[$excelRow] = true;
@@ -266,7 +269,7 @@ class ExportSalaryOrders implements FromArray, WithHeadings, WithStyles, WithEve
                     if (!$url) return null;
                     $contents = @file_get_contents($url, false, stream_context_create([
                         'ssl'  => ['verify_peer' => false, 'verify_peer_name' => false],
-                        'http' => ['timeout' => 5],
+                        'http' => ['timeout' => 2],
                     ]));
                 }
             }
