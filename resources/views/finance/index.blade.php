@@ -1245,7 +1245,7 @@ function loadSalary() {
                     <td>${parseFloat(op.base_amount).toFixed(2)} ₾</td>
                     <td>${parseFloat(op.bonus_amount).toFixed(2)} ₾</td>
                     <td style="color:var(--red);">−${parseFloat(op.deduction_amount).toFixed(2)} ₾</td>
-                    <td style="color:var(--green); font-weight:600;">${(parseFloat(op.base_amount) + parseFloat(op.bonus_amount)).toFixed(2)} ₾</td>
+                    <td style="color:var(--green); font-weight:600;">${parseFloat(op.total_amount).toFixed(2)} ₾</td>
                     <td>
                         <input type="number" class="salary-amount-input" step="0.01" min="0"
                                value="${recorded !== null ? recorded.toFixed(2) : ''}"

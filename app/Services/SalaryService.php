@@ -44,17 +44,16 @@ class SalaryService
         $orderCount     = $this->countEffectiveSales($positiveOrders);
         $deductionCount = $this->countEffectiveSales($deductionOrders);
 
-        $base  = $orderCount * $policy->sale_base_per_order;
+        $base  = ($orderCount - $deductionCount) * $policy->sale_base_per_order;
         $bonus = $positiveOrders
             ->where('sale_from', 1)
             ->sum(fn($o) => $o->price_georgia * $policy->sale_bonus_percent);
 
-        $deductBase  = $deductionCount * $policy->sale_base_per_order;
         $deductBonus = $deductionOrders
             ->where('sale_from', 1)
             ->sum(fn($o) => $o->price_georgia * $policy->sale_bonus_percent);
 
-        $total = ($base + $bonus) - ($deductBase + $deductBonus);
+        $total = $base + $bonus - $deductBonus;
 
         // გაუქმებულები დაჯგუფებული original (created_at) თვის მიხედვით
         $deductionsByMonth = $deductionOrders
@@ -69,7 +68,7 @@ class SalaryService
             'deductions_by_month' => $deductionsByMonth,
             'base_amount'         => round($base, 2),
             'bonus_amount'        => round($bonus, 2),
-            'deduction_amount'    => round($deductBase + $deductBonus, 2),
+            'deduction_amount'    => round($deductBonus, 2),
             'total_amount'        => round(max(0, $total), 2),
             'orders'              => $positiveOrders,
             'deductions'          => $deductionOrders,
