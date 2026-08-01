@@ -100,7 +100,7 @@ class SalaryController extends Controller
         $entryDate = Carbon::createFromFormat('Y-m', $month)->startOfMonth()->toDateString();
 
         foreach ($request->payments as $p) {
-            if ((float)$p['total_amount'] <= 0) continue;
+            if (!isset($p['total_amount']) || $p['total_amount'] === '') continue;
 
             SalaryPayment::updateOrCreate(
                 ['user_id' => $p['user_id'], 'period_month' => $month],

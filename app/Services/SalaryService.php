@@ -68,7 +68,7 @@ class SalaryService
             ->toArray();
 
         $purchaseDeduction = $this->calcPurchaseDeduction($userId, $month);
-        $netTotal = max(0, $total - $purchaseDeduction);
+        $netTotal = $total - $purchaseDeduction;
 
         return [
             'order_count'         => $orderCount,
@@ -261,7 +261,7 @@ class SalaryService
 
             } elseif ($user->role === 'warehouse_operator') {
                 $purchaseDed = $this->calcPurchaseDeduction($user->id, $month);
-                $whTotal     = max(0, $warehouseData['suggested_amount'] - $purchaseDed);
+                $whTotal     = $warehouseData['suggested_amount'] - $purchaseDed;
                 $warehouseOperators[] = [
                     'user'                => $user,
                     'order_count'         => $warehouseData['order_count'],
@@ -279,7 +279,7 @@ class SalaryService
                 $admins[] = [
                     'user'               => $user,
                     'purchase_deduction' => round($purchaseDed, 2),
-                    'total_amount'       => round(max(0, ($policy->fixed_salary ?? 0) - $purchaseDed), 2),
+                    'total_amount'       => round(($policy->fixed_salary ?? 0) - $purchaseDed, 2),
                 ];
             }
         }

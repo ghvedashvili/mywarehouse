@@ -1252,7 +1252,7 @@ function loadSalary() {
                         ? `<td style="color:#e67e22; font-weight:600;">−${parseFloat(op.purchase_deduction).toFixed(2)} ₾</td>`
                         : `<td style="color:#b2bec3; font-size:11px;">—</td>`
                     }
-                    <td style="color:var(--green); font-weight:600;">${parseFloat(op.total_amount).toFixed(2)} ₾</td>
+                    <td style="color:${parseFloat(op.total_amount)<0?'var(--red)':'var(--green)'}; font-weight:600;">${parseFloat(op.total_amount).toFixed(2)} ₾</td>
                     <td>
                         <input type="number" class="salary-amount-input" step="0.01" min="0"
                                value="${recorded !== null ? recorded.toFixed(2) : ''}"
@@ -1305,7 +1305,7 @@ function loadSalary() {
                         ? `<td style="color:#e67e22; font-weight:600;">−${parseFloat(op.purchase_deduction).toFixed(2)} ₾</td>`
                         : `<td style="color:#b2bec3; font-size:11px;">—</td>`
                     }
-                    <td style="color:var(--green); font-weight:600;">${parseFloat(op.total_amount).toFixed(2)} ₾</td>
+                    <td style="color:${parseFloat(op.total_amount)<0?'var(--red)':'var(--green)'}; font-weight:600;">${parseFloat(op.total_amount).toFixed(2)} ₾</td>
                     <td>
                         <input type="number" class="salary-amount-input" step="0.01" min="0"
                                value="${recorded !== null ? recorded.toFixed(2) : ''}"
@@ -1337,7 +1337,7 @@ function loadSalary() {
                         ? `<td style="color:#e67e22; font-weight:600;">−${parseFloat(op.purchase_deduction).toFixed(2)} ₾</td>`
                         : `<td style="color:#b2bec3; font-size:11px;">—</td>`
                     }
-                    <td style="color:var(--green); font-weight:600;">${parseFloat(op.total_amount).toFixed(2)} ₾</td>
+                    <td style="color:${parseFloat(op.total_amount)<0?'var(--red)':'var(--green)'}; font-weight:600;">${parseFloat(op.total_amount).toFixed(2)} ₾</td>
                     <td>
                         <input type="number" class="salary-amount-input" step="0.01" min="0"
                                value="${recorded !== null ? recorded.toFixed(2) : ''}"
