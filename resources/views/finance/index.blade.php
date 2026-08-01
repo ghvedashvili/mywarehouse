@@ -712,6 +712,7 @@
                             <th>ბაზა (×3₾)</th>
                             <th>ბონუსი (1%)</th>
                             <th>გამოქვ.</th>
+                            <th style="color:#e67e22;">შენაძენები</th>
                             <th>ხელფასი სულ</th>
                             <th>გაცემული ხელფასი</th>
                             <th>ჩანიშვნა</th>
@@ -736,6 +737,8 @@
                             <th>სახელი</th>
                             <th>ყველა ორდ.</th>
                             <th>ხელფასი სულ</th>
+                            <th style="color:#e67e22;">შენაძენები</th>
+                            <th>სულ</th>
                             <th>გაცემული ხელფასი</th>
                             <th>ჩანიშვნა</th>
                             <th>სტატუსი</th>
@@ -755,7 +758,7 @@
                 <div class="table-responsive">
                 <table class="entries-table" style="min-width:400px;">
                     <thead>
-                        <tr><th>სახელი</th><th>გაცემული ხელფასი</th><th>ჩანიშვნა</th><th>სტატუსი</th></tr>
+                        <tr><th>სახელი</th><th style="color:#e67e22;">შენაძენები</th><th>სულ</th><th>გაცემული ხელფასი</th><th>ჩანიშვნა</th><th>სტატუსი</th></tr>
                     </thead>
                     <tbody id="salary-admin-body"></tbody>
                 </table>
@@ -1245,6 +1248,10 @@ function loadSalary() {
                     <td>${parseFloat(op.base_amount).toFixed(2)} ₾</td>
                     <td>${parseFloat(op.bonus_amount).toFixed(2)} ₾</td>
                     <td style="color:var(--red);">−${parseFloat(op.deduction_amount).toFixed(2)} ₾</td>
+                    ${parseFloat(op.purchase_deduction) > 0
+                        ? `<td style="color:#e67e22; font-weight:600;">−${parseFloat(op.purchase_deduction).toFixed(2)} ₾</td>`
+                        : `<td style="color:#b2bec3; font-size:11px;">—</td>`
+                    }
                     <td style="color:var(--green); font-weight:600;">${parseFloat(op.total_amount).toFixed(2)} ₾</td>
                     <td>
                         <input type="number" class="salary-amount-input" step="0.01" min="0"
@@ -1294,6 +1301,11 @@ function loadSalary() {
                         </small>
                     </td>
                     <td>${parseFloat(op.suggested_amount).toFixed(2)} ₾</td>
+                    ${parseFloat(op.purchase_deduction) > 0
+                        ? `<td style="color:#e67e22; font-weight:600;">−${parseFloat(op.purchase_deduction).toFixed(2)} ₾</td>`
+                        : `<td style="color:#b2bec3; font-size:11px;">—</td>`
+                    }
+                    <td style="color:var(--green); font-weight:600;">${parseFloat(op.total_amount).toFixed(2)} ₾</td>
                     <td>
                         <input type="number" class="salary-amount-input" step="0.01" min="0"
                                value="${recorded !== null ? recorded.toFixed(2) : ''}"
@@ -1321,6 +1333,11 @@ function loadSalary() {
             adminBody.insertAdjacentHTML('beforeend', `
                 <tr data-uid="${op.user_id}" data-role="admin">
                     <td style="font-weight:600;">${op.name}</td>
+                    ${parseFloat(op.purchase_deduction) > 0
+                        ? `<td style="color:#e67e22; font-weight:600;">−${parseFloat(op.purchase_deduction).toFixed(2)} ₾</td>`
+                        : `<td style="color:#b2bec3; font-size:11px;">—</td>`
+                    }
+                    <td style="color:var(--green); font-weight:600;">${parseFloat(op.total_amount).toFixed(2)} ₾</td>
                     <td>
                         <input type="number" class="salary-amount-input" step="0.01" min="0"
                                value="${recorded !== null ? recorded.toFixed(2) : ''}"

@@ -167,6 +167,7 @@ Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff']
     Route::resource('user', UserController::class);
     Route::get('/apiUser', [UserController::class, 'apiUsers'])->name('api.users');
     Route::post('/user/{id}/role', [UserController::class, 'updateRole'])->name('user.updateRole');
+    Route::patch('/user/{id}/customer-link', [UserController::class, 'updateCustomerLink'])->name('user.customerLink');
 
     // ── Roles & Permissions ───────────────────────────────────────────
     Route::get('/roles', [RolePermissionController::class, 'index'])->name('roles.index');

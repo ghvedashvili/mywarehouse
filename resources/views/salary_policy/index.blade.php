@@ -138,6 +138,67 @@
     </div>{{-- /p-3 --}}
     </div>{{-- /mod-card --}}
 
+    {{-- ── თანამშრომელი → კლიენტი კავშირი ──────────────────────── --}}
+    <div class="mod-card mt-3">
+    <div class="p-3">
+        <h6 class="fw-bold mb-1" style="font-size:13px;color:#555;">
+            <i class="fa fa-link me-1" style="color:#e67e22;"></i>თანამშრომელი → კლიენტი (შენაძენების გამოქვითვა)
+        </h6>
+        <p class="text-muted mb-3" style="font-size:12px;">
+            თუ თანამშრომელი კლიენტიც არის, მიუბამი მის კლიენტის ანგარიშს — ხელფასის დათვლისას მის სრულად გადახდილ შენაძენებს გამოაკლდება.
+        </p>
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle mb-0" style="font-size:13px;">
+                <thead class="table-light">
+                    <tr>
+                        <th>თანამშრომელი</th>
+                        <th style="width:120px;">როლი</th>
+                        <th>კლიენტი</th>
+                        <th style="width:130px;">მოქმედებს დან</th>
+                        <th style="width:90px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach($users as $u)
+                <tr>
+                    <td class="fw-semibold">{{ $u->name }}</td>
+                    <td>
+                        <span class="badge"
+                            style="background:{{ $u->role==='sale_operator'?'#2980b9':($u->role==='warehouse_operator'?'#27ae60':($u->role==='admin'?'#8e44ad':'#e67e22')) }};">
+                            {{ ['sale_operator'=>'გამყიდველი','warehouse_operator'=>'საწყობი','staff'=>'სტაფი','admin'=>'ადმინი'][$u->role] ?? $u->role }}
+                        </span>
+                    </td>
+                    <td>
+                        <select class="form-select form-select-sm customer-select"
+                                data-uid="{{ $u->id }}"
+                                style="max-width:300px;">
+                            <option value="">— არ არის მიბმული —</option>
+                            @foreach($customers as $c)
+                                <option value="{{ $c->id }}" {{ $u->customer_id == $c->id ? 'selected' : '' }}>
+                                    {{ $c->name }} ({{ $c->tel }})
+                                </option>
+                            @endforeach
+                        </select>
+                    </td>
+                    <td>
+                        <input type="date" class="form-control form-control-sm linked-from-input"
+                               data-uid="{{ $u->id }}"
+                               value="{{ $u->customer_linked_from ?? '' }}"
+                               style="max-width:130px;">
+                    </td>
+                    <td>
+                        <button class="btn btn-primary btn-sm py-0 px-2 btn-link-save" data-uid="{{ $u->id }}">
+                            <i class="fa fa-save me-1"></i>შენახვა
+                        </button>
+                    </td>
+                </tr>
+                @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+    </div>
+
 </div>{{-- /mod-wrap --}}
 
 {{-- Modal --}}
@@ -316,6 +377,26 @@ function savePolicy() {
         complete: function() { $btn.prop('disabled', false).css('opacity', ''); }
     });
 }
+
+$(document).on('click', '.btn-link-save', function() {
+    var $btn = $(this);
+    var uid  = $btn.data('uid');
+    var cid  = $('.customer-select[data-uid="'+uid+'"]').val();
+    $btn.prop('disabled', true);
+    $.ajax({
+        url: '/user/' + uid + '/customer-link',
+        type: 'POST',
+        data: { _token: '{{ csrf_token() }}', _method: 'PATCH', customer_id: cid || '', customer_linked_from: $('.linked-from-input[data-uid="'+uid+'"]').val() || '' },
+        success: function(res) {
+            Swal.fire({ icon: 'success', title: res.message, timer: 1200, showConfirmButton: false });
+        },
+        error: function(xhr) {
+            var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'შეცდომა';
+            Swal.fire({ icon: 'error', title: 'შეცდომა', text: msg });
+        },
+        complete: function() { $btn.prop('disabled', false); }
+    });
+});
 
 function deletePolicy(id) {
     Swal.fire({

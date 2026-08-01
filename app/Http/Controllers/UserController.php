@@ -161,6 +161,22 @@ class UserController extends Controller
         ]);
     }
 
+    public function updateCustomerLink(Request $request, $id)
+    {
+        $request->validate([
+            'customer_id'          => 'nullable|exists:customers,id',
+            'customer_linked_from' => 'nullable|date',
+        ]);
+
+        $user = User::findOrFail($id);
+        $user->update([
+            'customer_id'          => $request->customer_id ?: null,
+            'customer_linked_from' => $request->customer_linked_from ?: null,
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'კავშირი განახლდა']);
+    }
+
     public function changePasswordForm()
     {
         return view('user.change_password');

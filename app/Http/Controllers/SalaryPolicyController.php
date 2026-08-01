@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\SalaryPolicy;
+use App\Models\User;
+use App\Models\Customer;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -17,7 +19,10 @@ class SalaryPolicyController extends Controller
     {
         $policies   = SalaryPolicy::orderBy('role')->orderByDesc('effective_from')->get();
         $roleLabels = SalaryPolicy::roleLabels();
-        return view('salary_policy.index', compact('policies', 'roleLabels'));
+        $users      = User::whereIn('role', ['sale_operator','warehouse_operator','staff','admin'])
+                          ->orderBy('name')->get();
+        $customers  = Customer::where('status', 'active')->orderBy('name')->get();
+        return view('salary_policy.index', compact('policies', 'roleLabels', 'users', 'customers'));
     }
 
     public function store(Request $request)

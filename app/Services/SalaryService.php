@@ -6,6 +6,7 @@ use App\Models\Product_Order;
 use App\Models\SalaryPolicy;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class SalaryService
 {
@@ -16,6 +17,8 @@ class SalaryService
         $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $end   = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
 
+        $empLinks = $this->employeeCustomerLinks();
+
         // +: ამ თვეში სრულად გადახდილი ორდერები (fully_paid_at-ის მიხედვით)
         $positiveOrders = Product_Order::withoutGlobalScope('active')
             ->with('product:id,bundle_id')
@@ -24,6 +27,7 @@ class SalaryService
             ->where('is_gift', false)
             ->whereNotNull('fully_paid_at')
             ->whereBetween('fully_paid_at', [$start, $end])
+            ->when($empLinks->isNotEmpty(), fn($q) => $this->excludeEmpCustomers($q, $empLinks))
             ->get();
 
         // -: ამ თვეში გაუქმებული/დაბრუნებული/გაცვლილი, მაგრამ მხოლოდ ისეთები
@@ -39,6 +43,7 @@ class SalaryService
                 $q->where('status', 'deleted')
                   ->orWhereIn('status_id', [5, 6]);
             })
+            ->when($empLinks->isNotEmpty(), fn($q) => $this->excludeEmpCustomers($q, $empLinks))
             ->get();
 
         $orderCount     = $this->countEffectiveSales($positiveOrders);
@@ -62,6 +67,9 @@ class SalaryService
             ->sortKeys()
             ->toArray();
 
+        $purchaseDeduction = $this->calcPurchaseDeduction($userId, $month);
+        $netTotal = max(0, $total - $purchaseDeduction);
+
         return [
             'order_count'         => $orderCount,
             'deduction_count'     => $deductionCount,
@@ -69,7 +77,8 @@ class SalaryService
             'base_amount'         => round($base, 2),
             'bonus_amount'        => round($bonus, 2),
             'deduction_amount'    => round($deductBonus, 2),
-            'total_amount'        => round(max(0, $total), 2),
+            'purchase_deduction'  => round($purchaseDeduction, 2),
+            'total_amount'        => round($netTotal, 2),
             'orders'              => $positiveOrders,
             'deductions'          => $deductionOrders,
         ];
@@ -127,6 +136,59 @@ class SalaryService
         return $count;
     }
 
+    /** Returns Collection of user rows with customer_id and customer_linked_from */
+    private function employeeCustomerLinks(): \Illuminate\Support\Collection
+    {
+        return User::whereNotNull('customer_id')
+            ->get(['customer_id', 'customer_linked_from']);
+    }
+
+    /**
+     * Exclude employee-customer orders from a query.
+     * Each link may have a linked_from date — only exclude orders where
+     * fully_paid_at >= linked_from (or linked_from is null → always exclude).
+     */
+    private function excludeEmpCustomers($query, \Illuminate\Support\Collection $links)
+    {
+        return $query->where(function ($q) use ($links) {
+            foreach ($links as $link) {
+                $cid  = $link->customer_id;
+                $from = $link->customer_linked_from;
+
+                if ($from) {
+                    // exclude this customer only for orders paid on/after linked_from
+                    $q->where(function ($inner) use ($cid, $from) {
+                        $inner->where('customer_id', '!=', $cid)
+                              ->orWhere('fully_paid_at', '<', $from);
+                    });
+                } else {
+                    // no date set — exclude this customer entirely
+                    $q->where('customer_id', '!=', $cid);
+                }
+            }
+        });
+    }
+
+    private function calcPurchaseDeduction(int $userId, string $month): float
+    {
+        $user = User::find($userId);
+        if (!$user || !$user->customer_id) return 0.0;
+
+        $start    = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        $end      = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
+        $linkedFrom = $user->customer_linked_from;
+
+        return (float) Product_Order::withoutGlobalScope('active')
+            ->where('customer_id', $user->customer_id)
+            ->where('order_type', 'sale')
+            ->whereNotNull('fully_paid_at')
+            ->whereBetween('fully_paid_at', [$start, $end])
+            ->when($linkedFrom, fn($q) => $q->where('fully_paid_at', '>=', $linkedFrom))
+            ->where('status', '!=', 'deleted')
+            ->whereNotIn('status_id', [5, 6])
+            ->sum(DB::raw('COALESCE(paid_tbc,0) + COALESCE(paid_bog,0) + COALESCE(paid_lib,0) + COALESCE(paid_cash,0)'));
+    }
+
     public function calculateWarehouseOperator(string $month): array
     {
         $policy = SalaryPolicy::forRole('warehouse_operator', $month);
@@ -136,6 +198,7 @@ class SalaryService
 
         // მხოლოდ sale_operator-ების ორდერები — ware-ი იგივეს ითვლის რასაც sale, ბონუსის გარეშე
         $saleOperatorIds = User::where('role', 'sale_operator')->pluck('id');
+        $empLinks        = $this->employeeCustomerLinks();
 
         $positiveOrders = Product_Order::withoutGlobalScope('active')
             ->with('product:id,bundle_id')
@@ -144,6 +207,7 @@ class SalaryService
             ->whereIn('user_id', $saleOperatorIds)
             ->whereNotNull('fully_paid_at')
             ->whereBetween('fully_paid_at', [$start, $end])
+            ->when($empLinks->isNotEmpty(), fn($q) => $this->excludeEmpCustomers($q, $empLinks))
             ->get();
 
         $deductionOrders = Product_Order::withoutGlobalScope('active')
@@ -157,6 +221,7 @@ class SalaryService
                 $q->where('status', 'deleted')
                   ->orWhereIn('status_id', [5, 6]);
             })
+            ->when($empLinks->isNotEmpty(), fn($q) => $this->excludeEmpCustomers($q, $empLinks))
             ->get();
 
         $newCount       = $this->countEffectiveSales($positiveOrders);
@@ -195,6 +260,8 @@ class SalaryService
                 $saleOperators[] = $data;
 
             } elseif ($user->role === 'warehouse_operator') {
+                $purchaseDed = $this->calcPurchaseDeduction($user->id, $month);
+                $whTotal     = max(0, $warehouseData['suggested_amount'] - $purchaseDed);
                 $warehouseOperators[] = [
                     'user'                => $user,
                     'order_count'         => $warehouseData['order_count'],
@@ -202,14 +269,17 @@ class SalaryService
                     'cancelled_count'     => $warehouseData['cancelled_count'],
                     'cancelled_by_month'  => $warehouseData['cancelled_by_month'],
                     'suggested_amount'    => $warehouseData['suggested_amount'],
-                    'total_amount'        => $warehouseData['suggested_amount'],
+                    'purchase_deduction'  => round($purchaseDed, 2),
+                    'total_amount'        => round($whTotal, 2),
                 ];
 
             } elseif ($user->role === 'admin') {
-                $policy = SalaryPolicy::forRole('admin', $month);
+                $policy      = SalaryPolicy::forRole('admin', $month);
+                $purchaseDed = $this->calcPurchaseDeduction($user->id, $month);
                 $admins[] = [
-                    'user'         => $user,
-                    'total_amount' => $policy->fixed_salary ?? 0,
+                    'user'               => $user,
+                    'purchase_deduction' => round($purchaseDed, 2),
+                    'total_amount'       => round(max(0, ($policy->fixed_salary ?? 0) - $purchaseDed), 2),
                 ];
             }
         }
