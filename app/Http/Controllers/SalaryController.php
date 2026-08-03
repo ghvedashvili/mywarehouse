@@ -53,6 +53,7 @@ class SalaryController extends Controller
                 'base_amount'         => $d['base_amount'],
                 'bonus_amount'        => $d['bonus_amount'],
                 'deduction_amount'    => $d['deduction_amount'],
+                'purchase_deduction'  => $d['purchase_deduction'],
                 'total_amount'        => $d['total_amount'],
                 'recorded'            => isset($recorded[$d['user']->id]) ? $recorded[$d['user']->id]->total_amount : null,
                 'recorded_note'       => isset($recorded[$d['user']->id]) ? $recorded[$d['user']->id]->note : null,
@@ -65,14 +66,18 @@ class SalaryController extends Controller
                 'cancelled_count'    => $d['cancelled_count'],
                 'cancelled_by_month' => $d['cancelled_by_month'],
                 'suggested_amount'   => $d['suggested_amount'],
+                'purchase_deduction' => $d['purchase_deduction'],
+                'total_amount'       => $d['total_amount'],
                 'recorded'           => isset($recorded[$d['user']->id]) ? $recorded[$d['user']->id]->total_amount : null,
                 'recorded_note'      => isset($recorded[$d['user']->id]) ? $recorded[$d['user']->id]->note : null,
             ]),
             'admins'             => collect($data['admins'])->map(fn($d) => [
-                'user_id'       => $d['user']->id,
-                'name'          => $d['user']->name,
-                'recorded'      => isset($recorded[$d['user']->id]) ? $recorded[$d['user']->id]->total_amount : null,
-                'recorded_note' => isset($recorded[$d['user']->id]) ? $recorded[$d['user']->id]->note : null,
+                'user_id'            => $d['user']->id,
+                'name'               => $d['user']->name,
+                'purchase_deduction' => $d['purchase_deduction'],
+                'total_amount'       => $d['total_amount'],
+                'recorded'           => isset($recorded[$d['user']->id]) ? $recorded[$d['user']->id]->total_amount : null,
+                'recorded_note'      => isset($recorded[$d['user']->id]) ? $recorded[$d['user']->id]->note : null,
             ]),
         ]);
     }
@@ -95,7 +100,7 @@ class SalaryController extends Controller
         $entryDate = Carbon::createFromFormat('Y-m', $month)->startOfMonth()->toDateString();
 
         foreach ($request->payments as $p) {
-            if ((float)$p['total_amount'] <= 0) continue;
+            if (!isset($p['total_amount']) || $p['total_amount'] === '') continue;
 
             SalaryPayment::updateOrCreate(
                 ['user_id' => $p['user_id'], 'period_month' => $month],

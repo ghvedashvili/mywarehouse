@@ -1619,6 +1619,33 @@ $(function() {
     });
 
     // ══ DELETE ══
+    window.undoGroupReceipt = function(groupId) {
+        swal({
+            title: 'მიღების გაუქმება?',
+            text: 'ორდერი "გზაშია" სტატუსში დაბრუნდება, საწყობის ნაშთი განახლდება',
+            type: 'warning', showCancelButton: true,
+            confirmButtonColor: '#f97316',
+            cancelButtonText: 'გაუქმება', confirmButtonText: 'კი, გავაუქმო'
+        }).then(function(result) {
+            if (!result.isConfirmed) return;
+            $.ajax({
+                url: "{{ url('purchases/group') }}/" + groupId + '/undo-receipt',
+                type: 'POST',
+                data: { _token: "{{ csrf_token() }}" },
+                success: function(res) {
+                    purchasesTable.ajax.reload();
+                    returnsInTransitTable.ajax.reload(); returnsReceivedTable.ajax.reload();
+                    refreshPurchaseStats();
+                    swal({ title: '✅', text: res.message, type: 'success', timer: 2000 });
+                },
+                error: function(xhr) {
+                    var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'შეცდომა!';
+                    swal({ title: 'შეცდომა', text: msg, type: 'error' });
+                }
+            });
+        });
+    };
+
     window.deletePurchase = function(id) {
         swal({
             title: 'დარწმუნებული ხარ?', text: 'შესყიდვა წაიშლება!',

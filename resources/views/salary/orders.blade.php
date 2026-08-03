@@ -117,7 +117,9 @@
             <th>ქ-ი</th>
             <th>ფასი ₾</th>
             <th>ფასდ. ₾</th>
-            <th>ფასი $</th>
+            <th id="cost-th" style="cursor:pointer;user-select:none;white-space:nowrap;" onclick="toggleCostSort()">
+                ფასი $ <span id="cost-sort-icon" style="font-size:10px;opacity:.6;">↕</span>
+            </th>
             <th>საკ. ₾</th>
             <th class="th-profit">წმინდა ₾</th>
             <th>გადახდ. ₾</th>
@@ -126,7 +128,9 @@
                 სტატუსი <i class="fa fa-filter" id="status-filter-icon" style="font-size:10px;opacity:.7;"></i>
             </th>
             <th>ორდ. #</th>
-            <th>შექ. თარ.</th>
+            <th id="created-th" style="cursor:pointer;user-select:none;white-space:nowrap;" onclick="toggleCreatedSort()">
+                შექ. თარ. <span id="created-sort-icon" style="font-size:10px;opacity:.6;">↕</span>
+            </th>
             <th>გადახდ. თარ.</th>
         </tr>
     </thead>
@@ -144,6 +148,7 @@
             $debt    = max(0, ($orig - $disc) - $paid);
         @endphp
         <tr class="sal-row"
+            data-created="{{ $o->created_at?->format('Y-m-d') ?? '' }}"
             data-status="{{ $o->orderStatus?->name ?? '' }}"
             data-price="{{ $orig }}"
             data-disc="{{ $disc }}"
@@ -282,6 +287,35 @@ document.addEventListener('click', function(e) {
         dd.style.display = 'none';
     }
 });
+
+var _createdSortDir = 0;
+var _costSortDir    = 0;
+var _originalOrder  = null;
+
+function _sortRows(tbody, rows, getValue, dirVar, iconId, newDir) {
+    if (_originalOrder === null) _originalOrder = Array.from(tbody.querySelectorAll('.sal-row'));
+    rows.sort(function(a, b) { var va = getValue(a), vb = getValue(b); return newDir * (va < vb ? -1 : va > vb ? 1 : 0); });
+    rows.forEach(function(tr, i) { tbody.appendChild(tr); var c = tr.querySelector('td:first-child'); if (c) c.textContent = i + 1; });
+    ['created-sort-icon', 'cost-sort-icon'].forEach(function(id) {
+        document.getElementById(id).textContent = id === iconId ? (newDir === 1 ? '↑' : '↓') : '↕';
+    });
+}
+
+window.toggleCreatedSort = function() {
+    var tbody = document.querySelector('.sal-table tbody');
+    var rows  = Array.from(tbody.querySelectorAll('.sal-row'));
+    _createdSortDir = _createdSortDir === 1 ? -1 : 1;
+    _costSortDir    = 0;
+    _sortRows(tbody, rows, function(r) { return r.dataset.created || ''; }, '_createdSortDir', 'created-sort-icon', _createdSortDir);
+};
+
+window.toggleCostSort = function() {
+    var tbody = document.querySelector('.sal-table tbody');
+    var rows  = Array.from(tbody.querySelectorAll('.sal-row'));
+    _costSortDir    = _costSortDir === 1 ? -1 : 1;
+    _createdSortDir = 0;
+    _sortRows(tbody, rows, function(r) { return parseFloat(r.dataset.cost) || 0; }, '_costSortDir', 'cost-sort-icon', _costSortDir);
+};
 
 function fmt(v) { return v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
 

@@ -13,7 +13,7 @@ class User extends Authenticatable {
 	 *
 	 * @var array
 	 */
-	protected $fillable = ['name', 'email', 'password', 'role'];
+	protected $fillable = ['name', 'email', 'password', 'role', 'customer_id', 'customer_linked_from'];
 
 	/**
 	 * The attributes that should be hidden for arrays.
@@ -23,4 +23,9 @@ class User extends Authenticatable {
 	protected $hidden = [
 		'password', 'remember_token',
 	];
+
+    public function customer()
+    {
+        return $this->belongsTo(\App\Models\Customer::class);
+    }
 }

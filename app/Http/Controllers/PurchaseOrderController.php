@@ -245,13 +245,18 @@ class PurchaseOrderController extends Controller
                 $canCreate = \App\Models\RolePermission::check(auth()->user()->role, 'purchases', 'can_create');
                 $gid     = $row->purchase_group_id ?? $row->id;
                 $view = '<a onclick="openGroupView('.$gid.')" class="btn btn-info btn-xs" title="დათვალიერება"><i class="fa fa-eye"></i></a>';
-                $hasInTransit = collect($groupItemsMap[$row->id] ?? [])->contains(fn($i) => $i['status_id'] == 2);
+                $items        = collect($groupItemsMap[$row->id] ?? []);
+                $hasInTransit = $items->contains(fn($i) => $i['status_id'] == 2);
+                $allReceived  = $row->status_id === 3 && !$hasInTransit;
                 $receive = ($canEdit && $hasInTransit)
                     ? '<a onclick="openGroupReceive('.$gid.')" class="btn btn-warning btn-xs" title="საწყობში მიღება"><i class="fa fa-inbox"></i></a>'
                     : '';
+                $undoReceipt = ($canEdit && $allReceived)
+                    ? '<a onclick="undoGroupReceipt('.$gid.')" class="btn btn-xs" style="background:#f97316;color:#fff;" title="მიღების გაუქმება"><i class="fa fa-rotate-left"></i></a>'
+                    : '';
                 $edit = $canEdit ? '<a onclick="editPurchase('.$row->id.')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i></a>' : '';
                 $del  = $canEdit ? '<a onclick="deletePurchase('.$row->id.')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i></a>' : '';
-                return '<div class="d-flex gap-1 justify-content-center">'.$view.$receive.$edit.$del.'</div>';
+                return '<div class="d-flex gap-1 justify-content-center">'.$view.$receive.$undoReceipt.$edit.$del.'</div>';
             })
             ->addColumn('customer_info', function ($row) {
                 if (!$row->original_sale_id) return '—';
@@ -1584,6 +1589,57 @@ $purchase->refresh();
                 'success' => true,
                 'message' => implode("\n", $messages),
             ]);
+        });
+    }
+
+    // ─── სრულად მიღებული ჯგუფის მიღების გაუქმება (3→2) ──────────────────
+    public function undoGroupReceipt($groupId)
+    {
+        return \DB::transaction(function () use ($groupId) {
+            $orders = Product_Order::where('order_type', 'purchase')
+                ->where('purchase_group_id', $groupId)
+                ->get();
+
+            if ($orders->isEmpty()) {
+                $single = Product_Order::where('order_type', 'purchase')->find($groupId);
+                if ($single) $orders = collect([$single]);
+            }
+
+            if ($orders->isEmpty()) {
+                return response()->json(['success' => false, 'message' => 'ჯგუფი ვერ მოიძებნა'], 404);
+            }
+
+            // ყველა ორდერი სტატუს 3-ში უნდა იყოს
+            if ($orders->contains(fn($o) => $o->status_id !== 3)) {
+                return response()->json(['success' => false, 'message' => 'გაუქმება მხოლოდ სრულად მიღებულ ჯგუფზეა შესაძლებელი'], 422);
+            }
+
+            // კურიერთან გადაცემული გაყიდვა ბლოკავს
+            foreach ($orders as $order) {
+                $courierCount = Product_Order::where('purchase_order_id', $order->id)
+                    ->whereIn('status_id', [4, 5, 6])->count();
+                if ($courierCount > 0) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'შეუძლებელია — ' . ($order->product?->name ?? '#'.$order->id) . ': ' . $courierCount . ' გაყიდვა კურიერთანაა',
+                    ], 422);
+                }
+            }
+
+            foreach ($orders as $order) {
+                PurchaseService::handleStockForPurchase($order->id, 2, $order->original_sale_id !== null);
+                $order->status_id = 2;
+                $order->save();
+                PurchaseService::syncSaleOrdersAfterPurchase($order, 3, 2);
+
+                $logKey   = $this->pStockKey($order->product_id, $order->product_size ?? '');
+                $stockNow = Warehouse::where('product_id', $order->product_id)->where('size', $logKey)->first();
+                $qtyBefore = ($stockNow->physical_qty ?? 0) + $order->quantity;
+                WarehouseLogService::log('purchase_rollback', $order->product_id, $logKey,
+                    -$order->quantity, 'purchase_order', $order->id, null, $qtyBefore);
+            }
+
+            return response()->json(['success' => true, 'message' => 'მიღება გაუქმდა! ორდერი "გზაშია" სტატუსში დაბრუნდა.']);
         });
     }
 }
