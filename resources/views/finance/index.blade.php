@@ -1373,16 +1373,16 @@ function loadSalary() {
                         <span>${op.order_count - op.deduction_count}
                         <small class="text-muted" style="font-size:10px; display:block; line-height:1.4;">${saleOrdersDetail(op)}</small></span>
                     </td>
-                    <td>${parseFloat(op.base_amount).toFixed(2)} ₾</td>
-                    <td>${parseFloat(op.bonus_amount).toFixed(2)} ₾</td>
-                    <td style="color:var(--red);">−${parseFloat(op.deduction_amount).toFixed(2)} ₾</td>
+                    <td data-label="ბაზა">${parseFloat(op.base_amount).toFixed(2)} ₾</td>
+                    <td data-label="ბონუსი">${parseFloat(op.bonus_amount).toFixed(2)} ₾</td>
+                    <td data-label="გამოქვ." style="color:var(--red);">−${parseFloat(op.deduction_amount).toFixed(2)} ₾</td>
                     ${parseFloat(op.purchase_deduction) > 0
-                        ? `<td style="color:#e67e22; font-weight:600;">−${parseFloat(op.purchase_deduction).toFixed(2)} ₾</td>`
-                        : `<td style="color:#b2bec3; font-size:11px;">—</td>`
+                        ? `<td data-label="შენაძ." style="color:#e67e22; font-weight:600;">−${parseFloat(op.purchase_deduction).toFixed(2)} ₾</td>`
+                        : `<td data-label="შენაძ." style="color:#b2bec3; font-size:11px;">—</td>`
                     }
-                    <td style="color:${parseFloat(op.total_amount)<0?'var(--red)':'var(--green)'}; font-weight:600;">${parseFloat(op.total_amount).toFixed(2)} ₾</td>
-                    <td>
-                        <input type="number" class="salary-amount-input" step="0.01" min="0"
+                    <td data-label="სულ" style="color:${parseFloat(op.total_amount)<0?'var(--red)':'var(--green)'}; font-weight:600;">${parseFloat(op.total_amount).toFixed(2)} ₾</td>
+                    <td class="sal-td-pay" data-label="გადახდა">
+                        <input type="number" class="salary-amount-input" step="0.01"
                                value="${recorded !== null ? recorded.toFixed(2) : ''}"
                                placeholder="0.00"
                                style="width:90px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
@@ -1428,14 +1428,14 @@ function loadSalary() {
                         <span>${op.order_count}
                         <small class="text-muted" style="font-size:10px; display:block; line-height:1.4;">${whOrdersDetail(op)}</small></span>
                     </td>
-                    <td>${parseFloat(op.suggested_amount).toFixed(2)} ₾</td>
+                    <td data-label="ხელფ.">${parseFloat(op.suggested_amount).toFixed(2)} ₾</td>
                     ${parseFloat(op.purchase_deduction) > 0
-                        ? `<td style="color:#e67e22; font-weight:600;">−${parseFloat(op.purchase_deduction).toFixed(2)} ₾</td>`
-                        : `<td style="color:#b2bec3; font-size:11px;">—</td>`
+                        ? `<td data-label="შენაძ." style="color:#e67e22; font-weight:600;">−${parseFloat(op.purchase_deduction).toFixed(2)} ₾</td>`
+                        : `<td data-label="შენაძ." style="color:#b2bec3; font-size:11px;">—</td>`
                     }
-                    <td style="color:${parseFloat(op.total_amount)<0?'var(--red)':'var(--green)'}; font-weight:600;">${parseFloat(op.total_amount).toFixed(2)} ₾</td>
-                    <td>
-                        <input type="number" class="salary-amount-input" step="0.01" min="0"
+                    <td data-label="სულ" style="color:${parseFloat(op.total_amount)<0?'var(--red)':'var(--green)'}; font-weight:600;">${parseFloat(op.total_amount).toFixed(2)} ₾</td>
+                    <td class="sal-td-pay" data-label="გადახდა">
+                        <input type="number" class="salary-amount-input" step="0.01"
                                value="${recorded !== null ? recorded.toFixed(2) : ''}"
                                placeholder="0.00"
                                style="width:90px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
@@ -1460,14 +1460,14 @@ function loadSalary() {
 
             adminBody.insertAdjacentHTML('beforeend', `
                 <tr data-uid="${op.user_id}" data-role="admin">
-                    <td style="font-weight:600;">${op.name}</td>
+                    <td class="sal-td-name">${op.name}</td>
                     ${parseFloat(op.purchase_deduction) > 0
-                        ? `<td style="color:#e67e22; font-weight:600;">−${parseFloat(op.purchase_deduction).toFixed(2)} ₾</td>`
-                        : `<td style="color:#b2bec3; font-size:11px;">—</td>`
+                        ? `<td data-label="შენაძ." style="color:#e67e22; font-weight:600;">−${parseFloat(op.purchase_deduction).toFixed(2)} ₾</td>`
+                        : `<td data-label="შენაძ." style="color:#b2bec3; font-size:11px;">—</td>`
                     }
-                    <td style="color:${parseFloat(op.total_amount)<0?'var(--red)':'var(--green)'}; font-weight:600;">${parseFloat(op.total_amount).toFixed(2)} ₾</td>
-                    <td>
-                        <input type="number" class="salary-amount-input" step="0.01" min="0"
+                    <td data-label="სულ" style="color:${parseFloat(op.total_amount)<0?'var(--red)':'var(--green)'}; font-weight:600;">${parseFloat(op.total_amount).toFixed(2)} ₾</td>
+                    <td class="sal-td-pay" data-label="გადახდა">
+                        <input type="number" class="salary-amount-input" step="0.01"
                                value="${recorded !== null ? recorded.toFixed(2) : ''}"
                                placeholder="0.00"
                                style="width:90px; border:1.5px solid #dfe6e9; border-radius:5px; padding:3px 6px; font-size:12px;">
