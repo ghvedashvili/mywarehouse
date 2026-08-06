@@ -712,5 +712,159 @@ $(function() {
 @endif
 
 @yield('bot')
+
+@if(Auth::check() && Auth::user()->role === 'admin')
+{{-- ── Announcements Modal (global, admin-only) ── --}}
+<div class="modal fade" id="modal-announce" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width:520px;">
+        <div class="modal-content" style="border-radius:16px;border:none;box-shadow:0 8px 40px rgba(0,0,0,.18);">
+            <div class="modal-header" style="border:none;padding:20px 24px 12px;">
+                <h6 class="modal-title fw-bold" style="font-size:15px;">
+                    <i class="fa fa-bullhorn me-2" style="color:#2563eb;"></i>შეტყობინებები
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:0 24px 8px;">
+                {{-- New message form --}}
+                <div style="background:#f8fafc;border-radius:12px;padding:16px;margin-bottom:16px;border:1px solid #e2e8f0;">
+                    <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;">ახალი შეტყობინება</p>
+                    <textarea id="ann-message" class="form-control" rows="3"
+                              maxlength="500" placeholder="შეტყობინების ტექსტი..."
+                              style="resize:none;font-size:14px;border-color:#e2e8f0;"></textarea>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <small class="text-muted" id="ann-char">0 / 500</small>
+                        <button type="button" class="btn btn-primary btn-sm px-3" id="btn-ann-send">
+                            <i class="fa fa-paper-plane me-1"></i>გაგზავნა
+                        </button>
+                    </div>
+                </div>
+                {{-- History list --}}
+                <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;">ისტორია</p>
+                <div id="ann-list" style="display:flex;flex-direction:column;gap:8px;">
+                    <span style="font-size:13px;color:#94a3b8;">იტვირთება...</span>
+                </div>
+            </div>
+            <div class="modal-footer" style="border:none;padding:12px 24px 20px;">
+                <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">დახურვა</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(function() {
+    var csrf = '{{ csrf_token() }}';
+
+    function getModal() {
+        return bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-announce'));
+    }
+
+    window.annOpenModal = function() {
+        getModal().show();
+        loadList();
+    };
+
+    function escHtml(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function loadList() {
+        var $el = $('#ann-list');
+        if (!$el.length) return;
+        $el.html('<span style="font-size:13px;color:#94a3b8;">იტვირთება...</span>');
+        $.ajax({
+            url: '/announcements',
+            method: 'GET',
+            cache: false,
+            headers: { 'X-CSRF-TOKEN': csrf },
+            success: function(list) {
+                $el.empty();
+                if (!list.length) {
+                    $el.html('<span style="font-size:13px;color:#94a3b8;">შეტყობინებები არ არის</span>');
+                    return;
+                }
+                $.each(list, function(i, a) {
+                    var $row = $('<div>').css({display:'flex','align-items':'flex-start',gap:'10px',background:'#f8fafc','border-radius':'10px',padding:'10px 14px',border:'1px solid #e9edf3'});
+                    $row.html(
+                        '<div style="flex:1;min-width:0;">' +
+                            '<p style="margin:0 0 4px;font-size:13px;color:#1e293b;line-height:1.5;word-break:break-word;">' + escHtml(a.message) + '</p>' +
+                            '<small style="color:#94a3b8;">' + escHtml(a.created_at) + ' · ' + escHtml(a.author || '') + ' · <b>' + a.reads + '</b> ნახა · ' +
+                                '<span style="color:' + (a.is_active ? '#16a34a' : '#94a3b8') + ';">' + (a.is_active ? 'აქტიური' : 'გამორთული') + '</span>' +
+                            '</small>' +
+                        '</div>' +
+                        '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">' +
+                            '<button onclick="annToggle(' + a.id + ',this)" class="btn btn-sm ' + (a.is_active ? 'btn-success' : 'btn-secondary') + '" style="font-size:11px;padding:2px 8px;">' +
+                                (a.is_active ? 'ჩართ.' : 'გამო.') +
+                            '</button>' +
+                            '<button onclick="annDelete(' + a.id + ',this)" class="btn btn-sm btn-outline-danger" style="font-size:11px;padding:2px 8px;"><i class="fa fa-trash"></i></button>' +
+                        '</div>'
+                    );
+                    $el.append($row);
+                });
+            },
+            error: function() {
+                $el.html('<span style="font-size:13px;color:#ef4444;">სია ვერ ჩაიტვირთა</span>');
+            }
+        });
+    }
+
+    $('#ann-message').on('input', function() {
+        $('#ann-char').text(this.value.length + ' / 500');
+    });
+
+    $('#btn-ann-send').on('click', function() {
+        var msg = $('#ann-message').val().trim();
+        if (!msg) { $('#ann-message').focus(); return; }
+        var $btn = $(this).prop('disabled', true);
+        $.ajax({
+            url: '/announcements',
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrf },
+            contentType: 'application/json',
+            data: JSON.stringify({ message: msg }),
+            success: function() {
+                $('#ann-message').val('');
+                $('#ann-char').text('0 / 500');
+                loadList();
+            },
+            complete: function() { $btn.prop('disabled', false); }
+        });
+    });
+
+    window.annToggle = function(id, btn) {
+        $.ajax({
+            url: '/announcements/' + id + '/toggle',
+            method: 'PATCH',
+            headers: { 'X-CSRF-TOKEN': csrf },
+            success: function() { loadList(); }
+        });
+    };
+
+    window.annDelete = function(id, btn) {
+        var $btn = $(btn);
+        if ($btn.data('confirm') !== '1') {
+            $btn.data('confirm', '1').text('დარწმუნებული?')
+                .removeClass('btn-outline-danger').addClass('btn-danger');
+            setTimeout(function() {
+                if ($btn.data('confirm') === '1') {
+                    $btn.data('confirm', '').html('<i class="fa fa-trash"></i>')
+                        .removeClass('btn-danger').addClass('btn-outline-danger');
+                }
+            }, 3000);
+            return;
+        }
+        $btn.prop('disabled', true);
+        $.ajax({
+            url: '/announcements/' + id,
+            method: 'DELETE',
+            headers: { 'X-CSRF-TOKEN': csrf },
+            success: function() { loadList(); },
+            error: function() { $btn.prop('disabled', false); }
+        });
+    };
+});
+</script>
+@endif
+
 </body>
 </html>

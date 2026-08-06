@@ -173,6 +173,14 @@ Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff']
     Route::get('/roles', [RolePermissionController::class, 'index'])->name('roles.index');
     Route::post('/roles/{role}', [RolePermissionController::class, 'update'])->name('roles.update');
 
+    // ── Announcements ─────────────────────────────────────────────────
+    Route::get('/announcements/latest',       [\App\Http\Controllers\AnnouncementController::class, 'latest'])->name('announcements.latest');
+    Route::post('/announcements/{id}/read',   [\App\Http\Controllers\AnnouncementController::class, 'markRead'])->name('announcements.read');
+    Route::get('/announcements',              [\App\Http\Controllers\AnnouncementController::class, 'index'])->name('announcements.index');
+    Route::post('/announcements',             [\App\Http\Controllers\AnnouncementController::class, 'store'])->name('announcements.store');
+    Route::patch('/announcements/{id}/toggle',[\App\Http\Controllers\AnnouncementController::class, 'toggle'])->name('announcements.toggle');
+    Route::delete('/announcements/{id}',      [\App\Http\Controllers\AnnouncementController::class, 'destroy'])->name('announcements.destroy');
+
     // ── Diagnostic (admin only) ───────────────────────────────────────
     Route::get('/diagnostic',       [\App\Http\Controllers\DiagnosticController::class, 'index'])->name('diagnostic.index');
     Route::get('/diagnostic/find',     [\App\Http\Controllers\DiagnosticController::class, 'findProblematic'])->name('diagnostic.find');
