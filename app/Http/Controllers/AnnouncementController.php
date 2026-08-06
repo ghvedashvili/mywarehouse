@@ -47,12 +47,13 @@ class AnnouncementController extends Controller
     public function latest()
     {
         $ann = Announcement::latestUnreadFor(auth()->id());
-        if (!$ann) return response()->json(['announcement' => null]);
-        return response()->json(['announcement' => [
+        $data = $ann ? [
             'id'      => $ann->id,
             'message' => $ann->message,
             'author'  => $ann->author?->name,
-        ]]);
+        ] : null;
+        return response()->json(['announcement' => $data])
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
     }
 
     // ყველა user: წაკითხულად მონიშვნა

@@ -1087,7 +1087,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var _annId       = null;
     var _csrf        = '{{ csrf_token() }}';
 
-    fetch('{{ route("announcements.latest") }}')
+    fetch('{{ route("announcements.latest") }}', { cache: 'no-store' })
         .then(function(r){ return r.json(); })
         .then(function(data){
             if (!data.announcement) return;
