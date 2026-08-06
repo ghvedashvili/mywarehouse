@@ -56,13 +56,23 @@ class AnnouncementController extends Controller
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
     }
 
-    // ყველა user: წაკითხულად მონიშვნა
+    // ყველა user: წაკითხულად მონიშვნა (ამ + ყველა ძველი)
     public function markRead($id)
     {
-        AnnouncementRead::firstOrCreate([
-            'announcement_id' => $id,
-            'user_id'         => auth()->id(),
-        ]);
+        $ann = Announcement::findOrFail($id);
+        $userId = auth()->id();
+
+        $olderIds = Announcement::where('is_active', true)
+            ->where('created_at', '<=', $ann->created_at)
+            ->pluck('id');
+
+        foreach ($olderIds as $oid) {
+            AnnouncementRead::firstOrCreate([
+                'announcement_id' => $oid,
+                'user_id'         => $userId,
+            ]);
+        }
+
         return response()->json(['success' => true]);
     }
 

@@ -20,16 +20,16 @@ class Announcement extends Model
         return $this->hasMany(AnnouncementRead::class);
     }
 
-    // ბოლო active announcement, რომელიც user-ს არ წაუკითხავს
+    // ყველაზე ახალი active announcement — თუ user-ს არ წაუკითხავს
     public static function latestUnreadFor(int $userId): ?self
     {
-        return static::where('is_active', true)
-            ->whereNotExists(function ($q) use ($userId) {
-                $q->from('announcement_reads')
-                  ->whereColumn('announcement_reads.announcement_id', 'announcements.id')
-                  ->where('announcement_reads.user_id', $userId);
-            })
-            ->latest()
-            ->first();
+        $latest = static::where('is_active', true)->latest()->first();
+        if (!$latest) return null;
+
+        $hasRead = \App\Models\AnnouncementRead::where('announcement_id', $latest->id)
+            ->where('user_id', $userId)
+            ->exists();
+
+        return $hasRead ? null : $latest;
     }
 }

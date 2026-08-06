@@ -977,7 +977,27 @@
 </div>
 @endsection
 
-{{-- ── User: announcement popup ── --}}
+@if(!empty($motivational))
+<div class="modal fade" id="modal-motivational" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:460px;">
+        <div class="modal-content" style="border-radius:16px;border:none;box-shadow:0 8px 40px rgba(0,0,0,.18);">
+            <div class="modal-body" style="padding:36px 32px 28px;text-align:center;">
+                <div style="font-size:36px;margin-bottom:16px;">💡</div>
+                <p style="font-size:15px;line-height:1.7;color:#2d3436;font-weight:500;margin:0;">
+                    {{ $motivational['text'] }}
+                </p>
+            </div>
+            <div class="modal-footer" style="border:none;justify-content:center;padding-bottom:24px;">
+                <button type="button" class="btn btn-primary px-4" id="btn-motivational-close">აბა რა 💪</button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
+@section('bot')
+
+{{-- ── Announcement popup (ყველა user) ── --}}
 <div id="ann-popup"
      style="display:none;position:fixed;bottom:24px;right:24px;z-index:1060;
             width:min(340px, calc(100vw - 32px));
@@ -1004,25 +1024,6 @@
     </div>
 </div>
 
-@if(!empty($motivational))
-<div class="modal fade" id="modal-motivational" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-    <div class="modal-dialog modal-dialog-centered" style="max-width:460px;">
-        <div class="modal-content" style="border-radius:16px;border:none;box-shadow:0 8px 40px rgba(0,0,0,.18);">
-            <div class="modal-body" style="padding:36px 32px 28px;text-align:center;">
-                <div style="font-size:36px;margin-bottom:16px;">💡</div>
-                <p style="font-size:15px;line-height:1.7;color:#2d3436;font-weight:500;margin:0;">
-                    {{ $motivational['text'] }}
-                </p>
-            </div>
-            <div class="modal-footer" style="border:none;justify-content:center;padding-bottom:24px;">
-                <button type="button" class="btn btn-primary px-4" id="btn-motivational-close">აბა რა 💪</button>
-            </div>
-        </div>
-    </div>
-</div>
-@endif
-
-@section('bot')
 <script>
 // animate progress bars on load
 document.addEventListener('DOMContentLoaded', function() {
@@ -1099,12 +1100,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function markAnnRead() {
         if (!_annId) return;
-        _annPopup.style.display = 'none';
-        fetch('/announcements/' + _annId + '/read', {
-            method: 'POST',
-            headers: { 'X-CSRF-TOKEN': _csrf }
-        });
+        var id = _annId;
         _annId = null;
+        if (_annOk)      _annOk.disabled = true;
+        if (_annDismiss) _annDismiss.disabled = true;
+        fetch('/announcements/' + id + '/read', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': _csrf },
+            keepalive: true
+        }).finally(function() {
+            _annPopup.style.display = 'none';
+            if (_annOk)      _annOk.disabled = false;
+            if (_annDismiss) _annDismiss.disabled = false;
+        });
     }
 
     if (_annOk)      _annOk.addEventListener('click', markAnnRead);
