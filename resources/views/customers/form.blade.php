@@ -108,6 +108,43 @@
 <style>
     .resize-none { resize: none; }
     .fw-600 { font-weight: 600; }
+
+    @media (max-width: 767px) {
+        #modal-form .modal-dialog {
+            margin: 8px;
+            max-width: calc(100vw - 16px) !important;
+            height: calc(100vh - 16px);
+        }
+        #modal-form .modal-content {
+            height: 100%;
+            overflow: hidden;
+        }
+        #modal-form #form-item {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            min-height: 0;
+        }
+        #modal-form .modal-header {
+            flex-shrink: 0;
+            padding: 12px 14px !important;
+        }
+        #modal-form .modal-footer {
+            flex-shrink: 0;
+            padding: 10px 14px !important;
+        }
+        #modal-form .modal-body {
+            flex: 1 1 0;
+            min-height: 0;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 12px 14px !important;
+        }
+        #modal-form .modal-body .bg-white { padding: 10px !important; }
+        #modal-form .form-control-lg,
+        #modal-form .form-select-lg { font-size: 14px !important; padding: 8px 10px !important; }
+        #modal-form .btn-lg { font-size: 14px !important; padding: 8px 18px !important; }
+    }
     .select2-container { width: 100% !important; }
     .select2-container--default .select2-selection--single {
         height: calc(1.5em + 1rem + 2px);

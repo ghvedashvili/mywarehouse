@@ -1,4 +1,4 @@
-const CACHE = 'warehouse-v1';
+const CACHE = 'warehouse-v2';
 
 // Static assets to pre-cache
 const PRE_CACHE = [
@@ -31,16 +31,21 @@ self.addEventListener('fetch', e => {
     // POST / non-GET → bypass
     if (req.method !== 'GET') return;
 
+    // AJAX requests → bypass (dynamic data must not be cached)
+    if (req.headers.get('X-Requested-With') === 'XMLHttpRequest') return;
+
     const url = new URL(req.url);
 
     // CDN assets → cache-first
     if (url.hostname !== self.location.hostname) {
         e.respondWith(
             caches.match(req).then(cached => cached || fetch(req).then(res => {
-                const clone = res.clone();
-                caches.open(CACHE).then(c => c.put(req, clone));
+                if (res.ok) {
+                    const clone = res.clone();
+                    caches.open(CACHE).then(c => c.put(req, clone));
+                }
                 return res;
-            }))
+            }).catch(() => new Response('', { status: 503 })))
         );
         return;
     }
@@ -53,14 +58,19 @@ self.addEventListener('fetch', e => {
         return;
     }
 
-    // Static local assets → cache-first
-    e.respondWith(
-        caches.match(req).then(cached => cached || fetch(req).then(res => {
-            if (res.ok) {
-                const clone = res.clone();
-                caches.open(CACHE).then(c => c.put(req, clone));
-            }
-            return res;
-        }))
-    );
+    // Local static files only → cache-first
+    if (/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?|ttf)(\?|$)/.test(url.pathname)) {
+        e.respondWith(
+            caches.match(req).then(cached => cached || fetch(req).then(res => {
+                if (res.ok) {
+                    const clone = res.clone();
+                    caches.open(CACHE).then(c => c.put(req, clone));
+                }
+                return res;
+            }).catch(() => new Response('', { status: 503 })))
+        );
+        return;
+    }
+
+    // Everything else (app routes, API) → bypass
 });

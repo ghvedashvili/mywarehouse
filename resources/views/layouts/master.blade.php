@@ -1148,6 +1148,12 @@ $(function() {
     setTimeout(hideLoader, 1500);
 });
 
+// absolute max: force-hide after 5s regardless of AJAX state
+setTimeout(function() {
+    var el = document.getElementById('page-loader');
+    if (el) el.classList.remove('active');
+}, 5000);
+
 // non-AJAX form submit
 $(document).on('submit', 'form:not([data-no-loader])', showLoader);
 

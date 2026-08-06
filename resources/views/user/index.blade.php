@@ -58,7 +58,7 @@
             </select>
             <div class="mod-toolbar-search">
                 <i class="fa fa-search search-icon"></i>
-                <input id="dt-search" type="search" class="form-control form-control-sm" placeholder="ძებნა...">
+                <input id="dt-search" type="search" class="form-control form-control-sm" placeholder="ძებნა..." autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
             </div>
         </div>
         <div class="table-responsive">
@@ -90,7 +90,7 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold" style="font-size:12px;text-transform:uppercase;color:#888;">Email</label>
-                    <input type="email" id="cu-email" class="form-control" placeholder="example@mail.com" style="border-radius:8px;">
+                    <input type="email" id="cu-email" class="form-control" placeholder="example@mail.com" autocomplete="off" style="border-radius:8px;">
                     <div class="invalid-feedback" id="cu-email-err"></div>
                 </div>
                 <div class="mb-3">
@@ -197,7 +197,7 @@
                 </div>
                 <div class="mb-1">
                     <label class="form-label fw-semibold" style="font-size:12px;">Email</label>
-                    <input type="email" id="edit_user_email" class="form-control" style="border-radius:8px;">
+                    <input type="email" id="edit_user_email" class="form-control" autocomplete="off" style="border-radius:8px;">
                 </div>
             </div>
             <div class="modal-footer">
@@ -217,6 +217,7 @@ var _usrIsAdmin = {{ Auth::user()->role === 'admin' ? 'true' : 'false' }};
 
 var table = $('#user-table').DataTable({
     processing: true, serverSide: true,
+    responsive: false,
     dom: 't<"d-flex justify-content-between align-items-center mt-2 px-2"ip>',
     ajax: "{{ route('api.users') }}",
     columns: [
@@ -226,16 +227,8 @@ var table = $('#user-table').DataTable({
         {data:'role',    orderable:false},
         {data:'action',  orderable:false, searchable:false}
     ],
-    drawCallback: function() { buildMobileUserCards(); },
-    initComplete: function() { buildMobileUserCards(); }
-});
-
-function buildMobileUserCards() {
-    if ($(window).width() > 767) return;
-    table.rows().every(function() {
-        var d   = this.data();
-        var $tr = $(this.node());
-        if ($tr.find('.usr-mob-cell').length) return;
+    rowCallback: function(row, d) {
+        if ($(window).width() > 767) return;
 
         var $badge = $('<div>').html(d.role).find('.badge');
         var bc = $badge.attr('class') || '';
@@ -245,7 +238,7 @@ function buildMobileUserCards() {
         else if (bc.indexOf('bg-success') !== -1) avatarBg = '#27ae60';
         else if (bc.indexOf('bg-warning') !== -1) avatarBg = '#e67e22';
 
-        var initial = ($('<span>').text((d.name || '?')[0].toUpperCase()).html());
+        var initial   = (d.name || '?')[0].toUpperCase();
         var safeName  = $('<span>').text(d.name).html();
         var safeEmail = $('<span>').text(d.email).html();
         var id = d.id;
@@ -255,7 +248,7 @@ function buildMobileUserCards() {
             actHtml += '<button class="btn btn-danger btn-sm" onclick="deleteData(' + id + ')"><i class="fa fa-trash me-1"></i></button>';
         }
 
-        var card = '<td class="usr-mob-cell" colspan="5">'
+        $(row).append('<td class="usr-mob-cell" colspan="5">'
             +   '<div class="usr-mob-hdr">'
             +     '<div class="usr-mob-avatar" style="background:' + avatarBg + '">' + initial + '</div>'
             +     '<div class="usr-mob-info">'
@@ -268,11 +261,10 @@ function buildMobileUserCards() {
             +     '<div>' + d.role + '</div>'
             +     '<div class="usr-mob-act">' + actHtml + '</div>'
             +   '</div>'
-            + '</td>';
-
-        $tr.append(card);
-    });
-}
+            + '</td>'
+        );
+    }
+});
 
 $('#dt-search').on('keyup',  function() { table.search(this.value).draw(); });
 $('#dt-page-length').on('change', function() { table.page.len(this.value).draw(); });
