@@ -997,33 +997,6 @@
 
 @section('bot')
 
-{{-- ── Announcement popup (ყველა user) ── --}}
-<div id="ann-popup"
-     style="display:none;position:fixed;bottom:24px;right:24px;z-index:1060;
-            width:min(340px, calc(100vw - 32px));
-            background:#fff;border-radius:16px;
-            box-shadow:0 8px 32px rgba(0,0,0,.18);
-            border:1.5px solid #e2e8f0;overflow:hidden;">
-    <div style="background:#1e293b;padding:10px 16px;display:flex;align-items:center;gap:8px;">
-        <i class="fa fa-bullhorn" style="color:#60a5fa;font-size:13px;"></i>
-        <span id="ann-popup-title" style="color:#fff;font-size:12px;font-weight:700;flex:1;">შეტყობინება</span>
-        <button id="btn-ann-dismiss"
-                style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:14px;line-height:1;padding:0;">
-            <i class="fa fa-xmark"></i>
-        </button>
-    </div>
-    <div style="padding:14px 16px;">
-        <p id="ann-popup-text"
-           style="margin:0;font-size:14px;line-height:1.6;color:#1e293b;word-break:break-word;"></p>
-    </div>
-    <div style="padding:0 16px 14px;display:flex;justify-content:flex-end;">
-        <button id="btn-ann-ok"
-                class="btn btn-primary btn-sm px-3" style="font-size:13px;">
-            გასაგებია 👍
-        </button>
-    </div>
-</div>
-
 <script>
 // animate progress bars on load
 document.addEventListener('DOMContentLoaded', function() {
@@ -1078,45 +1051,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 @endif
-
-    // ── Announcement popup (ყველა user) ──────────────────────────
-    var _annPopup    = document.getElementById('ann-popup');
-    var _annText     = document.getElementById('ann-popup-text');
-    var _annTitle    = document.getElementById('ann-popup-title');
-    var _annOk       = document.getElementById('btn-ann-ok');
-    var _annDismiss  = document.getElementById('btn-ann-dismiss');
-    var _annId       = null;
-    var _csrf        = '{{ csrf_token() }}';
-
-    fetch('{{ route("announcements.latest") }}', { cache: 'no-store' })
-        .then(function(r){ return r.json(); })
-        .then(function(data){
-            if (!data.announcement) return;
-            _annId = data.announcement.id;
-            _annTitle.textContent = data.announcement.author || 'შეტყობინება';
-            _annText.textContent = data.announcement.message;
-            _annPopup.style.display = 'block';
-        });
-
-    function markAnnRead() {
-        if (!_annId) return;
-        var id = _annId;
-        _annId = null;
-        if (_annOk)      _annOk.disabled = true;
-        if (_annDismiss) _annDismiss.disabled = true;
-        fetch('/announcements/' + id + '/read', {
-            method: 'POST',
-            headers: { 'X-CSRF-TOKEN': _csrf },
-            keepalive: true
-        }).finally(function() {
-            _annPopup.style.display = 'none';
-            if (_annOk)      _annOk.disabled = false;
-            if (_annDismiss) _annDismiss.disabled = false;
-        });
-    }
-
-    if (_annOk)      _annOk.addEventListener('click', markAnnRead);
-    if (_annDismiss) _annDismiss.addEventListener('click', markAnnRead);
 
 });
 
