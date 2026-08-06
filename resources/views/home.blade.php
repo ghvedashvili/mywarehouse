@@ -143,25 +143,34 @@
         $gap        = max(0, $bestDay['bdNet'] - $tdNet);
         $rdProgress = $bestDay['bdNet'] > 0 ? min(100, round($tdNet / $bestDay['bdNet'] * 100)) : 0;
         if ($tdNet >= $bestDay['bdNet']) {
-            $rdPhrase      = '🏆 რეკორდი დამხობილია! გილოცავ კიდევ ერთხელ ჩაეწერე ისტორიაში!';
+            $rdPhrase      = '🍾 ეს რეკორდიააა Brooo! საღამოს ვინც არ დალიოს, ის ღვედაშვილმა წაშალოს ბაზიდან...!';
             $rdPhraseColor = '#16a34a';
-        } elseif ($gap <= 10) {
-            $rdPhrase      = "⚡ კიდევ {$gap} ორდერი და ლეგენდა ხდები!";
+        } elseif ($gap <= 5) {
+            $rdPhrase      = "სულ {$gap} ორდერი? ამას თვალდახუჭულიც გააკეთებ!";
             $rdPhraseColor = '#d97706';
-        } elseif ($gap <= 20) {
-            $rdPhrase      = "💪 {$gap} ნაბიჯი რეკორდამდე. შორტი, მაისური, ბოტასი ყველაფერი ითვლება არ გაჩერდე!";
+        } elseif ($gap <= 10) {
+            $rdPhrase      = "⚡ {$gap} ორდერი დარჩა — რეკორდი ისე ახლოსაა რომ უკვე გხედავს და იღიმის 😏🏆";
+            $rdPhraseColor = '#d97706';
+        } elseif ($gap <= 15) {
+            $rdPhrase      = "💪 {$gap} ორდერი — ეს არის შენი 'its easy' ზონა 😌";
             $rdPhraseColor = '#2563eb';
+        } elseif ($gap <= 20) {
+            $rdPhrase      = "🏆 შენი პროდუქტიულობა დღეს illegal-ია რამდენიმე ქვეყანაში 🚨😎";
+            $rdPhraseColor = '#2563eb';
+        } elseif ($gap <= 25) {
+            $rdPhrase      = "🚀 {$gap} ორდერი — ეს არის ის მომენტი, როცა ფონად ჰეროიკული მუსიკა უნდა ჩაირთოს 🎬🎶";
+            $rdPhraseColor = '#7c3aed';
         } elseif ($gap <= 30) {
-            $rdPhrase      = "🚀 {$gap} ორდერი — ცოტა კიდევ გაზარდე სიჩქარე! ერთი კარგი მომხმარებელი და ახლოს ვართ!";
+            $rdPhrase      = "⚡ {$gap}-ორდერიც და ეგ არის! დღეს ისტორიას ვწერთ, ძმაო!";
             $rdPhraseColor = '#7c3aed';
         } elseif ($gap <= 40) {
-            $rdPhrase      = "😤 {$gap} ორდერი გვაკლია ... ყავა დალიე და ირბინე!";
+            $rdPhrase      = "☕ {$gap} ორდერი? ყავა დაისხი, მუსიკას აუწიე და მიაწექი!";
             $rdPhraseColor = '#ea580c';
         } elseif ($gap <= 50) {
-            $rdPhrase      = "კიდევ  {$gap} ორდერი... პანიკა საჭირო არ არის უბრალოდ უნდა მოვიხოდოთ!";
+            $rdPhrase      = "😅 {$gap} ორდერი... ვინც იტყვის ამის შესრულება 'შეუძლებელია', იმას ღვედაშვილი ბაზიდან წაშლის 💪";
             $rdPhraseColor = '#64748b';
         } else {
-            $rdPhrase      = "😅 რეკორდამდე  {$gap} ორდერი გვჭირდება დავამხოთ? 😂";
+            $rdPhrase      = "😅 {$gap} ორდერი?! ეს სერიოზული მისიაა, მაგრამ ვის ეშინია? 😂";
             $rdPhraseColor = '#94a3b8';
         }
     }
@@ -615,6 +624,11 @@
 .rd-phrase {
     font-size:13px; font-weight:600;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+@media (max-width:600px) {
+    .rd-phrase {
+        white-space:normal; overflow:visible; text-overflow:clip;
+    }
 }
 .rd-prog-row {
     display:flex; align-items:center; gap:7px;
