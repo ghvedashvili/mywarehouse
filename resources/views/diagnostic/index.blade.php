@@ -332,4 +332,5 @@ function doFix(ids) {
         });
 }
 </script>
+
 @endsection
