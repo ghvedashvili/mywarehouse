@@ -458,6 +458,7 @@
             .modal-dialog.modal-dialog-centered .modal-content {
                 border-radius: 20px !important;
                 max-height: 90vh;
+                overflow-y: auto;
             }
             .modal-dialog.modal-sm {
                 align-self: center !important;
@@ -655,6 +656,7 @@
             .modal-dialog.modal-dialog-centered .modal-content {
                 border-radius: 20px !important;
                 max-height: 90vh;
+                overflow-y: auto;
             }
             .modal-dialog.modal-sm {
                 align-self: center !important;
