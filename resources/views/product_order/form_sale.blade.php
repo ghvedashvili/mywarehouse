@@ -151,22 +151,15 @@
 
                             {{-- Products --}}
                             <div class="sc">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
                                     <div class="sc-title m-0"><i class="bi bi-box-seam-fill"></i> პროდუქტები</div>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div class="form-check form-switch mb-0 d-flex align-items-center gap-1" style="padding-left:0;">
-                                            <input class="form-check-input" type="checkbox" id="toggle-warehouse-sale" style="cursor:pointer;width:34px;height:18px;margin:0;">
-                                            <label class="form-check-label" for="toggle-warehouse-sale"
-                                                   style="font-size:11px;font-weight:700;color:#1a4fa0;cursor:pointer;white-space:nowrap;">
-                                                <i class="bi bi-building-check me-1"></i>საწყობშია
-                                            </label>
-                                        </div>
-                                        <button type="button" id="add-sale-line"
-                                                class="btn btn-sm fw-semibold"
-                                                style="background:#e8faf0;color:#1a7a4a;border:1.5px solid #b7e4c7;border-radius:20px;font-size:11px;padding:3px 12px;">
-                                            <i class="bi bi-plus-lg me-1"></i>დამატება
-                                        </button>
-                                    </div>
+                                    <button type="button" id="add-sale-line" class="btn btn-sm fw-semibold" style="background:#e8faf0;color:#1a7a4a;border:1.5px solid #b7e4c7;border-radius:20px;font-size:11px;padding:3px 12px;line-height:1;white-space:nowrap;">
+                                        <i class="bi bi-plus-lg me-1"></i>დამატება
+                                    </button>
+                                </div>
+                                <div class="form-check form-switch mb-2" style="padding-left:0;display:flex;align-items:center;gap:6px;">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="toggle-warehouse-sale" style="width:32px;height:18px;margin:0;cursor:pointer;flex-shrink:0;">
+                                    <label class="form-check-label mb-0" for="toggle-warehouse-sale" style="font-size:11px;font-weight:700;color:#1a4fa0;cursor:pointer;white-space:nowrap;line-height:1;"><i class="bi bi-building-check me-1"></i>საწყობშია</label>
                                 </div>
                                 <div class="sale-items-wrapper">
                                     <div id="sale-items-container"></div>
