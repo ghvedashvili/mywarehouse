@@ -1543,6 +1543,14 @@ function addSaleLine(defaults) {
         + '</div></div>';
     var $row = $(row);
     $('#sale-items-container').append($row);
+    if (_warehouseOnlyMode) {
+        $row.find('.sale-product-select option').each(function() {
+            var $opt = $(this);
+            if ($opt.val() && $opt.data('has-physical') != '1') {
+                $opt.remove();
+            }
+        });
+    }
     $row.find('.sale-product-select').select2({
         dropdownParent: $('#modal-sale'), placeholder: '— პროდუქტი —', allowClear: true, width: '100%',
         matcher: function(params, data) {
@@ -1608,7 +1616,20 @@ function addSaleLine(defaults) {
     if (defaults.discount !== undefined) $row.find('.sale-discount').val(defaults.discount);
 }
 
-$(document).on('click', '.remove-sale-line', function() { $(this).closest('.sale-item-row').remove(); updateBundleIcons(); });
+$(document).on('click', '.remove-sale-line', function() {
+    var $row      = $(this).closest('.sale-item-row');
+    var productId = $row.find('.sale-product-select').val();
+    $row.remove();
+    updateBundleIcons();
+    if (productId) _refreshAllRowsForProduct(productId);
+});
+
+// warehouse mode: size-ის შეცვლისას სხვა row-ები განახლდეს
+$(document).on('change', '.sale-size-select', function() {
+    if (!_warehouseOnlyMode) return;
+    var productId = $(this).closest('.sale-item-row').find('.sale-product-select').val();
+    _refreshAllRowsForProduct(productId);
+});
 $('#add-sale-line').on('click', function() { addSaleLine({}); });
 
 
@@ -1735,7 +1756,19 @@ $(document).on('change', '.sale-product-select', function() {
             }
         }
 
-        if (warehouseOnly && productId) {
+        if (_warehouseOnlyMode && productId) {
+            $sizeSelect.prop('required', true);
+            if (_physAvailCache[productId]) {
+                _rebuildWarehouseSizes($row, productId);
+            } else {
+                $.get("{{ route('warehouse.physicalSizes') }}", { product_id: productId }, function(data) {
+                    var map = {};
+                    data.forEach(function(d) { map[d.size] = d.available; });
+                    _physAvailCache[productId] = map;
+                    _rebuildWarehouseSizes($row, productId);
+                });
+            }
+        } else if (warehouseOnly && productId) {
             $sizeSelect.prop('required', true);
             $.get("{{ route('warehouse.availableSizes') }}", { product_id: productId }, function(avail) {
                 fillSizeOptions(avail);
@@ -1858,6 +1891,8 @@ $(document).on('input change', '.sale-ml-input', function() {
 
 function _updateRowStock($row, data, productId, size) {
     var available = parseInt(data.available != null ? data.available : (data.available_qty||0));
+    var physical  = parseInt(data.physical_qty || 0);
+    var reserved  = parseInt(data.reserved_qty || 0);
     var otherCount = 0;
     if (productId && size) {
         $('#sale-items-container .sale-item-row').not($row).each(function() {
@@ -1866,12 +1901,22 @@ function _updateRowStock($row, data, productId, size) {
     }
     var adjustedAvail = available - otherCount;
     var $s = $row.find('.sale-row-stock');
-    $s.find('.si-physical').text(data.physical_qty||0);
+    $s.find('.si-physical').text(physical);
     $s.find('.si-incoming').text(data.incoming_qty||0);
-    $s.find('.si-reserved').text(data.reserved_qty||0);
+    $s.find('.si-reserved').text(reserved);
     $s.find('.si-available').text(adjustedAvail);
     $s.find('.si-duplicate-warn').remove();
-    if (otherCount > 0) {
+    $s.find('.si-warehouse-warn').remove();
+
+    if (_warehouseOnlyMode) {
+        var physAvail = physical - reserved - otherCount;
+        var warnEl = '<span class="si-warehouse-warn" style="font-weight:700;margin-left:8px;font-size:11px;'
+            + (physAvail <= 0 ? 'color:#dc2626;' : 'color:#16a34a;') + '">'
+            + '🏭 საწყობში: ' + physAvail
+            + (physAvail <= 0 ? ' — ❌ ხელმისაწვდომი არ არის!' : '')
+            + '</span>';
+        $s.append(warnEl);
+    } else if (otherCount > 0) {
         var warnColor = adjustedAvail <= 0 ? 'red' : '#e67e22';
         var warnMsg   = adjustedAvail <= 0 ? '⚠️ ამ ფორმაში ეს ნაშთი უკვე დარეზერვებულია!' : '⚠️ '+otherCount+' სხვა სტრიქონი ირჩევს ამ ზომას';
         $s.append('<span class="si-duplicate-warn" style="color:'+warnColor+';font-weight:700;margin-left:6px;font-size:11px;">'+warnMsg+'</span>');
@@ -1882,6 +1927,35 @@ function _updateRowStock($row, data, productId, size) {
 $(document).on('submit', '#form-sale-content', function(e) {
     e.preventDefault();
     var form = $(this);
+
+    // warehouse mode: client-side validation
+    if (_warehouseOnlyMode) {
+        var usedInForm = {};
+        var blocked    = null;
+        $('#sale-items-container .sale-item-row').each(function() {
+            if (blocked) return;
+            var $row    = $(this);
+            var prodId  = $row.find('.sale-product-select').val();
+            var size    = $row.find('.sale-size-select').val() || '';
+            var physTxt = $row.find('.si-physical').text();
+            var resvTxt = $row.find('.si-reserved').text();
+            if (!prodId) return;
+            var phys    = parseInt(physTxt) || 0;
+            var resv    = parseInt(resvTxt) || 0;
+            var key     = prodId + '_' + size;
+            var usedNow = usedInForm[key] || 0;
+            if ((phys - resv - usedNow) < 1) {
+                var prodName = $row.find('.sale-product-select option:selected').text().trim() || prodId;
+                blocked = '"' + prodName + (size ? ' / ' + size : '') + '" — საწყობში ხელმისაწვდომი ნაშთი არ არის!';
+            }
+            usedInForm[key] = usedNow + 1;
+        });
+        if (blocked) {
+            swal({ title: 'ვერ შეინახება', text: blocked, type: 'error', confirmButtonColor: '#dc2626' });
+            return;
+        }
+    }
+
     var customerId  = $('#customer_id_sale').val();
     var newAddress  = String($('#customer_address_input').val()||'');
     var newAltTel   = String($('#customer_alt_tel_input').val()||'');
@@ -1997,6 +2071,106 @@ $('#modal-form').on('hidden.bs.modal', function() {
 $('#modal-sale').on('hidden.bs.modal', function() {
     $('#product-options-template option[data-inactive="1"]').remove();
     isEditMode = false;
+    // reset warehouse toggle + cache
+    _physAvailCache = {};
+    $('#toggle-warehouse-sale').prop('checked', false).trigger('change');
+});
+
+// ── "საწყობშია" toggle ───────────────────────────────────────────────
+var _warehouseOnlyMode = false;
+var _physAvailCache    = {}; // productId → {size: available_count}
+
+// სხვა row-ებში რამდენჯერ არის ეს ზომა უკვე არჩეული
+function _sizeUsedInOtherRows($currentRow, productId, size) {
+    var count = 0;
+    $('#sale-items-container .sale-item-row').not($currentRow).each(function() {
+        if ($(this).find('.sale-product-select').val() == productId &&
+            $(this).find('.sale-size-select').val() == size) count++;
+    });
+    return count;
+}
+
+// ერთი row-ის ზომის options-ი გადავხაზოთ cache-ს + სხვა row-ების მიხედვით
+function _rebuildWarehouseSizes($row, productId) {
+    var physMap     = _physAvailCache[productId];
+    if (!physMap) return;
+    var $sizeWrap   = $row.find('.sale-size-wrap');
+    var $sizeSelect = $sizeWrap.find('.sale-size-select');
+    if (!$sizeSelect.length) return;
+    var currentVal  = $sizeSelect.val();
+    $sizeSelect.empty();
+    var hasAny = false;
+    Object.keys(physMap).forEach(function(sz) {
+        var netAvail = physMap[sz] - _sizeUsedInOtherRows($row, productId, sz);
+        if (netAvail > 0) {
+            $sizeSelect.append('<option value="'+sz+'">'+sz+'</option>');
+            hasAny = true;
+        }
+    });
+    if (!hasAny) {
+        $sizeSelect.append('<option value="">— საწყობში არ არის —</option>');
+        $sizeSelect.prop('required', false);
+    } else {
+        $sizeSelect.prepend('<option value="">— ზომა —</option>');
+        $sizeSelect.prop('required', true);
+        if (currentVal && $sizeSelect.find('option[value="'+currentVal+'"]').length) {
+            $sizeSelect.val(currentVal);
+        } else {
+            $sizeSelect.val(''); // ექსპლიციტურად placeholder — არ მოხდეს პირველი ზომის auto-select
+            if (currentVal) $row.find('.sale-row-stock').hide();
+        }
+    }
+}
+
+// ყველა row-ი რომელსაც ამ product-ი აქვს არჩეული — გადავხაზოთ
+function _refreshAllRowsForProduct(productId) {
+    if (!_warehouseOnlyMode || !productId) return;
+    $('#sale-items-container .sale-item-row').each(function() {
+        if ($(this).find('.sale-product-select').val() == productId) {
+            _rebuildWarehouseSizes($(this), productId);
+        }
+    });
+}
+
+function _applyWarehouseFilter($select) {
+    var currentVal = $select.val();
+    // template-დან ყველა option-ი ჩავტვირთოთ
+    var $tpl = $('#product-options-template');
+    $select.empty().append('<option value="">— პროდუქტი —</option>');
+    $tpl.find('option').each(function() {
+        var $opt = $(this);
+        if (!$opt.val()) return;
+        if (_warehouseOnlyMode && $opt.data('has-physical') != '1') return; // სრულად გამოვტოვოთ
+        $select.append($opt.clone());
+    });
+    // select2 განახლება
+    $select.trigger('change.select2');
+    // current selection
+    if (currentVal && $select.find('option[value="'+currentVal+'"]').length) {
+        $select.val(currentVal).trigger('change');
+    } else if (currentVal) {
+        $select.val('').trigger('change');
+    }
+}
+
+$('#toggle-warehouse-sale').on('change', function() {
+    _warehouseOnlyMode = $(this).is(':checked');
+    $('#warehouse_sale_flag').val(_warehouseOnlyMode ? '1' : '0');
+    $('#sale-items-container .sale-item-row').each(function() {
+        var $row = $(this);
+        // sizes-ი დაუყოვნებლივ გაასუფთავე — სანამ AJAX-ი დაბრუნდება
+        var $sizeWrap = $row.find('.sale-size-wrap');
+        var rowIdx    = $row.data('idx');
+        if (!$sizeWrap.find('.sale-ml-input').length) {
+            $sizeWrap.find('.sale-size-select')
+                .empty()
+                .append('<option value="">— ზომა —</option>');
+        }
+        $row.find('.sale-row-stock').hide();
+        // product-ის re-trigger — ახლიდან იტვირთება physicalSizes ან allSizes
+        var $sel = $row.find('.sale-product-select');
+        _applyWarehouseFilter($sel);
+    });
 });
 
 function openStatusModal(orderId, currentStatusId) {

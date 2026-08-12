@@ -225,6 +225,21 @@ class WarehouseController extends Controller
         return response()->json($sizes);
     }
 
+    // ფიზიკურად საწყობში მყოფი ზომები + available count (toggle-ისთვის)
+    public function physicalSizes(Request $request)
+    {
+        $rows = Warehouse::where('product_id', $request->product_id)
+            ->whereRaw('(physical_qty - reserved_qty) > 0')
+            ->get(['size', 'physical_qty', 'reserved_qty'])
+            ->filter(fn($r) => $r->size)
+            ->map(fn($r) => [
+                'size'      => $r->size,
+                'available' => max(0, $r->physical_qty - $r->reserved_qty),
+            ])
+            ->values();
+        return response()->json($rows);
+    }
+
     // ─── AJAX: ხელმისაწვდომი ნაშთი (ჩამოწერის modal-ისთვის) ──────────
     public function availableStock()
     {
