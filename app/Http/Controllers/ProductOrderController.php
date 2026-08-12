@@ -51,12 +51,19 @@ class ProductOrderController extends Controller
         // მხოლოდ active პროდუქტები — Global Scope ისედაც ფილტრავს
         $all_products = Product::where('product_status', 1)->with('category:id,is_divisible')->get();
 
+        // product IDs-ები, სადაც physical - reserved > 0 (toggle-ისთვის)
+        $physicalProductIds = \App\Models\Warehouse::whereRaw('(physical_qty - reserved_qty) > 0')
+            ->pluck('product_id')
+            ->unique()
+            ->values()
+            ->toArray();
+
         $cities    = City::all();
         $customers = Customer::with('city')->get();
         $statuses  = OrderStatus::all();
         $courier   = Courier::first();
 
-        return view('product_order.index', compact('products', 'customers', 'statuses', 'all_products', 'cities', 'courier'));
+        return view('product_order.index', compact('products', 'customers', 'statuses', 'all_products', 'cities', 'courier', 'physicalProductIds'));
     }
 
     public function store(Request $request)
@@ -214,7 +221,9 @@ class ProductOrderController extends Controller
             $courierData['courier_price_village'] = $courier->village_price ?? 13;
         }
 
-        $createdOrders = [];
+        $createdOrders  = [];
+        $warehouseUsed  = []; // request-შიდა tracking warehouse mode-ისთვის
+        $isWarehouseSale = $request->boolean('warehouse_sale');
 
         foreach ($request->items as $item) {
             $productId   = (int) ($item['product_id'] ?? 0);
@@ -230,6 +239,21 @@ class ProductOrderController extends Controller
             $stock     = \App\Models\Warehouse::where('product_id', $productId)
                                               ->where('size', $stockKey2)
                                               ->first();
+
+            // warehouse toggle: physical stock check
+            if ($isWarehouseSale) {
+                $physQty    = (int) ($stock->physical_qty ?? 0);
+                $reserveQty = (int) ($stock->reserved_qty ?? 0);
+                $usedKey    = $productId . '_' . $stockKey2;
+                $usedInReq  = $warehouseUsed[$usedKey] ?? 0;
+                if (($physQty - $reserveQty - $usedInReq) < 1) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => '"' . $product->name . '" (' . ($productSize ?: 'ყველა') . ') — საწყობში ხელმისაწვდომი ნაშთი არ არის!',
+                    ], 422);
+                }
+                $warehouseUsed[$usedKey] = $usedInReq + 1;
+            }
 
             $baseData = [
                 'product_id'       => $productId,
