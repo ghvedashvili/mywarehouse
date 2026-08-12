@@ -240,7 +240,7 @@ class ProductOrderController extends Controller
                                               ->where('size', $stockKey2)
                                               ->first();
 
-            // warehouse mode: physical - reserved - უკვე გამოყენებული ამ request-ში
+            // warehouse toggle: physical stock check
             if ($isWarehouseSale) {
                 $physQty    = (int) ($stock->physical_qty ?? 0);
                 $reserveQty = (int) ($stock->reserved_qty ?? 0);
@@ -249,7 +249,7 @@ class ProductOrderController extends Controller
                 if (($physQty - $reserveQty - $usedInReq) < 1) {
                     return response()->json([
                         'success' => false,
-                        'message' => '"' . ($product->name) . '" (' . ($productSize ?: 'ყველა') . ') — საწყობში ხელმისაწვდომი ნაშთი არ არის!',
+                        'message' => '"' . $product->name . '" (' . ($productSize ?: 'ყველა') . ') — საწყობში ხელმისაწვდომი ნაშთი არ არის!',
                     ], 422);
                 }
                 $warehouseUsed[$usedKey] = $usedInReq + 1;
