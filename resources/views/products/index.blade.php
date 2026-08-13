@@ -38,6 +38,10 @@
 /* ── Desktop table ── */
 #products-table td { vertical-align: middle; }
 #products-table td:nth-child(6) { padding: 4px 3px; cursor: zoom-in; }
+@media (min-width: 768px) {
+    #products-table td:last-child,
+    #products-table th:last-child { text-align: right !important; padding-right: 10px !important; }
+}
 
 /* Mobile-only elements: hidden on desktop */
 .prd-mob-action-bar  { display: none; }
@@ -155,12 +159,15 @@
     }
 
     /* ── Card structure ── */
-    .prd-mob-card { display: flex; flex-direction: column; }
+    .prd-mob-card { display: flex; flex-direction: column; width: 100%; }
 
-    /* Header: photo | info | actions */
+    /* Header: [photo+info] | [actions] */
     .prd-mob-hdr {
-        display: flex; align-items: flex-start; gap: 10px;
-        padding: 10px 10px 10px 12px;
+        display: flex; align-items: flex-start; justify-content: space-between;
+        gap: 10px; padding: 10px 10px 10px 12px;
+    }
+    .prd-mob-left {
+        display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0;
     }
     .prd-mob-photo {
         flex-shrink: 0; width: 56px; height: 56px;
@@ -190,7 +197,6 @@
     .prd-meta-code { font-family: monospace; color: var(--prd-text-2); font-weight: 600; }
     .prd-mob-act {
         flex-shrink: 0; display: flex; gap: 4px; align-items: flex-start;
-        margin-left: auto;
     }
     .prd-mob-act .btn-xs {
         padding: 5px 8px !important; font-size: 11px !important;
@@ -431,7 +437,7 @@ $(function() {
             { data: 'format_sizes',   orderable: false, searchable: false, width: '90px'               },
             { data: 'warehouse_only_badge', orderable: false, searchable: false, className: 'text-center', width: '100px' },
             { data: 'status_stock',   orderable: false, searchable: false, className: 'text-center', width: '62px'  },
-            { data: 'action',         orderable: false, searchable: false, className: 'text-center', width: '70px'  }
+            { data: 'action',         orderable: false, searchable: false, className: 'text-end',   width: '80px'  }
         ],
         language: {
             processing: '<div class="spinner-border spinner-border-sm text-primary" role="status"></div>',
@@ -587,13 +593,15 @@ function buildMobilePrdCards() {
 
         var card = '<div class="prd-mob-card">'
             + '<div class="prd-mob-hdr">'
-            +   photoSection
-            +   '<div class="prd-mob-info">'
-            +     '<div class="prd-mob-name">' + name + '</div>'
-            +     (meta ? '<div class="prd-mob-meta">' + meta + '</div>' : '')
-            +     '<div class="prd-mob-bdy">'
-            +       (price ? '<span class="prd-mob-price">' + $('<div>').text(price).html() + '</span>' : '')
-            +       '<div class="prd-mob-badges">' + status + warehBadge + '</div>'
+            +   '<div class="prd-mob-left">'
+            +     photoSection
+            +     '<div class="prd-mob-info">'
+            +       '<div class="prd-mob-name">' + name + '</div>'
+            +       (meta ? '<div class="prd-mob-meta">' + meta + '</div>' : '')
+            +       '<div class="prd-mob-bdy">'
+            +         (price ? '<span class="prd-mob-price">' + $('<div>').text(price).html() + '</span>' : '')
+            +         '<div class="prd-mob-badges">' + status + warehBadge + '</div>'
+            +       '</div>'
             +     '</div>'
             +   '</div>'
             +   '<div class="prd-mob-act">' + action + '</div>'

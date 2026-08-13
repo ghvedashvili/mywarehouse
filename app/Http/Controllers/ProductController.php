@@ -322,7 +322,7 @@ public function apiDeletedProducts(Request $request)
         ->addColumn('action', function ($product) {
     $canEdit = \App\Models\RolePermission::check(auth()->user()->role, 'products', 'can_edit');
     if (!$canEdit) return '';
-    return '<div class="d-flex gap-1 justify-content-center">' .
+    return '<div style="display:flex;gap:4px;justify-content:flex-end;width:100%;">' .
            '<a onclick="editForm(' . $product->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a>' .
            '<a onclick="deleteData(' . $product->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a>' .
            '</div>';

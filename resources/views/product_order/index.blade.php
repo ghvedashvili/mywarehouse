@@ -1030,7 +1030,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   }
   .mob-ci-info { flex: 1; min-width: 0; }
   .mob-ci-top  { display: flex; align-items: center; gap: 5px; margin-bottom: 2px; }
-  .mob-ci-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mob-ci-name { font-size: 12px; font-weight: 600;  overflow: hidden; text-overflow: ellipsis; }
   .mob-ci-fin  { font-size: 11px; color: var(--c-text-2); margin-top: 1px; }
   .mob-ci-actions { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
 

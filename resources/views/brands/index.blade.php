@@ -12,7 +12,7 @@
 
 #brands-table { table-layout: fixed; width: 100% !important; word-wrap: break-word; }
 #brands-table td { white-space: normal !important; word-break: break-word; vertical-align: middle; }
-#brands-table td:last-child { white-space: nowrap !important; }
+#brands-table td:last-child { white-space: nowrap !important;width:90%}
 .table-responsive { overflow-x: hidden; }
 
 /* Mobile-only: hidden on desktop */
