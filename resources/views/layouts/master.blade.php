@@ -975,7 +975,7 @@
 <body>
 
 {{-- GLOBAL PAGE LOADER --}}
-<div id="page-loader" class="active">
+<div id="page-loader">
     <div class="pl-icons">
         <span class="pl-icon">👕</span>
         <span class="pl-icon">🩳</span>
@@ -1131,16 +1131,8 @@ function closeSidebar() {
 
 // ── Global page loader ─────────────────────────────────────────────────
 var _loaderTimer = null;
-function showLoader() {
-    clearTimeout(_loaderTimer);
-    document.getElementById('page-loader').classList.add('active');
-}
-function hideLoader() {
-    clearTimeout(_loaderTimer);
-    _loaderTimer = setTimeout(function() {
-        document.getElementById('page-loader').classList.remove('active');
-    }, 200);
-}
+function showLoader() { /* disabled */ }
+function hideLoader() { /* disabled */ }
 $(document)
     .ajaxStart(showLoader)
     .ajaxStop(hideLoader);
