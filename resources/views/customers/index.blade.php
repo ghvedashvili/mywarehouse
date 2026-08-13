@@ -25,6 +25,10 @@
 .form-control-sm, .form-select-sm { font-size: 0.82rem; }
 .was-validated .form-control:invalid, .was-validated .form-select:invalid { border-color: #dc3545 !important; }
 .invalid-feedback { font-size: 0.75rem; }
+@media (min-width: 768px) {
+    #customer-table td:last-child,
+    #customer-table th:last-child { text-align: right !important; padding-right: 10px !important; }
+}
 
 /* Mobile-only: hidden on desktop */
 .cust-mob-action-bar  { display: none; }
@@ -122,7 +126,7 @@
     .cust-mob-cell { display: block !important; padding: 0 !important; border: none !important; }
 
     /* ── Card structure ── */
-    .cust-mob-card { display: flex; flex-direction: column; }
+    .cust-mob-card { display: flex; flex-direction: column; width: 100%; }
     .cust-mob-hdr {
         display: flex; align-items: flex-start; gap: 10px;
         padding: 10px 10px 10px 12px;
@@ -148,7 +152,7 @@
         max-width: 160px; overflow: hidden; text-overflow: ellipsis;
     }
     .cust-mob-act {
-        flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-end;
+        flex-shrink: 0; display: flex; flex-direction: row; gap: 4px; align-items: flex-start;
     }
     .cust-mob-act .btn-xs {
         padding: 5px 8px !important; font-size: 11px !important;
@@ -315,7 +319,7 @@ var table = $('#customer-table').DataTable({
     columns: [
         {data:'id'}, {data:'name'}, {data:'city_name'}, {data:'address'},
         {data:'email'}, {data:'contact_info'}, {data:'comment'},
-        {data:'action', orderable:false, searchable:false}
+        {data:'action', orderable:false, searchable:false, className:'text-end', width:'90px'}
     ],
     language: {
         processing: '<div class="spinner-border spinner-border-sm text-primary" role="status"></div>',

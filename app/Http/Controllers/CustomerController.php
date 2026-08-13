@@ -142,9 +142,10 @@ public function update(Request $request, $id)
         ->addColumn('action', function($customer){
             $canEdit = \App\Models\RolePermission::check(auth()->user()->role, 'customers', 'can_edit');
             if (!$canEdit) return '';
-            $edit = '<a onclick="editForm('. $customer->id .')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i> Edit</a> ';
-            $del  = '<a onclick="deleteData('. $customer->id .')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i> Delete</a>';
-            return '<center>' . $edit . $del . '</center>';
+            return '<div style="display:flex;gap:4px;justify-content:flex-end;">'
+                . '<a onclick="editForm(' . $customer->id . ')" class="btn btn-primary btn-xs" title="Edit"><i class="fa fa-edit"></i></a>'
+                . '<a onclick="deleteData(' . $customer->id . ')" class="btn btn-danger btn-xs" title="Delete"><i class="fa fa-trash"></i></a>'
+                . '</div>';
         })
         ->rawColumns(['contact_info', 'action'])
         ->make(true);
