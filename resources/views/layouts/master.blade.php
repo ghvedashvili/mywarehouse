@@ -252,9 +252,33 @@
             padding: 4px 8px;
             font-size: 13px;
         }
+        /* ── Pagination — modern minimal ── */
+        .dataTables_wrapper .dataTables_paginate { display: flex; align-items: center; gap: 2px; }
+        .dataTables_wrapper .dataTables_paginate span { display: flex; align-items: center; gap: 2px; }
         .dataTables_wrapper .dataTables_paginate .paginate_button {
-            border-radius: 6px !important;
+            display: inline-flex !important; align-items: center !important; justify-content: center !important;
+            min-width: 32px; height: 32px; padding: 0 8px !important;
+            border-radius: 7px !important; border: none !important;
+            background: transparent !important; color: #64748b !important;
+            font-size: 13px !important; font-weight: 500; line-height: 1;
+            cursor: pointer; transition: background .12s, color .12s;
+            text-decoration: none !important; user-select: none;
         }
+        .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+            background: #f1f5f9 !important; color: #0f172a !important;
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+            background: #2563eb !important; color: #fff !important; font-weight: 600 !important;
+            box-shadow: 0 2px 8px rgba(37,99,235,.3);
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button.disabled,
+        .dataTables_wrapper .dataTables_paginate .paginate_button.disabled:hover {
+            background: transparent !important; color: #cbd5e1 !important; cursor: default;
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button.previous,
+        .dataTables_wrapper .dataTables_paginate .paginate_button.next { padding: 0 10px !important; }
+        .dataTables_wrapper .dataTables_info { font-size: 12px; color: #94a3b8; }
 
         /* ── BUTTONS ── */
         .btn-xs { padding: 2px 8px; font-size: 12px; }
@@ -424,15 +448,29 @@
                 border-color: var(--accent) !important;
             }
 
-            /* ── Pagination compact ── */
-            .mod-card .dataTables_wrapper .dataTables_paginate {
-                padding: 8px 10px !important;
+            /* ── Pagination mobile ── */
+            .dataTables_wrapper > div:last-child {
+                flex-direction: column !important;
+                align-items: center !important;
+                gap: 8px !important;
+                padding: 12px 8px 10px !important;
             }
-            .mod-card .dataTables_wrapper .dataTables_paginate .paginate_button {
-                padding: 4px 8px !important;
-                font-size: 12px !important;
+            .dataTables_wrapper .dataTables_paginate {
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+                max-width: 100% !important;
+                flex-wrap: nowrap !important;
+                scrollbar-width: none !important;
             }
-            .mod-card .dataTables_info { padding: 6px 10px !important; font-size: 11px !important; }
+            .dataTables_wrapper .dataTables_paginate::-webkit-scrollbar { display: none; }
+            .dataTables_wrapper .dataTables_paginate .paginate_button {
+                min-width: 38px !important; height: 38px !important;
+                font-size: 14px !important; border-radius: 8px !important;
+                flex-shrink: 0 !important;
+            }
+            .dataTables_info {
+                font-size: 11px !important; white-space: nowrap !important; color: #6c757d !important;
+            }
 
             /* ── Modals: bottom-sheet style ── */
             .modal { align-items: flex-end !important; }
@@ -622,15 +660,29 @@
                 border-color: var(--accent) !important;
             }
 
-            /* ── Pagination compact ── */
-            .mod-card .dataTables_wrapper .dataTables_paginate {
-                padding: 8px 10px !important;
+            /* ── Pagination mobile ── */
+            .dataTables_wrapper > div:last-child {
+                flex-direction: column !important;
+                align-items: center !important;
+                gap: 8px !important;
+                padding: 12px 8px 10px !important;
             }
-            .mod-card .dataTables_wrapper .dataTables_paginate .paginate_button {
-                padding: 4px 8px !important;
-                font-size: 12px !important;
+            .dataTables_wrapper .dataTables_paginate {
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+                max-width: 100% !important;
+                flex-wrap: nowrap !important;
+                scrollbar-width: none !important;
             }
-            .mod-card .dataTables_info { padding: 6px 10px !important; font-size: 11px !important; }
+            .dataTables_wrapper .dataTables_paginate::-webkit-scrollbar { display: none; }
+            .dataTables_wrapper .dataTables_paginate .paginate_button {
+                min-width: 38px !important; height: 38px !important;
+                font-size: 14px !important; border-radius: 8px !important;
+                flex-shrink: 0 !important;
+            }
+            .dataTables_info {
+                font-size: 11px !important; white-space: nowrap !important; color: #6c757d !important;
+            }
 
             /* ── Modals: bottom-sheet style ── */
             .modal { align-items: flex-end !important; }
@@ -861,7 +913,7 @@
 
         /* Pagination inside mod-card */
         .mod-card .dataTables_wrapper .dataTables_paginate {
-            padding: 12px 18px;
+            padding: 14px 18px;
         }
         .mod-card .dataTables_info {
             padding: 12px 18px;

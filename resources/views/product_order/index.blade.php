@@ -610,23 +610,6 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 .po-page:not(.po-merge-mode) #check-all,
 .po-page:not(.po-merge-mode) .row-check { display: none !important; }
 
-/* ── PAGINATION ───────────────────────────────────────────── */
-.dataTables_wrapper .dataTables_paginate .paginate_button {
-  padding: 5px 10px !important; font-size: 11.5px !important;
-  border-radius: var(--r-sm) !important; margin: 0 2px !important;
-  border: 1px solid var(--c-border-md) !important;
-  background: var(--c-surface) !important; color: var(--c-text-2) !important;
-  font-weight: 500 !important; transition: all var(--t-fast) !important;
-}
-.dataTables_wrapper .dataTables_paginate .paginate_button.current,
-.dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
-  background: var(--c-blue) !important; color: #fff !important;
-  border-color: var(--c-blue) !important; box-shadow: 0 2px 8px rgba(37,99,235,.3) !important;
-}
-.dataTables_wrapper .dataTables_paginate .paginate_button:hover:not(.current):not(.disabled) {
-  background: var(--c-surface2) !important; color: var(--c-text-1) !important;
-}
-.dataTables_wrapper .dataTables_paginate .paginate_button.disabled { color: var(--c-text-3) !important; }
 .dataTables_wrapper .dataTables_info { font-size: 11.5px; color: var(--c-text-3); }
 .dataTables_wrapper > div:last-child { padding: 10px 14px 12px; }
 .dataTables_processing {
@@ -684,7 +667,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 @media (max-width: 767px) {
 
   /* ── page ── */
-  .po-page { padding: 6px 16px 70px !important; }
+  .po-page { padding: 6px 16px 20px !important; }
   .po-stats { grid-template-columns: repeat(2,1fr); gap: 8px; margin-bottom: 10px; }
   .po-page .mod-header { display: none !important; }
   .po-page .mod-actions { display: none !important; }
@@ -1169,9 +1152,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     flex-wrap: wrap; gap: 4px;
   }
 
-  /* ── pagination compact ── */
-  .dataTables_wrapper .dataTables_paginate { padding: 8px 10px !important; }
-  .dataTables_info { font-size: 11px !important; padding: 6px 10px !important; }
+  .po-page { padding-bottom: 20px !important; }
 }
 </style>
 @endsection
