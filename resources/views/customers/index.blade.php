@@ -128,7 +128,7 @@
         padding: 10px 10px 10px 12px;
     }
 
-    .cust-mob-info { flex: 1; min-width: 0; }
+    .cust-mob-info { flex: 1; min-width: 0; overflow: hidden; }
     .cust-mob-name {
         font-size: 13.5px; font-weight: 700; color: var(--cust-text-1);
         line-height: 1.3; word-break: break-word;
@@ -139,14 +139,16 @@
     .cust-mob-contact a { color: var(--cust-text-2); text-decoration: none; }
     .cust-mob-meta {
         display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 5px;
+        overflow: hidden;
     }
     .cust-meta-item {
         font-size: 11px; color: var(--cust-text-2); white-space: nowrap;
         background: var(--cust-surface2); border: 1px solid var(--cust-border);
         border-radius: 5px; padding: 1px 6px; line-height: 1.6;
+        max-width: 160px; overflow: hidden; text-overflow: ellipsis;
     }
     .cust-mob-act {
-        flex-shrink: 0; display: flex; gap: 4px; align-items: flex-start; margin-left: auto;
+        flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-end;
     }
     .cust-mob-act .btn-xs {
         padding: 5px 8px !important; font-size: 11px !important;
@@ -405,7 +407,17 @@ function buildMobileCustCards() {
         var email   = $.trim(tds.eq(4).text()) || '';
         var contact = tds.eq(5).html() || '';
         var comment = $.trim(tds.eq(6).text()) || '';
-        var action  = tds.eq(7).html() || '';
+        var rawAction = tds.eq(7).html() || '';
+        var canEdit = rawAction.trim().length > 0;
+        var custId  = tr.find('td').first().data('id') || tr.attr('data-id') || '';
+        if (!custId) {
+            var idMatch = rawAction.match(/editForm\((\d+)\)/);
+            if (idMatch) custId = idMatch[1];
+        }
+        var action = canEdit && custId
+            ? '<a onclick="editForm(' + custId + ')" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i></a>'
+            + '<a onclick="deleteData(' + custId + ')" class="btn btn-danger btn-xs"><i class="fa fa-trash"></i></a>'
+            : '';
 
         function notEmpty(v) { return v && v !== '-' && v !== '—' && v !== '–'; }
 
