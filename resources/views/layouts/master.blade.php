@@ -686,28 +686,24 @@
         #page-loader {
             display: none;
             position: fixed;
-            inset: 0;
-            background: rgba(255,255,255,.82);
-            backdrop-filter: blur(3px);
-            -webkit-backdrop-filter: blur(3px);
+            top: 0; left: 0; right: 0;
+            height: 3px;
             z-index: 99999;
-            align-items: center;
-            justify-content: center;
+            background: transparent;
         }
-        #page-loader.active { display: flex; }
-        .pl-icons { display: flex; align-items: center; gap: 14px; }
-        .pl-icon {
-            font-size: 36px;
-            display: inline-block;
-            animation: pl-bounce .7s ease-in-out infinite;
-            filter: drop-shadow(0 4px 6px rgba(0,0,0,.15));
+        #page-loader.active { display: block; }
+        #page-loader::after {
+            content: '';
+            display: block;
+            height: 100%;
+            background: #2563eb;
+            animation: pl-bar 1.2s ease-in-out infinite;
         }
-        .pl-icon:nth-child(1) { animation-delay: 0s; }
-        .pl-icon:nth-child(2) { animation-delay: .14s; }
-        .pl-icon:nth-child(3) { animation-delay: .28s; }
-        @keyframes pl-bounce {
-            0%, 100% { transform: translateY(0) scale(1); }
-            45%       { transform: translateY(-14px) scale(1.12); }
+        @keyframes pl-bar {
+            0%   { margin-left: 0;   width: 0%; }
+            40%  { margin-left: 0;   width: 70%; }
+            80%  { margin-left: 30%; width: 70%; }
+            100% { margin-left: 100%; width: 0%; }
         }
 
         /* ── MODALS Bootstrap 5 ── */
@@ -975,13 +971,7 @@
 <body>
 
 {{-- GLOBAL PAGE LOADER --}}
-<div id="page-loader">
-    <div class="pl-icons">
-        <span class="pl-icon">👕</span>
-        <span class="pl-icon">🩳</span>
-        <span class="pl-icon">👟</span>
-    </div>
-</div>
+<div id="page-loader"></div>
 
 {{-- SIDEBAR --}}
 <div id="sidebar-overlay" onclick="closeSidebar()"></div>
@@ -1131,8 +1121,15 @@ function closeSidebar() {
 
 // ── Global page loader ─────────────────────────────────────────────────
 var _loaderTimer = null;
-function showLoader() { /* disabled */ }
-function hideLoader() { /* disabled */ }
+function showLoader() {
+    clearTimeout(_loaderTimer);
+    document.getElementById('page-loader').classList.add('active');
+}
+function hideLoader() {
+    _loaderTimer = setTimeout(function() {
+        document.getElementById('page-loader').classList.remove('active');
+    }, 200);
+}
 $(document)
     .ajaxStart(showLoader)
     .ajaxStop(hideLoader);
