@@ -734,6 +734,27 @@
             #footer .float-end { float: none !important; display: block; }
         }
 
+        /* ── PULL TO REFRESH ── */
+        @media (max-width: 767px) {
+            #ptr-wrap {
+                position: fixed; top: 0; left: 0; right: 0;
+                display: flex; justify-content: center;
+                z-index: 9998; pointer-events: none;
+                transform: translateY(-56px);
+                transition: transform .22s cubic-bezier(.4,0,.2,1);
+            }
+            #ptr-wrap.ptr-show { transform: translateY(10px); }
+            #ptr-icon {
+                width: 38px; height: 38px; background: #fff;
+                border-radius: 50%; box-shadow: 0 3px 14px rgba(0,0,0,.14);
+                display: flex; align-items: center; justify-content: center;
+                font-size: 17px; transition: transform .25s ease;
+            }
+            #ptr-wrap.ptr-ready #ptr-icon { transform: rotate(180deg); }
+            #ptr-wrap.ptr-loading #ptr-icon { animation: ptr-spin .55s linear infinite; }
+            @keyframes ptr-spin { to { transform: rotate(360deg); } }
+        }
+
         /* ── GLOBAL PAGE LOADER ── */
         #page-loader {
             display: none;
@@ -1024,6 +1045,8 @@
 
 {{-- GLOBAL PAGE LOADER --}}
 <div id="page-loader"></div>
+{{-- PULL TO REFRESH --}}
+<div id="ptr-wrap"><div id="ptr-icon">↓</div></div>
 
 {{-- SIDEBAR --}}
 <div id="sidebar-overlay" onclick="closeSidebar()"></div>
@@ -1170,6 +1193,36 @@ function closeSidebar() {
     document.getElementById('sidebar').classList.remove('open');
     document.getElementById('sidebar-overlay').classList.remove('show');
 }
+
+// ── Pull to refresh ────────────────────────────────────────────────────
+(function() {
+    if (window.innerWidth > 767) return;
+    var wrap = document.getElementById('ptr-wrap');
+    if (!wrap) return;
+    var startY = 0, dragging = false, THRESHOLD = 72;
+    document.addEventListener('touchstart', function(e) {
+        if (window.scrollY <= 0) { startY = e.touches[0].clientY; dragging = true; }
+    }, { passive: true });
+    document.addEventListener('touchmove', function(e) {
+        if (!dragging) return;
+        var pull = e.touches[0].clientY - startY;
+        if (pull > 18 && window.scrollY <= 0) {
+            wrap.classList.add('ptr-show');
+            pull > THRESHOLD ? wrap.classList.add('ptr-ready') : wrap.classList.remove('ptr-ready');
+        } else {
+            wrap.classList.remove('ptr-show', 'ptr-ready');
+        }
+    }, { passive: true });
+    document.addEventListener('touchend', function() {
+        if (!dragging) return; dragging = false;
+        if (wrap.classList.contains('ptr-ready')) {
+            wrap.classList.add('ptr-loading');
+            setTimeout(function() { window.location.reload(); }, 400);
+        } else {
+            wrap.classList.remove('ptr-show', 'ptr-ready');
+        }
+    });
+})();
 
 // ── Global page loader ─────────────────────────────────────────────────
 var _loaderTimer = null;
