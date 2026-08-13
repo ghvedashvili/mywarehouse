@@ -1001,7 +1001,7 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
   }
   .mob-child-item {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 6px;
@@ -3320,7 +3320,8 @@ $(document).on('click', '.expand-btn', function() {
                 + '<div class="mob-ci-left">'
                 + thumbHtml
                 + '<div class="mob-ci-info">'
-                + '<div class="mob-ci-top"><span class="po-order-num" style="font-size:11px;">'+(order.order_number||'S'+order.id)+'</span> '+statusBadge+'</div>'
+                + '<div class="mob-ci-top"><span class="po-order-num" style="font-size:11px;">'+(order.order_number||'S'+order.id)+'</span></div>'
+                + '<div style="margin-top:2px;">'+statusBadge+'</div>'
                 + '<div class="mob-ci-name">'+(order.product_name||'')+(order.product_size ? ' · <span class="label label-info" style="font-size:10px;">'+order.product_size+'</span>' : '')+'</div>'
                 + '<div class="mob-ci-fin"><span style="font-weight:700;">'+chOrig.toFixed(2)+'₾</span>'+(chDisc>0.01 ? ' <span style="color:#8e44ad;font-size:10px;">🏷️−'+chDisc.toFixed(2)+'₾</span>' : '')+' '+chTag+(isAdmin && chCost > 0 ? ' <span style="color:#888;font-size:10px;">· $'+chCost.toFixed(2)+'</span>' : '')+'</div>'
                 + '</div>'
