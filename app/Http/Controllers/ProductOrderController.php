@@ -1045,7 +1045,8 @@ class ProductOrderController extends Controller
                   ->orWhereHas('customer', function($cq) use ($search) {
                       $cq->where('name', 'like', "%{$search}%")
                          ->orWhere('tel', 'like', "%{$search}%")
-                         ->orWhere('alternative_tel', 'like', "%{$search}%");
+                         ->orWhere('alternative_tel', 'like', "%{$search}%")
+                         ->orWhere('comment', 'like', "%{$search}%");
                   })
                   ->orWhere('comment', 'like', "%{$search}%")
                   ->orWhere('payment_comment', 'like', "%{$search}%")
@@ -1058,7 +1059,8 @@ class ProductOrderController extends Controller
                          ->orWhereHas('customer', function($cq) use ($search) {
                              $cq->where('name', 'like', "%{$search}%")
                                 ->orWhere('tel', 'like', "%{$search}%")
-                                ->orWhere('alternative_tel', 'like', "%{$search}%");
+                                ->orWhere('alternative_tel', 'like', "%{$search}%")
+                                ->orWhere('comment', 'like', "%{$search}%");
                          });
                   });
             });
