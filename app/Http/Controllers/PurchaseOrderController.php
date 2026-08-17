@@ -1384,7 +1384,25 @@ $purchase->refresh();
 
                 if (!$purchase) continue;
 
-                $totalQty = $purchase->quantity;
+                // getGroupItems merges sibling in-transit POs (same group, same product/size)
+                // into one row with summed quantity. Find all siblings so we can validate and
+                // distribute received/lost across them correctly.
+                $rootGroup = $purchase->purchase_group_id ?? $purchase->id;
+                $siblings  = Product_Order::where('order_type', 'purchase')
+                    ->where('status_id', 2)
+                    ->where('product_id', $purchase->product_id)
+                    ->where(function ($q) use ($purchase) {
+                        $purchase->product_size
+                            ? $q->where('product_size', $purchase->product_size)
+                            : $q->where(fn ($q2) => $q2->whereNull('product_size')->orWhere('product_size', ''));
+                    })
+                    ->where(function ($q) use ($rootGroup, $orderId) {
+                        $q->where('purchase_group_id', $rootGroup)->orWhere('id', $orderId);
+                    })
+                    ->orderBy('id')
+                    ->get();
+
+                $totalQty = (int) $siblings->sum('quantity');
                 $sum      = $receivedQty + $lostQty;
 
                 if ($sum > $totalQty) {
@@ -1393,192 +1411,210 @@ $purchase->refresh();
                     );
                 }
 
-                $gProdId       = $purchase->product_id;
-                $gSize         = $purchase->product_size ?? '';
-                $gKey          = $this->pStockKey($gProdId, $gSize);
-                $gLostStockQty = $this->pStockQty($gProdId, $gSize, $lostQty);
-                $gRecvStockQty = $this->pStockQty($gProdId, $gSize, $receivedQty);
-                $isDivisible   = \App\Services\FifoService::isDivisibleProduct($gProdId);
+                $gProdId          = $purchase->product_id;
+                $gSize            = $purchase->product_size ?? '';
+                $gKey             = $this->pStockKey($gProdId, $gSize);
+                $isDivisible      = \App\Services\FifoService::isDivisibleProduct($gProdId);
+                $isReturnPurchase = $purchase->original_sale_id !== null;
+                $incomingCol      = $isReturnPurchase ? 'return_incoming_qty' : 'incoming_qty';
 
                 $stock = Warehouse::firstOrCreate(
                     ['product_id' => $gProdId, 'size' => $gKey],
                     ['physical_qty' => 0, 'incoming_qty' => 0, 'reserved_qty' => 0]
                 );
 
-                // return/exchange purchase-ისთვის return_incoming_qty იკლება
-                $isReturnPurchase = $purchase->original_sale_id !== null;
-                $incomingCol      = $isReturnPurchase ? 'return_incoming_qty' : 'incoming_qty';
+                $remReceive    = $receivedQty;
+                $remLost       = $lostQty;
+                $totalRemaining = 0;
 
-                // დაკარგული
-                if ($lostQty > 0) {
-                    $stock->decrement($incomingCol, $gLostStockQty);
-                    $stock->increment('lost_qty', $gLostStockQty);
-                    WarehouseLogService::log('lost', $gProdId, $gKey,
-                        -$gLostStockQty, 'purchase_order', $purchase->id, $lostNote ?? 'დაკარგული — შესყიდვის ორდერიდან დაიკარგა',
-                        $stock->physical_qty, $stock->physical_qty);
+                foreach ($siblings as $po) {
+                    if ($remReceive <= 0 && $remLost <= 0) break;
 
-                    $totalCost = round((float)($purchase->cost_price ?? 0) * $lostQty, 2);
-                    if ($totalCost > 0) {
-                        $productName = ($purchase->product->name ?? 'პროდუქტი')
-                                     . ($purchase->product_size ? ' / ' . $purchase->product_size : '');
-                        $srcLabel    = $isReturnPurchase ? 'გაცვლა/დაბრუნება' : 'შესყიდვა';
-                        $noteStr     = $lostNote ? ' — ' . $lostNote : '';
-                        FinanceEntry::create([
-                            'type'        => 'expense',
-                            'category'    => 'writeoff',
-                            'description' => 'ჩამოწერა (' . $srcLabel . '): ' . $productName . ' × ' . $lostQty . ' ერთ.' . $noteStr,
-                            'amount'      => $totalCost,
-                            'entry_date'  => now()->toDateString(),
-                            'user_id'     => auth()->id(),
-                        ]);
-                    }
-                }
+                    $poQty      = $po->quantity;
+                    $poReceive  = min($remReceive, $poQty);
+                    $poLost     = min($remLost, $poQty - $poReceive);
+                    $poSum      = $poReceive + $poLost;
 
-                // მიღებული
-                if ($receivedQty > 0) {
-                    $qtyBefore = $stock->physical_qty;
-                    $stock->decrement($incomingCol, $gRecvStockQty);
-                    $stock->increment('physical_qty', $gRecvStockQty);
-                    $stock->save();
-                    WarehouseLogService::log('purchase_in', $gProdId, $gKey,
-                        +$gRecvStockQty, 'purchase_order', $purchase->id, null, $qtyBefore);
-                } else {
-                    $stock->save();
-                }
+                    if ($poSum === 0) continue;
 
-                $remaining = $totalQty - $sum;
+                    $remReceive -= $poReceive;
+                    $remLost    -= $poLost;
 
-                $newPurchase = null;
+                    $gLostStockQty = $this->pStockQty($gProdId, $gSize, $poLost);
+                    $gRecvStockQty = $this->pStockQty($gProdId, $gSize, $poReceive);
 
-                if ($remaining === 0) {
-                    // სრული მიღება
-                    $purchase->update(['status_id' => 3, 'quantity' => max($receivedQty, 1)]);
-                } elseif ($receivedQty > 0) {
-                    // ნაწილობრივი მიღება — split: original→status=3, new purchase→status=2 (remainder)
-                    $rootGroupId = $purchase->purchase_group_id ?? $purchase->id;
-                    $originalQty = $purchase->original_qty ?? $totalQty;
-                    $ratio       = $receivedQty / $totalQty;
+                    // დაკარგული
+                    if ($poLost > 0) {
+                        $stock->decrement($incomingCol, $gLostStockQty);
+                        $stock->increment('lost_qty', $gLostStockQty);
+                        WarehouseLogService::log('lost', $gProdId, $gKey,
+                            -$gLostStockQty, 'purchase_order', $po->id, $lostNote ?? 'დაკარგული — შესყიდვის ორდერიდან დაიკარგა',
+                            $stock->physical_qty, $stock->physical_qty);
 
-                    $newData = $purchase->toArray();
-                    unset($newData['id'], $newData['created_at'], $newData['updated_at'], $newData['order_number']);
-                    $newData['quantity']          = $remaining;
-                    $newData['status_id']         = 2;
-                    $newData['purchase_group_id'] = $rootGroupId;
-                    $newData['original_qty']      = $originalQty;
-                    $newData['paid_tbc']          = round(($purchase->paid_tbc  ?? 0) * (1 - $ratio), 2);
-                    $newData['paid_bog']          = round(($purchase->paid_bog  ?? 0) * (1 - $ratio), 2);
-                    $newData['paid_lib']          = round(($purchase->paid_lib  ?? 0) * (1 - $ratio), 2);
-                    $newData['paid_cash']         = round(($purchase->paid_cash ?? 0) * (1 - $ratio), 2);
-                    $newData['comment']           = '📦 ნაშთი #' . $purchase->id . '-დან';
-
-                    $purchase->update([
-                        'status_id'         => 3,
-                        'quantity'          => $receivedQty,
-                        'purchase_group_id' => $rootGroupId,
-                        'original_qty'      => $originalQty,
-                        'paid_tbc'          => round(($purchase->paid_tbc  ?? 0) * $ratio, 2),
-                        'paid_bog'          => round(($purchase->paid_bog  ?? 0) * $ratio, 2),
-                        'paid_lib'          => round(($purchase->paid_lib  ?? 0) * $ratio, 2),
-                        'paid_cash'         => round(($purchase->paid_cash ?? 0) * $ratio, 2),
-                    ]);
-
-                    $newPurchase = Product_Order::create($newData);
-                } else {
-                    // receivedQty=0 — მხოლოდ ჩამოწერა, purchase-ის qty მცირდება
-                    $purchase->update(['quantity' => $remaining]);
-                }
-
-                // linked sale-ების გადაწინაურება
-                $allLinked = Product_Order::where('purchase_order_id', $purchase->id)
-                    ->where('status_id', 2)->orderBy('created_at')->get();
-
-                $promoted   = 0;
-                $promotedMl = 0;
-                foreach ($allLinked as $sale) {
-                    $canPromote = false;
-                    if ($receivedQty > 0) {
-                        if ($isDivisible) {
-                            $saleMl = (int) round((\App\Services\FifoService::divisibleFactor($gProdId, $sale->product_size ?? '') ?? 0) * ($sale->quantity ?? 1));
-                            if ($promotedMl + $saleMl <= $gRecvStockQty) {
-                                $canPromote  = true;
-                                $promotedMl += $saleMl;
-                            }
-                        } else {
-                            if ($promoted < $receivedQty) {
-                                $canPromote = true;
-                                $promoted++;
-                            }
+                        $totalCost = round((float)($po->cost_price ?? 0) * $poLost, 2);
+                        if ($totalCost > 0) {
+                            $productName = ($po->product->name ?? 'პროდუქტი')
+                                         . ($po->product_size ? ' / ' . $po->product_size : '');
+                            $srcLabel    = $isReturnPurchase ? 'გაცვლა/დაბრუნება' : 'შესყიდვა';
+                            $noteStr     = $lostNote ? ' — ' . $lostNote : '';
+                            FinanceEntry::create([
+                                'type'        => 'expense',
+                                'category'    => 'writeoff',
+                                'description' => 'ჩამოწერა (' . $srcLabel . '): ' . $productName . ' × ' . $poLost . ' ერთ.' . $noteStr,
+                                'amount'      => $totalCost,
+                                'entry_date'  => now()->toDateString(),
+                                'user_id'     => auth()->id(),
+                            ]);
                         }
                     }
 
-                    if ($canPromote) {
-                        // ✅ მიღებული → status=3 (purchase-ზე რჩება)
-                        $sale->status_id = 3;
-                        $sale->save();
-                        StatusChangeLog::create([
-                            'order_id'       => $sale->id,
-                            'user_id'        => auth()->id(),
-                            'status_id_from' => 2,
-                            'status_id_to'   => 3,
-                            'changed_at'     => now(),
-                        ]);
+                    // მიღებული
+                    if ($poReceive > 0) {
+                        $qtyBefore = $stock->physical_qty;
+                        $stock->decrement($incomingCol, $gRecvStockQty);
+                        $stock->increment('physical_qty', $gRecvStockQty);
+                        $stock->save();
+                        WarehouseLogService::log('purchase_in', $gProdId, $gKey,
+                            +$gRecvStockQty, 'purchase_order', $po->id, null, $qtyBefore);
                     } else {
-                        if ($newPurchase) {
-                            // split case — დარჩენილი sales → new (გზაში) purchase
-                            $sale->purchase_order_id = $newPurchase->id;
-                            $sale->save();
-                        } elseif ($remaining > 0) {
-                            // receivedQty=0 case — purchase-ს კვლავ აქვს ნაშთი, sale რჩება
-                            continue;
-                        } else {
-                            // purchase სრულად ამოიწურა → სხვა purchase ან status=1
-                            $next = FifoService::getNextPurchase(
-                                $purchase->product_id, $purchase->product_size, $purchase->id
-                            );
-                            if ($next) {
-                                $_np = \App\Services\FifoService::getPrices($gProdId, $sale->product_size ?? '');
-                                $oldStatus               = $sale->status_id;
-                                $sale->purchase_order_id = $next->id;
-                                $sale->price_usa         = $_np['cost_price'];
-                                $sale->status_id         = $next->status_id;
-                                $sale->save();
-                                StatusChangeLog::create([
-                                    'order_id'       => $sale->id,
-                                    'user_id'        => auth()->id(),
-                                    'status_id_from' => $oldStatus,
-                                    'status_id_to'   => $next->status_id,
-                                    'changed_at'     => now(),
-                                ]);
+                        $stock->save();
+                    }
+
+                    $poRemaining     = $poQty - $poSum;
+                    $totalRemaining += $poRemaining;
+
+                    $newPurchase = null;
+
+                    if ($poRemaining === 0) {
+                        // სრული მიღება
+                        $po->update(['status_id' => 3, 'quantity' => max($poReceive, 1)]);
+                    } elseif ($poReceive > 0) {
+                        // ნაწილობრივი მიღება — split: original→status=3, new purchase→status=2 (remainder)
+                        $rootGroupId = $po->purchase_group_id ?? $po->id;
+                        $originalQty = $po->original_qty ?? $poQty;
+                        $ratio       = $poReceive / $poQty;
+
+                        $newData = $po->toArray();
+                        unset($newData['id'], $newData['created_at'], $newData['updated_at'], $newData['order_number']);
+                        $newData['quantity']          = $poRemaining;
+                        $newData['status_id']         = 2;
+                        $newData['purchase_group_id'] = $rootGroupId;
+                        $newData['original_qty']      = $originalQty;
+                        $newData['paid_tbc']          = round(($po->paid_tbc  ?? 0) * (1 - $ratio), 2);
+                        $newData['paid_bog']          = round(($po->paid_bog  ?? 0) * (1 - $ratio), 2);
+                        $newData['paid_lib']          = round(($po->paid_lib  ?? 0) * (1 - $ratio), 2);
+                        $newData['paid_cash']         = round(($po->paid_cash ?? 0) * (1 - $ratio), 2);
+                        $newData['comment']           = '📦 ნაშთი #' . $po->id . '-დან';
+
+                        $po->update([
+                            'status_id'         => 3,
+                            'quantity'          => $poReceive,
+                            'purchase_group_id' => $rootGroupId,
+                            'original_qty'      => $originalQty,
+                            'paid_tbc'          => round(($po->paid_tbc  ?? 0) * $ratio, 2),
+                            'paid_bog'          => round(($po->paid_bog  ?? 0) * $ratio, 2),
+                            'paid_lib'          => round(($po->paid_lib  ?? 0) * $ratio, 2),
+                            'paid_cash'         => round(($po->paid_cash ?? 0) * $ratio, 2),
+                        ]);
+
+                        $newPurchase = Product_Order::create($newData);
+                    } else {
+                        // poReceive=0 — მხოლოდ ჩამოწერა, purchase-ის qty მცირდება
+                        $po->update(['quantity' => $poRemaining]);
+                    }
+
+                    // linked sale-ების გადაწინაურება
+                    $allLinked = Product_Order::where('purchase_order_id', $po->id)
+                        ->where('status_id', 2)->orderBy('created_at')->get();
+
+                    $promoted   = 0;
+                    $promotedMl = 0;
+                    foreach ($allLinked as $sale) {
+                        $canPromote = false;
+                        if ($poReceive > 0) {
+                            if ($isDivisible) {
+                                $saleMl = (int) round((\App\Services\FifoService::divisibleFactor($gProdId, $sale->product_size ?? '') ?? 0) * ($sale->quantity ?? 1));
+                                if ($promotedMl + $saleMl <= $gRecvStockQty) {
+                                    $canPromote  = true;
+                                    $promotedMl += $saleMl;
+                                }
                             } else {
-                                $saleReserveQty = $isDivisible
-                                    ? (int) round((\App\Services\FifoService::divisibleFactor($gProdId, $sale->product_size ?? '') ?? 1) * ($sale->quantity ?? 1))
-                                    : 1;
-                                $stock->decrement('reserved_qty', $saleReserveQty);
-                                $sale->purchase_order_id = null;
-                                $sale->price_usa         = 0;
-                                $sale->status_id         = 1;
+                                if ($promoted < $poReceive) {
+                                    $canPromote = true;
+                                    $promoted++;
+                                }
+                            }
+                        }
+
+                        if ($canPromote) {
+                            // ✅ მიღებული → status=3 (purchase-ზე რჩება)
+                            $sale->status_id = 3;
+                            $sale->save();
+                            StatusChangeLog::create([
+                                'order_id'       => $sale->id,
+                                'user_id'        => auth()->id(),
+                                'status_id_from' => 2,
+                                'status_id_to'   => 3,
+                                'changed_at'     => now(),
+                            ]);
+                        } else {
+                            if ($newPurchase) {
+                                // split case — დარჩენილი sales → new (გზაში) purchase
+                                $sale->purchase_order_id = $newPurchase->id;
                                 $sale->save();
-                                StatusChangeLog::create([
-                                    'order_id'       => $sale->id,
-                                    'user_id'        => auth()->id(),
-                                    'status_id_from' => 2,
-                                    'status_id_to'   => 1,
-                                    'changed_at'     => now(),
-                                ]);
+                            } elseif ($poRemaining > 0) {
+                                // poReceive=0 case — purchase-ს კვლავ აქვს ნაშთი, sale რჩება
+                                continue;
+                            } else {
+                                // purchase სრულად ამოიწურა → სხვა purchase ან status=1
+                                $next = FifoService::getNextPurchase(
+                                    $po->product_id, $po->product_size, $po->id
+                                );
+                                if ($next) {
+                                    $_np = \App\Services\FifoService::getPrices($gProdId, $sale->product_size ?? '');
+                                    $oldStatus               = $sale->status_id;
+                                    $sale->purchase_order_id = $next->id;
+                                    $sale->price_usa         = $_np['cost_price'];
+                                    $sale->status_id         = $next->status_id;
+                                    $sale->save();
+                                    StatusChangeLog::create([
+                                        'order_id'       => $sale->id,
+                                        'user_id'        => auth()->id(),
+                                        'status_id_from' => $oldStatus,
+                                        'status_id_to'   => $next->status_id,
+                                        'changed_at'     => now(),
+                                    ]);
+                                } else {
+                                    $saleReserveQty = $isDivisible
+                                        ? (int) round((\App\Services\FifoService::divisibleFactor($gProdId, $sale->product_size ?? '') ?? 1) * ($sale->quantity ?? 1))
+                                        : 1;
+                                    $stock->decrement('reserved_qty', $saleReserveQty);
+                                    $sale->purchase_order_id = null;
+                                    $sale->price_usa         = 0;
+                                    $sale->status_id         = 1;
+                                    $sale->save();
+                                    StatusChangeLog::create([
+                                        'order_id'       => $sale->id,
+                                        'user_id'        => auth()->id(),
+                                        'status_id_from' => 2,
+                                        'status_id_to'   => 1,
+                                        'changed_at'     => now(),
+                                    ]);
+                                }
                             }
                         }
                     }
-                }
 
-                // pending sale-ების მიბმა status=3 purchase-ზე
-                if ($receivedQty > 0) {
-                    $purchase->refresh();
-                    PurchaseService::attachPendingSalesToPurchase($purchase, $stock);
-                }
-                $stock->save();
+                    // pending sale-ების მიბმა status=3 purchase-ზე
+                    if ($poReceive > 0) {
+                        $po->refresh();
+                        PurchaseService::attachPendingSalesToPurchase($po, $stock);
+                    }
+                    $stock->save();
+                } // end foreach $siblings
 
                 $name = $purchase->product?->name ?? ('#'.$orderId);
-                $messages[] = $name . ': ' . $receivedQty . ' ✅' . ($remaining > 0 ? ' (' . $remaining . ' კვლავ გზაში)' : '');
+                $messages[] = $name . ': ' . $receivedQty . ' ✅' . ($totalRemaining > 0 ? ' (' . $totalRemaining . ' კვლავ გზაში)' : '');
             }
 
             if (empty($messages)) {
