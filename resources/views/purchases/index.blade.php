@@ -643,9 +643,11 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
         </div>
         @if(auth()->user()->role !== 'warehouse_operator')
         <div class="mod-actions">
+            @if(auth()->user()->role !== 'sale_operator')
             <button onclick="openInTransitSalesModal()" class="btn btn-info btn-sm">
                 <i class="fa fa-list me-1"></i><span class="d-none d-sm-inline">ახალი გაყიდვები</span>
             </button>
+            @endif
             @if(\App\Models\RolePermission::check(auth()->user()->role, 'purchases', 'can_create'))
             <button id="btn-new-purchase" onclick="openPurchaseModal()" class="btn btn-success btn-sm">
                 <i class="fa fa-plus me-1"></i><span class="d-none d-sm-inline">ახალი შესყიდვა</span>
