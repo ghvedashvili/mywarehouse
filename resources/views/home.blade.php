@@ -573,7 +573,11 @@
     gap: 12px;
     margin-bottom: 24px;
 }
-@media(min-width:768px) { .sal-wrap { grid-template-columns: repeat(4, 1fr); } }
+.sal-card-full { grid-column: 1 / -1; }
+@media(min-width:768px) {
+    .sal-wrap { grid-template-columns: repeat(3, 1fr); }
+    .sal-card-full { grid-column: auto; }
+}
 .sal-card {
     background: #fff;
     border-radius: var(--radius-lg);
@@ -878,24 +882,24 @@
             <div class="sal-sub">{{ $todayOrders->count() }} სრულად გადახდილი ორდ.</div>
         </div>
 
-        {{-- დარიცხული (თუ არსებობს) --}}
-        @if($salaryPaid)
-        <div class="sal-card" style="--sal-color:#f59e0b;">
-            <div class="sal-label">💳 დარიცხული</div>
-            <div class="sal-amount">{{ number_format($salaryPaid->total_amount, 2) }} ₾</div>
-            <div class="sal-sub">{{ $curMonthLabel }} · {{ $salaryPaid->order_count }} ორდ.</div>
-        </div>
-        @endif
-
-        {{-- დასარიცხი --}}
+        {{-- დარიცხული + დასარიცხი ერთ ქარდში --}}
         @php
-            $paidSoFar   = $salaryPaid ? (float)$salaryPaid->total_amount : 0;
-            $toAccrue    = max(0, round($salaryMonth['total_amount'] - $paidSoFar, 2));
+            $paidSoFar = $salaryPaid ? (float)$salaryPaid->total_amount : 0;
+            $toAccrue  = max(0, round($salaryMonth['total_amount'] - $paidSoFar, 2));
         @endphp
-        <div class="sal-card" style="--sal-color:#7c3aed;">
-            <div class="sal-label">⏳ დასარიცხი</div>
-            <div class="sal-amount">{{ number_format($toAccrue, 2) }} ₾</div>
-            <div class="sal-sub">გამომუშავებული − დარიცხული</div>
+        <div class="sal-card sal-card-full" style="--sal-color:#7c3aed;">
+            <div class="sal-label">ხელფასი</div>
+            <div style="display:flex;gap:16px;">
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px;">💳 დარიცხული</div>
+                    <div style="font-size:20px;font-weight:800;color:#f59e0b;letter-spacing:-.5px;line-height:1;">{{ number_format($paidSoFar, 2) }} ₾</div>
+                </div>
+                <div style="width:1px;background:rgba(0,0,0,.06);flex-shrink:0;"></div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px;">⏳ დასარიცხი</div>
+                    <div style="font-size:20px;font-weight:800;color:#7c3aed;letter-spacing:-.5px;line-height:1;">{{ number_format($toAccrue, 2) }} ₾</div>
+                </div>
+            </div>
         </div>
 
     </div>
