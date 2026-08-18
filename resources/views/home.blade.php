@@ -188,6 +188,34 @@
         ->with('orderStatus')
         ->get()
         ->keyBy('status_id');
+
+    // ── Salary widget — მხოლოდ sale_operator-ისთვის ──────────────────────
+    $salaryMonth = null;
+    $salaryToday = null;
+    $salaryPaid  = null;
+
+    if ($isSaleOp) {
+        $curMonth    = now()->format('Y-m');
+        $salaryMonth = app(\App\Services\SalaryService::class)->calculateSaleOperator($uid, $curMonth);
+
+        $policy      = \App\Models\SalaryPolicy::forRole('sale_operator', $curMonth);
+        $todayOrders = Product_Order::withoutGlobalScope('active')
+            ->where('user_id', $uid)
+            ->where('order_type', 'sale')
+            ->where('is_gift', false)
+            ->whereNotNull('fully_paid_at')
+            ->whereDate('fully_paid_at', today())
+            ->get(['id', 'price_georgia', 'sale_from']);
+
+        $todayBase   = $todayOrders->count() * (float) $policy->sale_base_per_order;
+        $todayBonus  = $todayOrders->where('sale_from', 1)
+            ->sum(fn($o) => $o->price_georgia * (float) $policy->sale_bonus_percent);
+        $salaryToday = round($todayBase + $todayBonus, 2);
+
+        $salaryPaid = \App\Models\SalaryPayment::where('user_id', $uid)
+            ->where('period_month', $curMonth)
+            ->latest()->first();
+    }
 @endphp
 
 @section('top')
@@ -538,6 +566,52 @@
 
 @media(min-width:1100px) { .kpi-grid.kpi-saleop { grid-template-columns: repeat(3,1fr); } }
 
+/* ── Salary widget ── */
+.sal-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+@media(min-width:768px) { .sal-wrap { grid-template-columns: repeat(4, 1fr); } }
+.sal-card {
+    background: #fff;
+    border-radius: var(--radius-lg);
+    padding: 18px 16px 16px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid rgba(0,0,0,.04);
+    position: relative;
+    overflow: hidden;
+}
+.sal-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--sal-color, #16a34a);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.sal-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: #94a3b8;
+    margin-bottom: 10px;
+}
+.sal-amount {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -.5px;
+    color: var(--sal-color, #16a34a);
+    line-height: 1;
+}
+.sal-sub {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 6px;
+}
+
 /* ══════════════════════════════════════════════
    RECORD DAY — two gradient cards side by side
 ══════════════════════════════════════════════ */
@@ -764,6 +838,66 @@
                 <div class="rev-stats" id="rev-status-breakdown"></div>
             </div>
         </div>
+    </div>
+    @endif
+
+    {{-- ── Salary widget — sale_operator only ── --}}
+    @if($isSaleOp && $salaryMonth)
+    @php
+        $geoMonthNames = ['იანვარი','თებერვალი','მარტი','აპრილი','მაისი','ივნისი','ივლისი','აგვისტო','სექტემბერი','ოქტომბერი','ნოემბერი','დეკემბერი'];
+        $curMonthLabel = $geoMonthNames[now()->month - 1];
+    @endphp
+    <p class="db-section-title">💰 ჩემი გამომუშავება</p>
+    <div class="sal-wrap">
+
+        {{-- მიმდინარე თვე --}}
+        <div class="sal-card" style="--sal-color:#16a34a;">
+            <div class="sal-label">{{ $curMonthLabel }}</div>
+            <div class="sal-amount">{{ number_format($salaryMonth['total_amount'], 2) }} ₾</div>
+            @php
+                $netBonus = round(($salaryMonth['bonus_amount'] ?? 0) - ($salaryMonth['deduction_amount'] ?? 0), 2);
+            @endphp
+            <div class="sal-sub">
+                {{ $salaryMonth['order_count'] }} ორდ.
+                @if($salaryMonth['deduction_count'] > 0)
+                    −({{ $salaryMonth['deduction_count'] }} დაქვ.)
+                @endif
+                @if($netBonus != 0)
+                    &nbsp;{{ $netBonus > 0 ? '+' : '' }}{{ number_format($netBonus, 2) }}₾ ბონ.
+                @endif
+                @if(($salaryMonth['purchase_deduction'] ?? 0) > 0)
+                    &nbsp;−{{ number_format($salaryMonth['purchase_deduction'], 2) }}₾ შენაძენები
+                @endif
+            </div>
+        </div>
+
+        {{-- დღეს --}}
+        <div class="sal-card" style="--sal-color:#2563eb;">
+            <div class="sal-label">📅 დღეს</div>
+            <div class="sal-amount">{{ number_format($salaryToday, 2) }} ₾</div>
+            <div class="sal-sub">{{ $todayOrders->count() }} სრულად გადახდილი ორდ.</div>
+        </div>
+
+        {{-- დარიცხული (თუ არსებობს) --}}
+        @if($salaryPaid)
+        <div class="sal-card" style="--sal-color:#f59e0b;">
+            <div class="sal-label">💳 დარიცხული</div>
+            <div class="sal-amount">{{ number_format($salaryPaid->total_amount, 2) }} ₾</div>
+            <div class="sal-sub">{{ $curMonthLabel }} · {{ $salaryPaid->order_count }} ორდ.</div>
+        </div>
+        @endif
+
+        {{-- დასარიცხი --}}
+        @php
+            $paidSoFar   = $salaryPaid ? (float)$salaryPaid->total_amount : 0;
+            $toAccrue    = max(0, round($salaryMonth['total_amount'] - $paidSoFar, 2));
+        @endphp
+        <div class="sal-card" style="--sal-color:#7c3aed;">
+            <div class="sal-label">⏳ დასარიცხი</div>
+            <div class="sal-amount">{{ number_format($toAccrue, 2) }} ₾</div>
+            <div class="sal-sub">გამომუშავებული − დარიცხული</div>
+        </div>
+
     </div>
     @endif
 
