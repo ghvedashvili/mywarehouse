@@ -3144,7 +3144,7 @@ function showStatusLog(orderId) {
             var from = isCreation ? '<span style="color:#94a3b8;font-size:11px;">— (შექმნა)</span>' : '<span class="label label-'+log.from_status.color+'">'+log.from_status.name+'</span>';
             var to   = log.to_status ? '<span class="label label-'+log.to_status.color+'">'+log.to_status.name+'</span>' : '<span class="text-muted">—</span>';
             html += '<tr'+(isCreation?' style="background:#f0fdf4;"':'')+'>'+
-                '<td style="white-space:nowrap;font-size:12px;color:#555;font-family:monospace;">'+log.changed_at+'</td>'+
+                '<td style="font-size:11px;color:#555;font-family:monospace;min-width:72px;max-width:80px;">'+(log.changed_at ? log.changed_at.replace(' ','<br>') : '—')+'</td>'+
                 '<td>'+from+'</td>'+
                 '<td>'+to+'</td>'+
                 '<td style="font-size:12px;">'+( log.user ? log.user.name : '—')+'</td>'+
@@ -3295,6 +3295,7 @@ $(document).on('click', '.expand-btn', function() {
             if (order.can_edit) {
                 actHtml += '<a onclick="editForm('+order.id+')" class="btn btn-xs btn-primary" title="რედ."><i class="fa fa-pen"></i></a>';
                 if (order.status_id != 4) actHtml += '<a onclick="deleteData('+order.id+')" class="btn btn-xs btn-danger" title="წაშლა"><i class="fa fa-trash"></i></a>';
+                actHtml += '<a onclick="showStatusLog('+order.id+')" class="btn btn-xs btn-warning" title="ისტორია"><i class="fa fa-clock-rotate-left"></i></a>';
             }
             var statusBadge = '<span class="label label-'+order.status_color+'" style="font-size:10px;">'+order.status_name+'</span>';
             mobHtml += '<div class="mob-child-item">'
