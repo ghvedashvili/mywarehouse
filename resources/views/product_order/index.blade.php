@@ -1681,9 +1681,9 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 </div>
 
 <div class="modal fade" id="modal-change" tabindex="-1" role="dialog" data-bs-backdrop="static">
-    <div class="modal-dialog modal-md">
+    <div class="modal-dialog modal-md modal-dialog-scrollable">
         <div class="modal-content" style="border-radius:10px;">
-            <form id="form-change">
+            <form id="form-change" style="display:flex;flex-direction:column;min-height:0;flex:1;overflow:hidden;">
                 @csrf
                 <input type="hidden" name="original_sale_id" id="change_original_sale_id">
                 <div class="modal-header" style="background:#f39c12;color:#fff;border-radius:10px 10px 0 0;">
