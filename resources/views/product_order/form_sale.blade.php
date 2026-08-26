@@ -9,6 +9,7 @@
 }
 #modal-sale .modal-header  { background: linear-gradient(135deg,#1a1a2e 0%,#16213e 60%,#0f3460 100%); padding: 14px 20px; flex-shrink: 0; }
 #modal-sale .modal-body    { background: #f4f6fb; padding: 18px; overflow-y: auto; flex: 1; min-height: 0; overscroll-behavior: contain; }
+body.modal-open            { overscroll-behavior-y: none; }
 #modal-sale .modal-footer  { background: #fff; border-top: 1px solid #e9ecef; padding: 10px 18px; flex-shrink: 0; }
 @media (max-width: 575.98px) {
     #modal-sale .modal-content { max-height: 100vh; border-radius: 0; }
