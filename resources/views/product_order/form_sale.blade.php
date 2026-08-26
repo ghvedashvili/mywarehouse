@@ -2,10 +2,17 @@
 
 <style>
 /* ── Modal shell ── */
-#modal-sale .modal-content { border-radius: 16px; overflow: hidden; }
-#modal-sale .modal-header  { background: linear-gradient(135deg,#1a1a2e 0%,#16213e 60%,#0f3460 100%); padding: 14px 20px; }
-#modal-sale .modal-body    { background: #f4f6fb; padding: 18px; }
-#modal-sale .modal-footer  { background: #fff; border-top: 1px solid #e9ecef; padding: 10px 18px; }
+#modal-sale .modal-content {
+    border-radius: 16px; overflow: hidden;
+    display: flex; flex-direction: column;
+    max-height: calc(100vh - 3rem);
+}
+#modal-sale .modal-header  { background: linear-gradient(135deg,#1a1a2e 0%,#16213e 60%,#0f3460 100%); padding: 14px 20px; flex-shrink: 0; }
+#modal-sale .modal-body    { background: #f4f6fb; padding: 18px; overflow-y: auto; flex: 1; min-height: 0; }
+#modal-sale .modal-footer  { background: #fff; border-top: 1px solid #e9ecef; padding: 10px 18px; flex-shrink: 0; }
+@media (max-width: 575.98px) {
+    #modal-sale .modal-content { max-height: 100vh; border-radius: 0; }
+}
 
 /* ── Section cards ── */
 .sc { background:#fff; border-radius:12px; padding:14px 16px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
@@ -156,11 +163,11 @@
                                     <div style="display:flex;align-items:center;gap:12px;">
                                         <div class="form-check form-switch mb-0" style="padding-left:0;display:flex;align-items:center;gap:6px;">
                                             <input class="form-check-input" type="checkbox" role="switch" id="toggle-warehouse-sale" style="width:32px;height:18px;margin:0;cursor:pointer;flex-shrink:0;">
-                                            <label class="form-check-label mb-0" for="toggle-warehouse-sale" style="font-size:11px;font-weight:700;color:#1a4fa0;cursor:pointer;white-space:nowrap;line-height:1;"><i class="bi bi-building-check me-1"></i>საწყობშია</label>
+                                            <label class="form-check-label mb-0" for="toggle-warehouse-sale" style="font-size:11px;font-weight:700;color:#1a4fa0;cursor:pointer;white-space:nowrap;line-height:1;"><i class="bi bi-building-check"></i><span class="d-none d-md-inline ms-1">საწყობშია</span></label>
                                         </div>
                                         <div class="form-check form-switch mb-0" style="padding-left:0;display:flex;align-items:center;gap:6px;">
                                             <input class="form-check-input" type="checkbox" role="switch" id="toggle-transit-sale" style="width:32px;height:18px;margin:0;cursor:pointer;flex-shrink:0;">
-                                            <label class="form-check-label mb-0" for="toggle-transit-sale" style="font-size:11px;font-weight:700;color:#a05c00;cursor:pointer;white-space:nowrap;line-height:1;"><i class="bi bi-truck me-1"></i>გზაშია</label>
+                                            <label class="form-check-label mb-0" for="toggle-transit-sale" style="font-size:11px;font-weight:700;color:#a05c00;cursor:pointer;white-space:nowrap;line-height:1;"><i class="bi bi-truck"></i><span class="d-none d-md-inline ms-1">გზაშია</span></label>
                                         </div>
                                     </div>
                                     <button type="button" id="add-sale-line" class="btn btn-sm fw-semibold" style="background:#e8faf0;color:#1a7a4a;border:1.5px solid #b7e4c7;border-radius:20px;font-size:11px;padding:3px 12px;line-height:1;white-space:nowrap;">
