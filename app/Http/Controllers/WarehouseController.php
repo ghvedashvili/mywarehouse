@@ -430,22 +430,44 @@ class WarehouseController extends Controller
     }
 
     // ─── ფინანსური შეჯამება (summary bar) ────────────────────────────
-    public function financials(): \Illuminate\Http\JsonResponse
+    public function financials(Request $request): \Illuminate\Http\JsonResponse
     {
         abort_if(auth()->user()->role !== 'admin', 403);
-        $stock   = Warehouse::with('product')->get();
+
+        $query = Warehouse::with('product');
+        if ($request->filled('category_id')) {
+            $query->whereHas('product', fn($q) => $q->where('category_id', $request->category_id));
+        }
+        $sizes = array_filter((array) $request->input('sizes', []));
+        if (!empty($sizes)) {
+            $query->whereIn('size', $sizes);
+        }
+
+        $stock   = $query->get();
         $costMap = $this->buildCostMap(
             $stock->pluck('product_id')->unique()->values()->toArray()
         );
 
-        $totalAvailable = 0;
-        $totalCost      = 0.0;
-        $totalRevenue   = 0.0;
+        $totalAvailable  = 0;
+        $totalCost       = 0.0;
+        $totalRevenue    = 0.0;
+        $totalDivisibleMl = 0.0;
 
         foreach ($stock as $row) {
-            if ($row->size === 'divisible') continue;
             $available = $row->available_qty;
             if ($available <= 0) continue;
+
+            if ($row->size === 'divisible') {
+                $totalDivisibleMl += $available;
+                $key = $row->product_id . '|divisible';
+                if (isset($costMap[$key]) && $costMap[$key]['total_qty'] > 0) {
+                    $avgCost    = $costMap[$key]['total_cost'] / $costMap[$key]['total_qty'];
+                    $totalCost += $available * $avgCost;
+                }
+                $priceGeo      = (float)($row->product->price_geo ?? 0);
+                $totalRevenue += $available * $priceGeo;
+                continue;
+            }
 
             $key = $row->product_id . '|' . ($row->size ?? '');
             if (isset($costMap[$key]) && $costMap[$key]['total_qty'] > 0) {
@@ -459,10 +481,11 @@ class WarehouseController extends Controller
         }
 
         return response()->json([
-            'available' => $totalAvailable,
-            'cost'      => round($totalCost, 2),
-            'revenue'   => round($totalRevenue, 2),
-            'profit'    => round($totalRevenue - $totalCost, 2),
+            'available'     => $totalAvailable,
+            'divisible_ml'  => round($totalDivisibleMl, 2),
+            'cost'          => round($totalCost, 2),
+            'revenue'       => round($totalRevenue, 2),
+            'profit'        => round($totalRevenue - $totalCost, 2),
         ]);
     }
 

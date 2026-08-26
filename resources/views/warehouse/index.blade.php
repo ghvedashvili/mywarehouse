@@ -308,6 +308,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
             <div>
                 <div class="fin-val" id="fin-available">—</div>
                 <div class="fin-lbl">ხელმისაწვდომი ნაშთი</div>
+                <div id="fin-divisible-ml" style="display:none;font-size:11px;color:#8e6f00;font-weight:600;margin-top:2px;"></div>
             </div>
         </div>
         <div class="fin-sep"></div>
@@ -697,16 +698,28 @@ $(function() {
     var isAdmin         = {{ auth()->user()->role == 'admin' ? 'true' : 'false' }};
 
     // ─── Financial summary bar (admin only) ──────────────────────────
-    if (isAdmin) {
-        $.getJSON("{{ route('warehouse.financials') }}", function(d) {
+    function loadFinancials() {
+        var params = {
+            category_id: $('#filter-category').val() || '',
+            sizes: $('#filter-size').val() || []
+        };
+        $.getJSON("{{ route('warehouse.financials') }}", params, function(d) {
             $('#fin-available').text(d.available + ' ც');
-            $('#fin-cost').text('$' + parseFloat(d.cost).toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2}));
+            if (d.divisible_ml && d.divisible_ml > 0) {
+                var ml = parseFloat(d.divisible_ml);
+                var mlTxt = ml % 1 === 0 ? ml.toFixed(0) : ml.toFixed(1);
+                $('#fin-divisible-ml').text('+' + mlTxt + ' ml').show();
+            } else {
+                $('#fin-divisible-ml').hide();
+            }
+            $('#fin-cost').text('$ ' + parseFloat(d.cost).toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2}));
             $('#fin-revenue').text(parseFloat(d.revenue).toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ₾');
             var profit = parseFloat(d.profit);
             $('#fin-profit').text(profit.toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ₾')
                             .css('color', profit >= 0 ? 'var(--wh-green)' : 'var(--wh-red)');
         });
     }
+    if (isAdmin) { loadFinancials(); }
     // ─────────────────────────────────────────────────────────────────
 
     var stockTable = $('#stock-table').DataTable({
@@ -767,9 +780,9 @@ $(function() {
     $('#dt-search').on('keyup', function() { stockTable.search(this.value).draw(); });
     $('#dt-page-length').on('change', function() { stockTable.page.len(this.value).draw(); });
     $('#filter-category').select2({ placeholder: 'ყველა კატეგორია', allowClear: true, width: '170px' });
-    $('#filter-category').on('change', function() { stockTable.ajax.reload(); });
+    $('#filter-category').on('change', function() { stockTable.ajax.reload(); if (isAdmin) loadFinancials(); });
     $('#filter-size').select2({ placeholder: 'ყველა ზომა', allowClear: true, width: '180px' });
-    $('#filter-size').on('change', function() { stockTable.ajax.reload(); });
+    $('#filter-size').on('change', function() { stockTable.ajax.reload(); if (isAdmin) loadFinancials(); });
 
     // ══ WRITE-OFF MODAL ══
     var woStockData   = [];
