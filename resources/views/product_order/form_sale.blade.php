@@ -1,65 +1,188 @@
 @php $isAdmin = auth()->check() && auth()->user()->role == 'admin'; @endphp
 
 <style>
+/* ══════════════════════════════════════════════════════
+   SALE MODAL — Design System
+   ══════════════════════════════════════════════════════ */
+
+/* ── Desktop: entry animation ── */
+#modal-sale.fade .modal-dialog {
+    transform: scale(.97) translateY(10px);
+    opacity: 0;
+    transition: transform .28s cubic-bezier(.22,1,.36,1), opacity .22s ease;
+}
+#modal-sale.show .modal-dialog {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+}
+
 /* ── Modal shell ── */
 #modal-sale .modal-content {
-    border-radius: 16px; overflow: hidden;
-    display: flex; flex-direction: column;
-    max-height: calc(100vh - 3rem);
+    border-radius: 20px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 80px);
+    border: 0;
+    box-shadow: 0 24px 72px rgba(0,0,0,.22), 0 0 0 1px rgba(255,255,255,.06);
 }
-#modal-sale .modal-header  { background: linear-gradient(135deg,#1a1a2e 0%,#16213e 60%,#0f3460 100%); padding: 14px 20px; flex-shrink: 0; }
-#modal-sale .modal-body    { background: #f4f6fb; padding: 18px; overflow-y: auto; flex: 1; min-height: 0; }
-#modal-sale .modal-footer  { background: #fff; border-top: 1px solid #e9ecef; padding: 10px 18px; flex-shrink: 0; }
+
+/* ── Header ── */
+#modal-sale .modal-header {
+    background: linear-gradient(135deg, #0d1b3e 0%, #162754 55%, #0f3460 100%);
+    padding: 18px 22px;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+    border-bottom: 0;
+}
+#modal-sale .modal-header::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 80% 0%, rgba(100,160,255,.12) 0%, transparent 60%);
+    pointer-events: none;
+}
+
+/* ── Body ── */
+#modal-sale .modal-body {
+    background: #eef1f9;
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+/* ── Footer ── */
+#modal-sale .modal-footer {
+    background: #fff;
+    border-top: 1px solid #e4e8f2;
+    padding: 12px 20px;
+    flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════════════════
+   MOBILE — BOTTOM SHEET
+   ══════════════════════════════════════════════════════ */
 @media (max-width: 575.98px) {
-    #modal-sale .modal-content { max-height: 100vh; border-radius: 0; }
+
+    /* Anchor to bottom edge */
+    #modal-sale {
+        align-items: flex-end !important;
+        padding: 0 !important;
+    }
+
+    /* Slide-up animation */
+    #modal-sale.fade .modal-dialog {
+        transform: translateY(100%) !important;
+        opacity: 1 !important;
+        transition: transform .4s cubic-bezier(.32,1.08,.64,1) !important;
+    }
+    #modal-sale.show .modal-dialog {
+        transform: translateY(0) !important;
+        opacity: 1 !important;
+    }
+
+    /* Sheet dimensions */
+    #modal-sale .modal-dialog {
+        margin: 0;
+        max-width: 100%;
+        width: 100%;
+        height: auto;
+        max-height: 92dvh;
+    }
+
+    /* Sheet shape */
+    #modal-sale .modal-content {
+        border-radius: 22px 22px 0 0;
+        height: auto;
+        max-height: 92dvh;
+        box-shadow: 0 -8px 40px rgba(0,0,0,.2);
+    }
+
+    /* Drag handle */
+    #modal-sale .modal-header::before {
+        content: '';
+        position: absolute;
+        top: calc(10px + env(safe-area-inset-top));
+        left: 50%;
+        transform: translateX(-50%);
+        width: 36px;
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(255,255,255,.28);
+        z-index: 1;
+    }
+
+    /* Notch / Dynamic Island */
+    #modal-sale .modal-header {
+        padding-top: calc(26px + env(safe-area-inset-top));
+    }
+
+    /* Home indicator */
+    #modal-sale .modal-footer {
+        padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    }
 }
 
 /* ── Section cards ── */
-.sc { background:#fff; border-radius:12px; padding:14px 16px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
-.sc-title {
-    font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.8px;
-    color:#8e9bb5; margin-bottom:12px; display:flex; align-items:center; gap:6px;
+.sc {
+    background: #fff;
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.05), 0 4px 12px rgba(0,0,0,.04);
+    border: 1px solid rgba(0,0,0,.04);
 }
-.sc-title i { font-size:13px; }
+.sc-title {
+    font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .8px;
+    color: #8e9bb5; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
+}
+.sc-title i { font-size: 13px; }
 
 /* ── Product item row ── */
 .sale-item-row {
-    background: #fafbff;
-    border: 1.5px solid #e8eaf0;
-    border-radius: 10px;
+    background: #f7f9ff;
+    border: 1.5px solid #e6e9f5;
+    border-radius: 12px;
     padding: 10px 12px 8px;
     margin-bottom: 8px;
-    transition: border-color .2s;
+    transition: border-color .18s, box-shadow .18s;
 }
-.sale-item-row:focus-within { border-color: #6c8ebf; }
+.sale-item-row:focus-within {
+    border-color: #4e7fd5;
+    box-shadow: 0 0 0 3px rgba(78,127,213,.1);
+}
 
 .sale-col-label {
     font-size: 9px; font-weight: 700; text-transform: uppercase;
     color: #aab; letter-spacing: .5px; margin-bottom: 3px;
 }
 
-/* Price badges */
+/* ── Price badges ── */
 .price-pill-gel {
-    background: #e8faf0; color: #1a7a4a; border: 1px solid #b7e4c7;
+    background: linear-gradient(135deg,#e6faf1,#d4f5e4);
+    color: #176b41; border: 1px solid #b7e4c7;
     border-radius: 20px; padding: 0 10px; font-size: 12px; font-weight: 700;
     white-space: nowrap; text-align: center; min-width: 60px;
     display: inline-flex; align-items: center; justify-content: center;
     height: 31px; box-sizing: border-box;
 }
 .price-pill-usd {
-    background: #eaf2ff; color: #1a4fa0; border: 1px solid #b8d0f5;
+    background: linear-gradient(135deg,#e8f1ff,#d8e8ff);
+    color: #1a4fa0; border: 1px solid #b8d0f5;
     border-radius: 20px; padding: 0 10px; font-size: 12px; font-weight: 700;
     white-space: nowrap; text-align: center; min-width: 60px;
     display: inline-flex; align-items: center; justify-content: center;
     height: 31px; box-sizing: border-box;
 }
 
-/* Stock indicator */
-.sale-row-stock { font-size: 11px; margin-top: 6px; padding: 4px 8px; background: #f0f4ff; border-radius: 6px; }
+/* ── Stock indicator ── */
+.sale-row-stock { font-size: 11px; margin-top: 6px; padding: 4px 10px; background: #eef2ff; border-radius: 8px; }
 
 /* ── Customer info block ── */
 #customer_info_fields {
-    background: #f8f9ff; border: 1.5px solid #dde3f5; border-radius: 10px;
+    background: #f6f8ff; border: 1.5px solid #dde3f5; border-radius: 12px;
     padding: 12px; margin-top: 10px;
 }
 .cust-field-label { font-size: 10px; font-weight: 700; color: #8e9bb5; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px; }
@@ -72,32 +195,36 @@
 .courier-pill-group { display: flex; flex-wrap: wrap; gap: 6px; }
 .courier-pill-group input[type=radio] { display: none; }
 .courier-pill-group label {
-    padding: 5px 12px; border-radius: 20px; border: 1.5px solid #d0d7e8;
+    padding: 5px 13px; border-radius: 20px; border: 1.5px solid #d0d7e8;
     font-size: 12px; font-weight: 600; color: #5a6480; cursor: pointer;
     background: #fff; transition: all .15s; white-space: nowrap;
 }
 .courier-pill-group input[type=radio]:checked + label {
-    background: #0f3460; border-color: #0f3460; color: #fff;
+    background: linear-gradient(135deg,#162754,#0f3460);
+    border-color: #0f3460; color: #fff;
+    box-shadow: 0 2px 8px rgba(15,52,96,.3);
 }
-.courier-pill-group label:hover { border-color: #0f3460; color: #0f3460; }
+.courier-pill-group label:hover { border-color: #4e7fd5; color: #1a4fa0; }
 
 /* ── Photo box ── */
 .sale-photo-box {
-    height: 130px; border-radius: 10px; border: 2px dashed #d0d7e8;
+    height: 130px; border-radius: 12px; border: 2px dashed #c8d2e8;
     display: flex; align-items: center; justify-content: center;
-    background: #f8f9ff; overflow: hidden; margin-bottom: 12px;
+    background: #f6f8ff; overflow: hidden; margin-bottom: 12px;
 }
-.sale-photo-box img { max-height: 100%; max-width: 100%; object-fit: cover; border-radius: 8px; }
+.sale-photo-box img { max-height: 100%; max-width: 100%; object-fit: cover; border-radius: 10px; }
 
 /* ── Save button ── */
 #btn-sale-save {
-    background: linear-gradient(135deg,#1a7a4a,#28a063);
-    border: none; border-radius: 10px; padding: 9px 28px;
+    background: linear-gradient(135deg,#176b41,#22a05a);
+    border: none; border-radius: 12px; padding: 10px 28px;
     font-weight: 700; font-size: 14px; letter-spacing: .3px;
+    box-shadow: 0 4px 14px rgba(23,107,65,.3);
+    transition: opacity .15s, box-shadow .15s;
 }
-#btn-sale-save:hover { opacity: .92; }
+#btn-sale-save:hover { opacity: .92; box-shadow: 0 6px 18px rgba(23,107,65,.38); }
 
-/* ── Scrollable stock info ── */
+/* ── Products scroll area ── */
 .sale-items-wrapper { max-height: 320px; overflow-y: auto; padding-right: 2px; }
 @media (max-width: 767px) {
     .sale-items-wrapper { max-height: none; overflow-y: visible; }
@@ -106,7 +233,7 @@
 </style>
 
 <div class="modal fade" id="modal-sale" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
 
             {{-- HEADER --}}
