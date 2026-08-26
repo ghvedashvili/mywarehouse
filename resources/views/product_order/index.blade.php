@@ -2705,16 +2705,41 @@ function openCustomerCreate() { $('#modal-form').modal('show'); }
 $('#modal-form').on('hidden.bs.modal', function() {
     if ($('#modal-sale').hasClass('in') || $('#modal-sale').is(':visible')) $('body').addClass('modal-open');
 });
-$('#modal-sale').on('hidden.bs.modal', function() {
-    $('#product-options-template option[data-inactive="1"]').remove();
-    isEditMode = false;
-    // reset warehouse + transit toggles + caches
-    _physAvailCache = {};
-    _incomingAvailCache = {};
-    _transitOnlyMode = false;
-    $('#toggle-transit-sale').prop('checked', false);
-    $('#toggle-warehouse-sale').prop('checked', false).trigger('change');
-});
+// pull-to-refresh prevention for modal-sale
+(function() {
+    var _saleModalBody = null;
+    function _blockPullToRefresh(e) {
+        if (!_saleModalBody) return;
+        var touch = e.touches[0];
+        if (_saleModalBody.contains(e.target) && _saleModalBody.scrollHeight > _saleModalBody.clientHeight) {
+            // at the very top and trying to scroll up — block it
+            if (_saleModalBody.scrollTop === 0 && e.touches[0].clientY > (_blockPullToRefresh._startY || 0)) {
+                e.preventDefault();
+            }
+            return;
+        }
+        e.preventDefault();
+    }
+    function _recordStartY(e) { _blockPullToRefresh._startY = e.touches[0].clientY; }
+
+    $('#modal-sale').on('shown.bs.modal', function() {
+        _saleModalBody = this.querySelector('.modal-body');
+        document.addEventListener('touchstart', _recordStartY, { passive: true });
+        document.addEventListener('touchmove', _blockPullToRefresh, { passive: false });
+    }).on('hidden.bs.modal', function() {
+        document.removeEventListener('touchstart', _recordStartY);
+        document.removeEventListener('touchmove', _blockPullToRefresh);
+        _saleModalBody = null;
+        $('#product-options-template option[data-inactive="1"]').remove();
+        isEditMode = false;
+        // reset warehouse + transit toggles + caches
+        _physAvailCache = {};
+        _incomingAvailCache = {};
+        _transitOnlyMode = false;
+        $('#toggle-transit-sale').prop('checked', false);
+        $('#toggle-warehouse-sale').prop('checked', false).trigger('change');
+    });
+})();
 
 // ── "საწყობშია" toggle ───────────────────────────────────────────────
 var _warehouseOnlyMode = false;
