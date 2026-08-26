@@ -2126,14 +2126,17 @@ $(function() {
     var POST    = '{{ route("chat.store") }}';
     var CSRF    = '{{ csrf_token() }}';
 
-    var panel   = document.getElementById('chat-panel');
-    var toggle  = document.getElementById('chat-toggle');
-    var msgBox  = document.getElementById('chat-messages');
-    var input   = document.getElementById('chat-input');
-    var badge   = document.getElementById('chat-badge');
-    var lastId  = 0;
-    var unread  = 0;
-    var open    = false;
+    var panel      = document.getElementById('chat-panel');
+    var toggle     = document.getElementById('chat-toggle');
+    var msgBox     = document.getElementById('chat-messages');
+    var input      = document.getElementById('chat-input');
+    var badge      = document.getElementById('chat-badge');
+    var lastId     = 0;
+    var oldestId   = Infinity;
+    var unread     = 0;
+    var open       = false;
+    var loadingOld = false;
+    var noMoreOld  = false;
 
     document.getElementById('chat-close').addEventListener('click', closeChat);
 
@@ -2155,9 +2158,58 @@ $(function() {
         .then(function (r) { return r.json(); })
         .then(function (msgs) {
             msgs.forEach(appendMsg);
-            if (msgs.length) lastId = msgs[msgs.length - 1].id;
+            if (msgs.length) {
+                lastId   = msgs[msgs.length - 1].id;
+                oldestId = msgs[0].id;
+                if (msgs.length < 40) noMoreOld = true;
+            } else {
+                noMoreOld = true;
+            }
             scrollBottom();
         });
+
+    /* ── Load older messages on scroll to top ── */
+    msgBox.addEventListener('scroll', function () {
+        if (msgBox.scrollTop > 60 || loadingOld || noMoreOld) return;
+        loadingOld = true;
+
+        var loader = document.createElement('div');
+        loader.className = 'cm-date-divider';
+        loader.id = 'cm-loader';
+        loader.textContent = 'იტვირთება...';
+        msgBox.insertBefore(loader, msgBox.firstChild);
+
+        fetch(RECENT + '?before=' + oldestId, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.json(); })
+            .then(function (msgs) {
+                var loaderEl = document.getElementById('cm-loader');
+                if (loaderEl) loaderEl.remove();
+
+                if (!msgs.length) { noMoreOld = true; loadingOld = false; showNoMore(); return; }
+
+                var oldHeight = msgBox.scrollHeight;
+                var frag = document.createDocumentFragment();
+                var tempDiv = document.createElement('div');
+                msgs.forEach(function (m) {
+                    prependMsg(m, frag);
+                });
+                msgBox.insertBefore(frag, msgBox.firstChild);
+                msgBox.scrollTop = msgBox.scrollHeight - oldHeight;
+
+                oldestId = msgs[0].id;
+                if (msgs.length < 40) { noMoreOld = true; showNoMore(); }
+                loadingOld = false;
+            });
+    });
+
+    function showNoMore() {
+        if (document.getElementById('cm-no-more')) return;
+        var el = document.createElement('div');
+        el.className = 'cm-date-divider';
+        el.id = 'cm-no-more';
+        el.textContent = 'ისტორიის დასაწყისი';
+        msgBox.insertBefore(el, msgBox.firstChild);
+    }
 
     /* ── Notification sound ── */
     function playSound() {
@@ -2225,6 +2277,28 @@ $(function() {
         this.style.height = 'auto';
         this.style.height = Math.min(this.scrollHeight, 90) + 'px';
     });
+
+    /* ── Prepend older message into fragment ── */
+    function prependMsg(m, frag) {
+        var mine = m.user_id == ME;
+        var wrap = document.createElement('div');
+        wrap.className = 'cm-wrap ' + (mine ? 'mine' : 'theirs');
+        if (!mine) {
+            var nm = document.createElement('div');
+            nm.className = 'cm-name';
+            nm.textContent = m.name;
+            wrap.appendChild(nm);
+        }
+        var bubble = document.createElement('div');
+        bubble.className = 'cm-bubble';
+        bubble.textContent = m.body;
+        wrap.appendChild(bubble);
+        var time = document.createElement('div');
+        time.className = 'cm-time';
+        time.textContent = m.time;
+        wrap.appendChild(time);
+        frag.appendChild(wrap);
+    }
 
     /* ── Append message ── */
     var lastDate = '';
@@ -2297,53 +2371,42 @@ $(function() {
         });
     })();
 
-    /* ── Drag + tap toggle button ── */
+    /* ── Drag + tap toggle button (Pointer Events) ── */
     (function () {
         var startX, startY, origLeft, origBottom, dragging = false, moved = false;
 
-        function dragStart(cx, cy) {
+        toggle.addEventListener('pointerdown', function (e) {
+            if (e.button !== undefined && e.button !== 0) return;
             var rect = toggle.getBoundingClientRect();
-            startX = cx; startY = cy;
+            startX = e.clientX; startY = e.clientY;
             origLeft   = rect.left;
             origBottom = window.innerHeight - rect.bottom;
             dragging = true; moved = false;
+            toggle.setPointerCapture(e.pointerId);
             toggle.style.transition = 'none';
-        }
-        function dragMove(cx, cy) {
+            e.preventDefault();
+        });
+
+        toggle.addEventListener('pointermove', function (e) {
             if (!dragging) return;
-            var dx = cx - startX, dy = cy - startY;
-            if (Math.abs(dx) > 5 || Math.abs(dy) > 5) moved = true;
-            toggle.style.left   = Math.max(0, origLeft   + dx) + 'px';
-            toggle.style.bottom = Math.max(0, origBottom - dy) + 'px';
-        }
-        function dragEnd() {
+            var dx = e.clientX - startX, dy = e.clientY - startY;
+            if (Math.abs(dx) > 6 || Math.abs(dy) > 6) moved = true;
+            if (moved) {
+                toggle.style.left   = Math.max(0, origLeft   + dx) + 'px';
+                toggle.style.bottom = Math.max(0, origBottom - dy) + 'px';
+            }
+        });
+
+        toggle.addEventListener('pointerup', function (e) {
             if (!dragging) return;
             dragging = false;
             toggle.style.transition = '';
             if (!moved) { open ? closeChat() : openChat(); }
-        }
-
-        /* mouse */
-        toggle.addEventListener('mousedown', function (e) {
-            if (e.button !== 0) return;
-            dragStart(e.clientX, e.clientY);
-            e.preventDefault();
         });
-        document.addEventListener('mousemove', function (e) { dragMove(e.clientX, e.clientY); });
-        document.addEventListener('mouseup', dragEnd);
 
-        /* touch */
-        toggle.addEventListener('touchstart', function (e) {
-            var t = e.touches[0];
-            dragStart(t.clientX, t.clientY);
-        }, { passive: true });
-        document.addEventListener('touchmove', function (e) {
-            if (!dragging) return;
-            var t = e.touches[0];
-            dragMove(t.clientX, t.clientY);
-        }, { passive: true });
-        document.addEventListener('touchend', function (e) {
-            dragEnd();
+        toggle.addEventListener('pointercancel', function () {
+            dragging = false;
+            toggle.style.transition = '';
         });
     })();
 })();

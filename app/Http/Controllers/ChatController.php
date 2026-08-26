@@ -47,11 +47,14 @@ class ChatController extends Controller
         ]);
     }
 
-    public function recent()
+    public function recent(Request $request)
     {
+        $before = $request->input('before', PHP_INT_MAX);
+
         $messages = ChatMessage::with('user:id,name')
+            ->where('id', '<', $before)
             ->orderByDesc('id')
-            ->limit(60)
+            ->limit(40)
             ->get()
             ->reverse()
             ->values()
