@@ -1200,11 +1200,13 @@ function closeSidebar() {
     var wrap = document.getElementById('ptr-wrap');
     if (!wrap) return;
     var startY = 0, dragging = false, THRESHOLD = 72;
+    function _modalOpen() { return document.body.classList.contains('modal-open'); }
     document.addEventListener('touchstart', function(e) {
+        if (_modalOpen()) return;
         if (window.scrollY <= 0) { startY = e.touches[0].clientY; dragging = true; }
     }, { passive: true });
     document.addEventListener('touchmove', function(e) {
-        if (!dragging) return;
+        if (!dragging || _modalOpen()) { wrap.classList.remove('ptr-show', 'ptr-ready'); return; }
         var pull = e.touches[0].clientY - startY;
         if (pull > 18 && window.scrollY <= 0) {
             wrap.classList.add('ptr-show');
@@ -1215,7 +1217,7 @@ function closeSidebar() {
     }, { passive: true });
     document.addEventListener('touchend', function() {
         if (!dragging) return; dragging = false;
-        if (wrap.classList.contains('ptr-ready')) {
+        if (!_modalOpen() && wrap.classList.contains('ptr-ready')) {
             wrap.classList.add('ptr-loading');
             setTimeout(function() { window.location.reload(); }, 400);
         } else {

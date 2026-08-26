@@ -2705,10 +2705,7 @@ function openCustomerCreate() { $('#modal-form').modal('show'); }
 $('#modal-form').on('hidden.bs.modal', function() {
     if ($('#modal-sale').hasClass('in') || $('#modal-sale').is(':visible')) $('body').addClass('modal-open');
 });
-$('#modal-sale').on('shown.bs.modal', function() {
-    document.documentElement.style.overscrollBehavior = 'none';
-}).on('hidden.bs.modal', function() {
-    document.documentElement.style.overscrollBehavior = '';
+$('#modal-sale').on('hidden.bs.modal', function() {
     $('#product-options-template option[data-inactive="1"]').remove();
     isEditMode = false;
     // reset warehouse + transit toggles + caches
