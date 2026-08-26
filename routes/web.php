@@ -21,6 +21,7 @@ use App\Http\Controllers\ProductBundleController;
 use App\Http\Controllers\CourierController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\StickyNoteController;
+use App\Http\Controllers\ChatController;
 
 /*
 |--------------------------------------------------------------------------
@@ -183,6 +184,11 @@ Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff']
     Route::post('/announcements',             [\App\Http\Controllers\AnnouncementController::class, 'store'])->name('announcements.store');
     Route::patch('/announcements/{id}/toggle',[\App\Http\Controllers\AnnouncementController::class, 'toggle'])->name('announcements.toggle');
     Route::delete('/announcements/{id}',      [\App\Http\Controllers\AnnouncementController::class, 'destroy'])->name('announcements.destroy');
+
+    // ── Chat ─────────────────────────────────────────────────────────
+    Route::get('/chat/recent',  [ChatController::class, 'recent'])->name('chat.recent');
+    Route::get('/chat/poll',    [ChatController::class, 'index'])->name('chat.poll');
+    Route::post('/chat',        [ChatController::class, 'store'])->name('chat.store');
 
     // ── Sticky Notes ─────────────────────────────────────────────────
     Route::get('/sticky-notes',         [StickyNoteController::class, 'index'])->name('sticky.index');
