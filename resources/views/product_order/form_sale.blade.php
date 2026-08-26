@@ -138,7 +138,8 @@
                                 data-code="{{ $product->product_code ?? '' }}"
                                 data-warehouse-only="{{ $product->warehouse_only ? '1' : '0' }}"
                                 data-divisible="{{ $product->category?->is_divisible ? '1' : '0' }}"
-                                data-has-physical="{{ in_array($product->id, $physicalProductIds) ? '1' : '0' }}">
+                                data-has-physical="{{ in_array($product->id, $physicalProductIds) ? '1' : '0' }}"
+                                data-has-incoming="{{ in_array($product->id, $incomingProductIds) ? '1' : '0' }}">
                                 {{ $product->name }}
                             </option>
                         @endforeach
@@ -152,9 +153,15 @@
                             {{-- Products --}}
                             <div class="sc">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <div class="form-check form-switch mb-0" style="padding-left:0;display:flex;align-items:center;gap:6px;">
-                                        <input class="form-check-input" type="checkbox" role="switch" id="toggle-warehouse-sale" style="width:32px;height:18px;margin:0;cursor:pointer;flex-shrink:0;">
-                                        <label class="form-check-label mb-0" for="toggle-warehouse-sale" style="font-size:11px;font-weight:700;color:#1a4fa0;cursor:pointer;white-space:nowrap;line-height:1;"><i class="bi bi-building-check me-1"></i>საწყობშია</label>
+                                    <div style="display:flex;align-items:center;gap:12px;">
+                                        <div class="form-check form-switch mb-0" style="padding-left:0;display:flex;align-items:center;gap:6px;">
+                                            <input class="form-check-input" type="checkbox" role="switch" id="toggle-warehouse-sale" style="width:32px;height:18px;margin:0;cursor:pointer;flex-shrink:0;">
+                                            <label class="form-check-label mb-0" for="toggle-warehouse-sale" style="font-size:11px;font-weight:700;color:#1a4fa0;cursor:pointer;white-space:nowrap;line-height:1;"><i class="bi bi-building-check me-1"></i>საწყობშია</label>
+                                        </div>
+                                        <div class="form-check form-switch mb-0" style="padding-left:0;display:flex;align-items:center;gap:6px;">
+                                            <input class="form-check-input" type="checkbox" role="switch" id="toggle-transit-sale" style="width:32px;height:18px;margin:0;cursor:pointer;flex-shrink:0;">
+                                            <label class="form-check-label mb-0" for="toggle-transit-sale" style="font-size:11px;font-weight:700;color:#a05c00;cursor:pointer;white-space:nowrap;line-height:1;"><i class="bi bi-truck me-1"></i>გზაშია</label>
+                                        </div>
                                     </div>
                                     <button type="button" id="add-sale-line" class="btn btn-sm fw-semibold" style="background:#e8faf0;color:#1a7a4a;border:1.5px solid #b7e4c7;border-radius:20px;font-size:11px;padding:3px 12px;line-height:1;white-space:nowrap;">
                                         <i class="bi bi-plus-lg me-1"></i>დამატება

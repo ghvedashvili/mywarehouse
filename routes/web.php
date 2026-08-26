@@ -144,6 +144,7 @@ Route::get('warehouse/fifo-prices',[WarehouseController::class, 'fifoPrices'])->
 Route::get('warehouse/available-stock', [WarehouseController::class, 'availableStock'])->name('warehouse.availableStock');
 Route::get('warehouse/available-sizes',  [WarehouseController::class, 'availableSizes']) ->name('warehouse.availableSizes');
 Route::get('warehouse/physical-sizes',   [WarehouseController::class, 'physicalSizes'])  ->name('warehouse.physicalSizes');
+Route::get('warehouse/incoming-sizes',   [WarehouseController::class, 'incomingSizes'])  ->name('warehouse.incomingSizes');
 Route::get('warehouse/financials',      [WarehouseController::class, 'financials'])     ->name('warehouse.financials') ->middleware('role:admin');
 Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff'])      ->name('warehouse.writeOff')   ->middleware('role:admin');
 

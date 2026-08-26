@@ -208,6 +208,7 @@ class WarehouseController extends Controller
             'physical_qty'   => $stock->physical_qty,
             'incoming_qty'   => $stock->incoming_qty,
             'reserved_qty'   => $stock->reserved_qty,
+            'defect_qty'     => $stock->defect_qty,
             'available'      => $stock->available_qty,
             'fifo_cost'      => number_format($fifoCost, 2),
             'last_price_geo' => $lastPriceGeo,
@@ -236,6 +237,23 @@ class WarehouseController extends Controller
                 'size'      => $r->size,
                 'available' => max(0, $r->physical_qty - $r->reserved_qty),
             ])
+            ->values();
+        return response()->json($rows);
+    }
+
+    public function incomingSizes(Request $request)
+    {
+        $rows = Warehouse::where('product_id', $request->product_id)
+            ->whereRaw('incoming_qty > 0')
+            ->get(['size', 'incoming_qty', 'physical_qty', 'defect_qty', 'reserved_qty'])
+            ->filter(fn($r) => $r->size)
+            ->map(function ($r) {
+                $physAvail   = max(0, $r->physical_qty - $r->defect_qty - $r->reserved_qty);
+                $overReserve = max(0, $r->reserved_qty - max(0, $r->physical_qty - $r->defect_qty));
+                $incAvail    = max(0, $r->incoming_qty - $overReserve);
+                return ['size' => $r->size, 'available' => $incAvail];
+            })
+            ->filter(fn($r) => $r['available'] > 0)
             ->values();
         return response()->json($rows);
     }

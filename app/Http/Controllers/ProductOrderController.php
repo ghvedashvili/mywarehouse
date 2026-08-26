@@ -58,12 +58,23 @@ class ProductOrderController extends Controller
             ->values()
             ->toArray();
 
+        $incomingProductIds = \App\Models\Warehouse::whereRaw('incoming_qty > 0')
+            ->get(['product_id', 'incoming_qty', 'physical_qty', 'defect_qty', 'reserved_qty'])
+            ->filter(function ($r) {
+                $overReserve = max(0, $r->reserved_qty - max(0, $r->physical_qty - $r->defect_qty));
+                return ($r->incoming_qty - $overReserve) > 0;
+            })
+            ->pluck('product_id')
+            ->unique()
+            ->values()
+            ->toArray();
+
         $cities    = City::all();
         $customers = Customer::with('city')->get();
         $statuses  = OrderStatus::all();
         $courier   = Courier::first();
 
-        return view('product_order.index', compact('products', 'customers', 'statuses', 'all_products', 'cities', 'courier', 'physicalProductIds'));
+        return view('product_order.index', compact('products', 'customers', 'statuses', 'all_products', 'cities', 'courier', 'physicalProductIds', 'incomingProductIds'));
     }
 
     public function store(Request $request)

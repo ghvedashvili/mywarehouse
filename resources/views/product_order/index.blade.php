@@ -2157,6 +2157,13 @@ function addSaleLine(defaults) {
                 $opt.remove();
             }
         });
+    } else if (_transitOnlyMode) {
+        $row.find('.sale-product-select option').each(function() {
+            var $opt = $(this);
+            if ($opt.val() && $opt.data('has-incoming') != '1') {
+                $opt.remove();
+            }
+        });
     }
     $row.find('.sale-product-select').select2({
         dropdownParent: $('#modal-sale'), placeholder: '— პროდუქტი —', allowClear: true, width: '100%',
@@ -2231,9 +2238,9 @@ $(document).on('click', '.remove-sale-line', function() {
     if (productId) _refreshAllRowsForProduct(productId);
 });
 
-// warehouse mode: size-ის შეცვლისას სხვა row-ები განახლდეს
+// warehouse/transit mode: size-ის შეცვლისას სხვა row-ები განახლდეს
 $(document).on('change', '.sale-size-select', function() {
-    if (!_warehouseOnlyMode) return;
+    if (!_warehouseOnlyMode && !_transitOnlyMode) return;
     var productId = $(this).closest('.sale-item-row').find('.sale-product-select').val();
     _refreshAllRowsForProduct(productId);
 });
@@ -2373,6 +2380,18 @@ $(document).on('change', '.sale-product-select', function() {
                     data.forEach(function(d) { map[d.size] = d.available; });
                     _physAvailCache[productId] = map;
                     _rebuildWarehouseSizes($row, productId);
+                });
+            }
+        } else if (_transitOnlyMode && productId) {
+            $sizeSelect.prop('required', true);
+            if (_incomingAvailCache[productId]) {
+                _rebuildTransitSizes($row, productId);
+            } else {
+                $.get("{{ route('warehouse.incomingSizes') }}", { product_id: productId }, function(data) {
+                    var map = {};
+                    data.forEach(function(d) { map[d.size] = d.available; });
+                    _incomingAvailCache[productId] = map;
+                    _rebuildTransitSizes($row, productId);
                 });
             }
         } else if (warehouseOnly && productId) {
@@ -2521,6 +2540,17 @@ function _updateRowStock($row, data, productId, size) {
             + (physAvail <= 0 ? 'color:#dc2626;' : 'color:#16a34a;') + '">'
             + '🏭 საწყობში: ' + physAvail
             + (physAvail <= 0 ? ' — ❌ ხელმისაწვდომი არ არის!' : '')
+            + '</span>';
+        $s.append(warnEl);
+    } else if (_transitOnlyMode) {
+        var incQty    = parseInt(data.incoming_qty || 0);
+        var physNet   = Math.max(0, physical - (parseInt(data.defect_qty||0)) - reserved);
+        var overRes   = Math.max(0, reserved - Math.max(0, physical - parseInt(data.defect_qty||0)));
+        var incAvail  = Math.max(0, incQty - overRes);
+        var warnEl = '<span class="si-warehouse-warn" style="font-weight:700;margin-left:8px;font-size:11px;'
+            + (incAvail <= 0 ? 'color:#dc2626;' : 'color:#a05c00;') + '">'
+            + '🚚 გზაში: ' + incAvail
+            + (incAvail <= 0 ? ' — ❌ ხელმისაწვდომი არ არის!' : '')
             + '</span>';
         $s.append(warnEl);
     } else if (otherCount > 0) {
@@ -2678,14 +2708,21 @@ $('#modal-form').on('hidden.bs.modal', function() {
 $('#modal-sale').on('hidden.bs.modal', function() {
     $('#product-options-template option[data-inactive="1"]').remove();
     isEditMode = false;
-    // reset warehouse toggle + cache
+    // reset warehouse + transit toggles + caches
     _physAvailCache = {};
+    _incomingAvailCache = {};
+    _transitOnlyMode = false;
+    $('#toggle-transit-sale').prop('checked', false);
     $('#toggle-warehouse-sale').prop('checked', false).trigger('change');
 });
 
 // ── "საწყობშია" toggle ───────────────────────────────────────────────
 var _warehouseOnlyMode = false;
 var _physAvailCache    = {}; // productId → {size: available_count}
+
+// ── "გზაშია" toggle ──────────────────────────────────────────────────
+var _transitOnlyMode   = false;
+var _incomingAvailCache = {}; // productId → {size: incoming_qty}
 
 // სხვა row-ებში რამდენჯერ არის ეს ზომა უკვე არჩეული
 function _sizeUsedInOtherRows($currentRow, productId, size) {
@@ -2731,12 +2768,20 @@ function _rebuildWarehouseSizes($row, productId) {
 
 // ყველა row-ი რომელსაც ამ product-ი აქვს არჩეული — გადავხაზოთ
 function _refreshAllRowsForProduct(productId) {
-    if (!_warehouseOnlyMode || !productId) return;
-    $('#sale-items-container .sale-item-row').each(function() {
-        if ($(this).find('.sale-product-select').val() == productId) {
-            _rebuildWarehouseSizes($(this), productId);
-        }
-    });
+    if (!productId) return;
+    if (_warehouseOnlyMode) {
+        $('#sale-items-container .sale-item-row').each(function() {
+            if ($(this).find('.sale-product-select').val() == productId) {
+                _rebuildWarehouseSizes($(this), productId);
+            }
+        });
+    } else if (_transitOnlyMode) {
+        $('#sale-items-container .sale-item-row').each(function() {
+            if ($(this).find('.sale-product-select').val() == productId) {
+                _rebuildTransitSizes($(this), productId);
+            }
+        });
+    }
 }
 
 function _applyWarehouseFilter($select) {
@@ -2762,21 +2807,93 @@ function _applyWarehouseFilter($select) {
 
 $('#toggle-warehouse-sale').on('change', function() {
     _warehouseOnlyMode = $(this).is(':checked');
+    if (_warehouseOnlyMode && _transitOnlyMode) {
+        _transitOnlyMode = false;
+        $('#toggle-transit-sale').prop('checked', false);
+    }
     $('#warehouse_sale_flag').val(_warehouseOnlyMode ? '1' : '0');
     $('#sale-items-container .sale-item-row').each(function() {
         var $row = $(this);
-        // sizes-ი დაუყოვნებლივ გაასუფთავე — სანამ AJAX-ი დაბრუნდება
         var $sizeWrap = $row.find('.sale-size-wrap');
-        var rowIdx    = $row.data('idx');
         if (!$sizeWrap.find('.sale-ml-input').length) {
             $sizeWrap.find('.sale-size-select')
                 .empty()
                 .append('<option value="">— ზომა —</option>');
         }
         $row.find('.sale-row-stock').hide();
-        // product-ის re-trigger — ახლიდან იტვირთება physicalSizes ან allSizes
         var $sel = $row.find('.sale-product-select');
         _applyWarehouseFilter($sel);
+    });
+});
+
+function _rebuildTransitSizes($row, productId) {
+    var incMap = _incomingAvailCache[productId];
+    if (!incMap) return;
+    var $sizeWrap   = $row.find('.sale-size-wrap');
+    var $sizeSelect = $sizeWrap.find('.sale-size-select');
+    if (!$sizeSelect.length) return;
+    var currentVal = $sizeSelect.val();
+    $sizeSelect.empty();
+    var hasAny = false;
+    Object.keys(incMap).forEach(function(sz) {
+        var netAvail = incMap[sz] - _sizeUsedInOtherRows($row, productId, sz);
+        if (netAvail > 0) {
+            $sizeSelect.append('<option value="'+sz+'">'+sz+'</option>');
+            hasAny = true;
+        }
+    });
+    if (!hasAny) {
+        $sizeSelect.append('<option value="">— გზაში არ არის —</option>');
+        $sizeSelect.prop('required', false);
+    } else {
+        $sizeSelect.prepend('<option value="">— ზომა —</option>');
+        $sizeSelect.prop('required', true);
+        if (currentVal && $sizeSelect.find('option[value="'+currentVal+'"]').length) {
+            $sizeSelect.val(currentVal);
+        } else {
+            $sizeSelect.val('');
+            if (currentVal) $row.find('.sale-row-stock').hide();
+        }
+    }
+}
+
+function _applyTransitFilter($select) {
+    var currentVal = $select.val();
+    var $tpl = $('#product-options-template');
+    $select.empty().append('<option value="">— პროდუქტი —</option>');
+    $tpl.find('option').each(function() {
+        var $opt = $(this);
+        if (!$opt.val()) return;
+        if (_transitOnlyMode && $opt.data('has-incoming') != '1') return;
+        $select.append($opt.clone());
+    });
+    $select.trigger('change.select2');
+    if (currentVal && $select.find('option[value="'+currentVal+'"]').length) {
+        $select.val(currentVal).trigger('change');
+    } else if (currentVal) {
+        $select.val('').trigger('change');
+    }
+}
+
+$('#toggle-transit-sale').on('change', function() {
+    _transitOnlyMode = $(this).is(':checked');
+    if (_transitOnlyMode && _warehouseOnlyMode) {
+        _warehouseOnlyMode = false;
+        _physAvailCache = {};
+        $('#toggle-warehouse-sale').prop('checked', false);
+        $('#warehouse_sale_flag').val('0');
+    }
+    $('#sale-items-container .sale-item-row').each(function() {
+        var $row = $(this);
+        var $sizeWrap = $row.find('.sale-size-wrap');
+        if (!$sizeWrap.find('.sale-ml-input').length) {
+            $sizeWrap.find('.sale-size-select')
+                .empty()
+                .append('<option value="">— ზომა —</option>');
+        }
+        $row.find('.sale-row-stock').hide();
+        var $sel = $row.find('.sale-product-select');
+        _applyTransitFilter($sel);
     });
 });
 
