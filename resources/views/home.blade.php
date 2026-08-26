@@ -116,10 +116,10 @@
     $bestDay = null;
     if ($bestDayRow) {
         $bd          = $bestDayRow->day;
-        $bdTotal     = (int) $bestDayRow->cnt;
+        $bdTotal     = Product_Order::withoutGlobalScope('active')->where('order_type','sale')->whereDate('created_at',$bd)->count();
         $bdChanges   = Product_Order::where('order_type','change')->whereDate('created_at',$bd)->count();
-        $bdReturned  = Product_Order::where('order_type','sale')->where('status_id',5)->whereDate('created_at',$bd)->count();
-        $bdExchanged = Product_Order::where('order_type','sale')->where('status_id',6)->whereDate('created_at',$bd)->count();
+        $bdReturned  = Product_Order::withoutGlobalScope('active')->where('order_type','sale')->where('status_id',5)->whereDate('created_at',$bd)->count();
+        $bdExchanged = Product_Order::withoutGlobalScope('active')->where('order_type','sale')->where('status_id',6)->whereDate('created_at',$bd)->count();
         $bdDeleted   = Product_Order::withoutGlobalScope('active')
             ->where('order_type','sale')->where('status','deleted')->whereDate('created_at',$bd)->count();
         $bdNet       = $bdTotal - $bdReturned - $bdExchanged - $bdDeleted;
@@ -129,10 +129,10 @@
     }
 
     // დღევანდელი სტატისტიკა
-    $tdTotal     = Product_Order::where('order_type','sale')->whereDate('created_at',today())->count();
+    $tdTotal     = Product_Order::withoutGlobalScope('active')->where('order_type','sale')->whereDate('created_at',today())->count();
     $tdChanges   = Product_Order::where('order_type','change')->whereDate('created_at',today())->count();
-    $tdReturned  = Product_Order::where('order_type','sale')->where('status_id',5)->whereDate('created_at',today())->count();
-    $tdExchanged = Product_Order::where('order_type','sale')->where('status_id',6)->whereDate('created_at',today())->count();
+    $tdReturned  = Product_Order::withoutGlobalScope('active')->where('order_type','sale')->where('status_id',5)->whereDate('created_at',today())->count();
+    $tdExchanged = Product_Order::withoutGlobalScope('active')->where('order_type','sale')->where('status_id',6)->whereDate('created_at',today())->count();
     $tdDeleted   = Product_Order::withoutGlobalScope('active')
         ->where('order_type','sale')->where('status','deleted')->whereDate('created_at',today())->count();
     $tdNet       = $tdTotal - $tdReturned - $tdExchanged - $tdDeleted;
@@ -205,6 +205,8 @@
             ->where('is_gift', false)
             ->whereNotNull('fully_paid_at')
             ->whereDate('fully_paid_at', today())
+            ->where('status', '!=', 'deleted')
+            ->whereNotIn('status_id', [5, 6])
             ->get(['id', 'price_georgia', 'sale_from']);
 
         $todayBase   = $todayOrders->count() * (float) $policy->sale_base_per_order;
