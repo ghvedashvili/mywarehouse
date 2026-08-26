@@ -1951,6 +1951,23 @@ $(function() {
 }
 #chat-panel.open { display: flex; }
 
+@media (max-width: 767px) {
+    #chat-panel {
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100% !important;
+        height: 70dvh !important;
+        border-radius: 20px 20px 0 0 !important;
+        box-shadow: 0 -4px 24px rgba(0,0,0,.2) !important;
+    }
+    #chat-input-wrap {
+        padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    }
+    body.chat-open #sn-toggle,
+    body.chat-open #chat-toggle { display: none !important; }
+}
+
 /* header */
 #chat-header {
     background: linear-gradient(135deg, #0084ff, #0066cc);
@@ -2146,6 +2163,7 @@ $(function() {
     function openChat() {
         open = true;
         panel.classList.add('open');
+        document.body.classList.add('chat-open');
         unread = 0;
         badge.style.display = 'none';
         scrollBottom();
@@ -2154,6 +2172,7 @@ $(function() {
     function closeChat() {
         open = false;
         panel.classList.remove('open');
+        document.body.classList.remove('chat-open');
     }
 
     /* ── Load recent messages ── */
@@ -2342,42 +2361,6 @@ $(function() {
 
     function scrollBottom() {
         msgBox.scrollTop = msgBox.scrollHeight;
-    }
-
-    /* ── Mobile: reposition panel when keyboard opens ── */
-    var snToggleEl = document.getElementById('sn-toggle');
-    function onVvpChange() {
-        if (!window.visualViewport || window.innerWidth >= 768) return;
-        var vvp     = window.visualViewport;
-        var kbH     = Math.max(0, window.innerHeight - vvp.height - vvp.offsetTop);
-        var kbOpen  = kbH > 80;
-
-        snToggleEl.style.display  = kbOpen ? 'none' : '';
-        toggle.style.display      = kbOpen ? 'none' : '';
-
-        if (!open) return;
-        if (kbOpen) {
-            panel.style.left         = '0';
-            panel.style.right        = '0';
-            panel.style.bottom       = kbH + 'px';
-            panel.style.width        = '100%';
-            panel.style.height       = (vvp.height - 2) + 'px';
-            panel.style.borderRadius = '16px 16px 0 0';
-            panel.style.boxShadow    = '0 -4px 20px rgba(0,0,0,.15)';
-            scrollBottom();
-        } else {
-            panel.style.left         = '24px';
-            panel.style.right        = '';
-            panel.style.bottom       = '78px';
-            panel.style.width        = '320px';
-            panel.style.height       = '440px';
-            panel.style.borderRadius = '16px';
-            panel.style.boxShadow    = '';
-        }
-    }
-    if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', onVvpChange);
-        window.visualViewport.addEventListener('scroll', onVvpChange);
     }
 
     /* ── Block page scroll when touching chat messages (iOS) ── */
