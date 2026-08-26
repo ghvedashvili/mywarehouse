@@ -2069,7 +2069,7 @@ $(function() {
     border: 1.5px solid #e4e6ea;
     border-radius: 20px;
     padding: 8px 14px;
-    font-size: 13px;
+    font-size: 16px;
     font-family: inherit;
     outline: none;
     resize: none;
@@ -2080,6 +2080,9 @@ $(function() {
     transition: border-color .15s;
 }
 #chat-input:focus { border-color: #0084ff; }
+@media (min-width: 768px) {
+    #chat-input { font-size: 13px; }
+}
 #chat-send {
     width: 36px; height: 36px;
     background: #0084ff;
@@ -2340,6 +2343,53 @@ $(function() {
     function scrollBottom() {
         msgBox.scrollTop = msgBox.scrollHeight;
     }
+
+    /* ── Mobile: reposition panel when keyboard opens ── */
+    var snToggleEl = document.getElementById('sn-toggle');
+    function onVvpChange() {
+        if (!window.visualViewport || window.innerWidth >= 768) return;
+        var vvp     = window.visualViewport;
+        var kbH     = Math.max(0, window.innerHeight - vvp.height - vvp.offsetTop);
+        var kbOpen  = kbH > 80;
+
+        snToggleEl.style.display  = kbOpen ? 'none' : '';
+        toggle.style.display      = kbOpen ? 'none' : '';
+
+        if (!open) return;
+        if (kbOpen) {
+            panel.style.left         = '0';
+            panel.style.right        = '0';
+            panel.style.bottom       = kbH + 'px';
+            panel.style.width        = '100%';
+            panel.style.height       = (vvp.height - 2) + 'px';
+            panel.style.borderRadius = '16px 16px 0 0';
+            panel.style.boxShadow    = '0 -4px 20px rgba(0,0,0,.15)';
+            scrollBottom();
+        } else {
+            panel.style.left         = '24px';
+            panel.style.right        = '';
+            panel.style.bottom       = '78px';
+            panel.style.width        = '320px';
+            panel.style.height       = '440px';
+            panel.style.borderRadius = '16px';
+            panel.style.boxShadow    = '';
+        }
+    }
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', onVvpChange);
+        window.visualViewport.addEventListener('scroll', onVvpChange);
+    }
+
+    /* ── Block page scroll when touching chat messages (iOS) ── */
+    msgBox.addEventListener('touchstart', function (e) {
+        var top    = msgBox.scrollTop;
+        var bottom = msgBox.scrollHeight - msgBox.clientHeight;
+        if (top <= 0)      msgBox.scrollTop = 1;
+        if (top >= bottom) msgBox.scrollTop = bottom - 1;
+    }, { passive: true });
+    msgBox.addEventListener('touchmove', function (e) {
+        e.stopPropagation();
+    }, { passive: false });
 
     /* ── Drag panel by header ── */
     (function () {
