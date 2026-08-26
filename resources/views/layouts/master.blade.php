@@ -1528,36 +1528,52 @@ $(function() {
      STICKY NOTES
      ════════════════════════════════════ --}}
 <style>
+/* ── Mini sticky note toggle button ── */
 #sn-toggle {
     position: fixed;
     bottom: 24px;
     left: 24px;
-    width: 44px;
-    height: 44px;
-    background: #f5c842;
-    border-radius: 12px;
-    box-shadow: 0 4px 16px rgba(0,0,0,.22);
+    width: 38px;
+    height: 42px;
+    background: #fef08a;
+    border-radius: 3px 9px 9px 9px;
+    box-shadow: 2px 3px 14px rgba(0,0,0,.28);
     cursor: pointer;
     z-index: 99990;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 21px;
+    overflow: hidden;
     transition: transform .15s, box-shadow .15s;
     user-select: none;
+    border: none;
+    padding: 0;
 }
-#sn-toggle:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(0,0,0,.28); }
+#sn-toggle::before {
+    content: '';
+    display: block;
+    height: 9px;
+    background: #e9b800;
+}
+#sn-toggle::after {
+    content: '';
+    display: block;
+    margin: 7px 7px 0;
+    height: 2px;
+    border-radius: 1px;
+    background: rgba(0,0,0,.18);
+    box-shadow: 0 5px 0 rgba(0,0,0,.14), 0 10px 0 rgba(0,0,0,.10);
+}
+#sn-toggle:hover { transform: scale(1.1); box-shadow: 3px 4px 18px rgba(0,0,0,.32); }
 #sn-toggle:active { transform: scale(.95); }
 
+/* ── Note card ── */
 .sn-note {
     position: fixed;
     width: 300px;
     height: 240px;
     min-width: 180px;
-    min-height: 140px;
+    min-height: 40px;
     background: #fef08a;
     border-radius: 4px 14px 14px 14px;
-    box-shadow: 3px 4px 18px rgba(0,0,0,.18), 0 1px 0 rgba(0,0,0,.06);
+    box-shadow: 3px 4px 18px rgba(0,0,0,.18);
     z-index: 99999;
     display: flex;
     flex-direction: column;
@@ -1566,11 +1582,12 @@ $(function() {
     transition: box-shadow .15s;
 }
 .sn-note:hover { box-shadow: 4px 6px 24px rgba(0,0,0,.24); }
-.sn-note.sn-dragging { box-shadow: 8px 12px 32px rgba(0,0,0,.32); opacity: .95; cursor: grabbing; }
+.sn-note.sn-dragging  { box-shadow: 8px 12px 32px rgba(0,0,0,.3); opacity: .95; }
 
+/* ── Handle bar ── */
 .sn-handle {
     background: #e9b800;
-    padding: 7px 10px 6px;
+    padding: 6px 8px;
     cursor: grab;
     display: flex;
     align-items: center;
@@ -1578,32 +1595,42 @@ $(function() {
     flex-shrink: 0;
     border-radius: 4px 14px 0 0;
     user-select: none;
+    gap: 4px;
 }
 .sn-handle:active { cursor: grabbing; }
-.sn-handle-left { display: flex; align-items: center; gap: 6px; }
-.sn-handle-dots { color: rgba(0,0,0,.35); font-size: 13px; letter-spacing: 1px; }
+.sn-handle-left  { display: flex; align-items: center; gap: 5px; flex: 1; min-width: 0; }
+.sn-handle-right { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.sn-handle-dots  { color: rgba(0,0,0,.32); font-size: 13px; letter-spacing: 1px; flex-shrink: 0; }
+
 .sn-status-dot {
-    width: 7px; height: 7px;
+    width: 6px; height: 6px;
     border-radius: 50%;
     background: transparent;
     transition: background .3s;
     flex-shrink: 0;
 }
-.sn-status-dot.saving  { background: #f59e0b; }
-.sn-status-dot.saved   { background: #22c55e; }
+.sn-status-dot.saving { background: #f59e0b; }
+.sn-status-dot.saved  { background: #22c55e; }
 
-.sn-delete {
+/* ── Handle buttons ── */
+.sn-btn {
     background: none;
     border: none;
-    padding: 0 2px;
+    padding: 2px 4px;
     cursor: pointer;
-    color: rgba(0,0,0,.35);
-    font-size: 15px;
     line-height: 1;
-    transition: color .1s;
+    border-radius: 4px;
+    transition: background .12s, color .12s;
+    color: rgba(0,0,0,.4);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
 }
-.sn-delete:hover { color: rgba(180,0,0,.7); }
+.sn-btn:hover { background: rgba(0,0,0,.1); color: rgba(0,0,0,.7); }
+.sn-btn-add:hover   { color: #166534; }
+.sn-btn-del:hover   { color: #991b1b; }
 
+/* ── Body ── */
 .sn-body {
     flex: 1;
     padding: 11px 13px;
@@ -1619,9 +1646,33 @@ $(function() {
     min-height: 0;
 }
 .sn-body::placeholder { color: rgba(0,0,0,.28); }
+
+/* ── Delete confirm overlay ── */
+.sn-confirm {
+    position: absolute;
+    inset: 0;
+    background: rgba(254,240,138,.96);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    z-index: 2;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+.sn-confirm p { margin: 0; font-size: 13px; font-weight: 600; color: #3a2a00; text-align: center; }
+.sn-confirm-btns { display: flex; gap: 8px; }
+.sn-confirm-yes {
+    background: #dc2626; color: #fff; border: none;
+    border-radius: 8px; padding: 5px 16px; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.sn-confirm-no {
+    background: #e9b800; color: #3a2a00; border: none;
+    border-radius: 8px; padding: 5px 16px; font-size: 12px; font-weight: 700; cursor: pointer;
+}
 </style>
 
-<div id="sn-toggle" title="ჩანაწერები">📝</div>
+<button id="sn-toggle" title="ახალი ჩანაწერი"></button>
 <div id="sn-container"></div>
 
 <script>
@@ -1632,13 +1683,23 @@ $(function() {
     var CSRF      = '{{ csrf_token() }}';
     var container = document.getElementById('sn-container');
 
-    /* ── localStorage size helpers ── */
     function szKey(id) { return 'sn_sz_' + id; }
     function saveSize(id, w, h) {
         try { localStorage.setItem(szKey(id), JSON.stringify({ w: Math.round(w), h: Math.round(h) })); } catch(e) {}
     }
     function loadSize(id) {
         try { var s = localStorage.getItem(szKey(id)); return s ? JSON.parse(s) : null; } catch(e) { return null; }
+    }
+
+    function addNote(px, py) {
+        var vw = window.innerWidth, vh = window.innerHeight;
+        px = px !== undefined ? px : Math.max(20, Math.min(vw - 320, 60 + Math.random() * 220));
+        py = py !== undefined ? py : Math.max(60, Math.min(vh - 260, 60 + Math.random() * 180));
+        fetch(STORE_URL, {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': CSRF, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ pos_x: Math.round(px), pos_y: Math.round(py) })
+        }).then(function (r) { return r.json(); }).then(renderNote);
     }
 
     /* ── Load on ready ── */
@@ -1648,16 +1709,16 @@ $(function() {
             .then(function (notes) { notes.forEach(renderNote); });
     });
 
-    /* ── Add new note ── */
     document.getElementById('sn-toggle').addEventListener('click', function () {
-        var vw = window.innerWidth, vh = window.innerHeight;
-        var px = Math.max(20, Math.min(vw - 320, 60 + Math.random() * 220));
-        var py = Math.max(60, Math.min(vh - 260, 60 + Math.random() * 180));
-        fetch(STORE_URL, {
-            method: 'POST',
-            headers: { 'X-CSRF-TOKEN': CSRF, 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: JSON.stringify({ pos_x: Math.round(px), pos_y: Math.round(py) })
-        }).then(function (r) { return r.json(); }).then(renderNote);
+        var all = container.querySelectorAll('.sn-note');
+        if (all.length === 0) { addNote(); return; }
+        var anyHidden = false;
+        all.forEach(function (n) { if (n.style.display === 'none') anyHidden = true; });
+        if (anyHidden) {
+            all.forEach(function (n) { n.style.display = ''; });
+        } else {
+            addNote();
+        }
     });
 
     /* ── Render note ── */
@@ -1668,7 +1729,6 @@ $(function() {
         el.style.left = Math.min(note.pos_x, window.innerWidth  - 310) + 'px';
         el.style.top  = Math.min(note.pos_y, window.innerHeight - 250) + 'px';
 
-        /* restore saved size */
         var sz = loadSize(note.id);
         if (sz) { el.style.width = sz.w + 'px'; el.style.height = sz.h + 'px'; }
 
@@ -1678,15 +1738,20 @@ $(function() {
                     '<span class="sn-handle-dots">⠿</span>' +
                     '<span class="sn-status-dot"></span>' +
                 '</div>' +
-                '<button class="sn-delete" title="წაშლა">✕</button>' +
+                '<div class="sn-handle-right">' +
+                    '<button class="sn-btn sn-btn-add" title="ახალი ჩანაწერი">＋</button>' +
+                    '<button class="sn-btn sn-btn-del" title="წაშლა">🗑</button>' +
+                    '<button class="sn-btn sn-btn-collapse" title="ჩაკეცვა">－</button>' +
+                '</div>' +
             '</div>' +
             '<textarea class="sn-body" placeholder="ჩაწერე..."></textarea>';
 
         var textarea  = el.querySelector('.sn-body');
         var statusDot = el.querySelector('.sn-status-dot');
+        var colBtn    = el.querySelector('.sn-btn-collapse');
         textarea.value = note.content || '';
 
-        /* auto-save with debounce */
+        /* ── Auto-save ── */
         var saveTimer;
         textarea.addEventListener('input', function () {
             clearTimeout(saveTimer);
@@ -1703,41 +1768,66 @@ $(function() {
             }, 800);
         });
 
-        /* delete */
-        el.querySelector('.sn-delete').addEventListener('click', function () {
-            fetch(BASE_URL + note.id, {
-                method: 'DELETE',
-                headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' }
-            }).then(function () {
-                try { localStorage.removeItem(szKey(note.id)); } catch(e) {}
-                el.remove();
+        /* ── Collapse: hide note from screen ── */
+        colBtn.addEventListener('click', function () {
+            el.style.display = 'none';
+        });
+
+        /* ── Add new note from this note ── */
+        el.querySelector('.sn-btn-add').addEventListener('click', function () {
+            var px = (parseInt(el.style.left) || 0) + 30;
+            var py = (parseInt(el.style.top)  || 0) + 30;
+            addNote(px, py);
+        });
+
+        /* ── Delete with confirm ── */
+        el.querySelector('.sn-btn-del').addEventListener('click', function () {
+            var overlay = document.createElement('div');
+            overlay.className = 'sn-confirm';
+            overlay.innerHTML =
+                '<p>ნამდვილად წაშლა?</p>' +
+                '<div class="sn-confirm-btns">' +
+                    '<button class="sn-confirm-yes">წაშლა</button>' +
+                    '<button class="sn-confirm-no">გაუქმება</button>' +
+                '</div>';
+            el.appendChild(overlay);
+            overlay.querySelector('.sn-confirm-yes').addEventListener('click', function () {
+                fetch(BASE_URL + note.id, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' }
+                }).then(function () {
+                    try { localStorage.removeItem(szKey(note.id)); } catch(e) {}
+                    el.remove();
+                });
+            });
+            overlay.querySelector('.sn-confirm-no').addEventListener('click', function () {
+                overlay.remove();
             });
         });
 
-        /* resize → save size to localStorage */
+        /* ── Resize observer ── */
         if (typeof ResizeObserver !== 'undefined') {
             var resizeTimer;
             new ResizeObserver(function () {
+                if (collapsed) return;
                 clearTimeout(resizeTimer);
-                resizeTimer = setTimeout(function () {
-                    saveSize(note.id, el.offsetWidth, el.offsetHeight);
-                }, 500);
+                resizeTimer = setTimeout(function () { saveSize(note.id, el.offsetWidth, el.offsetHeight); }, 500);
             }).observe(el);
         }
 
-        /* drag */
+        /* ── Drag ── */
         makeDraggable(el, note.id);
         container.appendChild(el);
+        textarea.focus();
     }
 
-    /* ── Drag (mouse + touch) ── */
+    /* ── Drag logic ── */
     function makeDraggable(el, id) {
         var handle = el.querySelector('.sn-handle');
         var startX, startY, origLeft, origTop, dragging = false;
 
         function onStart(cx, cy) {
-            dragging = true;
-            startX = cx; startY = cy;
+            dragging = true; startX = cx; startY = cy;
             origLeft = parseInt(el.style.left) || 0;
             origTop  = parseInt(el.style.top)  || 0;
             el.classList.add('sn-dragging');
@@ -1761,14 +1851,14 @@ $(function() {
         }
 
         handle.addEventListener('mousedown', function (e) {
-            if (e.button !== 0 || e.target.classList.contains('sn-delete')) return;
+            if (e.button !== 0 || e.target.closest('.sn-btn')) return;
             onStart(e.clientX, e.clientY); e.preventDefault();
         });
         document.addEventListener('mousemove', function (e) { onMove(e.clientX, e.clientY); });
         document.addEventListener('mouseup', onEnd);
 
         handle.addEventListener('touchstart', function (e) {
-            if (e.target.classList.contains('sn-delete')) return;
+            if (e.target.closest('.sn-btn')) return;
             var t = e.touches[0]; onStart(t.clientX, t.clientY);
         }, { passive: true });
         document.addEventListener('touchmove', function (e) {
