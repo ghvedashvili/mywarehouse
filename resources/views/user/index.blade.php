@@ -64,7 +64,7 @@
         <div class="table-responsive">
             <table id="user-table" class="table wh-table table-hover align-middle w-100">
                 <thead>
-                    <tr><th>ID</th><th>სახელი</th><th>Email</th><th>როლი</th><th>მოქმედება</th></tr>
+                    <tr><th>ID</th><th>სახელი</th><th>Email</th><th>როლი</th><th style="text-align:center;">💬 ჩატი</th><th>მოქმედება</th></tr>
                 </thead>
                 <tbody></tbody>
             </table>
@@ -224,8 +224,9 @@ var table = $('#user-table').DataTable({
         {data:'id', width:'50px'},
         {data:'name'},
         {data:'email'},
-        {data:'role',    orderable:false},
-        {data:'action',  orderable:false, searchable:false}
+        {data:'role',   orderable:false},
+        {data:'chat',   orderable:false, searchable:false, width:'80px'},
+        {data:'action', orderable:false, searchable:false}
     ],
     rowCallback: function(row, d) {
         if ($(window).width() > 767) return;
@@ -268,6 +269,21 @@ var table = $('#user-table').DataTable({
 
 $('#dt-search').on('keyup',  function() { table.search(this.value).draw(); });
 $('#dt-page-length').on('change', function() { table.page.len(this.value).draw(); });
+
+// ── Toggle Chat ────────────────────────────────────────────────
+function toggleChat(id, el) {
+    $.ajax({
+        url: '/user/' + id + '/toggle-chat',
+        type: 'PATCH',
+        data: { _token: '{{ csrf_token() }}' },
+        success: function(r) {
+            el.checked = r.chat_enabled;
+        },
+        error: function() {
+            el.checked = !el.checked; // revert
+        }
+    });
+}
 
 // ── Create User ────────────────────────────────────────────────
 function openCreateUser() {

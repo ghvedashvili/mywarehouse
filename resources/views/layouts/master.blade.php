@@ -1888,6 +1888,7 @@ $(function() {
 @endauth
 
 @auth
+@if(auth()->user()->chat_enabled)
 {{-- ════════════════════════════════════
      INTERNAL CHAT
      ════════════════════════════════════ --}}
@@ -2444,6 +2445,7 @@ $(function() {
     })();
 })();
 </script>
+@endif
 @endauth
 
 </body>

@@ -135,7 +135,16 @@ class UserController extends Controller
             </span>';
 })
              
-            ->rawColumns(['action', 'role'])
+            ->addColumn('chat', function ($user) use ($isAdmin) {
+                $checked = $user->chat_enabled ? 'checked' : '';
+                $disabled = $isAdmin ? '' : 'disabled';
+                return '<div class="form-check form-switch d-flex justify-content-center mb-0">
+                    <input class="form-check-input" type="checkbox" ' . $checked . ' ' . $disabled . '
+                        onchange="toggleChat(' . $user->id . ', this)"
+                        style="width:34px;height:18px;cursor:' . ($isAdmin ? 'pointer' : 'default') . '">
+                </div>';
+            })
+            ->rawColumns(['action', 'role', 'chat'])
             ->make(true);
     }
 
@@ -159,6 +168,13 @@ class UserController extends Controller
             'success' => true,
             'message' => '"' . $user->name . '"-ის როლი შეიცვალა: ' . strtoupper($request->role),
         ]);
+    }
+
+    public function toggleChat($id)
+    {
+        $user = User::findOrFail($id);
+        $user->update(['chat_enabled' => !$user->chat_enabled]);
+        return response()->json(['chat_enabled' => $user->chat_enabled]);
     }
 
     public function updateCustomerLink(Request $request, $id)

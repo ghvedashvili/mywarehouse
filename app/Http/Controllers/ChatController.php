@@ -13,6 +13,7 @@ class ChatController extends Controller
 
         $messages = ChatMessage::with('user:id,name')
             ->where('id', '>', $after)
+            ->where('created_at', '>=', auth()->user()->created_at)
             ->orderBy('id')
             ->limit(50)
             ->get()
@@ -53,6 +54,7 @@ class ChatController extends Controller
 
         $messages = ChatMessage::with('user:id,name')
             ->where('id', '<', $before)
+            ->where('created_at', '>=', auth()->user()->created_at)
             ->orderByDesc('id')
             ->limit(40)
             ->get()
