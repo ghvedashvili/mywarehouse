@@ -28,4 +28,9 @@ class User extends Authenticatable {
     {
         return $this->belongsTo(\App\Models\Customer::class);
     }
+
+    public function stickyNotes()
+    {
+        return $this->hasMany(\App\Models\StickyNote::class);
+    }
 }

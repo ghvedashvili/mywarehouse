@@ -20,6 +20,7 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\ProductBundleController;
 use App\Http\Controllers\CourierController;
 use App\Http\Controllers\RolePermissionController;
+use App\Http\Controllers\StickyNoteController;
 
 /*
 |--------------------------------------------------------------------------
@@ -182,6 +183,12 @@ Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff']
     Route::post('/announcements',             [\App\Http\Controllers\AnnouncementController::class, 'store'])->name('announcements.store');
     Route::patch('/announcements/{id}/toggle',[\App\Http\Controllers\AnnouncementController::class, 'toggle'])->name('announcements.toggle');
     Route::delete('/announcements/{id}',      [\App\Http\Controllers\AnnouncementController::class, 'destroy'])->name('announcements.destroy');
+
+    // ── Sticky Notes ─────────────────────────────────────────────────
+    Route::get('/sticky-notes',         [StickyNoteController::class, 'index'])->name('sticky.index');
+    Route::post('/sticky-notes',        [StickyNoteController::class, 'store'])->name('sticky.store');
+    Route::patch('/sticky-notes/{id}',  [StickyNoteController::class, 'update'])->name('sticky.update');
+    Route::delete('/sticky-notes/{id}', [StickyNoteController::class, 'destroy'])->name('sticky.destroy');
 
     // ── Diagnostic (admin only) ───────────────────────────────────────
     Route::get('/diagnostic',       [\App\Http\Controllers\DiagnosticController::class, 'index'])->name('diagnostic.index');

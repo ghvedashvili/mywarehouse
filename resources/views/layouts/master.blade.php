@@ -1523,5 +1523,263 @@ $(function() {
 </script>
 @endif
 
+@auth
+{{-- ════════════════════════════════════
+     STICKY NOTES
+     ════════════════════════════════════ --}}
+<style>
+#sn-toggle {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    width: 44px;
+    height: 44px;
+    background: #f5c842;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.22);
+    cursor: pointer;
+    z-index: 99990;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 21px;
+    transition: transform .15s, box-shadow .15s;
+    user-select: none;
+}
+#sn-toggle:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(0,0,0,.28); }
+#sn-toggle:active { transform: scale(.95); }
+
+.sn-note {
+    position: fixed;
+    width: 300px;
+    height: 240px;
+    min-width: 180px;
+    min-height: 140px;
+    background: #fef08a;
+    border-radius: 4px 14px 14px 14px;
+    box-shadow: 3px 4px 18px rgba(0,0,0,.18), 0 1px 0 rgba(0,0,0,.06);
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    resize: both;
+    transition: box-shadow .15s;
+}
+.sn-note:hover { box-shadow: 4px 6px 24px rgba(0,0,0,.24); }
+.sn-note.sn-dragging { box-shadow: 8px 12px 32px rgba(0,0,0,.32); opacity: .95; cursor: grabbing; }
+
+.sn-handle {
+    background: #e9b800;
+    padding: 7px 10px 6px;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    border-radius: 4px 14px 0 0;
+    user-select: none;
+}
+.sn-handle:active { cursor: grabbing; }
+.sn-handle-left { display: flex; align-items: center; gap: 6px; }
+.sn-handle-dots { color: rgba(0,0,0,.35); font-size: 13px; letter-spacing: 1px; }
+.sn-status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: transparent;
+    transition: background .3s;
+    flex-shrink: 0;
+}
+.sn-status-dot.saving  { background: #f59e0b; }
+.sn-status-dot.saved   { background: #22c55e; }
+
+.sn-delete {
+    background: none;
+    border: none;
+    padding: 0 2px;
+    cursor: pointer;
+    color: rgba(0,0,0,.35);
+    font-size: 15px;
+    line-height: 1;
+    transition: color .1s;
+}
+.sn-delete:hover { color: rgba(180,0,0,.7); }
+
+.sn-body {
+    flex: 1;
+    padding: 11px 13px;
+    resize: none;
+    border: none;
+    background: transparent;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: #2a2a00;
+    outline: none;
+    overflow-y: auto;
+    min-height: 0;
+}
+.sn-body::placeholder { color: rgba(0,0,0,.28); }
+</style>
+
+<div id="sn-toggle" title="ჩანაწერები">📝</div>
+<div id="sn-container"></div>
+
+<script>
+(function () {
+    var INDEX_URL = '{{ route("sticky.index") }}';
+    var STORE_URL = '{{ route("sticky.store") }}';
+    var BASE_URL  = '/sticky-notes/';
+    var CSRF      = '{{ csrf_token() }}';
+    var container = document.getElementById('sn-container');
+
+    /* ── localStorage size helpers ── */
+    function szKey(id) { return 'sn_sz_' + id; }
+    function saveSize(id, w, h) {
+        try { localStorage.setItem(szKey(id), JSON.stringify({ w: Math.round(w), h: Math.round(h) })); } catch(e) {}
+    }
+    function loadSize(id) {
+        try { var s = localStorage.getItem(szKey(id)); return s ? JSON.parse(s) : null; } catch(e) { return null; }
+    }
+
+    /* ── Load on ready ── */
+    document.addEventListener('DOMContentLoaded', function () {
+        fetch(INDEX_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.json(); })
+            .then(function (notes) { notes.forEach(renderNote); });
+    });
+
+    /* ── Add new note ── */
+    document.getElementById('sn-toggle').addEventListener('click', function () {
+        var vw = window.innerWidth, vh = window.innerHeight;
+        var px = Math.max(20, Math.min(vw - 320, 60 + Math.random() * 220));
+        var py = Math.max(60, Math.min(vh - 260, 60 + Math.random() * 180));
+        fetch(STORE_URL, {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': CSRF, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ pos_x: Math.round(px), pos_y: Math.round(py) })
+        }).then(function (r) { return r.json(); }).then(renderNote);
+    });
+
+    /* ── Render note ── */
+    function renderNote(note) {
+        var el = document.createElement('div');
+        el.className = 'sn-note';
+        el.dataset.id = note.id;
+        el.style.left = Math.min(note.pos_x, window.innerWidth  - 310) + 'px';
+        el.style.top  = Math.min(note.pos_y, window.innerHeight - 250) + 'px';
+
+        /* restore saved size */
+        var sz = loadSize(note.id);
+        if (sz) { el.style.width = sz.w + 'px'; el.style.height = sz.h + 'px'; }
+
+        el.innerHTML =
+            '<div class="sn-handle">' +
+                '<div class="sn-handle-left">' +
+                    '<span class="sn-handle-dots">⠿</span>' +
+                    '<span class="sn-status-dot"></span>' +
+                '</div>' +
+                '<button class="sn-delete" title="წაშლა">✕</button>' +
+            '</div>' +
+            '<textarea class="sn-body" placeholder="ჩაწერე..."></textarea>';
+
+        var textarea  = el.querySelector('.sn-body');
+        var statusDot = el.querySelector('.sn-status-dot');
+        textarea.value = note.content || '';
+
+        /* auto-save with debounce */
+        var saveTimer;
+        textarea.addEventListener('input', function () {
+            clearTimeout(saveTimer);
+            statusDot.className = 'sn-status-dot saving';
+            saveTimer = setTimeout(function () {
+                fetch(BASE_URL + note.id, {
+                    method: 'PATCH',
+                    headers: { 'X-CSRF-TOKEN': CSRF, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ content: textarea.value })
+                }).then(function () {
+                    statusDot.className = 'sn-status-dot saved';
+                    setTimeout(function () { statusDot.className = 'sn-status-dot'; }, 1800);
+                });
+            }, 800);
+        });
+
+        /* delete */
+        el.querySelector('.sn-delete').addEventListener('click', function () {
+            fetch(BASE_URL + note.id, {
+                method: 'DELETE',
+                headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' }
+            }).then(function () {
+                try { localStorage.removeItem(szKey(note.id)); } catch(e) {}
+                el.remove();
+            });
+        });
+
+        /* resize → save size to localStorage */
+        if (typeof ResizeObserver !== 'undefined') {
+            var resizeTimer;
+            new ResizeObserver(function () {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(function () {
+                    saveSize(note.id, el.offsetWidth, el.offsetHeight);
+                }, 500);
+            }).observe(el);
+        }
+
+        /* drag */
+        makeDraggable(el, note.id);
+        container.appendChild(el);
+    }
+
+    /* ── Drag (mouse + touch) ── */
+    function makeDraggable(el, id) {
+        var handle = el.querySelector('.sn-handle');
+        var startX, startY, origLeft, origTop, dragging = false;
+
+        function onStart(cx, cy) {
+            dragging = true;
+            startX = cx; startY = cy;
+            origLeft = parseInt(el.style.left) || 0;
+            origTop  = parseInt(el.style.top)  || 0;
+            el.classList.add('sn-dragging');
+            el.style.transition = 'none';
+        }
+        function onMove(cx, cy) {
+            if (!dragging) return;
+            el.style.left = Math.max(0, origLeft + cx - startX) + 'px';
+            el.style.top  = Math.max(0, origTop  + cy - startY) + 'px';
+        }
+        function onEnd() {
+            if (!dragging) return;
+            dragging = false;
+            el.classList.remove('sn-dragging');
+            el.style.transition = '';
+            fetch(BASE_URL + id, {
+                method: 'PATCH',
+                headers: { 'X-CSRF-TOKEN': CSRF, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ pos_x: parseInt(el.style.left), pos_y: parseInt(el.style.top) })
+            });
+        }
+
+        handle.addEventListener('mousedown', function (e) {
+            if (e.button !== 0 || e.target.classList.contains('sn-delete')) return;
+            onStart(e.clientX, e.clientY); e.preventDefault();
+        });
+        document.addEventListener('mousemove', function (e) { onMove(e.clientX, e.clientY); });
+        document.addEventListener('mouseup', onEnd);
+
+        handle.addEventListener('touchstart', function (e) {
+            if (e.target.classList.contains('sn-delete')) return;
+            var t = e.touches[0]; onStart(t.clientX, t.clientY);
+        }, { passive: true });
+        document.addEventListener('touchmove', function (e) {
+            if (!dragging) return;
+            var t = e.touches[0]; onMove(t.clientX, t.clientY);
+        }, { passive: true });
+        document.addEventListener('touchend', onEnd);
+    }
+})();
+</script>
+@endauth
+
 </body>
 </html>
