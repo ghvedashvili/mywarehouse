@@ -1683,12 +1683,22 @@ $(function() {
     var CSRF      = '{{ csrf_token() }}';
     var container = document.getElementById('sn-container');
 
-    function szKey(id) { return 'sn_sz_' + id; }
+    function isMobile() { return window.innerWidth < 768; }
+
+    function szKey(id)  { return 'sn_sz_'  + id; }
+    function colKey(id) { return 'sn_col_' + id; }
+
     function saveSize(id, w, h) {
         try { localStorage.setItem(szKey(id), JSON.stringify({ w: Math.round(w), h: Math.round(h) })); } catch(e) {}
     }
     function loadSize(id) {
         try { var s = localStorage.getItem(szKey(id)); return s ? JSON.parse(s) : null; } catch(e) { return null; }
+    }
+    function isCollapsed(id) {
+        try { return localStorage.getItem(colKey(id)) === '1'; } catch(e) { return false; }
+    }
+    function setCollapsed(id, val) {
+        try { val ? localStorage.setItem(colKey(id), '1') : localStorage.removeItem(colKey(id)); } catch(e) {}
     }
 
     function addNote(px, py) {
@@ -1715,7 +1725,10 @@ $(function() {
         var anyHidden = false;
         all.forEach(function (n) { if (n.style.display === 'none') anyHidden = true; });
         if (anyHidden) {
-            all.forEach(function (n) { n.style.display = ''; });
+            all.forEach(function (n) {
+                n.style.display = '';
+                setCollapsed(n.dataset.id, false);
+            });
         } else {
             addNote();
         }
@@ -1731,6 +1744,8 @@ $(function() {
 
         var sz = loadSize(note.id);
         if (sz) { el.style.width = sz.w + 'px'; el.style.height = sz.h + 'px'; }
+
+        if (isMobile() && isCollapsed(note.id)) { el.style.display = 'none'; }
 
         el.innerHTML =
             '<div class="sn-handle">' +
@@ -1771,6 +1786,7 @@ $(function() {
         /* ── Collapse: hide note from screen ── */
         colBtn.addEventListener('click', function () {
             el.style.display = 'none';
+            if (isMobile()) setCollapsed(note.id, true);
         });
 
         /* ── Add new note from this note ── */
