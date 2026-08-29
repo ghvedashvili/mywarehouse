@@ -129,6 +129,45 @@
         </div>
         <div class="group-items">
             @foreach($allMembers as $member)
+                @php $memberOrig = $member->originalOrderData ?? null; @endphp
+                @if($member->order_type === 'change')
+                <div style="position:relative;border:1.5px solid #f59e0b;border-radius:5px;overflow:hidden;background:#fffbeb;margin:4px 0;">
+                    <div style="position:absolute;top:0;left:0;right:0;bottom:0;text-align:center;font-size:36px;font-weight:900;color:#fde68a;letter-spacing:3px;padding-top:20px;">გადაცვლა</div>
+                    <div style="position:relative;padding:4px 8px;">
+                        <div class="prod-row">
+                            <div class="pr-img">
+                                @if(!empty($member->imageBase64))<img src="{{ $member->imageBase64 }}" alt="">
+                                @else<div class="no-img"></div>@endif
+                            </div>
+                            <div class="pr-info">
+                                <div class="pr-name">{{ $member->product->name ?? '—' }}</div>
+                                <div class="pr-meta">
+                                    @if($member->product?->product_code)<span style="color:#888;font-size:10px;">{{ $member->product->product_code }}</span><br>@endif
+                                    @if($member->product_size)ზომა: {{ $member->product_size }}@endif
+                                    @if($member->comment) · <span style="color:rgb(220,38,38);font-weight:600;">{{ $member->comment }}</span>@endif
+                                </div>
+                            </div>
+                            <div class="pr-action"><span class="badge-deliver">&#10003; გადაეცი</span></div>
+                        </div>
+                        @if($memberOrig)
+                        <div class="prod-row" style="border-top:1px dashed #fcd34d;">
+                            <div class="pr-img">
+                                @if(!empty($memberOrig->imageBase64))<img src="{{ $memberOrig->imageBase64 }}" alt="">
+                                @else<div class="no-img"></div>@endif
+                            </div>
+                            <div class="pr-info">
+                                <div class="pr-name">{{ $memberOrig->product->name ?? '—' }}</div>
+                                <div class="pr-meta">
+                                    @if($memberOrig->product?->product_code)<span style="color:#888;font-size:10px;">{{ $memberOrig->product->product_code }}</span><br>@endif
+                                    @if($memberOrig->product_size)ზომა: {{ $memberOrig->product_size }}@endif
+                                </div>
+                            </div>
+                            <div class="pr-action"><span class="badge-pickup">&#8617; წამოიღე</span></div>
+                        </div>
+                        @endif
+                    </div>
+                </div>
+                @else
                 <div class="prod-row">
                     <div class="pr-img">
                         @if(!empty($member->imageBase64))<img src="{{ $member->imageBase64 }}" alt="">
@@ -142,25 +181,6 @@
                             @if($member->comment) · <span style="color:rgb(220,38,38);font-weight:600;">{{ $member->comment }}</span>@endif
                         </div>
                     </div>
-                    @if($member->order_type === 'change')
-                        <div class="pr-action"><span class="badge-deliver">&#10003; გადაეცი</span></div>
-                    @endif
-                </div>
-                @php $memberOrig = $member->originalOrderData ?? null; @endphp
-                @if($memberOrig)
-                <div class="prod-row">
-                    <div class="pr-img">
-                        @if(!empty($memberOrig->imageBase64))<img src="{{ $memberOrig->imageBase64 }}" alt="">
-                        @else<div class="no-img"></div>@endif
-                    </div>
-                    <div class="pr-info">
-                        <div class="pr-name">{{ $memberOrig->product->name ?? '—' }}</div>
-                        <div class="pr-meta">
-                            @if($memberOrig->product?->product_code)<span style="color:#888;font-size:10px;">{{ $memberOrig->product->product_code }}</span><br>@endif
-                            @if($memberOrig->product_size)ზომა: {{ $memberOrig->product_size }}@endif
-                        </div>
-                    </div>
-                    <div class="pr-action"><span class="badge-pickup">&#8617; წამოიღე</span></div>
                 </div>
                 @endif
             @endforeach
