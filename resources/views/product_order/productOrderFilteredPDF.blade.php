@@ -220,7 +220,29 @@
                                     @if($member->comment) · <span style="color:#e74c3c;">{{ $member->comment }}</span>@endif
                                 </div>
                             </div>
+                            @if($member->order_type === 'change')
+                                <div class="pr-action"><span class="badge-deliver">&#10003; გადაეცი</span></div>
+                            @endif
                         </div>
+                        @if($member->order_type === 'change' && !empty($member->originalOrderData))
+                        <div class="prod-row">
+                            <div class="pr-img">
+                                @if(!empty($member->originalOrderData->imageBase64))
+                                    <img src="{{ $member->originalOrderData->imageBase64 }}" alt="">
+                                @else
+                                    <div class="no-img"></div>
+                                @endif
+                            </div>
+                            <div class="pr-info">
+                                <div class="pr-name">{{ $member->originalOrderData->product->name ?? '—' }}</div>
+                                <div class="pr-meta">
+                                    @if($member->originalOrderData->product?->product_code)<span style="color:#888;font-size:10px;">{{ $member->originalOrderData->product->product_code }}</span><br>@endif
+                                    @if($member->originalOrderData->product_size)ზომა: {{ $member->originalOrderData->product_size }}@endif
+                                </div>
+                            </div>
+                            <div class="pr-action"><span class="badge-pickup">&#8617; წამოიღე</span></div>
+                        </div>
+                        @endif
                     @endforeach
                 </div>
             </div>

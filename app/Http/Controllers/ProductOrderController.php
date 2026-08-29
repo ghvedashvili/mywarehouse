@@ -2263,6 +2263,11 @@ class ProductOrderController extends Controller
             ->with(['product' => fn($q) => $q->withoutGlobalScope('active'), 'customer.city', 'orderStatus'])
             ->findOrFail($id);
 
+        // Child order — export the full merged group via the primary
+        if (!$order->is_primary && $order->merged_id) {
+            return $this->exportProductOrder($order->merged_id);
+        }
+
         $order->imageBase64 = $this->productImageBase64($order->product);
 
         $children = collect();
