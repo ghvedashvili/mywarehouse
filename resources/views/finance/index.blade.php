@@ -1341,6 +1341,15 @@ function loadSalary() {
     .then(data => {
         salaryData = data;
 
+        const courierDeductionCell = (op) => {
+            const amt = parseFloat(op.courier_deduction || 0);
+            if (amt <= 0) return `<td data-label="საკურ." style="color:#b2bec3; font-size:11px;">—</td>`;
+            const details = (op.courier_deduction_details || [])
+                .map(d => `${d.original_order_number || ''} (${d.is_exchange ? 'გაცვლა' : 'დაბრუნება'}) −${parseFloat(d.amount).toFixed(2)}₾`)
+                .join('\n');
+            return `<td data-label="საკურ." style="color:#c0392b; font-weight:600;" title="${details.replace(/"/g,'&quot;')}">−${amt.toFixed(2)} ₾</td>`;
+        };
+
         // ── Sale Operators ────────────────────────────────
         const saleBody = document.getElementById('salary-sale-body');
         saleBody.innerHTML = '';
@@ -1349,15 +1358,6 @@ function loadSalary() {
             const statusHtml = recorded !== null
                 ? `<span class="badge-type badge-income">✔ ${recorded.toFixed(2)} ₾</span>`
                 : `<span style="color:#b2bec3; font-size:11px;">—</span>`;
-
-            const courierDeductionCell = (op) => {
-                const amt = parseFloat(op.courier_deduction || 0);
-                if (amt <= 0) return `<td data-label="საკურ." style="color:#b2bec3; font-size:11px;">—</td>`;
-                const details = (op.courier_deduction_details || [])
-                    .map(d => `${d.original_order_number || ''} (${d.is_exchange ? 'გაცვლა' : 'დაბრუნება'}) −${parseFloat(d.amount).toFixed(2)}₾`)
-                    .join('\n');
-                return `<td data-label="საკურ." style="color:#c0392b; font-weight:600;" title="${details.replace(/"/g,'&quot;')}">−${amt.toFixed(2)} ₾</td>`;
-            };
 
             const saleOrdersDetail = (op) => {
                 const geo = ['იან','თებ','მარ','აპრ','მაი','ივნ','ივლ','აგვ','სექ','ოქტ','ნოე','დეკ'];
