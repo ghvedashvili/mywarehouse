@@ -3446,7 +3446,9 @@ $(document).on('click', '.expand-btn', function() {
             : '';
         var crossRefHtml = '';
         if (order.cross_ref) {
-            crossRefHtml = '<div style="margin-top:3px;"><span style="font-size:10px;color:var(--c-text-3);">'+order.cross_ref+'</span></div>';
+            // children_json ველები Yajra-ს მიერ ორჯერ იჭრება escape-ით (nested string) — ვშლით
+            var decodedCrossRef = $('<textarea/>').html(order.cross_ref).text();
+            crossRefHtml = '<div style="margin-top:3px;"><span style="font-size:10px;color:var(--c-text-3);">'+decodedCrossRef+'</span></div>';
         }
         var colA = '<span class="po-order-num" style="font-size:11px;">'+orderNo+'</span>'
             + crossRefHtml
