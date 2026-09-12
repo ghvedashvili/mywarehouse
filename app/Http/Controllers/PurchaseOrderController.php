@@ -51,7 +51,26 @@ class PurchaseOrderController extends Controller
     public function index()
     {
         $products = Product::where('product_status', 1)->with('category:id,is_divisible')->orderBy('name')->get();
-        return view('purchases.index', compact('products'));
+        $users    = \App\Models\User::orderBy('name')->get(['id', 'name']);
+        return view('purchases.index', compact('products', 'users'));
+    }
+
+    // ─── დაბრუნება/გაცვლის ორდერზე პასუხისმგებელი თანამშრომელი + კომენტარი ──
+    public function updateReturnResponsibility(Request $request, $id)
+    {
+        $order = Product_Order::withoutGlobalScope('active')
+            ->where('order_type', 'purchase')
+            ->whereNotNull('original_sale_id')
+            ->findOrFail($id);
+
+        $data = $request->validate([
+            'cancelled_responsible_user_id' => 'nullable|exists:users,id',
+            'cancelled_comment'              => 'nullable|string|max:2000',
+        ]);
+
+        $order->update($data);
+
+        return response()->json(['success' => true, 'message' => 'შენახულია']);
     }
 
     // ─── შესყიდვების DataTable ────────────────────────────────────────
@@ -67,6 +86,7 @@ class PurchaseOrderController extends Controller
 
         $statusFilter  = $request->input('status_filter', '2');
         $returnsFilter = $request->input('returns_filter', 'all');
+        $usersList     = $type === 'returns' ? \App\Models\User::orderBy('name')->get(['id', 'name']) : collect();
 
         $query = Product_Order::with(['product', 'orderStatus', 'customer'])
             ->where('order_type', 'purchase');
@@ -194,6 +214,21 @@ class PurchaseOrderController extends Controller
                 return $row->quantity;
             })
             ->addColumn('is_return_purchase', fn($row) => $row->original_sale_id !== null ? 1 : 0)
+            ->addColumn('responsible_select', function ($row) use ($usersList) {
+                if (!$row->original_sale_id) return '';
+                $options = '<option value="">— არავინ —</option>';
+                foreach ($usersList as $u) {
+                    $sel = ((int) $row->cancelled_responsible_user_id === (int) $u->id) ? 'selected' : '';
+                    $options .= '<option value="'.$u->id.'" '.$sel.'>'.e($u->name).'</option>';
+                }
+                return '<select class="form-select form-select-sm ret-responsible-select" data-id="'.$row->id.'" style="min-width:130px;font-size:11px;">'.$options.'</select>';
+            })
+            ->addColumn('cancelled_comment_html', function ($row) {
+                if (!$row->original_sale_id) return '';
+                $has = !empty($row->cancelled_comment);
+                $cls = $has ? 'btn-warning' : 'btn-outline-secondary';
+                return '<a onclick="openRetCommentModal('.$row->id.', this)" data-comment="'.e($row->cancelled_comment ?? '').'" class="btn btn-xs '.$cls.'" title="კომენტარი"><i class="fa fa-comment"></i></a>';
+            })
             ->addColumn('status_name', function ($row) use ($groupCountMap, $groupItemsMap, $statusFilter) {
                 $count          = $groupCountMap[$row->id] ?? 1;
                 $uniqueProducts = $count > 1 ? collect($groupItemsMap[$row->id] ?? [])->pluck('product_id')->unique()->count() : 1;
@@ -274,7 +309,7 @@ class PurchaseOrderController extends Controller
                 return '<div style="font-size:12px;font-weight:600;">'.$name.'</div>'
                      . ($phone ? '<div style="font-size:11px;color:#64748b;">'.$phone.'</div>' : '');
             })
-            ->rawColumns(['order_number', 'product_name', 'product_size', 'show_photo', 'status_name', 'payment', 'action', 'customer_info'])
+            ->rawColumns(['order_number', 'product_name', 'product_size', 'show_photo', 'status_name', 'payment', 'action', 'customer_info', 'responsible_select', 'cancelled_comment_html'])
             ->make(true);
     }
 

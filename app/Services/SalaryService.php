@@ -10,6 +10,69 @@ use Illuminate\Support\Facades\DB;
 
 class SalaryService
 {
+    /**
+     * დაბრუნება/გაცვლის გამო თანამშრომელზე დარიცხული საკურიერო ხარჯი.
+     *
+     * ფორმულა ერთნაირია დაბრუნება/გაცვლისთვის — განსხვავება მონაცემებშივეა ჩაშენებული:
+     *   დარიცხვა = [ამ (შექმნილი) purchase-ორდერის საკურიერო] + [ძირი sale-ორდერის საკურიერო]
+     * დაბრუნებისას purchase-ს აქვს თავისი (წამოსატანის) საკურიერო → ორივე ჯამდება.
+     * გაცვლისას purchase-ს საკურიერო = 0 → მხოლოდ ძირის საკურიერო ჯამდება.
+     * თუ ძირი ორდერი იყო merged ჯგუფში — მთელი ჯგუფის საკურიეროების ჯამი გამოიყენება.
+     */
+    public function calculateCourierDeductions(int $userId, string $month): array
+    {
+        $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        $end   = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
+
+        $returns = Product_Order::withoutGlobalScope('active')
+            ->where('order_type', 'purchase')
+            ->whereNotNull('original_sale_id')
+            ->where('cancelled_responsible_user_id', $userId)
+            ->whereBetween('created_at', [$start, $end])
+            ->get();
+
+        $total   = 0.0;
+        $details = [];
+
+        foreach ($returns as $r) {
+            $purchaseCourier = (float) $r->courier_price_tbilisi
+                              + (float) $r->courier_price_region
+                              + (float) $r->courier_price_village;
+
+            $original = Product_Order::withoutGlobalScope('active')->find($r->original_sale_id);
+            if (!$original) continue;
+
+            if ($original->merged_id) {
+                $rootCourier = (float) Product_Order::withoutGlobalScope('active')
+                    ->where('merged_id', $original->merged_id)
+                    ->get()
+                    ->sum(fn($o) => (float) $o->courier_price_tbilisi + (float) $o->courier_price_region + (float) $o->courier_price_village);
+            } else {
+                $rootCourier = (float) $original->courier_price_tbilisi
+                             + (float) $original->courier_price_region
+                             + (float) $original->courier_price_village;
+            }
+
+            $lineTotal = $purchaseCourier + $rootCourier;
+            if ($lineTotal <= 0) continue;
+
+            $total += $lineTotal;
+            $details[] = [
+                'purchase_id'            => $r->id,
+                'order_number'           => $r->order_number,
+                'original_order_number'  => $original->order_number,
+                'is_exchange'            => str_starts_with($r->comment ?? '', '↩ გაცვლა'),
+                'amount'                 => round($lineTotal, 2),
+            ];
+        }
+
+        return [
+            'total'   => round($total, 2),
+            'count'   => count($details),
+            'details' => $details,
+        ];
+    }
+
     public function calculateSaleOperator(int $userId, string $month): array
     {
         $policy = SalaryPolicy::forUser($userId, 'sale_operator', $month);
@@ -68,19 +131,23 @@ class SalaryService
             ->toArray();
 
         $purchaseDeduction = $this->calcPurchaseDeduction($userId, $month);
-        $netTotal = $total - $purchaseDeduction;
+        $courierDeduction  = $this->calculateCourierDeductions($userId, $month);
+        $netTotal = $total - $purchaseDeduction - $courierDeduction['total'];
 
         return [
-            'order_count'         => $orderCount,
-            'deduction_count'     => $deductionCount,
-            'deductions_by_month' => $deductionsByMonth,
-            'base_amount'         => round($base, 2),
-            'bonus_amount'        => round($bonus, 2),
-            'deduction_amount'    => round($deductBonus, 2),
-            'purchase_deduction'  => round($purchaseDeduction, 2),
-            'total_amount'        => round($netTotal, 2),
-            'orders'              => $positiveOrders,
-            'deductions'          => $deductionOrders,
+            'order_count'          => $orderCount,
+            'deduction_count'      => $deductionCount,
+            'deductions_by_month'  => $deductionsByMonth,
+            'base_amount'          => round($base, 2),
+            'bonus_amount'         => round($bonus, 2),
+            'deduction_amount'     => round($deductBonus, 2),
+            'purchase_deduction'   => round($purchaseDeduction, 2),
+            'courier_deduction'    => $courierDeduction['total'],
+            'courier_deduction_count'   => $courierDeduction['count'],
+            'courier_deduction_details'=> $courierDeduction['details'],
+            'total_amount'         => round($netTotal, 2),
+            'orders'               => $positiveOrders,
+            'deductions'           => $deductionOrders,
         ];
     }
 
@@ -234,12 +301,17 @@ class SalaryService
             ->sortKeys()
             ->toArray();
 
+        $courierDeduction = $userId ? $this->calculateCourierDeductions($userId, $month) : ['total' => 0, 'count' => 0, 'details' => []];
+
         return [
-            'order_count'        => $orderCount,
-            'new_count'          => $newCount,
-            'cancelled_count'    => $cancelledCount,
-            'cancelled_by_month' => $cancelledByMonth,
-            'suggested_amount'   => round(max(0, $orderCount * $policy->warehouse_per_order), 2),
+            'order_count'               => $orderCount,
+            'new_count'                 => $newCount,
+            'cancelled_count'           => $cancelledCount,
+            'cancelled_by_month'        => $cancelledByMonth,
+            'suggested_amount'          => round(max(0, $orderCount * $policy->warehouse_per_order), 2),
+            'courier_deduction'         => $courierDeduction['total'],
+            'courier_deduction_count'   => $courierDeduction['count'],
+            'courier_deduction_details' => $courierDeduction['details'],
         ];
     }
 
@@ -260,24 +332,33 @@ class SalaryService
             } elseif ($user->role === 'warehouse_operator') {
                 $warehouseData = $this->calculateWarehouseOperator($month, $user->id);
                 $purchaseDed   = $this->calcPurchaseDeduction($user->id, $month);
+                $courierDed    = $warehouseData['courier_deduction'];
                 $warehouseOperators[] = [
-                    'user'                => $user,
-                    'order_count'         => $warehouseData['order_count'],
-                    'new_count'           => $warehouseData['new_count'],
-                    'cancelled_count'     => $warehouseData['cancelled_count'],
-                    'cancelled_by_month'  => $warehouseData['cancelled_by_month'],
-                    'suggested_amount'    => $warehouseData['suggested_amount'],
-                    'purchase_deduction'  => round($purchaseDed, 2),
-                    'total_amount'        => round($warehouseData['suggested_amount'] - $purchaseDed, 2),
+                    'user'                       => $user,
+                    'order_count'                => $warehouseData['order_count'],
+                    'new_count'                  => $warehouseData['new_count'],
+                    'cancelled_count'            => $warehouseData['cancelled_count'],
+                    'cancelled_by_month'         => $warehouseData['cancelled_by_month'],
+                    'suggested_amount'           => $warehouseData['suggested_amount'],
+                    'purchase_deduction'         => round($purchaseDed, 2),
+                    'courier_deduction'          => round($courierDed, 2),
+                    'courier_deduction_count'    => $warehouseData['courier_deduction_count'],
+                    'courier_deduction_details'  => $warehouseData['courier_deduction_details'],
+                    'total_amount'               => round($warehouseData['suggested_amount'] - $purchaseDed - $courierDed, 2),
                 ];
 
             } elseif ($user->role === 'admin') {
                 $policy      = SalaryPolicy::forUser($user->id, 'admin', $month);
                 $purchaseDed = $this->calcPurchaseDeduction($user->id, $month);
+                $courierDeductionData = $this->calculateCourierDeductions($user->id, $month);
+                $courierDed  = $courierDeductionData['total'];
                 $admins[] = [
-                    'user'               => $user,
-                    'purchase_deduction' => round($purchaseDed, 2),
-                    'total_amount'       => round(($policy->fixed_salary ?? 0) - $purchaseDed, 2),
+                    'user'                       => $user,
+                    'purchase_deduction'         => round($purchaseDed, 2),
+                    'courier_deduction'          => round($courierDed, 2),
+                    'courier_deduction_count'    => $courierDeductionData['count'],
+                    'courier_deduction_details'  => $courierDeductionData['details'],
+                    'total_amount'               => round(($policy->fixed_salary ?? 0) - $purchaseDed - $courierDed, 2),
                 ];
             }
         }

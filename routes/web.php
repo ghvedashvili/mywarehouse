@@ -164,6 +164,7 @@ Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff']
         Route::post('purchases/group/{groupId}/partial-receive',[PurchaseOrderController::class, 'groupPartialReceive'])->name('purchases.groupPartialReceive');
         Route::post('purchases/group/{groupId}/undo-receipt',   [PurchaseOrderController::class, 'undoGroupReceipt'])->name('purchases.undoGroupReceipt');
         Route::get('purchases/stats', [PurchaseOrderController::class, 'stats'])->name('purchases.stats');
+        Route::patch('purchases/{id}/responsibility', [PurchaseOrderController::class, 'updateReturnResponsibility'])->name('purchases.updateResponsibility');
     });
     // ── Users ─────────────────────────────────────────────────────────
     Route::get('/user/change-password', [UserController::class, 'changePasswordForm'])->name('user.change-password');

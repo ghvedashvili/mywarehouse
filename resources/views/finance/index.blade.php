@@ -841,6 +841,7 @@
                             <th>ბონუსი (1%)</th>
                             <th>გამოქვ.</th>
                             <th style="color:#e67e22;">შენაძენები</th>
+                            <th style="color:#c0392b;">საკურ.</th>
                             <th>ხელფასი სულ</th>
                             <th>გაცემული ხელფასი</th>
                             <th>ჩანიშვნა</th>
@@ -866,6 +867,7 @@
                             <th>ყველა ორდ.</th>
                             <th>ხელფასი სულ</th>
                             <th style="color:#e67e22;">შენაძენები</th>
+                            <th style="color:#c0392b;">საკურ.</th>
                             <th>სულ</th>
                             <th>გაცემული ხელფასი</th>
                             <th>ჩანიშვნა</th>
@@ -886,7 +888,7 @@
                 <div class="table-responsive">
                 <table class="entries-table" id="salary-admin-table" style="min-width:400px;">
                     <thead>
-                        <tr><th>სახელი</th><th style="color:#e67e22;">შენაძენები</th><th>სულ</th><th>გაცემული ხელფასი</th><th>ჩანიშვნა</th><th>სტატუსი</th></tr>
+                        <tr><th>სახელი</th><th style="color:#e67e22;">შენაძენები</th><th style="color:#c0392b;">საკურ.</th><th>სულ</th><th>გაცემული ხელფასი</th><th>ჩანიშვნა</th><th>სტატუსი</th></tr>
                     </thead>
                     <tbody id="salary-admin-body"></tbody>
                 </table>
@@ -1348,6 +1350,15 @@ function loadSalary() {
                 ? `<span class="badge-type badge-income">✔ ${recorded.toFixed(2)} ₾</span>`
                 : `<span style="color:#b2bec3; font-size:11px;">—</span>`;
 
+            const courierDeductionCell = (op) => {
+                const amt = parseFloat(op.courier_deduction || 0);
+                if (amt <= 0) return `<td data-label="საკურ." style="color:#b2bec3; font-size:11px;">—</td>`;
+                const details = (op.courier_deduction_details || [])
+                    .map(d => `${d.original_order_number || ''} (${d.is_exchange ? 'გაცვლა' : 'დაბრუნება'}) −${parseFloat(d.amount).toFixed(2)}₾`)
+                    .join('\n');
+                return `<td data-label="საკურ." style="color:#c0392b; font-weight:600;" title="${details.replace(/"/g,'&quot;')}">−${amt.toFixed(2)} ₾</td>`;
+            };
+
             const saleOrdersDetail = (op) => {
                 const geo = ['იან','თებ','მარ','აპრ','მაი','ივნ','ივლ','აგვ','სექ','ოქტ','ნოე','დეკ'];
                 const parts = [];
@@ -1380,6 +1391,7 @@ function loadSalary() {
                         ? `<td data-label="შენაძ." style="color:#e67e22; font-weight:600;">−${parseFloat(op.purchase_deduction).toFixed(2)} ₾</td>`
                         : `<td data-label="შენაძ." style="color:#b2bec3; font-size:11px;">—</td>`
                     }
+                    ${courierDeductionCell(op)}
                     <td data-label="სულ" style="color:${parseFloat(op.total_amount)<0?'var(--red)':'var(--green)'}; font-weight:600;">${parseFloat(op.total_amount).toFixed(2)} ₾</td>
                     <td class="sal-td-pay" data-label="გადახდა">
                         <input type="number" class="salary-amount-input" step="0.01"
@@ -1433,6 +1445,7 @@ function loadSalary() {
                         ? `<td data-label="შენაძ." style="color:#e67e22; font-weight:600;">−${parseFloat(op.purchase_deduction).toFixed(2)} ₾</td>`
                         : `<td data-label="შენაძ." style="color:#b2bec3; font-size:11px;">—</td>`
                     }
+                    ${courierDeductionCell(op)}
                     <td data-label="სულ" style="color:${parseFloat(op.total_amount)<0?'var(--red)':'var(--green)'}; font-weight:600;">${parseFloat(op.total_amount).toFixed(2)} ₾</td>
                     <td class="sal-td-pay" data-label="გადახდა">
                         <input type="number" class="salary-amount-input" step="0.01"
@@ -1465,6 +1478,7 @@ function loadSalary() {
                         ? `<td data-label="შენაძ." style="color:#e67e22; font-weight:600;">−${parseFloat(op.purchase_deduction).toFixed(2)} ₾</td>`
                         : `<td data-label="შენაძ." style="color:#b2bec3; font-size:11px;">—</td>`
                     }
+                    ${courierDeductionCell(op)}
                     <td data-label="სულ" style="color:${parseFloat(op.total_amount)<0?'var(--red)':'var(--green)'}; font-weight:600;">${parseFloat(op.total_amount).toFixed(2)} ₾</td>
                     <td class="sal-td-pay" data-label="გადახდა">
                         <input type="number" class="salary-amount-input" step="0.01"

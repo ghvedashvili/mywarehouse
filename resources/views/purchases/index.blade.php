@@ -829,6 +829,8 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                             <th>Price (₾)</th>
                             <th>სტატუსი</th>
                             <th>თარიღი</th>
+                            <th>პასუხისმგებელი</th>
+                            <th style="width:52px">კომ.</th>
                             <th>მოქმედება</th>
                         </tr>
                     </thead>
@@ -867,6 +869,8 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
                             <th>Price (₾)</th>
                             <th>სტატუსი</th>
                             <th>თარიღი</th>
+                            <th>პასუხისმგებელი</th>
+                            <th style="width:52px">კომ.</th>
                             <th>მოქმედება</th>
                         </tr>
                     </thead>
@@ -883,6 +887,26 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 
 
 @include('purchases.form_purchase')
+
+{{-- ══ დაბრუნება/გაცვლის კომენტარის Modal ══ --}}
+<div class="modal fade" id="modal-ret-comment" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+        <div class="modal-content" style="border-radius:12px;">
+            <div class="modal-header py-2">
+                <h5 class="modal-title fw-bold"><i class="fa fa-comment me-1" style="color:#f39c12;"></i> კომენტარი</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3">
+                <input type="hidden" id="ret-comment-id">
+                <textarea id="ret-comment-text" class="form-control" rows="4" placeholder="კომენტარი დაბრუნება/გაცვლის შესახებ..."></textarea>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">გაუქმება</button>
+                <button type="button" class="btn btn-warning btn-sm" id="ret-comment-save">შენახვა</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {{-- ══ Image Zoom Modal ══ --}}
 <div class="modal fade" id="modal-img-zoom" tabindex="-1">
@@ -1239,6 +1263,8 @@ $(function() {
             { data: 'price_paid',      name: 'price_paid',      orderable: false, responsivePriority: 8, visible: isAdmin, className: 'pu-td-hide' },
             { data: 'status_name',     name: 'status_name',     orderable: false, responsivePriority: 6, className: 'pu-td-status' },
             { data: 'created_at',      name: 'created_at',      responsivePriority: 9, className: 'pu-td-date' },
+            { data: 'responsible_select',       name: 'responsible_select',       orderable: false, responsivePriority: 8, className: 'pu-td-hide' },
+            { data: 'cancelled_comment_html',   name: 'cancelled_comment_html',   orderable: false, responsivePriority: 8, className: 'pu-td-hide text-center' },
             { data: 'action',          name: 'action',          orderable: false, responsivePriority: 2, className: 'pu-td-action' },
             { data: 'is_return_purchase', visible: false },
             { data: 'group_items_json',   visible: false },
@@ -1270,10 +1296,58 @@ $(function() {
             { data: 'price_paid',      name: 'price_paid',      orderable: false, responsivePriority: 8, visible: isAdmin, className: 'pu-td-hide' },
             { data: 'status_name',     name: 'status_name',     orderable: false, responsivePriority: 6, className: 'pu-td-status' },
             { data: 'created_at',      name: 'created_at',      responsivePriority: 9, className: 'pu-td-date' },
+            { data: 'responsible_select',       name: 'responsible_select',       orderable: false, responsivePriority: 8, className: 'pu-td-hide' },
+            { data: 'cancelled_comment_html',   name: 'cancelled_comment_html',   orderable: false, responsivePriority: 8, className: 'pu-td-hide text-center' },
             { data: 'action',          name: 'action',          orderable: false, responsivePriority: 2, className: 'pu-td-action' },
             { data: 'is_return_purchase', visible: false },
             { data: 'group_items_json',   visible: false },
         ]
+    });
+
+    // ── დაბრუნება/გაცვლა: პასუხისმგებელი თანამშრომელი (auto-save on change) ──
+    $(document).on('change', '.ret-responsible-select', function() {
+        var $sel = $(this);
+        var id   = $sel.data('id');
+        $sel.prop('disabled', true);
+        $.ajax({
+            url: "{{ url('purchases') }}/" + id + "/responsibility",
+            type: 'POST',
+            data: { _method: 'PATCH', _token: '{{ csrf_token() }}', cancelled_responsible_user_id: $sel.val() || '' },
+            success: function() {
+                Swal.fire({ icon: 'success', title: 'შენახულია', timer: 1000, showConfirmButton: false });
+            },
+            error: function() {
+                Swal.fire({ icon: 'error', title: 'შეცდომა' });
+            },
+            complete: function() { $sel.prop('disabled', false); }
+        });
+    });
+
+    // ── დაბრუნება/გაცვლა: კომენტარი ──
+    window.openRetCommentModal = function(id, el) {
+        $('#ret-comment-id').val(id);
+        $('#ret-comment-text').val($(el).data('comment') || '');
+        $('#modal-ret-comment').modal('show');
+    };
+
+    $('#ret-comment-save').on('click', function() {
+        var id = $('#ret-comment-id').val();
+        var $btn = $(this);
+        $btn.prop('disabled', true);
+        $.ajax({
+            url: "{{ url('purchases') }}/" + id + "/responsibility",
+            type: 'POST',
+            data: { _method: 'PATCH', _token: '{{ csrf_token() }}', cancelled_comment: $('#ret-comment-text').val() },
+            success: function() {
+                $('#modal-ret-comment').modal('hide');
+                returnsInTransitTable.ajax.reload(null, false);
+                returnsReceivedTable.ajax.reload(null, false);
+            },
+            error: function() {
+                Swal.fire({ icon: 'error', title: 'შეცდომა' });
+            },
+            complete: function() { $btn.prop('disabled', false); }
+        });
     });
 
     // გაყიდვებიდან ?tab=returns&search= პარამეტრი

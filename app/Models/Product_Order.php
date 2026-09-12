@@ -23,6 +23,7 @@ class Product_Order extends Model
         'order_address', 'order_alt_tel', 'order_city_id',
         'cancelled_at', 'original_qty', 'courier_paid_at', 'fully_paid_at', 'payment_comment',
         'is_gift',
+        'cancelled_responsible_user_id', 'cancelled_comment',
     ];
 
     protected $hidden = ['created_at', 'updated_at'];
@@ -176,5 +177,11 @@ class Product_Order extends Model
     {
         return $this->belongsTo(Product_Order::class, 'purchase_order_id')
                     ->withoutGlobalScope('active');
+    }
+
+    // return/exchange purchase ჩანაწერზე დანიშნული პასუხისმგებელი თანამშრომელი
+    public function cancelledResponsible()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'cancelled_responsible_user_id');
     }
 }
