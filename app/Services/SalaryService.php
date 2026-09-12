@@ -12,7 +12,7 @@ class SalaryService
 {
     public function calculateSaleOperator(int $userId, string $month): array
     {
-        $policy = SalaryPolicy::forRole('sale_operator', $month);
+        $policy = SalaryPolicy::forUser($userId, 'sale_operator', $month);
 
         $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $end   = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
@@ -189,9 +189,9 @@ class SalaryService
             ->sum(DB::raw('COALESCE(paid_tbc,0) + COALESCE(paid_bog,0) + COALESCE(paid_lib,0) + COALESCE(paid_cash,0)'));
     }
 
-    public function calculateWarehouseOperator(string $month): array
+    public function calculateWarehouseOperator(string $month, ?int $userId = null): array
     {
-        $policy = SalaryPolicy::forRole('warehouse_operator', $month);
+        $policy = SalaryPolicy::forUser($userId, 'warehouse_operator', $month);
 
         $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $end   = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
@@ -251,8 +251,6 @@ class SalaryService
         $warehouseOperators = [];
         $admins             = [];
 
-        $warehouseData = $this->calculateWarehouseOperator($month);
-
         foreach ($users as $user) {
             if ($user->role === 'sale_operator') {
                 $data            = $this->calculateSaleOperator($user->id, $month);
@@ -260,8 +258,8 @@ class SalaryService
                 $saleOperators[] = $data;
 
             } elseif ($user->role === 'warehouse_operator') {
-                $purchaseDed = $this->calcPurchaseDeduction($user->id, $month);
-                $whTotal     = $warehouseData['suggested_amount'] - $purchaseDed;
+                $warehouseData = $this->calculateWarehouseOperator($month, $user->id);
+                $purchaseDed   = $this->calcPurchaseDeduction($user->id, $month);
                 $warehouseOperators[] = [
                     'user'                => $user,
                     'order_count'         => $warehouseData['order_count'],
@@ -270,11 +268,11 @@ class SalaryService
                     'cancelled_by_month'  => $warehouseData['cancelled_by_month'],
                     'suggested_amount'    => $warehouseData['suggested_amount'],
                     'purchase_deduction'  => round($purchaseDed, 2),
-                    'total_amount'        => round($whTotal, 2),
+                    'total_amount'        => round($warehouseData['suggested_amount'] - $purchaseDed, 2),
                 ];
 
             } elseif ($user->role === 'admin') {
-                $policy      = SalaryPolicy::forRole('admin', $month);
+                $policy      = SalaryPolicy::forUser($user->id, 'admin', $month);
                 $purchaseDed = $this->calcPurchaseDeduction($user->id, $month);
                 $admins[] = [
                     'user'               => $user,

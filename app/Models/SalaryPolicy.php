@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class SalaryPolicy extends Model
 {
     protected $fillable = [
-        'role', 'name',
+        'user_id', 'role', 'name',
         'sale_base_per_order', 'sale_bonus_percent',
         'warehouse_per_order', 'fixed_salary',
         'effective_from', 'effective_to',
@@ -42,23 +42,35 @@ class SalaryPolicy extends Model
         return 'active';
     }
 
+    public function user()
+    {
+        return $this->belongsTo(\App\Models\User::class);
+    }
+
     /**
-     * Returns the policy active for the given role on the first day of $month.
-     * Falls back to hardcoded defaults if nothing found.
+     * Returns the active policy for a specific user + role in $month.
+     * Priority: user-specific → role-wide → hardcoded default.
      */
-    public static function forRole(string $role, string $month): self
+    public static function forUser(?int $userId, string $role, string $month): self
     {
         $monthStart = Carbon::createFromFormat('Y-m', $month)->startOfMonth()->toDateString();
         $monthEnd   = Carbon::createFromFormat('Y-m', $month)->endOfMonth()->toDateString();
 
-        $policy = static::where('role', $role)
+        $base = static::where('role', $role)
             ->where('effective_from', '<=', $monthEnd)
-            ->where('effective_to',   '>',  $monthStart)
-            ->orderByDesc('effective_from')
-            ->first();
+            ->where('effective_to',   '>',  $monthStart);
 
+        // 1. user-specific override
+        if ($userId) {
+            $policy = (clone $base)->where('user_id', $userId)->orderByDesc('effective_from')->first();
+            if ($policy) return $policy;
+        }
+
+        // 2. role-wide (user_id IS NULL)
+        $policy = (clone $base)->whereNull('user_id')->orderByDesc('effective_from')->first();
         if ($policy) return $policy;
 
+        // 3. hardcoded default
         $default = new self();
         $default->role                = $role;
         $default->sale_base_per_order = 3.00;
@@ -68,5 +80,11 @@ class SalaryPolicy extends Model
         $default->effective_from      = Carbon::parse('2000-01-01');
         $default->effective_to        = Carbon::parse('2050-01-01');
         return $default;
+    }
+
+    /** Backward-compatible alias — role-wide lookup only. */
+    public static function forRole(string $role, string $month): self
+    {
+        return static::forUser(null, $role, $month);
     }
 }

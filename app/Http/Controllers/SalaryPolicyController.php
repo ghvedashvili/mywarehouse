@@ -17,7 +17,7 @@ class SalaryPolicyController extends Controller
 
     public function index()
     {
-        $policies   = SalaryPolicy::orderBy('role')->orderByDesc('effective_from')->get();
+        $policies   = SalaryPolicy::with('user')->orderBy('role')->orderBy('user_id')->orderByDesc('effective_from')->get();
         $roleLabels = SalaryPolicy::roleLabels();
         $users      = User::whereIn('role', ['sale_operator','warehouse_operator','staff','admin'])
                           ->orderBy('name')->get();
@@ -28,6 +28,7 @@ class SalaryPolicyController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
+            'user_id'             => 'nullable|exists:users,id',
             'role'                => 'required|in:sale_operator,warehouse_operator,staff,admin',
             'name'                => 'required|string|max:100',
             'sale_base_per_order' => 'nullable|numeric|min:0',
@@ -40,23 +41,27 @@ class SalaryPolicyController extends Controller
         ]);
 
         $newFrom = Carbon::parse($data['effective_from'])->toDateString();
+        $userId  = $data['user_id'] ?? null;
 
-        // check no policy with same role+effective_from already exists
+        // check no policy with same role+user+effective_from already exists
         $duplicate = SalaryPolicy::where('role', $data['role'])
             ->where('effective_from', $newFrom)
+            ->when($userId, fn($q) => $q->where('user_id', $userId), fn($q) => $q->whereNull('user_id'))
             ->exists();
         if ($duplicate) {
             return response()->json(['message' => 'ამ როლისთვის უკვე არსებობს პოლიტიკა იმავე ამოქმედების თარიღით'], 422);
         }
 
-        // close previous open policy (effective_to = 2050) for this role
+        // close previous open policy for this role+user
         SalaryPolicy::where('role', $data['role'])
             ->where('effective_from', '<', $newFrom)
             ->where('effective_to', '>', $newFrom)
+            ->when($userId, fn($q) => $q->where('user_id', $userId), fn($q) => $q->whereNull('user_id'))
             ->update(['effective_to' => $newFrom]);
 
         $data['effective_from'] = $newFrom;
         $data['effective_to']   = '2050-01-01';
+        $data['user_id']        = $userId;
 
         SalaryPolicy::create($data);
         return response()->json(['success' => true, 'message' => 'პოლიტიკა დამატებულია']);
@@ -77,10 +82,13 @@ class SalaryPolicyController extends Controller
             'effective_to'        => 'required|date|after:effective_from',
         ]);
 
-        // check duplicate effective_from for same role (excluding self)
+        $userId = $policy->user_id;
+
+        // check duplicate effective_from for same role+user (excluding self)
         $duplicate = SalaryPolicy::where('role', $data['role'])
             ->where('effective_from', Carbon::parse($data['effective_from'])->toDateString())
             ->where('id', '!=', $policy->id)
+            ->when($userId, fn($q) => $q->where('user_id', $userId), fn($q) => $q->whereNull('user_id'))
             ->exists();
         if ($duplicate) {
             return response()->json(['message' => 'ამ როლისთვის უკვე არსებობს პოლიტიკა იმავე ამოქმედების თარიღით'], 422);
@@ -95,18 +103,22 @@ class SalaryPolicyController extends Controller
         $policy = SalaryPolicy::findOrFail($id);
         $today  = now()->toDateString();
 
-        $isCurrentlyActive = $policy->effective_from->toDateString() <= $today
-                          && $policy->effective_to->toDateString()   >  $today;
+        // user-specific policies can always be deleted (role-wide policy is the fallback)
+        if (!$policy->user_id) {
+            $isCurrentlyActive = $policy->effective_from->toDateString() <= $today
+                              && $policy->effective_to->toDateString()   >  $today;
 
-        if ($isCurrentlyActive) {
-            $otherActive = SalaryPolicy::where('role', $policy->role)
-                ->where('id', '!=', $policy->id)
-                ->where('effective_from', '<=', $today)
-                ->where('effective_to',   '>',  $today)
-                ->exists();
+            if ($isCurrentlyActive) {
+                $otherActive = SalaryPolicy::where('role', $policy->role)
+                    ->whereNull('user_id')
+                    ->where('id', '!=', $policy->id)
+                    ->where('effective_from', '<=', $today)
+                    ->where('effective_to',   '>',  $today)
+                    ->exists();
 
-            if (!$otherActive) {
-                return response()->json(['message' => 'ვერ წაშლით — ამ როლისთვის სხვა აქტიური პოლიტიკა არ დარჩება'], 422);
+                if (!$otherActive) {
+                    return response()->json(['message' => 'ვერ წაშლით — ამ როლისთვის სხვა აქტიური პოლიტიკა არ დარჩება'], 422);
+                }
             }
         }
 

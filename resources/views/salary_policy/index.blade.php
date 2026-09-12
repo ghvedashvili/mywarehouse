@@ -79,7 +79,7 @@ $spRoleStyles = [
         <div style="font-size:13px; color:#92400e;">
             <i class="fa fa-info-circle me-1"></i>
             ახალი პოლიტიკის შექმნისას წინა პოლიტიკა ავტომატურად იხურება ახლის ამოქმედების თარიღით.
-            ყოველთვის <strong>მხოლოდ ერთი</strong> პოლიტიკა იქნება აქტიური თითოეული როლისთვის.
+            თუ კონკრეტული თანამშრომელი მიუთითე — მხოლოდ მასზე მოქმედებს, სხვები role-wide პოლიტიკას იყენებენ.
         </div>
     </div>
     <div class="p-3">
@@ -110,7 +110,7 @@ $spRoleStyles = [
                     <table class="table table-hover align-middle mb-0" style="font-size:13px;">
                         <thead class="table-dark">
                             <tr>
-                                <th>სახელი</th>
+                                <th>სახელი / თანამშრომელი</th>
                                 <th style="width:100px;">დაწყება</th>
                                 <th style="width:100px;">დასრულება</th>
                                 @if($role === 'sale_operator')
@@ -138,7 +138,20 @@ $spRoleStyles = [
                                 }
                             @endphp
                             <tr>
-                                <td class="sp-td-name fw-semibold">{{ $p->name }}</td>
+                                <td class="sp-td-name fw-semibold">
+                                    {{ $p->name }}
+                                    @if($p->user_id)
+                                        <div style="margin-top:3px;">
+                                            <span class="badge" style="background:#7c3aed;font-size:10px;font-weight:600;">
+                                                <i class="fa fa-user me-1"></i>{{ $p->user->name ?? '—' }}
+                                            </span>
+                                        </div>
+                                    @else
+                                        <div style="margin-top:3px;">
+                                            <span class="badge bg-secondary" style="font-size:10px;opacity:0.6;">ყველა</span>
+                                        </div>
+                                    @endif
+                                </td>
                                 <td class="sp-td-from">{{ $p->effective_from->format('d.m.Y') }}</td>
                                 <td class="sp-td-to text-muted" style="font-size:12px;">
                                     @if($isForever) <span class="text-muted">უვადო</span>
@@ -182,7 +195,8 @@ $spRoleStyles = [
                                                     {{ $p->warehouse_per_order ?? 'null' }},
                                                     {{ $p->fixed_salary ?? 'null' }},
                                                     '{{ $p->effective_from->format('Y-m-d') }}',
-                                                    '{{ $p->effective_to->format('Y-m-d') }}'
+                                                    '{{ $p->effective_to->format('Y-m-d') }}',
+                                                    {{ $p->user_id ?? 'null' }}
                                                 )">
                                             <i class="fa fa-pen"></i>
                                         </button>
@@ -295,6 +309,14 @@ $spRoleStyles = [
                     </div>
 
                     <div class="mb-3">
+                        <label class="form-label fw-semibold" style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">თანამშრომელი <span class="text-muted fw-normal">(სურვილისამებრ)</span></label>
+                        <select id="f_user_id" class="form-select">
+                            <option value="">— ყველა (role-wide) —</option>
+                        </select>
+                        <div class="form-text">თუ კონკრეტული თანამშრომელი არ მიუთითე, პოლიტიკა მთელ როლზე ვრცელდება.</div>
+                    </div>
+
+                    <div class="mb-3">
                         <label class="form-label fw-semibold" style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">სახელი</label>
                         <input type="text" id="f_name" class="form-control" placeholder="მაგ: 2026 Q3 პოლიტიკა" required>
                     </div>
@@ -360,11 +382,29 @@ $spRoleStyles = [
 var modal   = new bootstrap.Modal(document.getElementById('modal-policy'));
 var isEdit  = false;
 
+// Users grouped by role (injected from PHP)
+var usersByRole = @json($users->groupBy('role')->map(fn($g) => $g->map(fn($u) => ['id'=>$u->id,'name'=>$u->name])->values()));
+
 function onRoleChange() {
     var role = $('#f_role').val();
     $('#fields-sale').toggle(role === 'sale_operator');
     $('#fields-warehouse').toggle(role === 'warehouse_operator');
     $('#fields-fixed').toggle(role === 'staff' || role === 'admin');
+
+    // rebuild user dropdown for this role
+    var $sel = $('#f_user_id');
+    var currentVal = $sel.val();
+    $sel.find('option:not(:first)').remove();
+    var roleUsers = usersByRole[role] || [];
+    roleUsers.forEach(function(u) {
+        $sel.append('<option value="' + u.id + '">' + u.name + '</option>');
+    });
+    // restore selection if still valid
+    if (currentVal && $sel.find('option[value="'+currentVal+'"]').length) {
+        $sel.val(currentVal);
+    } else {
+        $sel.val('');
+    }
 }
 
 function openForm() {
@@ -372,6 +412,7 @@ function openForm() {
     $('#modal-policy-title').text('ახალი პოლიტიკა');
     $('#policy_id').val('');
     $('#f_role').val('sale_operator').prop('disabled', false);
+    $('#f_user_id').val('').prop('disabled', false);
     $('#f_name').val('');
     $('#f_effective_from').val(new Date().toISOString().slice(0,10));
     $('#f_sale_base').val(3.00);
@@ -385,7 +426,7 @@ function openForm() {
     modal.show();
 }
 
-function openEdit(id, name, role, saleBase, saleBonus, warehouse, fixedSalary, effFrom, effTo) {
+function openEdit(id, name, role, saleBase, saleBonus, warehouse, fixedSalary, effFrom, effTo, userId) {
     isEdit = true;
     $('#modal-policy-title').text('პოლიტიკის რედაქტირება');
     $('#policy_id').val(id);
@@ -402,6 +443,8 @@ function openEdit(id, name, role, saleBase, saleBonus, warehouse, fixedSalary, e
     $('#info-effective-to').text(forever ? 'დასრულების თარიღი: უვადო (2050)' : '').toggle(!forever);
     $('#info-new-policy').hide();
     onRoleChange();
+    // set user after onRoleChange (which repopulates options)
+    $('#f_user_id').val(userId || '').prop('disabled', true);
     modal.show();
 }
 
@@ -411,21 +454,25 @@ function savePolicy() {
     $btn.prop('disabled', true).css('opacity', '0.65');
 
     var id   = $('#policy_id').val();
+    var role = $('#f_role').prop('disabled') ? $('#f_role').val() : $('#f_role').val();
     var data = {
         _token:         '{{ csrf_token() }}',
-        role:           $('#f_role').val(),
+        role:           role,
         name:           $('#f_name').val(),
         effective_from: $('#f_effective_from').val(),
     };
+
+    var userId = $('#f_user_id').val();
+    if (userId) data.user_id = userId;
 
     if (isEdit) {
         data.effective_to = $('#f_effective_to').val() || '2050-01-01';
     }
 
-    if (data.role === 'sale_operator') {
+    if (role === 'sale_operator') {
         data.sale_base_per_order = $('#f_sale_base').val();
         data.sale_bonus_percent  = parseFloat($('#f_sale_bonus_display').val()) / 100;
-    } else if (data.role === 'warehouse_operator') {
+    } else if (role === 'warehouse_operator') {
         data.warehouse_per_order = $('#f_warehouse').val();
     } else {
         data.fixed_salary = $('#f_fixed_salary').val();
