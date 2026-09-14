@@ -997,6 +997,35 @@
     </div>
 </div>
 
+{{-- ══ MODAL: საკურიერო გამოქვითვის დეტალები ══ --}}
+<div class="modal fade" id="modal-courier-detail" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width:540px;">
+        <div class="modal-content" style="border-radius:12px;">
+            <div class="modal-header" style="background:#f8f9fa;">
+                <h5 class="modal-title" id="courier-detail-title" style="font-size:15px;font-weight:700;">საკურიერო გამოქვითვა</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div id="courier-detail-summary"
+                 style="padding:8px 18px;background:#fdf2f2;font-size:13px;border-bottom:1px solid #e9ecef;"></div>
+            <div class="modal-body p-0">
+                <table class="table table-sm table-hover mb-0" style="font-size:13px;">
+                    <thead style="position:sticky;top:0;z-index:1;background:#f8f9fa;">
+                        <tr>
+                            <th style="padding:8px 14px;font-size:11px;text-transform:uppercase;color:#b2bec3;font-weight:700;">ორდერი</th>
+                            <th style="padding:8px 14px;font-size:11px;text-transform:uppercase;color:#b2bec3;font-weight:700;">ტიპი</th>
+                            <th style="padding:8px 14px;text-align:right;font-size:11px;text-transform:uppercase;color:#b2bec3;font-weight:700;">თანხა</th>
+                        </tr>
+                    </thead>
+                    <tbody id="courier-detail-body"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer" style="gap:8px;">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">დახურვა</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {{-- ══ MODAL: ADD ENTRY ══ --}}
 @if(auth()->user()->role === 'admin')
 <div class="modal fade" id="modal-entry" tabindex="-1" data-bs-backdrop="static">
@@ -1341,13 +1370,13 @@ function loadSalary() {
     .then(data => {
         salaryData = data;
 
+        window._courierDeductionDetails = {};
         const courierDeductionCell = (op) => {
             const amt = parseFloat(op.courier_deduction || 0);
             if (amt <= 0) return `<td data-label="საკურ." style="color:#b2bec3; font-size:11px;">—</td>`;
-            const details = (op.courier_deduction_details || [])
-                .map(d => `${d.original_order_number || ''} (${d.is_exchange ? 'გაცვლა' : 'დაბრუნება'}) −${parseFloat(d.amount).toFixed(2)}₾`)
-                .join('\n');
-            return `<td data-label="საკურ." style="color:#c0392b; font-weight:600;" title="${details.replace(/"/g,'&quot;')}">−${amt.toFixed(2)} ₾</td>`;
+            window._courierDeductionDetails[op.user_id] = { name: op.name, details: op.courier_deduction_details || [] };
+            return `<td data-label="საკურ." style="color:#c0392b; font-weight:600; cursor:pointer; text-decoration:underline dotted;"
+                        onclick="showCourierDeductionModal(${op.user_id})" title="დააჭირეთ ორდერების სანახავად">−${amt.toFixed(2)} ₾</td>`;
         };
 
         // ── Sale Operators ────────────────────────────────
@@ -1637,6 +1666,36 @@ function showCpOrdersModal(orders, title, withPayBtn) {
     payBtn.disabled = false;
 
     bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-cp-orders')).show();
+}
+
+function showCourierDeductionModal(userId) {
+    var entry   = (window._courierDeductionDetails || {})[userId] || { name: '', details: [] };
+    var details = entry.details;
+    var total   = details.reduce(function(s, d) { return s + parseFloat(d.amount || 0); }, 0);
+
+    document.getElementById('courier-detail-title').textContent = 'საკურიერო გამოქვითვა — ' + (entry.name || '');
+    document.getElementById('courier-detail-summary').innerHTML =
+        '<strong>' + details.length + '</strong> ორდერი &nbsp;·&nbsp; ' +
+        '<strong style="color:#c0392b;">−' + total.toFixed(2) + ' ₾</strong>';
+
+    var tbody = document.getElementById('courier-detail-body');
+    if (!details.length) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#b2bec3;padding:20px;">ორდერები არ მოიძებნა</td></tr>';
+    } else {
+        tbody.innerHTML = details.map(function(d) {
+            var isExch    = !!d.is_exchange;
+            var typeLabel = isExch ? 'გაცვლა' : 'დაბრუნება';
+            var typeColor = isExch ? '#8e44ad' : '#c0392b';
+            return '<tr>' +
+                '<td style="padding:7px 14px;font-weight:700;white-space:nowrap;">' + (d.original_order_number || '—') +
+                '<div style="font-weight:400;color:#b2bec3;font-size:10px;">' + (d.order_number || '') + '</div></td>' +
+                '<td style="padding:7px 14px;"><span class="badge" style="background:' + typeColor + ';font-size:10px;">' + typeLabel + '</span></td>' +
+                '<td style="padding:7px 14px;text-align:right;font-weight:700;color:#c0392b;">−' + parseFloat(d.amount || 0).toFixed(2) + ' ₾</td>' +
+                '</tr>';
+        }).join('');
+    }
+
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-courier-detail')).show();
 }
 
 function loadCourierStats() {
