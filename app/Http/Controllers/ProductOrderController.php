@@ -2898,6 +2898,22 @@ class ProductOrderController extends Controller
                 $originalSale->cancelled_at         = now();
                 $originalSale->save();
 
+                // 1ბ. თუ ეს გაცვლის ორდერის (order_type='change') დაბრუნებაა — ანუ
+                //     ჯაჭვი sale→change(→change→...) საბოლოოდ დაბრუნებით მთავრდება —
+                //     ძირეულ sale ორდერსაც ჩავწეროთ cancelled_at, რომ ხელფასის
+                //     დათვლამ (SalaryService) ამოიცნოს რომ კლიენტთან არაფერი დარჩა
+                //     და თავდაპირველი გაყიდვის ბონუსიც გამოაკლოს (ამ, დაბრუნების, თვეში).
+                if ($originalSale->order_type === 'change') {
+                    $root = $originalSale;
+                    while ($root && $root->order_type === 'change' && $root->original_sale_id) {
+                        $root = Product_Order::withoutGlobalScope('active')->find($root->original_sale_id);
+                    }
+                    if ($root && $root->order_type === 'sale' && is_null($root->cancelled_at)) {
+                        $root->cancelled_at = now();
+                        $root->saveQuietly();
+                    }
+                }
+
                 // 2. purchase-ს ჩავუწეროთ: courier_refund
                 //    (original_sale_id შექმნისთანავეა ჩაწერილი)
                 //    თუ საკურიერო ვაბრუნებთ — paid_cash-ში ჩაიწერება (ხარჯის ანაზღაურება)
