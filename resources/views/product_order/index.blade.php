@@ -3410,7 +3410,9 @@ $(document).on('click', '.expand-btn', function() {
             if (order.is_admin) actHtml += '<a onclick="openPayModal('+order.id+','+(order.price_georgia||0)+','+(order.discount||0)+','+(order.paid_tbc||0)+','+(order.paid_bog||0)+','+(order.paid_lib||0)+','+(order.paid_cash||0)+')" class="btn btn-xs '+chPayClass+'" title="გადახდა"><i class="fa fa-credit-card"></i></a>';
             actHtml += '<a onclick="splitFromGroup('+order.id+')" class="btn btn-xs btn-warning" title="გამოყოფა"><i class="fa fa-scissors"></i></a>';
             if (order.can_edit) {
-                actHtml += '<a onclick="editForm('+order.id+')" class="btn btn-xs btn-primary" title="რედ."><i class="fa fa-pen"></i></a>';
+                actHtml += order.edit_allowed
+                    ? '<a onclick="editForm('+order.id+')" class="btn btn-xs btn-primary" title="რედ."><i class="fa fa-pen"></i></a>'
+                    : '<span class="btn btn-xs btn-primary" style="opacity:.35;cursor:not-allowed;" title="კურიერთანაა"><i class="fa fa-pen"></i></span>';
                 if (order.status_id != 4) actHtml += '<a onclick="deleteData('+order.id+')" class="btn btn-xs btn-danger" title="წაშლა"><i class="fa fa-trash"></i></a>';
                 actHtml += '<a onclick="showStatusLog('+order.id+')" class="btn btn-xs btn-warning" title="ისტორია"><i class="fa fa-clock-rotate-left"></i></a>';
             }
@@ -3490,7 +3492,9 @@ $(document).on('click', '.expand-btn', function() {
         var colD = '<div class="po-actions" style="justify-content:flex-start;">'+chPayBtn+splitBtn+chExchangeBtn;
         if (order.can_edit) {
             var canDel = order.status_id != 4;
-            colD += '<a onclick="editForm('+order.id+')" class="btn btn-xs btn-primary" title="რედაქტირება"><i class="fa fa-pen"></i></a>';
+            colD += order.edit_allowed
+                ? '<a onclick="editForm('+order.id+')" class="btn btn-xs btn-primary" title="რედაქტირება"><i class="fa fa-pen"></i></a>'
+                : '<span class="btn btn-xs btn-primary" style="opacity:.35;cursor:not-allowed;" title="კურიერთანაა"><i class="fa fa-pen"></i></span>';
             colD += canDel ? '<a onclick="deleteData('+order.id+')" class="btn btn-xs btn-danger" title="წაშლა"><i class="fa fa-trash"></i></a>' : '<span class="btn btn-xs btn-danger" style="opacity:.35;cursor:not-allowed;"><i class="fa fa-trash"></i></span>';
             colD += '<a onclick="showStatusLog('+order.id+')" class="btn btn-xs btn-warning" title="ისტორია"><i class="fa fa-clock-rotate-left"></i></a>';
             if (order.export_pdf_url) colD += '<a href="'+order.export_pdf_url+'" target="_blank" class="btn btn-xs btn-info" title="PDF"><i class="fa fa-file-pdf"></i></a>';

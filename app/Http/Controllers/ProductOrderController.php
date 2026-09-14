@@ -508,6 +508,14 @@ class ProductOrderController extends Controller
                     ], 422);
                 }
 
+                // ─── კურიერთან გადაცემულზე sale_operator-ს რედაქტირება ეკრძალება სრულად ──
+                if ($order->status_id === 4 && auth()->user()->role === 'sale_operator') {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'ეს ორდერი კურიერთანაა — ვერ შეცვლით',
+                    ], 422);
+                }
+
                 // ─── კურიერთან გადაცემულზე პროდუქტი/ზომა იკრძალება ──
                 if ($order->status_id === 4) {
                     $data['product_id']   = $order->product_id;
@@ -925,8 +933,9 @@ class ProductOrderController extends Controller
 
     public function apiProductsOut(Request $request)
     {
-        $isAdmin  = auth()->user()->role === 'admin';
-        $canEdit  = \App\Models\RolePermission::check(auth()->user()->role, 'sales', 'can_edit');
+        $isAdmin        = auth()->user()->role === 'admin';
+        $isSaleOperator = auth()->user()->role === 'sale_operator';
+        $canEdit        = \App\Models\RolePermission::check(auth()->user()->role, 'sales', 'can_edit');
 
         /*
          * ⚠️ Product_Order მოდელში საჭიროა siblings() relation:
@@ -1276,10 +1285,10 @@ class ProductOrderController extends Controller
                     ];
                 })->values()->toArray();
             })
-            ->addColumn('children_json', function ($item) use ($isAdmin, $canEdit, $pairedOrderIds, $crossRefMap) {
+            ->addColumn('children_json', function ($item) use ($isAdmin, $isSaleOperator, $canEdit, $pairedOrderIds, $crossRefMap) {
                 if (!$item->is_primary) return [];
 
-                $buildRow = function ($order) use ($isAdmin, $canEdit, $pairedOrderIds, $crossRefMap) {
+                $buildRow = function ($order) use ($isAdmin, $isSaleOperator, $canEdit, $pairedOrderIds, $crossRefMap) {
                     $geo  = (float)$order->price_georgia - (float)($order->discount ?? 0);
                     $paid = (float)($order->paid_tbc ?? 0) + (float)($order->paid_bog ?? 0) +
                             (float)($order->paid_lib ?? 0) + (float)($order->paid_cash ?? 0);
@@ -1351,6 +1360,7 @@ class ProductOrderController extends Controller
                         'merged_id'        => $order->merged_id,
                         'is_admin'         => $isAdmin,
                         'can_edit'         => $canEdit,
+                        'edit_allowed'     => !($isSaleOperator && $order->status_id == 4),
                         'comment'          => $order->comment,
                         'payment_comment'  => $order->payment_comment,
                         'is_paired'        => isset($pairedOrderIds[$order->id]),
@@ -1559,7 +1569,7 @@ class ProductOrderController extends Controller
                             ' . $name . '
                         </span>';
             })
-            ->addColumn('action', function ($item) use ($isAdmin, $canEdit) {
+            ->addColumn('action', function ($item) use ($isAdmin, $isSaleOperator, $canEdit) {
                 if (!$canEdit) return '';
 
                 if ($item->status === 'deleted') {
@@ -1582,7 +1592,10 @@ class ProductOrderController extends Controller
                     ? '<a onclick="deleteData(' . $id . ')" class="btn btn-danger btn-xs" title="წაშლა"><i class="fa fa-trash"></i></a>'
                     : '<span class="btn btn-danger btn-xs" style="opacity:0.35; cursor:not-allowed;" title="კურიერთანაა"><i class="fa fa-trash"></i></span>';
 
-                $editBtn    = '<a onclick="editForm(' . $id . ')" class="btn btn-primary btn-xs" title="რედაქტირება"><i class="fa fa-pen"></i></a>';
+                $editAllowed = !($isSaleOperator && $item->status_id == 4);
+                $editBtn     = $editAllowed
+                    ? '<a onclick="editForm(' . $id . ')" class="btn btn-primary btn-xs" title="რედაქტირება"><i class="fa fa-pen"></i></a>'
+                    : '<span class="btn btn-primary btn-xs" style="opacity:0.35; cursor:not-allowed;" title="კურიერთანაა"><i class="fa fa-pen"></i></span>';
                 $pdfBtn     = '<a href="' . $exportPdfUrl . '" target="_blank" class="btn btn-info btn-xs" title="PDF"><i class="fa fa-file-pdf"></i></a>';
                 $mailBtn    = '<a onclick="openMailModal(' . $id . ',' . $customerId . ',\'' . $email . '\')" class="btn btn-secondary btn-xs" title="მეილი"><i class="fa fa-envelope"></i></a>';
                 $histBtn    = '<a onclick="showStatusLog(' . $id . ')" class="btn btn-warning btn-xs" title="ისტორია"><i class="fa fa-clock-rotate-left"></i></a>';
