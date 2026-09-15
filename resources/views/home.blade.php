@@ -848,7 +848,8 @@
     @endif
 
     {{-- ── Salary widget — sale_operator only ── --}}
-    @if($isSaleOp && $salaryMonth)
+    {{-- "ჩემი გამომუშავება" სექცია დროებით გამორთულია — @if(false...)-ის მოხსნით ისევ ჩაირთვება --}}
+    @if(false && $isSaleOp && $salaryMonth)
     @php
         $geoMonthNames = ['იანვარი','თებერვალი','მარტი','აპრილი','მაისი','ივნისი','ივლისი','აგვისტო','სექტემბერი','ოქტომბერი','ნოემბერი','დეკემბერი'];
         $curMonthLabel = $geoMonthNames[now()->month - 1];
