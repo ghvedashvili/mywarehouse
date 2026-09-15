@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Product_Order;
 use App\Models\SalaryPolicy;
 use App\Models\User;
+use App\Models\UserRoleHistory;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -18,17 +19,21 @@ class SalaryService
      * დაბრუნებისას purchase-ს აქვს თავისი (წამოსატანის) საკურიერო → ორივე ჯამდება.
      * გაცვლისას purchase-ს საკურიერო = 0 → მხოლოდ ძირის საკურიერო ჯამდება.
      * თუ ძირი ორდერი იყო merged ჯგუფში — მთელი ჯგუფის საკურიეროების ჯამი გამოიყენება.
+     *
+     * $rangeStart/$rangeEnd (თუ მითითებული) — [start, end) შუალედი, მაგ. როცა
+     * თანამშრომელს თვის განმავლობაში როლი შეცვლილი ჰქონდა და მხოლოდ იმ
+     * ქვე-პერიოდისთვის ითვლება, რომელშიც ეს როლი ედო.
      */
-    public function calculateCourierDeductions(int $userId, string $month): array
+    public function calculateCourierDeductions(int $userId, string $month, ?Carbon $rangeStart = null, ?Carbon $rangeEnd = null): array
     {
-        $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
-        $end   = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
+        [$start, $end] = $this->resolveRange($month, $rangeStart, $rangeEnd);
 
         $returns = Product_Order::withoutGlobalScope('active')
             ->where('order_type', 'purchase')
             ->whereNotNull('original_sale_id')
             ->where('cancelled_responsible_user_id', $userId)
-            ->whereBetween('created_at', [$start, $end])
+            ->where('created_at', '>=', $start)
+            ->where('created_at', '<', $end)
             ->get();
 
         $total   = 0.0;
@@ -73,12 +78,10 @@ class SalaryService
         ];
     }
 
-    public function calculateSaleOperator(int $userId, string $month): array
+    public function calculateSaleOperator(int $userId, string $month, ?Carbon $rangeStart = null, ?Carbon $rangeEnd = null): array
     {
         $policy = SalaryPolicy::forUser($userId, 'sale_operator', $month);
-
-        $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
-        $end   = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
+        [$start, $end] = $this->resolveRange($month, $rangeStart, $rangeEnd);
 
         $empLinks = $this->employeeCustomerLinks();
 
@@ -89,7 +92,8 @@ class SalaryService
             ->where('order_type', 'sale')
             ->where('is_gift', false)
             ->whereNotNull('fully_paid_at')
-            ->whereBetween('fully_paid_at', [$start, $end])
+            ->where('fully_paid_at', '>=', $start)
+            ->where('fully_paid_at', '<', $end)
             ->when($empLinks->isNotEmpty(), fn($q) => $this->excludeEmpCustomers($q, $empLinks))
             ->get();
 
@@ -101,7 +105,8 @@ class SalaryService
             ->where('order_type', 'sale')
             ->where('is_gift', false)
             ->whereNotNull('fully_paid_at')
-            ->whereBetween('cancelled_at', [$start, $end])
+            ->where('cancelled_at', '>=', $start)
+            ->where('cancelled_at', '<', $end)
             ->where(function ($q) {
                 $q->where('status', 'deleted')
                   ->orWhereIn('status_id', [5, 6]);
@@ -130,8 +135,8 @@ class SalaryService
             ->sortKeys()
             ->toArray();
 
-        $purchaseDeduction = $this->calcPurchaseDeduction($userId, $month);
-        $courierDeduction  = $this->calculateCourierDeductions($userId, $month);
+        $purchaseDeduction = $this->calcPurchaseDeduction($userId, $month, $rangeStart, $rangeEnd);
+        $courierDeduction  = $this->calculateCourierDeductions($userId, $month, $rangeStart, $rangeEnd);
         $netTotal = $total - $purchaseDeduction - $courierDeduction['total'];
 
         return [
@@ -236,35 +241,47 @@ class SalaryService
         });
     }
 
-    private function calcPurchaseDeduction(int $userId, string $month): float
+    /** [start, end) datetime შუალედი — $rangeStart/$rangeEnd მოცემულია თუ არა */
+    private function resolveRange(string $month, ?Carbon $rangeStart, ?Carbon $rangeEnd): array
+    {
+        $start = $rangeStart
+            ? $rangeStart->copy()->startOfDay()
+            : Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        $end = $rangeEnd
+            ? $rangeEnd->copy()->startOfDay()
+            : Carbon::createFromFormat('Y-m', $month)->startOfMonth()->addMonth();
+
+        return [$start, $end];
+    }
+
+    private function calcPurchaseDeduction(int $userId, string $month, ?Carbon $rangeStart = null, ?Carbon $rangeEnd = null): float
     {
         $user = User::find($userId);
         if (!$user || !$user->customer_id) return 0.0;
 
-        $start    = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
-        $end      = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
+        [$start, $end] = $this->resolveRange($month, $rangeStart, $rangeEnd);
         $linkedFrom = $user->customer_linked_from;
 
         return (float) Product_Order::withoutGlobalScope('active')
             ->where('customer_id', $user->customer_id)
             ->where('order_type', 'sale')
             ->whereNotNull('fully_paid_at')
-            ->whereBetween('fully_paid_at', [$start, $end])
+            ->where('fully_paid_at', '>=', $start)
+            ->where('fully_paid_at', '<', $end)
             ->when($linkedFrom, fn($q) => $q->where('fully_paid_at', '>=', $linkedFrom))
             ->where('status', '!=', 'deleted')
             ->whereNotIn('status_id', [5, 6])
             ->sum(DB::raw('COALESCE(paid_tbc,0) + COALESCE(paid_bog,0) + COALESCE(paid_lib,0) + COALESCE(paid_cash,0)'));
     }
 
-    public function calculateWarehouseOperator(string $month, ?int $userId = null): array
+    public function calculateWarehouseOperator(string $month, ?int $userId = null, ?Carbon $rangeStart = null, ?Carbon $rangeEnd = null): array
     {
         $policy = SalaryPolicy::forUser($userId, 'warehouse_operator', $month);
+        [$start, $end] = $this->resolveRange($month, $rangeStart, $rangeEnd);
 
-        $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
-        $end   = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
-
-        // მხოლოდ sale_operator-ების ორდერები — ware-ი იგივეს ითვლის რასაც sale, ბონუსის გარეშე
-        $saleOperatorIds = User::where('role', 'sale_operator')->pluck('id');
+        // მხოლოდ იმ sale_operator-ების ორდერები, ვინც ამ კონკრეტულ [$start,$end)
+        // შუალედში sale_operator იყო — ware-ი იგივეს ითვლის რასაც sale, ბონუსის გარეშე
+        $saleOperatorIds = UserRoleHistory::userIdsWithRole('sale_operator', $start, $end);
         $empLinks        = $this->employeeCustomerLinks();
 
         $positiveOrders = Product_Order::withoutGlobalScope('active')
@@ -273,7 +290,8 @@ class SalaryService
             ->where('is_gift', false)
             ->whereIn('user_id', $saleOperatorIds)
             ->whereNotNull('fully_paid_at')
-            ->whereBetween('fully_paid_at', [$start, $end])
+            ->where('fully_paid_at', '>=', $start)
+            ->where('fully_paid_at', '<', $end)
             ->when($empLinks->isNotEmpty(), fn($q) => $this->excludeEmpCustomers($q, $empLinks))
             ->get();
 
@@ -283,7 +301,8 @@ class SalaryService
             ->where('is_gift', false)
             ->whereIn('user_id', $saleOperatorIds)
             ->whereNotNull('fully_paid_at')
-            ->whereBetween('cancelled_at', [$start, $end])
+            ->where('cancelled_at', '>=', $start)
+            ->where('cancelled_at', '<', $end)
             ->where(function ($q) {
                 $q->where('status', 'deleted')
                   ->orWhereIn('status_id', [5, 6]);
@@ -301,7 +320,9 @@ class SalaryService
             ->sortKeys()
             ->toArray();
 
-        $courierDeduction = $userId ? $this->calculateCourierDeductions($userId, $month) : ['total' => 0, 'count' => 0, 'details' => []];
+        $courierDeduction = $userId
+            ? $this->calculateCourierDeductions($userId, $month, $rangeStart, $rangeEnd)
+            : ['total' => 0, 'count' => 0, 'details' => []];
 
         return [
             'order_count'               => $orderCount,
@@ -315,51 +336,96 @@ class SalaryService
         ];
     }
 
+    /**
+     * ერთი თანამშრომლის მოცემულ [$rangeStart,$rangeEnd) ქვე-პერიოდში `admin`
+     * ფიქსირებული ხელფასის წილი — პროპორციულად დღეების მიხედვით, თუ ეს
+     * მხოლოდ თვის ნაწილია (როლი შუათვეში შეცვლილა).
+     */
+    private function prorateFixedSalary(float $fixedSalary, string $month, Carbon $rangeStart, Carbon $rangeEnd): float
+    {
+        $monthStart = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        $monthEnd   = $monthStart->copy()->addMonth();
+
+        if ($rangeStart->equalTo($monthStart) && $rangeEnd->equalTo($monthEnd)) {
+            return $fixedSalary;
+        }
+
+        $daysInMonth  = $monthStart->diffInDays($monthEnd);
+        $daysInPeriod = $rangeStart->diffInDays($rangeEnd);
+
+        return $daysInMonth > 0 ? round($fixedSalary * ($daysInPeriod / $daysInMonth), 2) : 0.0;
+    }
+
     public function calculateAll(string $month): array
     {
-        $users = User::all();
+        $users      = User::all();
+        $monthStart = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        $monthEnd   = $monthStart->copy()->addMonth();
 
         $saleOperators      = [];
         $warehouseOperators = [];
         $admins             = [];
 
         foreach ($users as $user) {
-            if ($user->role === 'sale_operator') {
-                $data            = $this->calculateSaleOperator($user->id, $month);
-                $data['user']    = $user;
-                $saleOperators[] = $data;
+            $periods = UserRoleHistory::periodsFor($user->id, $monthStart, $monthEnd);
 
-            } elseif ($user->role === 'warehouse_operator') {
-                $warehouseData = $this->calculateWarehouseOperator($month, $user->id);
-                $purchaseDed   = $this->calcPurchaseDeduction($user->id, $month);
-                $courierDed    = $warehouseData['courier_deduction'];
-                $warehouseOperators[] = [
-                    'user'                       => $user,
-                    'order_count'                => $warehouseData['order_count'],
-                    'new_count'                  => $warehouseData['new_count'],
-                    'cancelled_count'            => $warehouseData['cancelled_count'],
-                    'cancelled_by_month'         => $warehouseData['cancelled_by_month'],
-                    'suggested_amount'           => $warehouseData['suggested_amount'],
-                    'purchase_deduction'         => round($purchaseDed, 2),
-                    'courier_deduction'          => round($courierDed, 2),
-                    'courier_deduction_count'    => $warehouseData['courier_deduction_count'],
-                    'courier_deduction_details'  => $warehouseData['courier_deduction_details'],
-                    'total_amount'               => round($warehouseData['suggested_amount'] - $purchaseDed - $courierDed, 2),
-                ];
+            // history-ში ჩანაწერი არ მოიძებნა (არ უნდა მოხდეს ბექფილის შემდეგ,
+            // მაგრამ დამცავად) — მთელი თვე მიმდინარე როლით ვითვლით
+            if ($periods->isEmpty()) {
+                $periods = collect([(object) ['role' => $user->role, 'from' => $monthStart->copy(), 'to' => $monthEnd->copy()]]);
+            }
 
-            } elseif ($user->role === 'admin') {
-                $policy      = SalaryPolicy::forUser($user->id, 'admin', $month);
-                $purchaseDed = $this->calcPurchaseDeduction($user->id, $month);
-                $courierDeductionData = $this->calculateCourierDeductions($user->id, $month);
-                $courierDed  = $courierDeductionData['total'];
-                $admins[] = [
-                    'user'                       => $user,
-                    'purchase_deduction'         => round($purchaseDed, 2),
-                    'courier_deduction'          => round($courierDed, 2),
-                    'courier_deduction_count'    => $courierDeductionData['count'],
-                    'courier_deduction_details'  => $courierDeductionData['details'],
-                    'total_amount'               => round(($policy->fixed_salary ?? 0) - $purchaseDed - $courierDed, 2),
-                ];
+            $isPartial = $periods->count() > 1;
+
+            foreach ($periods as $period) {
+                $rangeStart  = $period->from;
+                $rangeEnd    = $period->to;
+                $periodLabel = $isPartial
+                    ? $rangeStart->format('d.m') . '–' . $rangeEnd->copy()->subDay()->format('d.m')
+                    : null;
+
+                if ($period->role === 'sale_operator') {
+                    $data                 = $this->calculateSaleOperator($user->id, $month, $rangeStart, $rangeEnd);
+                    $data['user']         = $user;
+                    $data['period_label'] = $periodLabel;
+                    $saleOperators[]      = $data;
+
+                } elseif ($period->role === 'warehouse_operator') {
+                    $warehouseData = $this->calculateWarehouseOperator($month, $user->id, $rangeStart, $rangeEnd);
+                    $purchaseDed   = $this->calcPurchaseDeduction($user->id, $month, $rangeStart, $rangeEnd);
+                    $courierDed    = $warehouseData['courier_deduction'];
+                    $warehouseOperators[] = [
+                        'user'                       => $user,
+                        'period_label'               => $periodLabel,
+                        'order_count'                => $warehouseData['order_count'],
+                        'new_count'                  => $warehouseData['new_count'],
+                        'cancelled_count'            => $warehouseData['cancelled_count'],
+                        'cancelled_by_month'         => $warehouseData['cancelled_by_month'],
+                        'suggested_amount'           => $warehouseData['suggested_amount'],
+                        'purchase_deduction'         => round($purchaseDed, 2),
+                        'courier_deduction'          => round($courierDed, 2),
+                        'courier_deduction_count'    => $warehouseData['courier_deduction_count'],
+                        'courier_deduction_details'  => $warehouseData['courier_deduction_details'],
+                        'total_amount'               => round($warehouseData['suggested_amount'] - $purchaseDed - $courierDed, 2),
+                    ];
+
+                } elseif ($period->role === 'admin') {
+                    $policy               = SalaryPolicy::forUser($user->id, 'admin', $month);
+                    $fixedShare           = $this->prorateFixedSalary((float) ($policy->fixed_salary ?? 0), $month, $rangeStart, $rangeEnd);
+                    $purchaseDed          = $this->calcPurchaseDeduction($user->id, $month, $rangeStart, $rangeEnd);
+                    $courierDeductionData = $this->calculateCourierDeductions($user->id, $month, $rangeStart, $rangeEnd);
+                    $courierDed           = $courierDeductionData['total'];
+                    $admins[] = [
+                        'user'                       => $user,
+                        'period_label'               => $periodLabel,
+                        'purchase_deduction'         => round($purchaseDed, 2),
+                        'courier_deduction'          => round($courierDed, 2),
+                        'courier_deduction_count'    => $courierDeductionData['count'],
+                        'courier_deduction_details'  => $courierDeductionData['details'],
+                        'total_amount'               => round($fixedShare - $purchaseDed - $courierDed, 2),
+                    ];
+                }
+                // staff — დათვლის ლოგიკა არ არსებობს, გამოტოვება (ისევე როგორც აქამდე)
             }
         }
 

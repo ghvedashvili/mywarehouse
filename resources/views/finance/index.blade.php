@@ -1370,6 +1370,10 @@ function loadSalary() {
     .then(data => {
         salaryData = data;
 
+        const periodBadge = (op) => op.period_label
+            ? `<div style="font-size:10px;color:#e67e22;font-weight:600;margin-top:2px;"><i class="fa fa-calendar-days" style="font-size:9px;"></i> ${op.period_label} (როლი შეიცვალა)</div>`
+            : '';
+
         window._courierDeductionDetails = {};
         const courierDeductionCell = (op) => {
             const amt = parseFloat(op.courier_deduction || 0);
@@ -1408,7 +1412,7 @@ function loadSalary() {
                     data-orders="${op.order_count}" data-deductions="${op.deduction_count}"
                     data-base="${op.base_amount}" data-bonus="${op.bonus_amount}"
                     data-deduction="${op.deduction_amount}">
-                    <td class="sal-td-name">${op.name}</td>
+                    <td class="sal-td-name">${op.name}${periodBadge(op)}</td>
                     <td class="sal-td-orders" data-label="ორდ.">
                         <span>${op.order_count - op.deduction_count}
                         <small class="text-muted" style="font-size:10px; display:block; line-height:1.4;">${saleOrdersDetail(op)}</small></span>
@@ -1464,7 +1468,7 @@ function loadSalary() {
             whBody.insertAdjacentHTML('beforeend', `
                 <tr data-uid="${op.user_id}" data-role="warehouse_operator"
                     data-orders="${op.order_count}">
-                    <td class="sal-td-name">${op.name}</td>
+                    <td class="sal-td-name">${op.name}${periodBadge(op)}</td>
                     <td class="sal-td-orders" data-label="ორდ.">
                         <span>${op.order_count}
                         <small class="text-muted" style="font-size:10px; display:block; line-height:1.4;">${whOrdersDetail(op)}</small></span>
@@ -1502,7 +1506,7 @@ function loadSalary() {
 
             adminBody.insertAdjacentHTML('beforeend', `
                 <tr data-uid="${op.user_id}" data-role="admin">
-                    <td class="sal-td-name">${op.name}</td>
+                    <td class="sal-td-name">${op.name}${periodBadge(op)}</td>
                     ${parseFloat(op.purchase_deduction) > 0
                         ? `<td data-label="შენაძ." style="color:#e67e22; font-weight:600;">−${parseFloat(op.purchase_deduction).toFixed(2)} ₾</td>`
                         : `<td data-label="შენაძ." style="color:#b2bec3; font-size:11px;">—</td>`

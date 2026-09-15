@@ -46,11 +46,18 @@ class UserController extends Controller
             'role'     => 'required|in:admin,staff,sale_operator,warehouse_operator',
         ]);
 
-        User::create([
+        $user = User::create([
             'name'     => $request->name,
             'email'    => $request->email,
             'password' => Hash::make($request->password),
             'role'     => $request->role,
+        ]);
+
+        \App\Models\UserRoleHistory::create([
+            'user_id'        => $user->id,
+            'role'           => $user->role,
+            'effective_from' => now()->toDateString(),
+            'effective_to'   => '2050-01-01',
         ]);
 
         return response()->json(['success' => true, 'message' => 'მომხმარებელი წარმატებით შეიქმნა']);
@@ -161,8 +168,26 @@ class UserController extends Controller
             ], 403);
         }
 
-        $user = User::findOrFail($id);
-        $user->update(['role' => $request->role]);
+        $user    = User::findOrFail($id);
+        $newRole = $request->role;
+
+        if ($user->role !== $newRole) {
+            $today = now()->toDateString();
+
+            // ვხურავ ყველა "ღია" (ჯერ დაუსრულებელ) ისტორიის ჩანაწერს ამ თანამშრომელზე
+            \App\Models\UserRoleHistory::where('user_id', $user->id)
+                ->where('effective_to', '>', $today)
+                ->update(['effective_to' => $today]);
+
+            \App\Models\UserRoleHistory::create([
+                'user_id'        => $user->id,
+                'role'           => $newRole,
+                'effective_from' => $today,
+                'effective_to'   => '2050-01-01',
+            ]);
+        }
+
+        $user->update(['role' => $newRole]);
 
         return response()->json([
             'success' => true,

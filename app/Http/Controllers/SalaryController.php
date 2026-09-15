@@ -47,6 +47,7 @@ class SalaryController extends Controller
             'sale_operators'     => collect($data['saleOperators'])->map(fn($d) => [
                 'user_id'             => $d['user']->id,
                 'name'                => $d['user']->name,
+                'period_label'        => $d['period_label'] ?? null,
                 'order_count'         => $d['order_count'],
                 'deduction_count'     => $d['deduction_count'],
                 'deductions_by_month' => $d['deductions_by_month'],
@@ -64,6 +65,7 @@ class SalaryController extends Controller
             'warehouse_operators' => collect($data['warehouseOperators'])->map(fn($d) => [
                 'user_id'            => $d['user']->id,
                 'name'               => $d['user']->name,
+                'period_label'       => $d['period_label'] ?? null,
                 'order_count'        => $d['order_count'],
                 'new_count'          => $d['new_count'],
                 'cancelled_count'    => $d['cancelled_count'],
@@ -80,6 +82,7 @@ class SalaryController extends Controller
             'admins'             => collect($data['admins'])->map(fn($d) => [
                 'user_id'            => $d['user']->id,
                 'name'               => $d['user']->name,
+                'period_label'       => $d['period_label'] ?? null,
                 'purchase_deduction' => $d['purchase_deduction'],
                 'courier_deduction'         => $d['courier_deduction'],
                 'courier_deduction_count'   => $d['courier_deduction_count'],
