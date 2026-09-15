@@ -80,8 +80,11 @@ class SalaryService
 
     public function calculateSaleOperator(int $userId, string $month, ?Carbon $rangeStart = null, ?Carbon $rangeEnd = null): array
     {
-        $policy = SalaryPolicy::forUser($userId, 'sale_operator', $month);
         [$start, $end] = $this->resolveRange($month, $rangeStart, $rangeEnd);
+        // $start-ზე ვეძებთ პოლიტიკას (არა მთელ თვეზე) — calculateAll უკვე
+        // ყოფს თვეს policy-ცვლილების საზღვრებზეც, ასე რომ ეს დიაპაზონი
+        // ერთი და იმავე პოლიტიკის ფარგლებშია მთლიანად
+        $policy = SalaryPolicy::forUserAt($userId, 'sale_operator', $start);
 
         $empLinks = $this->employeeCustomerLinks();
 
@@ -276,8 +279,8 @@ class SalaryService
 
     public function calculateWarehouseOperator(string $month, ?int $userId = null, ?Carbon $rangeStart = null, ?Carbon $rangeEnd = null): array
     {
-        $policy = SalaryPolicy::forUser($userId, 'warehouse_operator', $month);
         [$start, $end] = $this->resolveRange($month, $rangeStart, $rangeEnd);
+        $policy = SalaryPolicy::forUserAt($userId, 'warehouse_operator', $start);
 
         // მხოლოდ იმ sale_operator-ების ორდერები, ვინც ამ კონკრეტულ [$start,$end)
         // შუალედში sale_operator იყო — ware-ი იგივეს ითვლის რასაც sale, ბონუსის გარეშე
@@ -356,6 +359,36 @@ class SalaryService
         return $daysInMonth > 0 ? round($fixedSalary * ($daysInPeriod / $daysInMonth), 2) : 0.0;
     }
 
+    /**
+     * ორი calculateSaleOperator()-ის შედეგის შეჯამება ერთ მწკრივად — გამოიყენება,
+     * როცა ერთი role-პერიოდი policy-ცვლილების გამო რამდენიმე ქვე-შუალედადაა
+     * გამოთვლილი, მაგრამ საბოლოოდ ერთ ჩანაწერად უნდა ჩანდეს.
+     */
+    private function mergeSaleOperatorChunks(array $a, array $b): array
+    {
+        $deductionsByMonth = $a['deductions_by_month'];
+        foreach ($b['deductions_by_month'] as $ym => $cnt) {
+            $deductionsByMonth[$ym] = ($deductionsByMonth[$ym] ?? 0) + $cnt;
+        }
+        ksort($deductionsByMonth);
+
+        return [
+            'order_count'               => $a['order_count'] + $b['order_count'],
+            'deduction_count'           => $a['deduction_count'] + $b['deduction_count'],
+            'deductions_by_month'       => $deductionsByMonth,
+            'base_amount'               => round($a['base_amount'] + $b['base_amount'], 2),
+            'bonus_amount'              => round($a['bonus_amount'] + $b['bonus_amount'], 2),
+            'deduction_amount'          => round($a['deduction_amount'] + $b['deduction_amount'], 2),
+            'purchase_deduction'        => round($a['purchase_deduction'] + $b['purchase_deduction'], 2),
+            'courier_deduction'         => round($a['courier_deduction'] + $b['courier_deduction'], 2),
+            'courier_deduction_count'   => $a['courier_deduction_count'] + $b['courier_deduction_count'],
+            'courier_deduction_details' => array_merge($a['courier_deduction_details'], $b['courier_deduction_details']),
+            'total_amount'              => round($a['total_amount'] + $b['total_amount'], 2),
+            'orders'                    => $a['orders']->concat($b['orders']),
+            'deductions'                => $a['deductions']->concat($b['deductions']),
+        ];
+    }
+
     public function calculateAll(string $month): array
     {
         $users      = User::all();
@@ -375,53 +408,112 @@ class SalaryService
                 $periods = collect([(object) ['role' => $user->role, 'from' => $monthStart->copy(), 'to' => $monthEnd->copy()]]);
             }
 
-            $isPartial = $periods->count() > 1;
+            // role მართლა შეიცვალა ამ თვეში? — ეს განსაზღვრავს, უჩვენოთ თუ არა
+            // "როლი შეიცვალა" ბეჯი. policy-ცვლილება (ქვემოთ) მხოლოდ სწორი
+            // გამოთვლისთვისაა და ცალკე მწკრივად აღარ იჩენს თავს.
+            $roleIsPartial = $periods->count() > 1;
 
             foreach ($periods as $period) {
                 $rangeStart  = $period->from;
                 $rangeEnd    = $period->to;
-                $periodLabel = $isPartial
+                $periodLabel = $roleIsPartial
                     ? $rangeStart->format('d.m') . '–' . $rangeEnd->copy()->subDay()->format('d.m')
                     : null;
 
+                // ამ ᲘᲒᲘᲕᲔ role-პერიოდის შიგნით შესაძლოა პოლიტიკა რამდენჯერმე
+                // შეცვლილიყო (მაგ. personal policy შეიქმნა შუათვეში) — სწორი
+                // თანხისთვის ქვე-შუალედებად ვითვლით, მაგრამ ᲔᲠᲗ მწკრივად ვაჯამებთ.
+                $boundaries = SalaryPolicy::boundaryDatesWithin($user->id, $period->role, $rangeStart, $rangeEnd);
+                $points = collect([$rangeStart])
+                    ->merge($boundaries)
+                    ->push($rangeEnd)
+                    ->unique(fn($d) => $d->toDateString())
+                    ->sort()
+                    ->values();
+
                 if ($period->role === 'sale_operator') {
-                    $data                 = $this->calculateSaleOperator($user->id, $month, $rangeStart, $rangeEnd);
-                    $data['user']         = $user;
-                    $data['period_label'] = $periodLabel;
-                    $saleOperators[]      = $data;
+                    $merged = null;
+                    for ($i = 0; $i < $points->count() - 1; $i++) {
+                        $subStart = $points[$i];
+                        $subEnd   = $points[$i + 1];
+                        if ($subStart->greaterThanOrEqualTo($subEnd)) continue;
+                        $chunk  = $this->calculateSaleOperator($user->id, $month, $subStart, $subEnd);
+                        $merged = $merged ? $this->mergeSaleOperatorChunks($merged, $chunk) : $chunk;
+                    }
+                    if ($merged) {
+                        $merged['user']         = $user;
+                        $merged['period_label'] = $periodLabel;
+                        $saleOperators[]        = $merged;
+                    }
 
                 } elseif ($period->role === 'warehouse_operator') {
-                    $warehouseData = $this->calculateWarehouseOperator($month, $user->id, $rangeStart, $rangeEnd);
-                    $purchaseDed   = $this->calcPurchaseDeduction($user->id, $month, $rangeStart, $rangeEnd);
-                    $courierDed    = $warehouseData['courier_deduction'];
+                    $orderCount = $newCount = $cancelledCount = 0;
+                    $cancelledByMonth = [];
+                    $suggestedAmount = $purchaseDed = $courierDed = 0.0;
+                    $courierCount = 0;
+                    $courierDetails = [];
+
+                    for ($i = 0; $i < $points->count() - 1; $i++) {
+                        $subStart = $points[$i];
+                        $subEnd   = $points[$i + 1];
+                        if ($subStart->greaterThanOrEqualTo($subEnd)) continue;
+
+                        $chunk = $this->calculateWarehouseOperator($month, $user->id, $subStart, $subEnd);
+                        $orderCount       += $chunk['order_count'];
+                        $newCount         += $chunk['new_count'];
+                        $cancelledCount   += $chunk['cancelled_count'];
+                        $suggestedAmount  += $chunk['suggested_amount'];
+                        $courierDed       += $chunk['courier_deduction'];
+                        $courierCount     += $chunk['courier_deduction_count'];
+                        $courierDetails    = array_merge($courierDetails, $chunk['courier_deduction_details']);
+                        foreach ($chunk['cancelled_by_month'] as $ym => $cnt) {
+                            $cancelledByMonth[$ym] = ($cancelledByMonth[$ym] ?? 0) + $cnt;
+                        }
+                        $purchaseDed += $this->calcPurchaseDeduction($user->id, $month, $subStart, $subEnd);
+                    }
+
                     $warehouseOperators[] = [
                         'user'                       => $user,
                         'period_label'               => $periodLabel,
-                        'order_count'                => $warehouseData['order_count'],
-                        'new_count'                  => $warehouseData['new_count'],
-                        'cancelled_count'            => $warehouseData['cancelled_count'],
-                        'cancelled_by_month'         => $warehouseData['cancelled_by_month'],
-                        'suggested_amount'           => $warehouseData['suggested_amount'],
+                        'order_count'                => $orderCount,
+                        'new_count'                  => $newCount,
+                        'cancelled_count'            => $cancelledCount,
+                        'cancelled_by_month'         => $cancelledByMonth,
+                        'suggested_amount'           => round($suggestedAmount, 2),
                         'purchase_deduction'         => round($purchaseDed, 2),
                         'courier_deduction'          => round($courierDed, 2),
-                        'courier_deduction_count'    => $warehouseData['courier_deduction_count'],
-                        'courier_deduction_details'  => $warehouseData['courier_deduction_details'],
-                        'total_amount'               => round($warehouseData['suggested_amount'] - $purchaseDed - $courierDed, 2),
+                        'courier_deduction_count'    => $courierCount,
+                        'courier_deduction_details'  => $courierDetails,
+                        'total_amount'               => round($suggestedAmount - $purchaseDed - $courierDed, 2),
                     ];
 
                 } elseif ($period->role === 'admin') {
-                    $policy               = SalaryPolicy::forUser($user->id, 'admin', $month);
-                    $fixedShare           = $this->prorateFixedSalary((float) ($policy->fixed_salary ?? 0), $month, $rangeStart, $rangeEnd);
-                    $purchaseDed          = $this->calcPurchaseDeduction($user->id, $month, $rangeStart, $rangeEnd);
-                    $courierDeductionData = $this->calculateCourierDeductions($user->id, $month, $rangeStart, $rangeEnd);
-                    $courierDed           = $courierDeductionData['total'];
+                    $fixedShare = $purchaseDed = $courierDed = 0.0;
+                    $courierCount = 0;
+                    $courierDetails = [];
+
+                    for ($i = 0; $i < $points->count() - 1; $i++) {
+                        $subStart = $points[$i];
+                        $subEnd   = $points[$i + 1];
+                        if ($subStart->greaterThanOrEqualTo($subEnd)) continue;
+
+                        $policy      = SalaryPolicy::forUserAt($user->id, 'admin', $subStart);
+                        $fixedShare += $this->prorateFixedSalary((float) ($policy->fixed_salary ?? 0), $month, $subStart, $subEnd);
+                        $purchaseDed += $this->calcPurchaseDeduction($user->id, $month, $subStart, $subEnd);
+
+                        $courierData     = $this->calculateCourierDeductions($user->id, $month, $subStart, $subEnd);
+                        $courierDed     += $courierData['total'];
+                        $courierCount   += $courierData['count'];
+                        $courierDetails  = array_merge($courierDetails, $courierData['details']);
+                    }
+
                     $admins[] = [
                         'user'                       => $user,
                         'period_label'               => $periodLabel,
                         'purchase_deduction'         => round($purchaseDed, 2),
                         'courier_deduction'          => round($courierDed, 2),
-                        'courier_deduction_count'    => $courierDeductionData['count'],
-                        'courier_deduction_details'  => $courierDeductionData['details'],
+                        'courier_deduction_count'    => $courierCount,
+                        'courier_deduction_details'  => $courierDetails,
                         'total_amount'               => round($fixedShare - $purchaseDed - $courierDed, 2),
                     ];
                 }
