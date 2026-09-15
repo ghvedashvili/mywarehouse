@@ -200,10 +200,16 @@ $spRoleStyles = [
                                                 )">
                                             <i class="fa fa-pen"></i>
                                         </button>
+                                        @if($statusType === 'pending')
                                         <button class="btn btn-danger btn-sm py-0 px-2"
                                                 onclick="deletePolicy({{ $p->id }})">
                                             <i class="fa fa-trash"></i>
                                         </button>
+                                        @else
+                                        <span class="btn btn-danger btn-sm py-0 px-2" style="opacity:.35;cursor:not-allowed;" title="უკვე დაწყებულია — ვერ წაიშლება">
+                                            <i class="fa fa-trash"></i>
+                                        </span>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>

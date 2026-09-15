@@ -103,23 +103,15 @@ class SalaryPolicyController extends Controller
         $policy = SalaryPolicy::findOrFail($id);
         $today  = now()->toDateString();
 
-        // user-specific policies can always be deleted (role-wide policy is the fallback)
-        if (!$policy->user_id) {
-            $isCurrentlyActive = $policy->effective_from->toDateString() <= $today
-                              && $policy->effective_to->toDateString()   >  $today;
-
-            if ($isCurrentlyActive) {
-                $otherActive = SalaryPolicy::where('role', $policy->role)
-                    ->whereNull('user_id')
-                    ->where('id', '!=', $policy->id)
-                    ->where('effective_from', '<=', $today)
-                    ->where('effective_to',   '>',  $today)
-                    ->exists();
-
-                if (!$otherActive) {
-                    return response()->json(['message' => 'ვერ წაშლით — ამ როლისთვის სხვა აქტიური პოლიტიკა არ დარჩება'], 422);
-                }
-            }
+        // წარსულში/დღეს დაწყებული პოლიტიკა (პირადის ჩათვლით) აღარ იშლება —
+        // ის უკვე შესაძლოა გამოყენებული იყო (ან თეორიულად შეეძლო ყოფილიყო)
+        // რომელიმე ორდერის ხელფასის დათვლაში, და მისი წაშლა ჩუმად შეცვლიდა
+        // იმ პერიოდის ხელახალ გამოთვლას (SalaryPolicy::forUserAt fallback-ზე გადავიდოდა).
+        // მხოლოდ ჯერ დაუწყებელი (მომავალი) პოლიტიკის წაშლაა უსაფრთხო.
+        if ($policy->effective_from->toDateString() <= $today) {
+            return response()->json([
+                'message' => 'ვერ წაშლით — ეს პოლიტიკა უკვე დაწყებულია (' . $policy->effective_from->format('d.m.Y') . ') და შესაძლოა გამოყენებული იყოს ხელფასის დათვლაში. მხოლოდ ჯერ დაუწყებელი (მომავალი თარიღის) პოლიტიკის წაშლაა შესაძლებელი.',
+            ], 422);
         }
 
         $policy->delete();
