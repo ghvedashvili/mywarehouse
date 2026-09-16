@@ -1955,7 +1955,7 @@ $(function() {
                         $('<td class="text-center fw-bold text-muted gr-ordered gr-stat">').attr('data-label', 'შეკვ.').text(it.quantity),
                         $('<td class="gr-stat">').attr('data-label', '✅ მიღ.').append(
                             $('<input type="number" class="form-control form-control-sm text-center gr-received">')
-                                .val(it.quantity).attr({ min: 0, max: it.quantity })
+                                .val(0).attr({ min: 0, max: it.quantity })
                         ),
                         $('<td class="gr-stat">').attr('data-label', '❌ დაკარგ.').append(
                             $('<input type="number" class="form-control form-control-sm text-center gr-lost">')
