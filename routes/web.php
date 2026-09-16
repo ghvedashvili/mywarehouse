@@ -150,6 +150,7 @@ Route::get('warehouse/incoming-sizes',   [WarehouseController::class, 'incomingS
 Route::get('warehouse/financials',      [WarehouseController::class, 'financials'])     ->name('warehouse.financials') ->middleware('role:admin');
 Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff'])      ->name('warehouse.writeOff')   ->middleware('role:admin');
 Route::get('warehouse/export-stock-pdf',[WarehouseController::class, 'exportStockPdf'])->name('warehouse.exportStockPdf');
+Route::get('warehouse/export-received-pdf',[WarehouseController::class, 'exportReceivedPdf'])->name('warehouse.exportReceivedPdf');
 
     // ── Purchase Orders (შესყიდვები) ─────────────────────────────────
     Route::middleware('permission:purchases')->group(function () {

@@ -1233,7 +1233,7 @@ class PurchaseOrderController extends Controller
                     $purchase->update(['quantity' => $goodQty]);
                 } else {
                     // ყველა წუნია/დაკარგულია — purchase status=3, quantity=0 (FifoService-ი გამოტოვებს)
-                    $purchase->update(['status_id' => 3, 'quantity' => 0]);
+                    $purchase->update(['status_id' => 3, 'quantity' => 0, 'received_at' => now()]);
                 }
                 if ($stock) $stock->save();
 
@@ -1257,7 +1257,7 @@ class PurchaseOrderController extends Controller
 
             // ─── სრული მიღება (remaining=0) ───────────────────────────────
             if ($remainingQty === 0) {
-                $purchase->update(['status_id' => 3, 'quantity' => $receivedQty]);
+                $purchase->update(['status_id' => 3, 'quantity' => $receivedQty, 'received_at' => now()]);
 
                 if ($stock) {
                     $stock->decrement($incomingCol, $recvStockQty);
@@ -1340,6 +1340,7 @@ class PurchaseOrderController extends Controller
                 'paid_lib'                    => round($purchase->paid_lib  * $ratio, 2),
                 'paid_cash'                   => round($purchase->paid_cash * $ratio, 2),
                 'status_id'                   => 3,
+                'received_at'                 => now(),
                 'purchase_group_id'           => $rootGroupId,
                 'original_qty'               => $originalQty,
             ]);
@@ -1487,7 +1488,7 @@ $purchase->refresh();
 
                 if ($remaining === 0) {
                     // სრული მიღება
-                    $purchase->update(['status_id' => 3, 'quantity' => max($receivedQty, 1)]);
+                    $purchase->update(['status_id' => 3, 'quantity' => max($receivedQty, 1), 'received_at' => now()]);
                 } elseif ($receivedQty > 0) {
                     // ნაწილობრივი მიღება — split: original→status=3, new purchase→status=2 (remainder)
                     $rootGroupId = $purchase->purchase_group_id ?? $purchase->id;
@@ -1508,6 +1509,7 @@ $purchase->refresh();
 
                     $purchase->update([
                         'status_id'         => 3,
+                        'received_at'       => now(),
                         'quantity'          => $receivedQty,
                         'purchase_group_id' => $rootGroupId,
                         'original_qty'      => $originalQty,
@@ -1663,7 +1665,8 @@ $purchase->refresh();
 
             foreach ($orders as $order) {
                 PurchaseService::handleStockForPurchase($order->id, 2, $order->original_sale_id !== null);
-                $order->status_id = 2;
+                $order->status_id   = 2;
+                $order->received_at = null;
                 $order->save();
                 PurchaseService::syncSaleOrdersAfterPurchase($order, 3, 2);
 

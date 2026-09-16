@@ -255,6 +255,9 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
             <a href="{{ route('warehouse.exportStockPdf') }}" target="_blank" class="btn btn-success btn-sm">
                 <i class="fa fa-print me-1"></i><span class="d-none d-sm-inline"> ნაშთების ბეჭდვა</span>
             </a>
+            <button class="btn btn-primary btn-sm" onclick="openReceivedPrintModal()">
+                <i class="fa fa-truck-ramp-box me-1"></i><span class="d-none d-sm-inline"> მიღებულის ბეჭდვა</span>
+            </button>
             @if(!in_array(auth()->user()->role, ['sale_operator', 'warehouse_operator']))
             <button class="btn btn-warning btn-sm" onclick="openWriteOffModal()">
                 <i class="fa fa-minus-circle me-1"></i><span class="d-none d-sm-inline"> ჩამოწერა</span>
@@ -274,6 +277,9 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
         <a href="{{ route('warehouse.exportStockPdf') }}" target="_blank" class="wh-mab-btn wh-mab-ghost">
             <i class="fa fa-print"></i> ნაშთების ბეჭდვა
         </a>
+        <button class="wh-mab-btn wh-mab-ghost" onclick="openReceivedPrintModal()">
+            <i class="fa fa-truck-ramp-box"></i> მიღებულის ბეჭდვა
+        </button>
         @if(!in_array(auth()->user()->role, ['sale_operator', 'warehouse_operator']))
         <button class="wh-mab-btn wh-mab-orange" onclick="openWriteOffModal()">
             <i class="fa fa-minus-circle"></i> ჩამოწერა
@@ -474,6 +480,28 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
                 <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">დახურვა</button>
                 <button id="wh-share-next-btn" type="button" class="btn btn-primary btn-sm px-4">
                     შემდეგი <i class="fa fa-arrow-right ms-1"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- Received Print Modal --}}
+<div class="modal fade" id="modal-received-print" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:360px;">
+        <div class="modal-content" style="border-radius:12px;">
+            <div class="modal-header py-2">
+                <h5 class="modal-title fw-bold" style="font-size:14px;"><i class="fa fa-truck-ramp-box me-1" style="color:#2563eb;"></i> მიღებულის ბეჭდვა</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3">
+                <label class="form-label" style="font-size:12px;color:#64748b;">თარიღი</label>
+                <input type="date" id="received-print-date" class="form-control">
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">გაუქმება</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="submitReceivedPrint()">
+                    <i class="fa fa-print me-1"></i> ბეჭდვა
                 </button>
             </div>
         </div>
@@ -789,6 +817,19 @@ $(function() {
     $('#filter-category').on('change', function() { stockTable.ajax.reload(); if (isAdmin) loadFinancials(); });
     $('#filter-size').select2({ placeholder: 'ყველა ზომა', allowClear: true, width: '180px' });
     $('#filter-size').on('change', function() { stockTable.ajax.reload(); if (isAdmin) loadFinancials(); });
+
+    // ══ RECEIVED PRINT MODAL ══
+    window.openReceivedPrintModal = function() {
+        $('#received-print-date').val(new Date().toISOString().slice(0,10));
+        new bootstrap.Modal(document.getElementById('modal-received-print')).show();
+    };
+
+    window.submitReceivedPrint = function() {
+        var date = $('#received-print-date').val();
+        if (!date) return;
+        window.open("{{ route('warehouse.exportReceivedPdf') }}?date=" + date, '_blank');
+        bootstrap.Modal.getInstance(document.getElementById('modal-received-print')).hide();
+    };
 
     // ══ WRITE-OFF MODAL ══
     var woStockData   = [];

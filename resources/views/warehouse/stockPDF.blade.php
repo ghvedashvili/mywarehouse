@@ -52,8 +52,8 @@
 
 <div class="doc-header">
     <div class="doc-header-left">
-        <h2>საწყობის ნაშთი</h2>
-        <p>{{ now()->format('d.m.Y H:i') }}</p>
+        <h2>{{ $title ?? 'საწყობის ნაშთი' }}</h2>
+        <p>{{ $subtitle ?? now()->format('d.m.Y H:i') }}</p>
     </div>
     <div class="doc-header-right">
         @if($logoBase64)

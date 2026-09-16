@@ -16,6 +16,7 @@ use App\Traits\HasPdfProductImage;
 use Illuminate\Http\Request;
 use Yajra\DataTables\DataTables;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 
 class WarehouseController extends Controller
 {
@@ -77,6 +78,65 @@ class WarehouseController extends Controller
             ]);
 
         return $pdf->stream('საწყობის-ნაშთი-' . now()->format('d-m-Y') . '.pdf');
+    }
+
+    // ─── მიღებული პროდუქციის ბეჭდვის PDF (დღის მიხედვით) ──────────────
+    // ითვლის ყველა 'purchase' ტიპის ორდერს (ჩვეულებრივი შესყიდვა და
+    // დაბრუნება/გაცვლის purchase ორივე ერთნაირად, order_type='purchase'-ია),
+    // რომელიც ამორჩეულ დღეს received_at-ით საწყობში შევიდა (status 2→3).
+    public function exportReceivedPdf(Request $request)
+    {
+        try {
+            $day = Carbon::parse($request->get('date', now()->toDateString()))->startOfDay();
+        } catch (\Exception) {
+            $day = now()->startOfDay();
+        }
+        $dayEnd = $day->copy()->addDay();
+
+        $rows = Product_Order::withoutGlobalScope('active')
+            ->where('order_type', 'purchase')
+            ->whereNotNull('received_at')
+            ->where('received_at', '>=', $day)
+            ->where('received_at', '<', $dayEnd)
+            ->where('quantity', '>', 0)
+            ->with('product.category')
+            ->get()
+            ->filter(fn($r) => $r->product !== null);
+
+        $products = $rows->groupBy('product_id')->map(function ($group) {
+            $product = $group->first()->product;
+            $product->imageBase64 = $this->productImageBase64($product);
+            $product->stockRows = $group->groupBy(fn($r) => $r->product_size ?? '—')
+                ->map(fn($sizeGroup, $size) => (object) [
+                    'size'         => $size,
+                    'physical_qty' => (int) $sizeGroup->sum('quantity'),
+                ])
+                ->sortBy(fn($r) => $r->size, SORT_NATURAL | SORT_FLAG_CASE)
+                ->values();
+            return $product;
+        })->values();
+
+        $grouped = $products->groupBy(fn($p) => $p->category->name ?? 'უკატეგორიო')
+            ->sortKeys();
+
+        $logoBase64 = null;
+        $logoPath   = public_path('assets/img/logo.png');
+        if (file_exists($logoPath)) {
+            $logoBase64 = 'data:' . mime_content_type($logoPath) . ';base64,' . base64_encode(file_get_contents($logoPath));
+        }
+
+        $title    = 'მიღებული პროდუქცია';
+        $subtitle = $day->format('d.m.Y');
+
+        $pdf = Pdf::loadView('warehouse.stockPDF', compact('grouped', 'logoBase64', 'title', 'subtitle'))
+            ->setPaper('a4', 'portrait')
+            ->setOptions([
+                'defaultFont'          => 'dejavu sans',
+                'isHtml5ParserEnabled' => true,
+                'isRemoteEnabled'      => true,
+            ]);
+
+        return $pdf->stream('მიღებული-პროდუქცია-' . $day->format('d-m-Y') . '.pdf');
     }
 
     // ─── ლოგის გვერდი (ყველა) ────────────────────────────────────────
