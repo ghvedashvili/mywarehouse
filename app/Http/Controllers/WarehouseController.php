@@ -282,27 +282,11 @@ class WarehouseController extends Controller
                 // შერჩეული ორდერები მთლიანად თავისუფლდება (არა 3→2/2→1 დაქვეითება) —
                 // სტატუს-2-ს არ გააჩნია არცერთი ავტომატური მექანიზმი, რომელიც
                 // მოგვიანებით "დაინახავდა" ახალ მარაგს; მხოლოდ status=1-ს გააჩნია
-                // (PurchaseService::promotePendingSalesAfterReturn ქვემოთ), ამიტომ
+                // (PurchaseService::promotePendingOrders ქვემოთ), ამიტომ
                 // "ნახევრად" დაქვეითება ორდერს სამუდამოდ ჩარჩენდა.
-                foreach ($orders as $order) {
-                    $oldStatus = $order->status_id;
-
-                    $fromStock->decrement('reserved_qty', $order->quantity);
-                    $order->status_id         = 1;
-                    $order->purchase_order_id = null;
-                    $order->comment = trim(($order->comment ? $order->comment . ' | ' : '')
-                        . '⚠ ნაშთის კორექციის გამო გათავისუფლდა (' . $fromSize . '→' . $toSize . ')');
-                    $order->save();
-
-                    StatusChangeLog::create([
-                        'order_id'       => $order->id,
-                        'user_id'        => auth()->id(),
-                        'status_id_from' => $oldStatus,
-                        'status_id_to'   => 1,
-                        'changed_at'     => now(),
-                    ]);
-                }
-                $fromStock->refresh();
+                \App\Services\PurchaseService::releaseReservedOrders(
+                    $orders, $fromStock, '⚠ ნაშთის კორექციის გამო გათავისუფლდა (' . $fromSize . '→' . $toSize . ')'
+                );
             }
 
             $physicalBefore = $fromStock->physical_qty;
@@ -323,56 +307,11 @@ class WarehouseController extends Controller
             // გათავისუფლებული ორდერების დაუყოვნებელი ხელახალი შეჯერება —
             // ორივე ზომაზე: fromSize (თუ ადმინმა საჭიროზე მეტი გაათავისუფლა)
             // და toSize (თუ იქ უკვე ედო "ახალი" სტატუსის მომლოდინე ორდერი).
-            $this->promotePendingOrdersForSize($productId, $fromSize, $fromStock);
-            $this->promotePendingOrdersForSize($productId, $toSize, $toStock);
+            \App\Services\PurchaseService::promotePendingOrders($productId, $fromSize, $fromStock);
+            \App\Services\PurchaseService::promotePendingOrders($productId, $toSize, $toStock);
 
             return response()->json(['success' => true, 'message' => 'ნაშთი წარმატებით გასწორდა']);
         });
-    }
-
-    // ⚠ PurchaseService::promotePendingSalesAfterReturn()-ს აქ ვერ ვიყენებთ, თუმცა
-    // შესყიდვის ჩანაწერები ახლა სინქრონულია — ის ითხოვს ორდერის სრულ
-    // გადახდას (`total - paid <= 0.01`), რაც სწორია "დაბრუნების შემდეგ"
-    // საწყისი დანიშნულებისთვის, მაგრამ არასწორია აქ: ორდერი, რომელსაც ჩვენ
-    // ვაქვეითებთ/ვაწინაურებთ, შეიძლება თავიდანვე გადაუხდელი მისულიყო
-    // status=3-ზე ჩვეულებრივი გზით (გადახდა არასდროს ყოფილა წინაპირობა
-    // "საწყობში" სტატუსისთვის) — ამიტომ პირდაპირ საწყობის რეალურ
-    // თავისუფალ ნაშთზე ვამოწმებთ, გადახდის მოთხოვნის გარეშე.
-    private function promotePendingOrdersForSize(int $productId, string $size, Warehouse $stock): void
-    {
-        $pendingOrders = Product_Order::whereIn('order_type', ['sale', 'change'])
-            ->where('product_id', $productId)
-            ->where('product_size', $size)
-            ->where('status_id', 1)
-            ->whereNull('purchase_order_id')
-            ->orderBy('created_at', 'asc')
-            ->get();
-
-        foreach ($pendingOrders as $pending) {
-            $stock->refresh();
-            $freeNow = $stock->physical_qty - $stock->reserved_qty - ($stock->defect_qty ?? 0);
-            if ($freeNow <= 0) break;
-
-            // შესყიდვის ჩანაწერები ახლა სინქრონულია — თუ getNextPurchase()-მა
-            // რეალური პარტია იპოვა, ვუკავშირებთ (უკეთესი cost-აღრიცხვისთვის)
-            $nextPurchase = \App\Services\FifoService::getNextPurchase($productId, $size);
-
-            $pending->status_id = 3;
-            if ($nextPurchase) {
-                $pending->purchase_order_id = $nextPurchase->id;
-                $pending->price_usa         = (float) $nextPurchase->cost_price;
-            }
-            $pending->save();
-            $stock->increment('reserved_qty', $pending->quantity);
-
-            StatusChangeLog::create([
-                'order_id'       => $pending->id,
-                'user_id'        => auth()->id(),
-                'status_id_from' => 1,
-                'status_id_to'   => 3,
-                'changed_at'     => now(),
-            ]);
-        }
     }
 
     // ─── ლოგის გვერდი (ყველა) ────────────────────────────────────────

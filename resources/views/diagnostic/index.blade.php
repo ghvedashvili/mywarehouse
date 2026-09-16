@@ -4,6 +4,18 @@
 @section('content')
 <div style="padding:20px; font-family:'Segoe UI',sans-serif;">
 
+    <div style="display:flex;gap:6px;margin-bottom:16px;border-bottom:2px solid #e9ecef;">
+        <button class="diag-tab-btn active" data-tab="price" onclick="switchDiagTab('price')"
+            style="background:none;border:none;border-bottom:3px solid #0984e3;padding:10px 18px;font-size:14px;font-weight:700;color:#0984e3;cursor:pointer;">
+            <i class="fa fa-dollar-sign"></i> price_usa = 0
+        </button>
+        <button class="diag-tab-btn" data-tab="warehouse" onclick="switchDiagTab('warehouse')"
+            style="background:none;border:none;border-bottom:3px solid transparent;padding:10px 18px;font-size:14px;font-weight:700;color:#636e72;cursor:pointer;">
+            <i class="fa fa-warehouse"></i> საწყობის დიაგნოსტიკა
+        </button>
+    </div>
+
+    <div id="tab-price">
     <div style="background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-bottom:20px;">
         <h4 style="margin:0 0 6px;color:#2d3436;font-weight:700;">
             <i class="fa fa-triangle-exclamation" style="color:#e17055;"></i>
@@ -74,7 +86,107 @@
             <div style="margin-top:10px;font-size:16px;font-weight:600;">პრობლემური ორდერები არ მოიძებნა!</div>
         </div>
     </div>
+    </div>{{-- /tab-price --}}
 
+    <div id="tab-warehouse" style="display:none;">
+    <div style="background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-bottom:20px;">
+        <h4 style="margin:0 0 6px;color:#2d3436;font-weight:700;">
+            <i class="fa fa-warehouse" style="color:#8e44ad;"></i>
+            საწყობის დიაგნოსტიკა
+        </h4>
+        <p style="margin:0 0 20px;color:#636e72;font-size:14px;">
+            ადარებს შესყიდვებში "თავისუფალ ადგილს" საწყობის რეალურ ნაშთს — ფიზიკურსაც და გზაშისაც.
+            სხვაობა ნიშნავს ძველ, ასინქრონებულ ჩანაწერს (მაგ. ჩამოწერის/კორექციის შემდეგ).
+        </p>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+            <button id="btnWhFind" onclick="findWarehouseDiag()"
+                style="background:#8e44ad;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:14px;font-weight:600;cursor:pointer;">
+                <i class="fa fa-magnifying-glass"></i> სისტემური სკანირება (მხოლოდ შეცდომები)
+            </button>
+        </div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:20px;padding:12px 16px;background:#f8f9fa;border:1px solid #dee2e6;border-radius:8px;">
+            <span style="font-size:13px;font-weight:600;color:#636e72;white-space:nowrap;">
+                <i class="fa fa-box"></i> კონკრეტული პროდუქტი:
+            </span>
+            <select id="whProductSelect" style="flex:1;min-width:220px;max-width:400px;border:1px solid #dee2e6;border-radius:6px;padding:6px 10px;font-size:13px;">
+                <option value="">— აირჩიე პროდუქტი —</option>
+                @foreach($products as $p)
+                    <option value="{{ $p->id }}">{{ $p->name }}{{ $p->product_code ? ' ('.$p->product_code.')' : '' }}</option>
+                @endforeach
+            </select>
+            <button onclick="findWarehouseDiagForProduct()"
+                style="background:#0984e3;color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;">
+                <i class="fa fa-eye"></i> ყველა ზომის ნახვა
+            </button>
+        </div>
+
+        <div id="whSummary" style="display:none;margin-bottom:16px;"></div>
+        <div id="whLoader" style="display:none;text-align:center;padding:30px;color:#636e72;">
+            <i class="fa fa-spinner fa-spin fa-2x"></i><br>იტვირთება...
+        </div>
+        <div id="whTableWrap" style="display:none;overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead>
+                    <tr style="background:#f8f9fa;border-bottom:2px solid #dee2e6;">
+                        <th style="padding:10px 8px;text-align:left;">პროდუქტი</th>
+                        <th style="padding:10px 8px;text-align:center;">ზომა</th>
+                        <th style="padding:10px 8px;text-align:center;" title="ფიზიკური / გზაში / დაჯავშნილი / წუნი">საწყობი (ფიზ/გზაში/ჯავშ/წუნ)</th>
+                        <th style="padding:10px 8px;text-align:center;">ხელმისაწვდომი: საწყობი</th>
+                        <th style="padding:10px 8px;text-align:center;">ხელმისაწვდომი: შესყიდვები</th>
+                        <th style="padding:10px 8px;text-align:center;">სხვაობა</th>
+                        <th style="padding:10px 8px;text-align:center;"></th>
+                    </tr>
+                </thead>
+                <tbody id="whTableBody"></tbody>
+            </table>
+        </div>
+        <div id="whEmptyMsg" style="display:none;text-align:center;padding:40px;color:#00b894;">
+            <i class="fa fa-circle-check fa-2x"></i>
+            <div style="margin-top:10px;font-size:16px;font-weight:600;">შეუსაბამობა არ მოიძებნა!</div>
+        </div>
+    </div>
+    </div>{{-- /tab-warehouse --}}
+
+</div>
+
+{{-- ორდერების არჩევის Modal (საწყობის დიაგნოსტიკის გასწორებისთვის) --}}
+<div class="modal fade" id="modal-wh-diag-select" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content" style="border-radius:12px;">
+            <div class="modal-header py-2" style="background:#fff3cd;">
+                <h5 class="modal-title fw-bold" style="font-size:14px;color:#856404;">
+                    <i class="fa fa-triangle-exclamation me-1"></i> დაჯავშნილია მეტი ვიდრე ფიზიკურად არსებობს
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3">
+                <p style="font-size:13px;color:#636e72;">
+                    აირჩიე ორდერ(ებ)ი, რომელიც გათავისუფლდეს (სტატუსი → "ახალი", ზომა უცვლელი რჩება).
+                    სულ საჭიროა: <strong id="whDiagExcess">0</strong> ცალი.
+                </p>
+                <div style="max-height:260px;overflow-y:auto;border:1px solid #eee;border-radius:6px;">
+                    <table class="table table-sm mb-0" style="font-size:12px;">
+                        <thead class="table-light"><tr>
+                            <th style="width:26px;"></th>
+                            <th>ორდერი</th><th>კლიენტი</th><th>სტატუსი</th><th>რაოდ.</th><th>თარიღი</th>
+                        </tr></thead>
+                        <tbody id="whDiagOrdersBody"></tbody>
+                    </table>
+                </div>
+                <div class="mt-2 fw-semibold" style="font-size:12px;">
+                    შერჩეულია: <span id="whDiagSelectedSum">0</span> / <span id="whDiagExcess2">0</span>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">გაუქმება</button>
+                <button type="button" class="btn btn-warning btn-sm" id="btnWhDiagRelease" disabled onclick="submitWhDiagRelease()">
+                    <i class="fa fa-check"></i> გათავისუფლება
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -330,6 +442,189 @@ function doFix(ids) {
             btn1.disabled = false; btn1.style.opacity = '1';
             alert('შეცდომა!');
         });
+}
+
+// ══════════════ საწყობის დიაგნოსტიკა ══════════════
+
+function switchDiagTab(tab) {
+    document.getElementById('tab-price').style.display     = tab === 'price'     ? 'block' : 'none';
+    document.getElementById('tab-warehouse').style.display  = tab === 'warehouse' ? 'block' : 'none';
+    document.querySelectorAll('.diag-tab-btn').forEach(b => {
+        const active = b.dataset.tab === tab;
+        b.style.borderBottomColor = active ? '#0984e3' : 'transparent';
+        b.style.color             = active ? '#0984e3' : '#636e72';
+        b.classList.toggle('active', active);
+    });
+    if (tab === 'warehouse' && !window._whDiagLoaded) {
+        window._whDiagLoaded = true;
+        findWarehouseDiag();
+    }
+}
+
+let whDiagItems = [];
+let whDiagCurrent = null; // { product_id, size }
+let whDiagMode = 'scan'; // 'scan' | 'product'
+
+function findWarehouseDiag() {
+    whDiagMode = 'scan';
+    document.getElementById('whProductSelect').value = '';
+    loadWhDiag(null);
+}
+
+function findWarehouseDiagForProduct() {
+    const pid = document.getElementById('whProductSelect').value;
+    if (!pid) { alert('აირჩიე პროდუქტი'); return; }
+    whDiagMode = 'product';
+    loadWhDiag(pid);
+}
+
+function loadWhDiag(productId) {
+    document.getElementById('whLoader').style.display    = 'block';
+    document.getElementById('whTableWrap').style.display = 'none';
+    document.getElementById('whEmptyMsg').style.display  = 'none';
+    document.getElementById('whSummary').style.display   = 'none';
+
+    const qs = productId ? `product_id=${productId}&_=${Date.now()}` : `_=${Date.now()}`;
+
+    fetch(`{{ route("diagnostic.warehouse") }}?${qs}`)
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('whLoader').style.display = 'none';
+            whDiagItems = data.items || [];
+
+            if (whDiagItems.length === 0) {
+                document.getElementById('whEmptyMsg').style.display = 'block';
+                document.getElementById('whEmptyMsg').innerHTML = whDiagMode === 'product'
+                    ? '<i class="fa fa-circle-info fa-2x"></i><div style="margin-top:10px;font-size:16px;font-weight:600;">ამ პროდუქტს საწყობში ნაშთი არ ეწერება</div>'
+                    : '<i class="fa fa-circle-check fa-2x"></i><div style="margin-top:10px;font-size:16px;font-weight:600;">შეუსაბამობა არ მოიძებნა!</div>';
+                return;
+            }
+
+            document.getElementById('whSummary').innerHTML = whDiagMode === 'product'
+                ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 16px;color:#1e40af;">
+                        <strong><i class="fa fa-box"></i> ${whDiagItems[0].product_name} — ${whDiagItems.length} ზომა</strong>
+                    </div>`
+                : `<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 16px;color:#856404;">
+                        <strong><i class="fa fa-triangle-exclamation"></i> ნაპოვნია ${whDiagItems.length} შეუსაბამობა</strong>
+                    </div>`;
+            document.getElementById('whSummary').style.display   = 'block';
+            document.getElementById('whTableWrap').style.display = 'block';
+            renderWhTable();
+        })
+        .catch(() => {
+            document.getElementById('whLoader').style.display = 'none';
+            alert('შეცდომა მოთხოვნისას!');
+        });
+}
+
+function diffBadge(v) {
+    if (v === null || v === undefined) return '<span style="color:#b2bec3;">—</span>';
+    if (v === 0) return '<span style="color:#b2bec3;">0</span>';
+    const color = v > 0 ? '#00b894' : '#e17055';
+    const sign  = v > 0 ? '+' : '';
+    return `<span style="color:${color};font-weight:700;">${sign}${v}</span>`;
+}
+
+function renderWhTable() {
+    const rows = whDiagItems.map((it, idx) => {
+        const hasMismatch = !it.is_divisible && (it.available_diff !== 0 || it.reserved_exceeds_physical);
+        const fixBtn = it.is_divisible
+            ? '<span style="color:#b2bec3;font-size:11px;">დაშლადი — N/A</span>'
+            : hasMismatch
+                ? `<button class="btn btn-sm" style="background:#8e44ad;color:#fff;" onclick="fixWhDiag(${idx})"><i class="fa fa-wrench"></i> გასწორება</button>`
+                : '<span style="color:#00b894;"><i class="fa fa-check"></i></span>';
+        const warnBadge = it.reserved_exceeds_physical
+            ? '<div style="margin-top:2px;"><span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;">⚠ დაჯავშნილი > ფიზიკური</span></div>'
+            : '';
+        return `<tr>
+        <td>
+            <div style="font-weight:600;">${it.product_name}</div>
+            <div style="font-size:11px;color:#b2bec3;">${it.product_code || ''}</div>
+        </td>
+        <td style="text-align:center;">${it.size || '—'}</td>
+        <td style="text-align:center;font-size:11px;">${it.warehouse_physical} / ${it.warehouse_incoming} / ${it.warehouse_reserved} / ${it.warehouse_defect}</td>
+        <td style="text-align:center;">${it.warehouse_available ?? '—'}${warnBadge}</td>
+        <td style="text-align:center;">${it.purchase_available ?? '—'}</td>
+        <td style="text-align:center;">${diffBadge(it.available_diff)}</td>
+        <td style="text-align:center;">
+            ${fixBtn}
+        </td>
+    </tr>`;
+    });
+    document.getElementById('whTableBody').innerHTML = rows.join('');
+}
+
+function fixWhDiag(idx) {
+    const it = whDiagItems[idx];
+    whDiagCurrent = { product_id: it.product_id, size: it.size };
+    doWhDiagFix([]);
+}
+
+function doWhDiagFix(orderIds) {
+    const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    fetch('{{ route("diagnostic.warehouseFix") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token },
+        body: JSON.stringify({ product_id: whDiagCurrent.product_id, size: whDiagCurrent.size, order_ids: orderIds }),
+    })
+        .then(r => r.json().then(data => ({ status: r.status, data })))
+        .then(({ status, data }) => {
+            if (status === 422 && data.needs_selection) {
+                openWhDiagSelectModal(data);
+                return;
+            }
+            if (status !== 200 || !data.success) {
+                alert(data.message || 'შეცდომა!');
+                return;
+            }
+            const msg = document.createElement('div');
+            msg.style.cssText = 'position:fixed;top:20px;right:20px;background:#00b894;color:#fff;padding:12px 20px;border-radius:8px;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.15);';
+            msg.innerHTML = `<i class="fa fa-check-circle"></i> ${data.message}`;
+            document.body.appendChild(msg);
+            setTimeout(() => msg.remove(), 3000);
+
+            const modalEl = document.getElementById('modal-wh-diag-select');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+
+            loadWhDiag(whDiagMode === 'product' ? document.getElementById('whProductSelect').value : null);
+        })
+        .catch(() => alert('შეცდომა მოთხოვნისას!'));
+}
+
+function openWhDiagSelectModal(data) {
+    document.getElementById('whDiagExcess').textContent  = data.excess;
+    document.getElementById('whDiagExcess2').textContent = data.excess;
+    document.getElementById('whDiagSelectedSum').textContent = 0;
+
+    const body = document.getElementById('whDiagOrdersBody');
+    body.innerHTML = (data.affected_orders || []).map(o => `<tr>
+        <td><input type="checkbox" class="wh-diag-order-check" data-id="${o.id}" data-qty="${o.quantity}"></td>
+        <td>${o.order_number}</td>
+        <td>${o.customer}</td>
+        <td>${o.status_name}</td>
+        <td>${o.quantity}</td>
+        <td>${o.created_at || ''}</td>
+    </tr>`).join('');
+
+    document.getElementById('btnWhDiagRelease').disabled = true;
+    new bootstrap.Modal(document.getElementById('modal-wh-diag-select')).show();
+}
+
+document.addEventListener('change', function(e) {
+    if (!e.target.classList.contains('wh-diag-order-check')) return;
+    let sum = 0;
+    document.querySelectorAll('.wh-diag-order-check:checked').forEach(c => sum += parseInt(c.dataset.qty) || 0);
+    document.getElementById('whDiagSelectedSum').textContent = sum;
+    const excess = parseInt(document.getElementById('whDiagExcess').textContent) || 0;
+    document.getElementById('btnWhDiagRelease').disabled = sum < excess;
+});
+
+function submitWhDiagRelease() {
+    const ids = [...document.querySelectorAll('.wh-diag-order-check:checked')].map(c => parseInt(c.dataset.id));
+    if (ids.length === 0) return;
+    doWhDiagFix(ids);
 }
 </script>
 

@@ -208,5 +208,7 @@ Route::post('warehouse/stock-correction/apply',  [WarehouseController::class, 's
     Route::get('/diagnostic/find',     [\App\Http\Controllers\DiagnosticController::class, 'findProblematic'])->name('diagnostic.find');
     Route::post('/diagnostic/fix',     [\App\Http\Controllers\DiagnosticController::class, 'fixPrices'])->name('diagnostic.fix');
     Route::get('/diagnostic/audit-log', [\App\Http\Controllers\DiagnosticController::class, 'auditLog'])->name('diagnostic.auditLog');
+    Route::get('/diagnostic/warehouse',      [\App\Http\Controllers\DiagnosticController::class, 'warehouseDiagnostic'])->name('diagnostic.warehouse');
+    Route::post('/diagnostic/warehouse/fix', [\App\Http\Controllers\DiagnosticController::class, 'fixWarehouseDiagnostic'])->name('diagnostic.warehouseFix');
 
 });

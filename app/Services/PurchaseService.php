@@ -491,11 +491,44 @@ class PurchaseService
     }
 
     /**
-     * status_id=1 (ახალი, მიუბმელი) ორდერების ხელახლა FIFO-შეჯერება —
-     * გამოსადეგია ნებისმიერი მოვლენის შემდეგ, რომელმაც შეიძლება ახალი
-     * მარაგი "გაათავისუფლა" ამ ზომაზე (დაბრუნება, ნაშთის კორექცია და ა.შ.)
+     * მოცემულ ორდერებს მთლიანად ათავისუფლებს დაჯავშნიდან — status_id → 1,
+     * purchase_order_id → null, reserved_qty შესაბამისად მცირდება. საერთო
+     * გამოსაყენებელია ზომის კორექციისთვისაც (დაჯავშნილი ორდერების
+     * "დათმობა") და დიაგნოსტიკის გასწორებისთვისაც.
      */
-    public static function promotePendingSalesAfterReturn(int $productId, string $size, Warehouse $stock): void
+    public static function releaseReservedOrders(\Illuminate\Support\Collection $orders, Warehouse $stock, string $reasonNote): void
+    {
+        foreach ($orders as $order) {
+            $oldStatus = $order->status_id;
+
+            $stock->decrement('reserved_qty', $order->quantity);
+            $order->status_id         = 1;
+            $order->purchase_order_id = null;
+            $order->comment = trim(($order->comment ? $order->comment . ' | ' : '') . $reasonNote);
+            $order->save();
+
+            StatusChangeLog::create([
+                'order_id'       => $order->id,
+                'user_id'        => auth()->id(),
+                'status_id_from' => $oldStatus,
+                'status_id_to'   => 1,
+                'changed_at'     => now(),
+            ]);
+        }
+        $stock->refresh();
+    }
+
+    /**
+     * status_id=1 (ახალი, მიუბმელი) ორდერების ხელახლა შეჯერება — გამოსადეგია
+     * ნებისმიერი მოვლენის შემდეგ, რომელმაც შეიძლება ახალი მარაგი
+     * "გაათავისუფლა" ამ ზომაზე (ნაშთის კორექცია, დიაგნოსტიკის გასწორება).
+     * ⚠ გადახდას არ ითხოვს — status=3-ზე მისვლას ჩვეულებრივი გზითაც
+     * არასდროს სჭირდებოდა გადახდა, ამიტომ აქაც არ მოვითხოვთ. პირდაპირ
+     * Warehouse-ის რეალურ თავისუფალ ნაშთზე ვამოწმებთ (არა
+     * getNextPurchase()-ის მარტოხელა პასუხზე), და თუ შესაბამისი შესყიდვაც
+     * მოიძებნა — ვუკავშირებთ კიდეც (უკეთესი cost-აღრიცხვისთვის).
+     */
+    public static function promotePendingOrders(int $productId, string $size, Warehouse $stock): void
     {
         $pendingOrders = Product_Order::whereIn('order_type', ['sale', 'change'])
             ->where('product_id', $productId)
@@ -507,29 +540,25 @@ class PurchaseService
 
         foreach ($pendingOrders as $order) {
             $stock->refresh();
+            $freeNow = $stock->physical_qty - $stock->reserved_qty - ($stock->defect_qty ?? 0);
+            if ($freeNow <= 0) break;
 
             $nextPurchase = FifoService::getNextPurchase($productId, $size);
-            if (!$nextPurchase) break;
 
-            $total = $order->price_georgia - ($order->discount ?? 0);
-            $paid  = ($order->paid_tbc ?? 0) + ($order->paid_bog ?? 0)
-                   + ($order->paid_lib ?? 0) + ($order->paid_cash ?? 0);
-            if (($total - $paid) > 0.01) continue;
-
-            $order->purchase_order_id = $nextPurchase->id;
-            $order->price_usa         = (float) $nextPurchase->cost_price;
-            // price_georgia არ იცვლება
-            $order->status_id         = $nextPurchase->status_id; // 2 ან 3, purchase-ს შეესაბამება
+            $order->status_id = 3;
+            if ($nextPurchase) {
+                $order->purchase_order_id = $nextPurchase->id;
+                $order->price_usa         = (float) $nextPurchase->cost_price;
+            }
             $order->save();
 
-            // status=2 ან 3: ორივე reserved_qty-ში ითვლება
-            $stock->increment('reserved_qty', 1);
+            $stock->increment('reserved_qty', $order->quantity);
 
             StatusChangeLog::create([
                 'order_id'       => $order->id,
                 'user_id'        => auth()->id(),
                 'status_id_from' => 1,
-                'status_id_to'   => $order->status_id,
+                'status_id_to'   => 3,
                 'changed_at'     => now(),
             ]);
         }
