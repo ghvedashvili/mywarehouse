@@ -301,10 +301,13 @@ class DiagnosticController extends Controller
             'warehouse_available' => $warehouseAvailable,
             'purchase_available'  => $purchaseAvailable,
             'available_diff'      => $warehouseAvailable - $purchaseAvailable,
-            // available_qty max(0,...)-ით იკვეცება — თუ დაჯავშნილი ფიზიკურს
-            // აღემატება, სხვაობა 0-ზე გამოვა და ეს რეალური პრობლემა
-            // დაიმალება, ამიტომ ცალკე დროშად ვნიშნავთ.
-            'reserved_exceeds_physical' => $w->reserved_qty > $w->physical_qty,
+            // available_qty max(0,...)-ით იკვეცება — თუ დაჯავშნილი
+            // (ფიზიკური+გზაში ჯამს) აღემატება, სხვაობა 0-ზე გამოვა და ეს
+            // რეალური პრობლემა დაიმალება, ამიტომ ცალკე დროშად ვნიშნავთ.
+            // შედარება ფიზიკურთან მარტო არასწორია: reserved_qty აერთიანებს
+            // სტატუს=3 (საწყობში, ჯავშანი ფიზიკურზე) და სტატუს=2 (გზაში,
+            // ჯავშანი incoming_qty-ზე) ორდერებს ერთად.
+            'reserved_exceeds_physical' => $w->reserved_qty > ($w->physical_qty + $w->incoming_qty),
         ];
     }
 
@@ -328,13 +331,15 @@ class DiagnosticController extends Controller
             $stock = Warehouse::where('product_id', $productId)->where('size', $size)
                 ->lockForUpdate()->firstOrFail();
 
-            // საწყობის შიდა შეუსაბამობა (დაჯავშნილია მეტი, ვიდრე ფიზიკურად
-            // არსებობს) — ეს არ არის შესყიდვის სინქრონის საკითხი, არამედ
-            // კონკრეტული ორდერის განთავისუფლებაა საჭირო. ავტომატურად არ
-            // ვირჩევთ რომელი — ადმინმა ხელით უნდა აირჩიოს (იგივე პრინციპია,
-            // რაც "ზომის კორექციაში").
-            if ($stock->reserved_qty > $stock->physical_qty) {
-                $excess = $stock->reserved_qty - $stock->physical_qty;
+            // საწყობის შიდა შეუსაბამობა (დაჯავშნილია მეტი, ვიდრე ფიზიკურად+
+            // გზაში ჯამურად არსებობს) — ეს არ არის შესყიდვის სინქრონის
+            // საკითხი, არამედ კონკრეტული ორდერის განთავისუფლებაა საჭირო.
+            // ავტომატურად არ ვირჩევთ რომელი — ადმინმა ხელით უნდა აირჩიოს
+            // (იგივე პრინციპია, რაც "ზომის კორექციაში"). ფიზიკურთან მარტო
+            // შედარება არასწორია, რადგან reserved_qty სტატუს=2 (გზაში)
+            // ორდერებსაც აერთიანებს, რომლებიც incoming_qty-ზეა დაჯავშნილი.
+            if ($stock->reserved_qty > ($stock->physical_qty + $stock->incoming_qty)) {
+                $excess = $stock->reserved_qty - ($stock->physical_qty + $stock->incoming_qty);
 
                 if (empty($orderIds)) {
                     $affected = Product_Order::whereIn('order_type', ['sale', 'change'])

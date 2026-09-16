@@ -610,7 +610,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
                     <select id="sc-product" class="form-select">
                         <option value="">— აირჩიე —</option>
                         @foreach($stockProducts as $p)
-                            <option value="{{ $p->id }}">{{ $p->name }}{{ $p->product_code ? ' ('.$p->product_code.')' : '' }}</option>
+                            <option value="{{ $p->id }}" data-sizes="{{ $p->sizes }}">{{ $p->name }}{{ $p->product_code ? ' ('.$p->product_code.')' : '' }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -628,19 +628,26 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
                         <div class="text-muted" style="font-size:10px;">📦 ფიზ.</div>
                     </div>
                     <div class="text-center">
+                        <div class="fw-bold" style="font-size:20px; color:#2563eb;" id="sc-incoming">0</div>
+                        <div class="text-muted" style="font-size:10px;">🚚 გზაში</div>
+                    </div>
+                    <div class="text-center">
                         <div class="fw-bold" style="font-size:20px; color:#e67e22;" id="sc-reserved">0</div>
                         <div class="text-muted" style="font-size:10px;">🔒 დაჯავშ.</div>
                     </div>
                     <div class="text-center">
                         <div class="fw-bold text-success" style="font-size:20px;" id="sc-free">0</div>
-                        <div class="text-muted" style="font-size:10px;">✅ თავისუფალი</div>
+                        <div class="text-muted" style="font-size:10px;">✅ თავისუფალი (ფიზ.)</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="fw-bold" style="font-size:20px; color:#16a34a;" id="sc-available">0</div>
+                        <div class="text-muted" style="font-size:10px;">✅ ხელმისაწვდომი</div>
                     </div>
                 </div>
 
                 <div class="mb-3" id="sc-to-wrap" style="display:none;">
                     <label class="form-label fw-semibold" style="font-size:12px; text-transform:uppercase;">სამიზნე ზომა</label>
-                    <input type="text" id="sc-to-size" class="form-control" placeholder="მაგ: M" list="sc-size-datalist">
-                    <datalist id="sc-size-datalist"></datalist>
+                    <select id="sc-to-size" class="form-select"></select>
                 </div>
 
                 <div class="mb-3" id="sc-qty-wrap" style="display:none;">
@@ -1063,18 +1070,25 @@ $(function() {
 
     $('#sc-product').on('change', function() {
         var pid = $(this).val();
+        var sizesRaw = $(this).find('option:selected').data('sizes') || '';
         $('#sc-from-size').empty();
+        $('#sc-to-size').empty();
         $('#sc-from-wrap, #sc-stock-info, #sc-to-wrap, #sc-qty-wrap, #sc-btn-check, #sc-result, #btn-sc-save').hide();
         $('#btn-sc-save').prop('disabled', true);
         if (!pid) return;
 
+        // "სამიზნე ზომა" — პროდუქტის განსაზღვრული ყველა ზომა (არა მხოლოდ
+        // ის, რასაც ამჟამად საწყობში ნაშთი აქვს)
+        $('#sc-to-size').append('<option value="">— ზომა —</option>');
+        sizesRaw.toString().split(',').map(function(s){ return s.trim(); }).filter(Boolean).forEach(function(s) {
+            $('#sc-to-size').append('<option value="' + s + '">' + s + '</option>');
+        });
+
         $.get("{{ route('warehouse.stockCorrectionSizes') }}", { product_id: pid }, function(sizes) {
             scSizeData = sizes;
             $('#sc-from-size').append('<option value="">— ზომა —</option>');
-            $('#sc-size-datalist').empty();
             sizes.forEach(function(r) {
-                $('#sc-from-size').append('<option value="' + r.size + '">' + r.size + ' (ფიზ. ' + r.physical_qty + ', თავისუფ. ' + r.free_qty + ')</option>');
-                $('#sc-size-datalist').append('<option value="' + r.size + '">');
+                $('#sc-from-size').append('<option value="' + r.size + '">' + r.size + ' (ფიზ. ' + r.physical_qty + ', გზაში ' + r.incoming_qty + ', ხელმისაწვდ. ' + r.available_qty + ')</option>');
             });
             $('#sc-from-wrap').show();
         });
@@ -1090,8 +1104,10 @@ $(function() {
         if (!row) return;
 
         $('#sc-physical').text(row.physical_qty);
+        $('#sc-incoming').text(row.incoming_qty);
         $('#sc-reserved').text(row.reserved_qty);
         $('#sc-free').text(row.free_qty);
+        $('#sc-available').text(row.available_qty);
         $('#sc-qty').val(1).attr('max', row.physical_qty);
         $('#sc-stock-info, #sc-to-wrap, #sc-qty-wrap, #sc-btn-check').show();
     });

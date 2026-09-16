@@ -37,7 +37,7 @@ class WarehouseController extends Controller
         $sizes = Warehouse::select('size')->distinct()->whereNotNull('size')->orderBy('size')->pluck('size');
 
         $stockedProductIds = Warehouse::where('physical_qty', '>', 0)->distinct()->pluck('product_id');
-        $stockProducts = Product::whereIn('id', $stockedProductIds)->orderBy('name')->get(['id', 'name', 'product_code']);
+        $stockProducts = Product::whereIn('id', $stockedProductIds)->orderBy('name')->get(['id', 'name', 'product_code', 'sizes']);
 
         return view('warehouse.index', compact('categories', 'sizes', 'stockProducts'));
     }
@@ -163,11 +163,13 @@ class WarehouseController extends Controller
             ->orderBy('size')
             ->get()
             ->map(fn($r) => [
-                'size'         => $r->size,
-                'physical_qty' => $r->physical_qty,
-                'reserved_qty' => $r->reserved_qty,
-                'defect_qty'   => $r->defect_qty,
-                'free_qty'     => max(0, $r->physical_qty - $r->reserved_qty - $r->defect_qty),
+                'size'          => $r->size,
+                'physical_qty'  => $r->physical_qty,
+                'incoming_qty'  => $r->incoming_qty,
+                'reserved_qty'  => $r->reserved_qty,
+                'defect_qty'    => $r->defect_qty,
+                'free_qty'      => max(0, $r->physical_qty - $r->reserved_qty - $r->defect_qty),
+                'available_qty' => $r->available_qty,
             ])
             ->values();
 
