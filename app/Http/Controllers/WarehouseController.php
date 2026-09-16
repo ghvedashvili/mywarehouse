@@ -12,11 +12,15 @@ use App\Models\Defect;
 use App\Models\FinanceEntry;
 use App\Services\FifoService;
 use App\Services\WarehouseLogService;
+use App\Traits\HasPdfProductImage;
 use Illuminate\Http\Request;
 use Yajra\DataTables\DataTables;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class WarehouseController extends Controller
 {
+    use HasPdfProductImage;
+
     public function __construct()
     {
         $this->middleware('auth');
@@ -30,6 +34,49 @@ class WarehouseController extends Controller
         $categories = Category::orderBy('name')->get(['id', 'name']);
         $sizes = Warehouse::select('size')->distinct()->whereNotNull('size')->orderBy('size')->pluck('size');
         return view('warehouse.index', compact('categories', 'sizes'));
+    }
+
+    // ─── ნაშთების ბეჭდვის PDF ────────────────────────────────────────
+    // რეალური ნაშთი = physical_qty (დარეზერვებული + წუნი უკვე შიგნითაა,
+    // incoming_qty/გზაშია არ მონაწილეობს — იხ. PurchaseService-ის ლოგიკა)
+    public function exportStockPdf()
+    {
+        $products = Product::where('product_status', 1)
+            ->with(['category:id,name', 'warehouseStock' => function ($q) {
+                $q->where('physical_qty', '>', 0)->orderBy('size');
+            }])
+            ->orderBy('name')
+            ->get()
+            // ნულოვანი ნაშთის პროდუქტი საერთოდ არ ჩანდეს რეპორტში
+            ->filter(fn($p) => $p->warehouseStock->isNotEmpty())
+            ->values();
+
+        foreach ($products as $product) {
+            $product->imageBase64 = $this->productImageBase64($product);
+
+            $product->stockRows = $product->warehouseStock
+                ->sortBy(fn($w) => $w->size, SORT_NATURAL | SORT_FLAG_CASE)
+                ->values();
+        }
+
+        $grouped = $products->groupBy(fn($p) => $p->category->name ?? 'უკატეგორიო')
+            ->sortKeys();
+
+        $logoBase64 = null;
+        $logoPath   = public_path('assets/img/logo.png');
+        if (file_exists($logoPath)) {
+            $logoBase64 = 'data:' . mime_content_type($logoPath) . ';base64,' . base64_encode(file_get_contents($logoPath));
+        }
+
+        $pdf = Pdf::loadView('warehouse.stockPDF', compact('grouped', 'logoBase64'))
+            ->setPaper('a4', 'portrait')
+            ->setOptions([
+                'defaultFont'          => 'dejavu sans',
+                'isHtml5ParserEnabled' => true,
+                'isRemoteEnabled'      => true,
+            ]);
+
+        return $pdf->stream('საწყობის-ნაშთი-' . now()->format('d-m-Y') . '.pdf');
     }
 
     // ─── ლოგის გვერდი (ყველა) ────────────────────────────────────────

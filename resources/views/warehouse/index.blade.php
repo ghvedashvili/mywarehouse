@@ -251,8 +251,11 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
             <h2 class="mod-title"><i class="fa fa-warehouse me-2" style="color:#8e44ad;"></i>საწყობი</h2>
             <p class="mod-subtitle">ნაშთების მართვა და კონტროლი</p>
         </div>
-        @if(!in_array(auth()->user()->role, ['sale_operator', 'warehouse_operator']))
         <div class="mod-actions">
+            <a href="{{ route('warehouse.exportStockPdf') }}" target="_blank" class="btn btn-success btn-sm">
+                <i class="fa fa-print me-1"></i><span class="d-none d-sm-inline"> ნაშთების ბეჭდვა</span>
+            </a>
+            @if(!in_array(auth()->user()->role, ['sale_operator', 'warehouse_operator']))
             <button class="btn btn-warning btn-sm" onclick="openWriteOffModal()">
                 <i class="fa fa-minus-circle me-1"></i><span class="d-none d-sm-inline"> ჩამოწერა</span>
             </button>
@@ -262,12 +265,15 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
             <a href="{{ url('purchases') }}" class="btn btn-info btn-sm">
                 <i class="fa fa-cart-shopping me-1"></i><span class="d-none d-sm-inline"> შესყიდვები</span>
             </a>
+            @endif
         </div>
-        @endif
     </div>
 
     {{-- Mobile action bar --}}
     <div class="wh-mob-action-bar">
+        <a href="{{ route('warehouse.exportStockPdf') }}" target="_blank" class="wh-mab-btn wh-mab-ghost">
+            <i class="fa fa-print"></i> ნაშთების ბეჭდვა
+        </a>
         @if(!in_array(auth()->user()->role, ['sale_operator', 'warehouse_operator']))
         <button class="wh-mab-btn wh-mab-orange" onclick="openWriteOffModal()">
             <i class="fa fa-minus-circle"></i> ჩამოწერა
