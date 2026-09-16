@@ -262,6 +262,11 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
             <button class="btn btn-warning btn-sm" onclick="openWriteOffModal()">
                 <i class="fa fa-minus-circle me-1"></i><span class="d-none d-sm-inline"> ჩამოწერა</span>
             </button>
+            @if(auth()->user()->role === 'admin')
+            <button class="btn btn-sm" style="background:#8e44ad;color:#fff;" onclick="openSizeCorrectionModal()">
+                <i class="fa fa-shuffle me-1"></i><span class="d-none d-sm-inline"> ზომის კორექცია</span>
+            </button>
+            @endif
             <a href="{{ route('warehouse.logs') }}" class="btn btn-secondary btn-sm">
                 <i class="fa fa-history me-1"></i><span class="d-none d-sm-inline"> ლოგი</span>
             </a>
@@ -284,6 +289,11 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
         <button class="wh-mab-btn wh-mab-orange" onclick="openWriteOffModal()">
             <i class="fa fa-minus-circle"></i> ჩამოწერა
         </button>
+        @if(auth()->user()->role === 'admin')
+        <button class="wh-mab-btn wh-mab-ghost" onclick="openSizeCorrectionModal()">
+            <i class="fa fa-shuffle"></i> ზომის კორექცია
+        </button>
+        @endif
         <a href="{{ route('warehouse.logs') }}" class="wh-mab-btn wh-mab-ghost">
             <i class="fa fa-history"></i> ლოგი
         </a>
@@ -578,6 +588,99 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">გაუქმება</button>
                 <button type="button" class="btn btn-danger" id="btn-writeoff-save"
                         onclick="submitWriteOff()" style="display:none;">
+                    <i class="fa fa-check"></i> დადასტურება
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- ზომის კორექციის Modal --}}
+<div class="modal fade" id="modal-size-correction" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+        <div class="modal-content" style="border-radius:8px;">
+            <div class="modal-header" style="background:#8e44ad; color:#fff; border-radius:8px 8px 0 0;">
+                <h5 class="modal-title fw-bold">🔀 ნაშთის ზომის კორექცია</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" style="font-size:12px; text-transform:uppercase;">პროდუქტი</label>
+                    <select id="sc-product" class="form-select">
+                        <option value="">— აირჩიე —</option>
+                        @foreach($stockProducts as $p)
+                            <option value="{{ $p->id }}">{{ $p->name }}{{ $p->product_code ? ' ('.$p->product_code.')' : '' }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="mb-3" id="sc-from-wrap" style="display:none;">
+                    <label class="form-label fw-semibold" style="font-size:12px; text-transform:uppercase;">საწყისი ზომა (რასაც ვასწორებთ)</label>
+                    <select id="sc-from-size" class="form-select"></select>
+                </div>
+
+                <div id="sc-stock-info" style="display:none;"
+                     class="p-3 rounded mb-3 d-flex gap-3 align-items-center flex-wrap"
+                     style="background:#f9f9f9; border:1px solid #ddd;">
+                    <div class="text-center">
+                        <div class="fw-bold" style="font-size:20px; color:#555;" id="sc-physical">0</div>
+                        <div class="text-muted" style="font-size:10px;">📦 ფიზ.</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="fw-bold" style="font-size:20px; color:#e67e22;" id="sc-reserved">0</div>
+                        <div class="text-muted" style="font-size:10px;">🔒 დაჯავშ.</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="fw-bold text-success" style="font-size:20px;" id="sc-free">0</div>
+                        <div class="text-muted" style="font-size:10px;">✅ თავისუფალი</div>
+                    </div>
+                </div>
+
+                <div class="mb-3" id="sc-to-wrap" style="display:none;">
+                    <label class="form-label fw-semibold" style="font-size:12px; text-transform:uppercase;">სამიზნე ზომა</label>
+                    <input type="text" id="sc-to-size" class="form-control" placeholder="მაგ: M" list="sc-size-datalist">
+                    <datalist id="sc-size-datalist"></datalist>
+                </div>
+
+                <div class="mb-3" id="sc-qty-wrap" style="display:none;">
+                    <label class="form-label fw-semibold" style="font-size:12px; text-transform:uppercase;">რაოდენობა</label>
+                    <input type="number" id="sc-qty" class="form-control text-center fw-bold" min="1" value="1" style="font-size:20px;">
+                </div>
+
+                <button type="button" class="btn btn-outline-primary btn-sm w-100" id="sc-btn-check" style="display:none;" onclick="checkSizeCorrection()">
+                    <i class="fa fa-magnifying-glass me-1"></i> შემოწმება
+                </button>
+
+                <div id="sc-result" style="display:none;" class="mt-3">
+                    <div id="sc-ok-msg" class="alert alert-success py-2" style="display:none;font-size:13px;">
+                        ✅ საკმარისია თავისუფალი ნაშთი — დაუყოვნებლივ შეიძლება გადატანა.
+                    </div>
+                    <div id="sc-warn-block" style="display:none;">
+                        <div class="alert alert-warning py-2 mb-2" style="font-size:13px;">
+                            ⚠️ თავისუფალი ნაშთი არ არის საკმარისი — <span id="sc-shortfall">0</span> ცალის დასაფარად
+                            აირჩიე ქვემოთ ჩამონათვალიდან დაჯავშნილი ორდერ(ებ)ი (მათი ზომა <b>დარჩება უცვლელი</b>,
+                            მხოლოდ სტატუსი დაქვეითდება).
+                        </div>
+                        <div style="max-height:220px;overflow-y:auto;border:1px solid #eee;border-radius:6px;">
+                            <table class="table table-sm mb-0" style="font-size:12px;">
+                                <thead class="table-light"><tr>
+                                    <th style="width:26px;"></th>
+                                    <th>ორდერი</th><th>კლიენტი</th><th>სტატუსი</th><th>რაოდ.</th><th>თარიღი</th>
+                                </tr></thead>
+                                <tbody id="sc-orders-body"></tbody>
+                            </table>
+                        </div>
+                        <div class="mt-2 fw-semibold" style="font-size:12px;">
+                            შერჩეულია: <span id="sc-selected-sum">0</span> / <span id="sc-shortfall2">0</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">გაუქმება</button>
+                <button type="button" class="btn btn-primary" id="btn-sc-save" onclick="submitSizeCorrection()" style="display:none;" disabled>
                     <i class="fa fa-check"></i> დადასტურება
                 </button>
             </div>
@@ -938,6 +1041,143 @@ $(function() {
             },
             complete: function() {
                 $('#btn-writeoff-save').prop('disabled', false).html('<i class="fa fa-check"></i> დადასტურება');
+            }
+        });
+    };
+
+    // ══ SIZE CORRECTION MODAL ══
+    var scSizeData       = [];
+    var scAffectedOrders = [];
+    var scShortfall      = 0;
+
+    window.openSizeCorrectionModal = function() {
+        $('#sc-product, #sc-from-size').val('');
+        $('#sc-from-wrap, #sc-stock-info, #sc-to-wrap, #sc-qty-wrap, #sc-btn-check, #sc-result, #btn-sc-save').hide();
+        $('#sc-ok-msg, #sc-warn-block').hide();
+        $('#btn-sc-save').prop('disabled', true);
+        $('#sc-qty').val(1);
+        $('#sc-to-size').val('');
+        scAffectedOrders = []; scShortfall = 0;
+        new bootstrap.Modal(document.getElementById('modal-size-correction')).show();
+    };
+
+    $('#sc-product').on('change', function() {
+        var pid = $(this).val();
+        $('#sc-from-size').empty();
+        $('#sc-from-wrap, #sc-stock-info, #sc-to-wrap, #sc-qty-wrap, #sc-btn-check, #sc-result, #btn-sc-save').hide();
+        $('#btn-sc-save').prop('disabled', true);
+        if (!pid) return;
+
+        $.get("{{ route('warehouse.stockCorrectionSizes') }}", { product_id: pid }, function(sizes) {
+            scSizeData = sizes;
+            $('#sc-from-size').append('<option value="">— ზომა —</option>');
+            $('#sc-size-datalist').empty();
+            sizes.forEach(function(r) {
+                $('#sc-from-size').append('<option value="' + r.size + '">' + r.size + ' (ფიზ. ' + r.physical_qty + ', თავისუფ. ' + r.free_qty + ')</option>');
+                $('#sc-size-datalist').append('<option value="' + r.size + '">');
+            });
+            $('#sc-from-wrap').show();
+        });
+    });
+
+    $('#sc-from-size').on('change', function() {
+        var size = $(this).val();
+        $('#sc-stock-info, #sc-to-wrap, #sc-qty-wrap, #sc-btn-check, #sc-result, #btn-sc-save').hide();
+        $('#btn-sc-save').prop('disabled', true);
+        if (!size) return;
+
+        var row = scSizeData.find(r => r.size === size);
+        if (!row) return;
+
+        $('#sc-physical').text(row.physical_qty);
+        $('#sc-reserved').text(row.reserved_qty);
+        $('#sc-free').text(row.free_qty);
+        $('#sc-qty').val(1).attr('max', row.physical_qty);
+        $('#sc-stock-info, #sc-to-wrap, #sc-qty-wrap, #sc-btn-check').show();
+    });
+
+    window.checkSizeCorrection = function() {
+        var pid      = $('#sc-product').val();
+        var fromSize = $('#sc-from-size').val();
+        var toSize   = $('#sc-to-size').val().trim();
+        var qty      = parseInt($('#sc-qty').val()) || 0;
+
+        if (!pid || !fromSize)          { swal('შეცდომა', 'აირჩიეთ პროდუქტი და საწყისი ზომა', 'error'); return; }
+        if (!toSize)                    { swal('შეცდომა', 'მიუთითეთ სამიზნე ზომა', 'error'); return; }
+        if (toSize === fromSize)        { swal('შეცდომა', 'საწყისი და სამიზნე ზომა ერთნაირია', 'error'); return; }
+        if (qty < 1)                    { swal('შეცდომა', 'რაოდენობა უნდა იყოს მინიმუმ 1', 'error'); return; }
+
+        $('#sc-result, #sc-ok-msg, #sc-warn-block, #btn-sc-save').hide();
+        $('#btn-sc-save').prop('disabled', true);
+
+        $.get("{{ route('warehouse.stockCorrectionPreview') }}", { product_id: pid, from_size: fromSize, qty: qty }, function(res) {
+            $('#sc-result').show();
+
+            if (!res.needs_selection) {
+                $('#sc-ok-msg').show();
+                $('#btn-sc-save').show().prop('disabled', false);
+                scAffectedOrders = [];
+                return;
+            }
+
+            scShortfall = res.shortfall;
+            $('#sc-shortfall, #sc-shortfall2').text(scShortfall);
+            $('#sc-selected-sum').text(0);
+
+            var $body = $('#sc-orders-body').empty();
+            res.affected_orders.forEach(function(o) {
+                $body.append(
+                    '<tr>' +
+                    '<td><input type="checkbox" class="sc-order-check" data-id="' + o.id + '" data-qty="' + o.quantity + '"></td>' +
+                    '<td>' + o.order_number + '</td>' +
+                    '<td>' + o.customer + '</td>' +
+                    '<td>' + o.status_name + '</td>' +
+                    '<td>' + o.quantity + '</td>' +
+                    '<td>' + (o.created_at || '') + '</td>' +
+                    '</tr>'
+                );
+            });
+            $('#sc-warn-block').show();
+            $('#btn-sc-save').show();
+        }).fail(function(xhr) {
+            swal('შეცდომა', xhr.responseJSON?.message || 'ვერ შემოწმდა', 'error');
+        });
+    };
+
+    $(document).on('change', '.sc-order-check', function() {
+        var sum = 0;
+        $('.sc-order-check:checked').each(function() { sum += parseInt($(this).data('qty')) || 0; });
+        $('#sc-selected-sum').text(sum);
+        $('#btn-sc-save').prop('disabled', sum < scShortfall);
+    });
+
+    window.submitSizeCorrection = function() {
+        var pid      = $('#sc-product').val();
+        var fromSize = $('#sc-from-size').val();
+        var toSize   = $('#sc-to-size').val().trim();
+        var qty      = parseInt($('#sc-qty').val()) || 0;
+        var orderIds = [];
+        $('.sc-order-check:checked').each(function() { orderIds.push($(this).data('id')); });
+
+        $('#btn-sc-save').prop('disabled', true).html('...');
+
+        $.ajax({
+            url: "{{ route('warehouse.stockCorrectionApply') }}",
+            type: 'POST',
+            data: {
+                product_id: pid, from_size: fromSize, to_size: toSize, qty: qty,
+                order_ids: orderIds, _token: "{{ csrf_token() }}"
+            },
+            success: function(res) {
+                bootstrap.Modal.getInstance(document.getElementById('modal-size-correction')).hide();
+                stockTable.ajax.reload();
+                swal({ title: '✅', text: res.message, type: 'success', timer: 2000 });
+            },
+            error: function(xhr) {
+                swal('შეცდომა', xhr.responseJSON?.message || 'ვერ შესრულდა', 'error');
+            },
+            complete: function() {
+                $('#btn-sc-save').html('<i class="fa fa-check"></i> დადასტურება');
             }
         });
     };

@@ -8,6 +8,7 @@ use App\Models\Warehouse;
 use App\Models\WarehouseLog;
 use App\Models\Product_Order;
 use App\Models\OrderStatus;
+use App\Models\StatusChangeLog;
 use App\Models\Defect;
 use App\Models\FinanceEntry;
 use App\Services\FifoService;
@@ -34,7 +35,11 @@ class WarehouseController extends Controller
     {
         $categories = Category::orderBy('name')->get(['id', 'name']);
         $sizes = Warehouse::select('size')->distinct()->whereNotNull('size')->orderBy('size')->pluck('size');
-        return view('warehouse.index', compact('categories', 'sizes'));
+
+        $stockedProductIds = Warehouse::where('physical_qty', '>', 0)->distinct()->pluck('product_id');
+        $stockProducts = Product::whereIn('id', $stockedProductIds)->orderBy('name')->get(['id', 'name', 'product_code']);
+
+        return view('warehouse.index', compact('categories', 'sizes', 'stockProducts'));
     }
 
     // ─── ნაშთების ბეჭდვის PDF ────────────────────────────────────────
@@ -137,6 +142,237 @@ class WarehouseController extends Controller
             ]);
 
         return $pdf->stream('მიღებული-პროდუქცია-' . $day->format('d-m-Y') . '.pdf');
+    }
+
+    // ─── ნაშთის ზომის კორექტირება ────────────────────────────────────
+    // მაგ: თანამშრომელმა შეცდომით ჩათვალა S, სინამდვილეში M-ია.
+    // თავისუფალი = physical_qty − reserved_qty − defect_qty
+    // თუ სასურველი რაოდენობა თავისუფალს აღემატება, ადმინმა ხელით უნდა
+    // შეარჩიოს რომელი დაჯავშნილი ორდერ(ებ)ი დაქვეითდეს სტატუსით
+    // (3→2 ან 2→1), product_size კი ორდერზე უცვლელი რჩება.
+
+    // პროდუქტის ყველა ზომის ნაშთი (მათ შორის მთლიანად დაჯავშნილიც,
+    // available_qty=0-ითაც) — warehouse.availableStock ამათ გამორიცხავს,
+    // მაგრამ ზომის კორექციისთვის სწორედ ეს შემთხვევებია საინტერესო.
+    public function stockCorrectionSizes(Request $request)
+    {
+        $request->validate(['product_id' => 'required|exists:products,id']);
+
+        $rows = Warehouse::where('product_id', $request->product_id)
+            ->where('physical_qty', '>', 0)
+            ->orderBy('size')
+            ->get()
+            ->map(fn($r) => [
+                'size'         => $r->size,
+                'physical_qty' => $r->physical_qty,
+                'reserved_qty' => $r->reserved_qty,
+                'defect_qty'   => $r->defect_qty,
+                'free_qty'     => max(0, $r->physical_qty - $r->reserved_qty - $r->defect_qty),
+            ])
+            ->values();
+
+        return response()->json($rows);
+    }
+
+    public function stockCorrectionPreview(Request $request)
+    {
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'from_size'  => 'required|string',
+            'qty'        => 'required|integer|min:1',
+        ]);
+
+        $productId = (int) $request->product_id;
+        $fromSize  = $request->from_size;
+        $qty       = (int) $request->qty;
+
+        $fromStock = Warehouse::where('product_id', $productId)->where('size', $fromSize)->first();
+        $physical  = $fromStock->physical_qty ?? 0;
+        $reserved  = $fromStock->reserved_qty ?? 0;
+        $defect    = $fromStock->defect_qty ?? 0;
+        $free      = max(0, $physical - $reserved - $defect);
+
+        $needsSelection = $qty > $free;
+        $affectedOrders = [];
+
+        if ($needsSelection) {
+            $affectedOrders = Product_Order::whereIn('order_type', ['sale', 'change'])
+                ->whereIn('status_id', [2, 3])
+                ->where('product_id', $productId)
+                ->where('product_size', $fromSize)
+                ->with('customer:id,name')
+                ->orderByDesc('status_id')
+                ->orderBy('created_at')
+                ->get()
+                ->map(fn($o) => [
+                    'id'           => $o->id,
+                    'order_number' => $o->order_number ?? ('#' . $o->id),
+                    'customer'     => $o->customer->name ?? '—',
+                    'status_id'    => $o->status_id,
+                    'status_name'  => $o->status_id == 3 ? 'საწყობში' : 'გზაში',
+                    'quantity'     => $o->quantity,
+                    'created_at'   => $o->created_at?->format('d.m.Y'),
+                ])
+                ->values();
+        }
+
+        return response()->json([
+            'physical_qty'    => $physical,
+            'reserved_qty'    => $reserved,
+            'defect_qty'      => $defect,
+            'free_qty'        => $free,
+            'needs_selection' => $needsSelection,
+            'shortfall'       => $needsSelection ? $qty - $free : 0,
+            'affected_orders' => $affectedOrders,
+        ]);
+    }
+
+    public function stockCorrectionApply(Request $request)
+    {
+        $request->validate([
+            'product_id'  => 'required|exists:products,id',
+            'from_size'   => 'required|string',
+            'to_size'     => 'required|string',
+            'qty'         => 'required|integer|min:1',
+            'order_ids'   => 'array',
+            'order_ids.*' => 'integer',
+        ]);
+
+        if ($request->from_size === $request->to_size) {
+            return response()->json(['message' => 'საწყისი და სამიზნე ზომა ერთნაირია'], 422);
+        }
+
+        return \DB::transaction(function () use ($request) {
+            $productId = (int) $request->product_id;
+            $fromSize  = $request->from_size;
+            $toSize    = $request->to_size;
+            $qty       = (int) $request->qty;
+            $orderIds  = $request->order_ids ?? [];
+
+            $fromStock = Warehouse::where('product_id', $productId)->where('size', $fromSize)
+                ->lockForUpdate()->first();
+
+            if (!$fromStock || $fromStock->physical_qty < $qty) {
+                return response()->json(['message' => 'არასაკმარისი ფიზიკური ნაშთი წყარო ზომაზე'], 422);
+            }
+
+            $toStock = Warehouse::firstOrCreate(
+                ['product_id' => $productId, 'size' => $toSize],
+                ['physical_qty' => 0, 'incoming_qty' => 0, 'reserved_qty' => 0]
+            );
+
+            $free = max(0, $fromStock->physical_qty - $fromStock->reserved_qty - ($fromStock->defect_qty ?? 0));
+
+            if ($qty > $free) {
+                $shortfall = $qty - $free;
+
+                $orders = Product_Order::whereIn('id', $orderIds)
+                    ->whereIn('order_type', ['sale', 'change'])
+                    ->whereIn('status_id', [2, 3])
+                    ->where('product_id', $productId)
+                    ->where('product_size', $fromSize)
+                    ->get();
+
+                if ($orders->sum('quantity') < $shortfall) {
+                    return response()->json([
+                        'message' => 'შერჩეული ორდერების ჯამური რაოდენობა არასაკმარისია დანაკლისის დასაფარად',
+                    ], 422);
+                }
+
+                // შერჩეული ორდერები მთლიანად თავისუფლდება (არა 3→2/2→1 დაქვეითება) —
+                // სტატუს-2-ს არ გააჩნია არცერთი ავტომატური მექანიზმი, რომელიც
+                // მოგვიანებით "დაინახავდა" ახალ მარაგს; მხოლოდ status=1-ს გააჩნია
+                // (PurchaseService::promotePendingSalesAfterReturn ქვემოთ), ამიტომ
+                // "ნახევრად" დაქვეითება ორდერს სამუდამოდ ჩარჩენდა.
+                foreach ($orders as $order) {
+                    $oldStatus = $order->status_id;
+
+                    $fromStock->decrement('reserved_qty', $order->quantity);
+                    $order->status_id         = 1;
+                    $order->purchase_order_id = null;
+                    $order->comment = trim(($order->comment ? $order->comment . ' | ' : '')
+                        . '⚠ ნაშთის კორექციის გამო გათავისუფლდა (' . $fromSize . '→' . $toSize . ')');
+                    $order->save();
+
+                    StatusChangeLog::create([
+                        'order_id'       => $order->id,
+                        'user_id'        => auth()->id(),
+                        'status_id_from' => $oldStatus,
+                        'status_id_to'   => 1,
+                        'changed_at'     => now(),
+                    ]);
+                }
+                $fromStock->refresh();
+            }
+
+            $physicalBefore = $fromStock->physical_qty;
+            $fromStock->decrement('physical_qty', $qty);
+            $toStock->increment('physical_qty', $qty);
+
+            WarehouseLogService::log('adjustment', $productId, $fromSize, -$qty,
+                'manual_correction', auth()->id(), 'ზომის კორექცია → ' . $toSize, $physicalBefore);
+            WarehouseLogService::log('adjustment', $productId, $toSize, $qty,
+                'manual_correction', auth()->id(), 'ზომის კორექცია ← ' . $fromSize);
+
+            // შესყიდვის ჩანაწერების „თავისუფალი ადგილიც“ შესაბამისად გადავიდეს —
+            // თორემ getNextPurchase() მომავალ გაყიდვებს მცდარ სტატუსს მისცემდა
+            // (fromSize-ზე ცრუ ადგილს ხედავდა, toSize-ზე კი საერთოდ არ იცოდა).
+            $costPrice = \App\Services\PurchaseService::reducePurchaseCapacity($productId, $fromSize, $qty);
+            \App\Services\PurchaseService::addPurchaseCapacity($productId, $toSize, $qty, $costPrice);
+
+            // გათავისუფლებული ორდერების დაუყოვნებელი ხელახალი შეჯერება —
+            // ორივე ზომაზე: fromSize (თუ ადმინმა საჭიროზე მეტი გაათავისუფლა)
+            // და toSize (თუ იქ უკვე ედო "ახალი" სტატუსის მომლოდინე ორდერი).
+            $this->promotePendingOrdersForSize($productId, $fromSize, $fromStock);
+            $this->promotePendingOrdersForSize($productId, $toSize, $toStock);
+
+            return response()->json(['success' => true, 'message' => 'ნაშთი წარმატებით გასწორდა']);
+        });
+    }
+
+    // ⚠ PurchaseService::promotePendingSalesAfterReturn()-ს აქ ვერ ვიყენებთ, თუმცა
+    // შესყიდვის ჩანაწერები ახლა სინქრონულია — ის ითხოვს ორდერის სრულ
+    // გადახდას (`total - paid <= 0.01`), რაც სწორია "დაბრუნების შემდეგ"
+    // საწყისი დანიშნულებისთვის, მაგრამ არასწორია აქ: ორდერი, რომელსაც ჩვენ
+    // ვაქვეითებთ/ვაწინაურებთ, შეიძლება თავიდანვე გადაუხდელი მისულიყო
+    // status=3-ზე ჩვეულებრივი გზით (გადახდა არასდროს ყოფილა წინაპირობა
+    // "საწყობში" სტატუსისთვის) — ამიტომ პირდაპირ საწყობის რეალურ
+    // თავისუფალ ნაშთზე ვამოწმებთ, გადახდის მოთხოვნის გარეშე.
+    private function promotePendingOrdersForSize(int $productId, string $size, Warehouse $stock): void
+    {
+        $pendingOrders = Product_Order::whereIn('order_type', ['sale', 'change'])
+            ->where('product_id', $productId)
+            ->where('product_size', $size)
+            ->where('status_id', 1)
+            ->whereNull('purchase_order_id')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        foreach ($pendingOrders as $pending) {
+            $stock->refresh();
+            $freeNow = $stock->physical_qty - $stock->reserved_qty - ($stock->defect_qty ?? 0);
+            if ($freeNow <= 0) break;
+
+            // შესყიდვის ჩანაწერები ახლა სინქრონულია — თუ getNextPurchase()-მა
+            // რეალური პარტია იპოვა, ვუკავშირებთ (უკეთესი cost-აღრიცხვისთვის)
+            $nextPurchase = \App\Services\FifoService::getNextPurchase($productId, $size);
+
+            $pending->status_id = 3;
+            if ($nextPurchase) {
+                $pending->purchase_order_id = $nextPurchase->id;
+                $pending->price_usa         = (float) $nextPurchase->cost_price;
+            }
+            $pending->save();
+            $stock->increment('reserved_qty', $pending->quantity);
+
+            StatusChangeLog::create([
+                'order_id'       => $pending->id,
+                'user_id'        => auth()->id(),
+                'status_id_from' => 1,
+                'status_id_to'   => 3,
+                'changed_at'     => now(),
+            ]);
+        }
     }
 
     // ─── ლოგის გვერდი (ყველა) ────────────────────────────────────────
@@ -435,6 +671,12 @@ class WarehouseController extends Controller
             if ($type === 'writeoff') {
                 // ─── ჩამოწერა: physical_qty-დან გამოვაკლოთ ──────────────
                 $stock->decrement('physical_qty', $qty);
+
+                // შესყიდვის ჩანაწერის „თავისუფალი ადგილიც“ შესაბამისად
+                // შემცირდეს — თორემ getNextPurchase() მომავალ გაყიდვას
+                // ცრუდ „საწყობშია“ სტატუსს მისცემს (ფიზიკურად აღარაფერი
+                // არ არსებობს, მაგრამ purchase.quantity ამას ვერ „ხედავს“).
+                \App\Services\PurchaseService::reducePurchaseCapacity($request->product_id, $request->size, $qty);
 
                 Defect::create([
                     'purchase_order_id' => $this->getLastPurchaseId($request->product_id, $request->size),

@@ -151,6 +151,9 @@ Route::get('warehouse/financials',      [WarehouseController::class, 'financials
 Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff'])      ->name('warehouse.writeOff')   ->middleware('role:admin');
 Route::get('warehouse/export-stock-pdf',[WarehouseController::class, 'exportStockPdf'])->name('warehouse.exportStockPdf');
 Route::get('warehouse/export-received-pdf',[WarehouseController::class, 'exportReceivedPdf'])->name('warehouse.exportReceivedPdf');
+Route::get('warehouse/stock-correction/sizes',   [WarehouseController::class, 'stockCorrectionSizes'])  ->name('warehouse.stockCorrectionSizes')  ->middleware('role:admin');
+Route::get('warehouse/stock-correction/preview',[WarehouseController::class, 'stockCorrectionPreview'])->name('warehouse.stockCorrectionPreview')->middleware('role:admin');
+Route::post('warehouse/stock-correction/apply',  [WarehouseController::class, 'stockCorrectionApply'])  ->name('warehouse.stockCorrectionApply')  ->middleware('role:admin');
 
     // ── Purchase Orders (შესყიდვები) ─────────────────────────────────
     Route::middleware('permission:purchases')->group(function () {

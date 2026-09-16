@@ -3142,45 +3142,4 @@ private function attachImageBase64(Product_Order $order): void
 {
     $order->imageBase64 = $this->productImageBase64($order->product);
 }
-
-    private function promotePendingSalesAfterReturn(int $productId, string $size, \App\Models\Warehouse $stock): void
-    {
-        $pendingOrders = Product_Order::whereIn('order_type', ['sale', 'change'])
-            ->where('product_id', $productId)
-            ->where('product_size', $size)
-            ->where('status_id', 1)
-            ->whereNull('purchase_order_id')
-            ->orderBy('created_at', 'asc')
-            ->get();
-
-        foreach ($pendingOrders as $order) {
-            $stock->refresh();
-
-            $nextPurchase = \App\Services\FifoService::getNextPurchase($productId, $size);
-            if (!$nextPurchase) break;
-
-            $total = $order->price_georgia - ($order->discount ?? 0);
-            $paid  = ($order->paid_tbc ?? 0) + ($order->paid_bog ?? 0)
-                   + ($order->paid_lib ?? 0) + ($order->paid_cash ?? 0);
-            if (($total - $paid) > 0.01) continue;
-
-            $order->purchase_order_id = $nextPurchase->id;
-            $order->price_usa         = (float) $nextPurchase->cost_price;
-            // price_georgia არ იცვლება
-            $order->status_id         = $nextPurchase->status_id; // 2 ან 3, purchase-ს შეესაბამება
-
-            $order->save();
-
-            // status=2 ან 3: ორივე reserved_qty-ში ითვლება
-            $stock->increment('reserved_qty', 1);
-
-            StatusChangeLog::create([
-                'order_id'       => $order->id,
-                'user_id'        => auth()->id(),
-                'status_id_from' => 1,
-                'status_id_to'   => $newStatus,
-                'changed_at'     => now(),
-            ]);
-        }
-    }
 }

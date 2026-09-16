@@ -489,4 +489,127 @@ class PurchaseService
             ]);
         }
     }
+
+    /**
+     * status_id=1 (ახალი, მიუბმელი) ორდერების ხელახლა FIFO-შეჯერება —
+     * გამოსადეგია ნებისმიერი მოვლენის შემდეგ, რომელმაც შეიძლება ახალი
+     * მარაგი "გაათავისუფლა" ამ ზომაზე (დაბრუნება, ნაშთის კორექცია და ა.შ.)
+     */
+    public static function promotePendingSalesAfterReturn(int $productId, string $size, Warehouse $stock): void
+    {
+        $pendingOrders = Product_Order::whereIn('order_type', ['sale', 'change'])
+            ->where('product_id', $productId)
+            ->where('product_size', $size)
+            ->where('status_id', 1)
+            ->whereNull('purchase_order_id')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        foreach ($pendingOrders as $order) {
+            $stock->refresh();
+
+            $nextPurchase = FifoService::getNextPurchase($productId, $size);
+            if (!$nextPurchase) break;
+
+            $total = $order->price_georgia - ($order->discount ?? 0);
+            $paid  = ($order->paid_tbc ?? 0) + ($order->paid_bog ?? 0)
+                   + ($order->paid_lib ?? 0) + ($order->paid_cash ?? 0);
+            if (($total - $paid) > 0.01) continue;
+
+            $order->purchase_order_id = $nextPurchase->id;
+            $order->price_usa         = (float) $nextPurchase->cost_price;
+            // price_georgia არ იცვლება
+            $order->status_id         = $nextPurchase->status_id; // 2 ან 3, purchase-ს შეესაბამება
+            $order->save();
+
+            // status=2 ან 3: ორივე reserved_qty-ში ითვლება
+            $stock->increment('reserved_qty', 1);
+
+            StatusChangeLog::create([
+                'order_id'       => $order->id,
+                'user_id'        => auth()->id(),
+                'status_id_from' => 1,
+                'status_id_to'   => $order->status_id,
+                'changed_at'     => now(),
+            ]);
+        }
+    }
+
+    /**
+     * მოცემულ პროდუქტი+ზომაზე "თავისუფალი ადგილის" გამოკლება შესყიდვის
+     * ჩანაწერ(ებ)იდან — FIFO რიგით (ძველიდან ახლისკენ), მხოლოდ status=3
+     * (ფიზიკურად მიღებული) პარტიებიდან. საჭიროა მაშინ, როცა Warehouse-ის
+     * physical_qty მცირდება შესყიდვის სისტემის „მხედველობის მიღმა“
+     * (ჩამოწერა, ზომის კორექცია) — რომ FifoService::getNextPurchase()-მა
+     * მომავალში ცრუ თავისუფალი ადგილი აღარ დაინახოს.
+     * აბრუნებს გამოკლებული ბოლო პარტიის cost_price-ს (0, თუ ვერაფერი მოიძებნა).
+     */
+    public static function reducePurchaseCapacity(int $productId, string $size, int $qty): float
+    {
+        $remaining     = $qty;
+        $lastCostPrice = 0.0;
+
+        $purchases = Product_Order::where('order_type', 'purchase')
+            ->where('status', 'active')
+            ->where('product_id', $productId)
+            ->where('product_size', $size)
+            ->where('status_id', 3)
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        foreach ($purchases as $purchase) {
+            if ($remaining <= 0) break;
+
+            $usedCount = Product_Order::whereIn('order_type', ['sale', 'change'])
+                ->where('purchase_order_id', $purchase->id)
+                ->whereIn('status_id', [1, 2, 3, 4, 5, 6])
+                ->count();
+
+            $freeInThis = max(0, $purchase->quantity - $usedCount);
+            if ($freeInThis <= 0) continue;
+
+            $take = min($remaining, $freeInThis);
+            $purchase->decrement('quantity', $take);
+            $lastCostPrice = (float) $purchase->cost_price;
+            $remaining    -= $take;
+        }
+
+        return $lastCostPrice;
+    }
+
+    /**
+     * მოცემულ პროდუქტი+ზომაზე შესყიდვის "თავისუფალი ადგილის" დამატება —
+     * არსებულ status=3 ჩანაწერს ემატება (თუ არსებობს), თუ არა — იქმნება
+     * ახალი, მინიმალური ჩანაწერი. reducePurchaseCapacity()-ის საწყვილო
+     * ფუნქციაა ზომის კორექციისთვის.
+     */
+    public static function addPurchaseCapacity(int $productId, string $size, int $qty, float $costPrice = 0.0): void
+    {
+        $purchase = Product_Order::where('order_type', 'purchase')
+            ->where('status', 'active')
+            ->where('product_id', $productId)
+            ->where('product_size', $size)
+            ->where('status_id', 3)
+            ->orderByDesc('created_at')
+            ->first();
+
+        if ($purchase) {
+            $purchase->increment('quantity', $qty);
+            return;
+        }
+
+        Product_Order::create([
+            'order_type'    => 'purchase',
+            'product_id'    => $productId,
+            'product_size'  => $size,
+            'quantity'      => $qty,
+            'status_id'     => 3,
+            'cost_price'    => $costPrice,
+            'price_georgia' => 0,
+            'price_usa'     => $costPrice,
+            'user_id'       => auth()->id(),
+            'received_at'   => now(),
+            'comment'       => '🔀 ზომის კორექციით დამატებული',
+        ]);
+    }
 }

@@ -1487,8 +1487,10 @@ $purchase->refresh();
                 $newPurchase = null;
 
                 if ($remaining === 0) {
-                    // სრული მიღება
-                    $purchase->update(['status_id' => 3, 'quantity' => max($receivedQty, 1), 'received_at' => now()]);
+                    // სრული მიღება — quantity ზუსტად რეალურად მიღებულს უნდა
+                    // შეესაბამებოდეს (0-ც კანონიერია, თუ ყველაფერი დაიკარგა/წუნია);
+                    // max(...,1)-ს ცრუ "1 თავისუფალი ადგილი" შეჰქონდა getNextPurchase()-ში.
+                    $purchase->update(['status_id' => 3, 'quantity' => $receivedQty, 'received_at' => now()]);
                 } elseif ($receivedQty > 0) {
                     // ნაწილობრივი მიღება — split: original→status=3, new purchase→status=2 (remainder)
                     $rootGroupId = $purchase->purchase_group_id ?? $purchase->id;
