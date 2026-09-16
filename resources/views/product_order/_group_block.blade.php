@@ -22,8 +22,12 @@
                 <div class="cust-meta">
                     {{ $customer->tel ?? '' }}
                     @if($customer->alternative_tel ?? '') / {{ $customer->alternative_tel }}@endif
-                    <br>{{ $customer->city->name ?? '' }}
-                    @if($customer->address ?? ''), {{ $customer->address }}@endif
+                    <br>@php
+                        $displayCity = $primary->orderCity->name ?? ($customer->city->name ?? '');
+                    @endphp
+                    {{ $displayCity }}
+                    @php $displayAddress = $primary->order_address ?: ($customer->address ?? ''); @endphp
+                @if($displayAddress), {{ $displayAddress }}@endif
                 </div>
             </div>
             <div class="cust-right">
@@ -82,8 +86,12 @@
                 <div class="cust-meta">
                     {{ $customer->tel ?? '' }}
                     @if($customer->alternative_tel ?? '') / {{ $customer->alternative_tel }}@endif
-                    <br>{{ $customer->city->name ?? '' }}
-                    @if($customer->address ?? ''), {{ $customer->address }}@endif
+                    <br>@php
+                        $displayCity = $primary->orderCity->name ?? ($customer->city->name ?? '');
+                    @endphp
+                    {{ $displayCity }}
+                    @php $displayAddress = $primary->order_address ?: ($customer->address ?? ''); @endphp
+                @if($displayAddress), {{ $displayAddress }}@endif
                 </div>
             </div>
             <div class="cust-right">
@@ -118,8 +126,12 @@
                 <div class="cust-meta">
                     {{ $customer->tel ?? '' }}
                     @if($customer->alternative_tel ?? '') / {{ $customer->alternative_tel }}@endif
-                    <br>{{ $customer->city->name ?? '' }}
-                    @if($customer->address ?? ''), {{ $customer->address }}@endif
+                    <br>@php
+                        $displayCity = $primary->orderCity->name ?? ($customer->city->name ?? '');
+                    @endphp
+                    {{ $displayCity }}
+                    @php $displayAddress = $primary->order_address ?: ($customer->address ?? ''); @endphp
+                @if($displayAddress), {{ $displayAddress }}@endif
                 </div>
             </div>
             <div class="cust-right">
@@ -209,8 +221,12 @@
             <div class="cust-meta">
                 {{ $customer->tel ?? '' }}
                 @if($customer->alternative_tel ?? '') / {{ $customer->alternative_tel }}@endif
-                <br>{{ $customer->city->name ?? '' }}
-                @if($customer->address ?? ''), {{ $customer->address }}@endif
+                <br>@php
+                        $displayCity = $primary->orderCity->name ?? ($customer->city->name ?? '');
+                    @endphp
+                    {{ $displayCity }}
+                @php $displayAddress = $primary->order_address ?: ($customer->address ?? ''); @endphp
+                @if($displayAddress), {{ $displayAddress }}@endif
             </div>
         </div>
         <div class="col-order-num">
