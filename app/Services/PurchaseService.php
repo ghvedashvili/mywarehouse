@@ -572,8 +572,15 @@ class PurchaseService
      * (ჩამოწერა, ზომის კორექცია) — რომ FifoService::getNextPurchase()-მა
      * მომავალში ცრუ თავისუფალი ადგილი აღარ დაინახოს.
      * აბრუნებს გამოკლებული ბოლო პარტიის cost_price-ს (0, თუ ვერაფერი მოიძებნა).
+     *
+     * $includeIncoming=true — დამატებით ითვალისწინებს status=2 (გზაში,
+     * ჩვეულებრივი შესყიდვის) პარტიებსაც, ზუსტად იმავე წესით, რასაც
+     * DiagnosticController::computeSizeDiagnostic() იყენებს purchase_available
+     * გამოსათვლელად. ეს საჭიროა მხოლოდ დიაგნოსტიკის "გასწორებისთვის" — ჩამოწერა
+     * და ზომის კორექცია მხოლოდ ფიზიკურ (status=3) მარაგს ეხება და default=false
+     * უნდა დარჩეს მათთვის.
      */
-    public static function reducePurchaseCapacity(int $productId, string $size, int $qty): float
+    public static function reducePurchaseCapacity(int $productId, string $size, int $qty, bool $includeIncoming = false): float
     {
         $remaining     = $qty;
         $lastCostPrice = 0.0;
@@ -582,7 +589,14 @@ class PurchaseService
             ->where('status', 'active')
             ->where('product_id', $productId)
             ->where('product_size', $size)
-            ->where('status_id', 3)
+            ->where(function ($q) use ($includeIncoming) {
+                $q->where('status_id', 3);
+                if ($includeIncoming) {
+                    $q->orWhere(function ($q2) {
+                        $q2->where('status_id', 2)->whereNull('original_sale_id');
+                    });
+                }
+            })
             ->orderBy('created_at', 'asc')
             ->get();
 
@@ -611,14 +625,24 @@ class PurchaseService
      * არსებულ status=3 ჩანაწერს ემატება (თუ არსებობს), თუ არა — იქმნება
      * ახალი, მინიმალური ჩანაწერი. reducePurchaseCapacity()-ის საწყვილო
      * ფუნქციაა ზომის კორექციისთვის.
+     *
+     * $includeIncoming — იხ. reducePurchaseCapacity()-ის კომენტარი. აქაც
+     * მხოლოდ დიაგნოსტიკის "გასწორება" იყენებს true-ს.
      */
-    public static function addPurchaseCapacity(int $productId, string $size, int $qty, float $costPrice = 0.0): void
+    public static function addPurchaseCapacity(int $productId, string $size, int $qty, float $costPrice = 0.0, bool $includeIncoming = false): void
     {
         $purchase = Product_Order::where('order_type', 'purchase')
             ->where('status', 'active')
             ->where('product_id', $productId)
             ->where('product_size', $size)
-            ->where('status_id', 3)
+            ->where(function ($q) use ($includeIncoming) {
+                $q->where('status_id', 3);
+                if ($includeIncoming) {
+                    $q->orWhere(function ($q2) {
+                        $q2->where('status_id', 2)->whereNull('original_sale_id');
+                    });
+                }
+            })
             ->orderByDesc('created_at')
             ->first();
 

@@ -392,10 +392,10 @@ class DiagnosticController extends Controller
             $diff = $diag['available_diff'];
 
             if ($diff > 0) {
-                PurchaseService::addPurchaseCapacity($productId, $size, $diff);
+                PurchaseService::addPurchaseCapacity($productId, $size, $diff, 0.0, true);
                 PurchaseService::promotePendingOrders($productId, $size, $stock->fresh());
             } elseif ($diff < 0) {
-                PurchaseService::reducePurchaseCapacity($productId, $size, abs($diff));
+                PurchaseService::reducePurchaseCapacity($productId, $size, abs($diff), true);
             }
 
             return response()->json([
