@@ -610,7 +610,7 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
                     <select id="sc-product" class="form-select">
                         <option value="">— აირჩიე —</option>
                         @foreach($stockProducts as $p)
-                            <option value="{{ $p->id }}" data-sizes="{{ $p->sizes }}">{{ $p->name }}{{ $p->product_code ? ' ('.$p->product_code.')' : '' }}</option>
+                            <option value="{{ $p->id }}" data-sizes="{{ $p->sizes }}" data-image="{{ $p->image_url ?? '' }}">{{ $p->name }}{{ $p->product_code ? ' ('.$p->product_code.')' : '' }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -618,31 +618,6 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
                 <div class="mb-3" id="sc-from-wrap" style="display:none;">
                     <label class="form-label fw-semibold" style="font-size:12px; text-transform:uppercase;">საწყისი ზომა (რასაც ვასწორებთ)</label>
                     <select id="sc-from-size" class="form-select"></select>
-                </div>
-
-                <div id="sc-stock-info" style="display:none;"
-                     class="p-3 rounded mb-3 d-flex gap-3 align-items-center flex-wrap"
-                     style="background:#f9f9f9; border:1px solid #ddd;">
-                    <div class="text-center">
-                        <div class="fw-bold" style="font-size:20px; color:#555;" id="sc-physical">0</div>
-                        <div class="text-muted" style="font-size:10px;">📦 ფიზ.</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="fw-bold" style="font-size:20px; color:#2563eb;" id="sc-incoming">0</div>
-                        <div class="text-muted" style="font-size:10px;">🚚 გზაში</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="fw-bold" style="font-size:20px; color:#e67e22;" id="sc-reserved">0</div>
-                        <div class="text-muted" style="font-size:10px;">🔒 დაჯავშ.</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="fw-bold text-success" style="font-size:20px;" id="sc-free">0</div>
-                        <div class="text-muted" style="font-size:10px;">✅ თავისუფალი (ფიზ.)</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="fw-bold" style="font-size:20px; color:#16a34a;" id="sc-available">0</div>
-                        <div class="text-muted" style="font-size:10px;">✅ ხელმისაწვდომი</div>
-                    </div>
                 </div>
 
                 <div class="mb-3" id="sc-to-wrap" style="display:none;">
@@ -1057,9 +1032,33 @@ $(function() {
     var scAffectedOrders = [];
     var scShortfall      = 0;
 
+    $('#sc-product').select2({
+        dropdownParent: $('#modal-size-correction'),
+        width: '100%',
+        placeholder: '— აირჩიე —',
+        templateResult: function(opt) {
+            if (!opt.id) return opt.text;
+            var img = $(opt.element).attr('data-image');
+            var $s = $('<span style="display:flex;align-items:center;gap:8px;">');
+            if (img) $s.append($('<img>').attr('src', img).css({ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '3px', flexShrink: 0 }));
+            $s.append(document.createTextNode(opt.text));
+            return $s;
+        },
+        templateSelection: function(opt) {
+            if (!opt.id) return opt.text;
+            var img = $(opt.element).attr('data-image');
+            if (!img) return opt.text;
+            var $s = $('<span style="display:flex;align-items:center;gap:6px;">');
+            $s.append($('<img>').attr('src', img).css({ width: '24px', height: '24px', objectFit: 'cover', borderRadius: '2px', flexShrink: 0 }));
+            $s.append(document.createTextNode(opt.text));
+            return $s;
+        }
+    });
+
     window.openSizeCorrectionModal = function() {
-        $('#sc-product, #sc-from-size').val('');
-        $('#sc-from-wrap, #sc-stock-info, #sc-to-wrap, #sc-qty-wrap, #sc-btn-check, #sc-result, #btn-sc-save').hide();
+        $('#sc-product').val('').trigger('change.select2');
+        $('#sc-from-size').val('');
+        $('#sc-from-wrap, #sc-to-wrap, #sc-qty-wrap, #sc-btn-check, #sc-result, #btn-sc-save').hide();
         $('#sc-ok-msg, #sc-warn-block').hide();
         $('#btn-sc-save').prop('disabled', true);
         $('#sc-qty').val(1);
@@ -1073,7 +1072,7 @@ $(function() {
         var sizesRaw = $(this).find('option:selected').data('sizes') || '';
         $('#sc-from-size').empty();
         $('#sc-to-size').empty();
-        $('#sc-from-wrap, #sc-stock-info, #sc-to-wrap, #sc-qty-wrap, #sc-btn-check, #sc-result, #btn-sc-save').hide();
+        $('#sc-from-wrap, #sc-to-wrap, #sc-qty-wrap, #sc-btn-check, #sc-result, #btn-sc-save').hide();
         $('#btn-sc-save').prop('disabled', true);
         if (!pid) return;
 
@@ -1088,7 +1087,7 @@ $(function() {
             scSizeData = sizes;
             $('#sc-from-size').append('<option value="">— ზომა —</option>');
             sizes.forEach(function(r) {
-                $('#sc-from-size').append('<option value="' + r.size + '">' + r.size + ' (ფიზ. ' + r.physical_qty + ', გზაში ' + r.incoming_qty + ', ხელმისაწვდ. ' + r.available_qty + ')</option>');
+                $('#sc-from-size').append('<option value="' + r.size + '">' + r.size + ' (📦 ' + r.physical_qty + ' 🚚 ' + r.incoming_qty + ' 🔒 ' + r.reserved_qty + ' ✅ ' + r.available_qty + ')</option>');
             });
             $('#sc-from-wrap').show();
         });
@@ -1096,20 +1095,15 @@ $(function() {
 
     $('#sc-from-size').on('change', function() {
         var size = $(this).val();
-        $('#sc-stock-info, #sc-to-wrap, #sc-qty-wrap, #sc-btn-check, #sc-result, #btn-sc-save').hide();
+        $('#sc-to-wrap, #sc-qty-wrap, #sc-btn-check, #sc-result, #btn-sc-save').hide();
         $('#btn-sc-save').prop('disabled', true);
         if (!size) return;
 
         var row = scSizeData.find(r => r.size === size);
         if (!row) return;
 
-        $('#sc-physical').text(row.physical_qty);
-        $('#sc-incoming').text(row.incoming_qty);
-        $('#sc-reserved').text(row.reserved_qty);
-        $('#sc-free').text(row.free_qty);
-        $('#sc-available').text(row.available_qty);
         $('#sc-qty').val(1).attr('max', row.physical_qty);
-        $('#sc-stock-info, #sc-to-wrap, #sc-qty-wrap, #sc-btn-check').show();
+        $('#sc-to-wrap, #sc-qty-wrap, #sc-btn-check').show();
     });
 
     window.checkSizeCorrection = function() {

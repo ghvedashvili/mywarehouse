@@ -37,7 +37,7 @@ class WarehouseController extends Controller
         $sizes = Warehouse::select('size')->distinct()->whereNotNull('size')->orderBy('size')->pluck('size');
 
         $stockedProductIds = Warehouse::where('physical_qty', '>', 0)->distinct()->pluck('product_id');
-        $stockProducts = Product::whereIn('id', $stockedProductIds)->orderBy('name')->get(['id', 'name', 'product_code', 'sizes']);
+        $stockProducts = Product::whereIn('id', $stockedProductIds)->orderBy('name')->get(['id', 'name', 'product_code', 'sizes', 'image']);
 
         return view('warehouse.index', compact('categories', 'sizes', 'stockProducts'));
     }
@@ -193,6 +193,22 @@ class WarehouseController extends Controller
         $reserved  = $fromStock->reserved_qty ?? 0;
         $defect    = $fromStock->defect_qty ?? 0;
         $free      = max(0, $physical - $reserved - $defect);
+
+        // ორდერების გათავისუფლება მხოლოდ უკვე არსებულ ფიზიკურ ნაშთს
+        // ათავისუფლებს ჯავშნიდან — არ ქმნის ახალ ფიზიკურ ნაშთს. ამიტომ
+        // მოთხოვნილი qty ვერასდროს გადააჭარბებს ფიზიკურ ნაშთს, რამდენი
+        // ორდერიც არ უნდა გავათავისუფლოთ.
+        if ($qty > $physical) {
+            return response()->json([
+                'physical_qty'    => $physical,
+                'reserved_qty'    => $reserved,
+                'defect_qty'      => $defect,
+                'free_qty'        => $free,
+                'needs_selection' => false,
+                'impossible'      => true,
+                'message'         => "მოთხოვნილი რაოდენობა ({$qty}) აღემატება ამ ზომის მთლიან ფიზიკურ ნაშთს ({$physical}) — ორდერების გათავისუფლებაც ვერ დაგვეხმარება, რადგან ის მხოლოდ არსებულ ნაშთს ათავისუფლებს ჯავშნიდან. მაქსიმუმ {$physical} ცალის გადატანაა შესაძლებელი.",
+            ], 422);
+        }
 
         $needsSelection = $qty > $free;
         $affectedOrders = [];
