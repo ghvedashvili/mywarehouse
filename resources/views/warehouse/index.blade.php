@@ -252,12 +252,14 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
             <p class="mod-subtitle">ნაშთების მართვა და კონტროლი</p>
         </div>
         <div class="mod-actions">
+            @if(auth()->user()->role !== 'sale_operator')
             <a href="{{ route('warehouse.exportStockPdf') }}" target="_blank" class="btn btn-success btn-sm">
                 <i class="fa fa-print me-1"></i><span class="d-none d-sm-inline"> ნაშთების ბეჭდვა</span>
             </a>
             <button class="btn btn-primary btn-sm" onclick="openReceivedPrintModal()">
                 <i class="fa fa-truck-ramp-box me-1"></i><span class="d-none d-sm-inline"> მიღებულის ბეჭდვა</span>
             </button>
+            @endif
             @if(!in_array(auth()->user()->role, ['sale_operator', 'warehouse_operator']))
             <button class="btn btn-warning btn-sm" onclick="openWriteOffModal()">
                 <i class="fa fa-minus-circle me-1"></i><span class="d-none d-sm-inline"> ჩამოწერა</span>
@@ -279,12 +281,14 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
 
     {{-- Mobile action bar --}}
     <div class="wh-mob-action-bar">
+        @if(auth()->user()->role !== 'sale_operator')
         <a href="{{ route('warehouse.exportStockPdf') }}" target="_blank" class="wh-mab-btn wh-mab-ghost">
             <i class="fa fa-print"></i> ნაშთების ბეჭდვა
         </a>
         <button class="wh-mab-btn wh-mab-ghost" onclick="openReceivedPrintModal()">
             <i class="fa fa-truck-ramp-box"></i> მიღებულის ბეჭდვა
         </button>
+        @endif
         @if(!in_array(auth()->user()->role, ['sale_operator', 'warehouse_operator']))
         <button class="wh-mab-btn wh-mab-orange" onclick="openWriteOffModal()">
             <i class="fa fa-minus-circle"></i> ჩამოწერა

@@ -149,8 +149,8 @@ Route::get('warehouse/physical-sizes',   [WarehouseController::class, 'physicalS
 Route::get('warehouse/incoming-sizes',   [WarehouseController::class, 'incomingSizes'])  ->name('warehouse.incomingSizes');
 Route::get('warehouse/financials',      [WarehouseController::class, 'financials'])     ->name('warehouse.financials') ->middleware('role:admin');
 Route::post('warehouse/write-off',      [WarehouseController::class, 'writeOff'])      ->name('warehouse.writeOff')   ->middleware('role:admin');
-Route::get('warehouse/export-stock-pdf',[WarehouseController::class, 'exportStockPdf'])->name('warehouse.exportStockPdf');
-Route::get('warehouse/export-received-pdf',[WarehouseController::class, 'exportReceivedPdf'])->name('warehouse.exportReceivedPdf');
+Route::get('warehouse/export-stock-pdf',[WarehouseController::class, 'exportStockPdf'])->name('warehouse.exportStockPdf')->middleware('role:admin,staff,warehouse_operator');
+Route::get('warehouse/export-received-pdf',[WarehouseController::class, 'exportReceivedPdf'])->name('warehouse.exportReceivedPdf')->middleware('role:admin,staff,warehouse_operator');
 Route::get('warehouse/stock-correction/sizes',   [WarehouseController::class, 'stockCorrectionSizes'])  ->name('warehouse.stockCorrectionSizes')  ->middleware('role:admin');
 Route::get('warehouse/stock-correction/preview',[WarehouseController::class, 'stockCorrectionPreview'])->name('warehouse.stockCorrectionPreview')->middleware('role:admin');
 Route::post('warehouse/stock-correction/apply',  [WarehouseController::class, 'stockCorrectionApply'])  ->name('warehouse.stockCorrectionApply')  ->middleware('role:admin');
@@ -169,7 +169,7 @@ Route::post('warehouse/stock-correction/apply',  [WarehouseController::class, 's
         Route::post('purchases/group/{groupId}/partial-receive',[PurchaseOrderController::class, 'groupPartialReceive'])->name('purchases.groupPartialReceive');
         Route::post('purchases/group/{groupId}/undo-receipt',   [PurchaseOrderController::class, 'undoGroupReceipt'])->name('purchases.undoGroupReceipt');
         Route::get('purchases/stats', [PurchaseOrderController::class, 'stats'])->name('purchases.stats');
-        Route::patch('purchases/{id}/responsibility', [PurchaseOrderController::class, 'updateReturnResponsibility'])->name('purchases.updateResponsibility');
+        Route::patch('purchases/{id}/responsibility', [PurchaseOrderController::class, 'updateReturnResponsibility'])->name('purchases.updateResponsibility')->middleware('role:admin');
     });
     // ── Users ─────────────────────────────────────────────────────────
     Route::get('/user/change-password', [UserController::class, 'changePasswordForm'])->name('user.change-password');
