@@ -28,12 +28,16 @@ class SalaryService
     {
         [$start, $end] = $this->resolveRange($month, $rangeStart, $rangeEnd);
 
+        // დანაკლისის თვეს განსაზღვრავს პასუხისმგებლის მინიჭების თარიღი
+        // (cancelled_responsibility_assigned_at), არა თავად დაბრუნების
+        // created_at — ადმინს შეუძლია პასუხისმგებელი მოგვიანებით მიანიჭოს,
+        // და ეს არ უნდა შეეხმიანოს უკვე დახურულ/გადახდილ თვეს.
         $returns = Product_Order::withoutGlobalScope('active')
             ->where('order_type', 'purchase')
             ->whereNotNull('original_sale_id')
             ->where('cancelled_responsible_user_id', $userId)
-            ->where('created_at', '>=', $start)
-            ->where('created_at', '<', $end)
+            ->where('cancelled_responsibility_assigned_at', '>=', $start)
+            ->where('cancelled_responsibility_assigned_at', '<', $end)
             ->get();
 
         $total   = 0.0;
@@ -211,11 +215,31 @@ class SalaryService
         return $count;
     }
 
-    /** Returns Collection of user rows with customer_id and customer_linked_from */
+    /** Returns Collection of user rows with customer_id, customer_linked_from, customer_link_set_at */
     private function employeeCustomerLinks(): \Illuminate\Support\Collection
     {
         return User::whereNotNull('customer_id')
-            ->get(['customer_id', 'customer_linked_from']);
+            ->get(['customer_id', 'customer_linked_from', 'customer_link_set_at']);
+    }
+
+    /**
+     * ბმის ეფექტური საწყისი თარიღი — "customer_linked_from" შეიძლება
+     * განზრახ წარსულზე მიუთითებდეს (რეტროაქტიული გასწორებისთვის), მაგრამ
+     * ეს ეფექტი ვერასდროს უნდა გავრცელდეს უკვე დახურულ/გადახდილ თვეზე,
+     * რომელიც თავად ბმის რეალურ დაყენებამდე იყო — ამიტომ ორივედან
+     * უფრო გვიანდელს ვიღებთ (იგივე პრინციპი, რაც საკურიერო დანაკლისშია).
+     * customer_link_set_at-ის არარსებობისას (დაცვითი ფოლბექი) ძველი
+     * ქცევა გრძელდება.
+     */
+    private function effectiveLinkFrom($link): ?Carbon
+    {
+        $from  = $link->customer_linked_from;
+        $setAt = $link->customer_link_set_at;
+
+        if (!$setAt) return $from;
+        if (!$from)  return $setAt;
+
+        return $from->greaterThan($setAt) ? $from : $setAt;
     }
 
     /**
@@ -228,7 +252,7 @@ class SalaryService
         return $query->where(function ($q) use ($links) {
             foreach ($links as $link) {
                 $cid  = $link->customer_id;
-                $from = $link->customer_linked_from;
+                $from = $this->effectiveLinkFrom($link);
 
                 if ($from) {
                     // exclude this customer only for orders paid on/after linked_from
@@ -263,7 +287,7 @@ class SalaryService
         if (!$user || !$user->customer_id) return 0.0;
 
         [$start, $end] = $this->resolveRange($month, $rangeStart, $rangeEnd);
-        $linkedFrom = $user->customer_linked_from;
+        $linkedFrom = $this->effectiveLinkFrom($user);
 
         return (float) Product_Order::withoutGlobalScope('active')
             ->where('customer_id', $user->customer_id)

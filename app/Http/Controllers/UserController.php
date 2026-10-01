@@ -210,9 +210,17 @@ class UserController extends Controller
         ]);
 
         $user = User::findOrFail($id);
+
+        // customer_linked_from თავისთავად შეიძლება წარსულზე მიუთითებდეს
+        // (განზრახ, რეტროაქტიული გასწორებისთვის) — მაგრამ SalaryService-მა
+        // ეს ეფექტი არასდროს უნდა გაავრცელოს უკვე დახურულ/გადახდილ თვეზე,
+        // რომელიც ბმის რეალურად დაყენებამდე იყო. ამიტომ ცალკე ვინახავთ
+        // დაყენების რეალურ მომენტს — SalaryService ორივეს (დაყენებული
+        // თარიღი და ეს მომენტი) ყველაზე გვიანდელს იყენებს საწყის წერტილად.
         $user->update([
-            'customer_id'          => $request->customer_id ?: null,
-            'customer_linked_from' => $request->customer_linked_from ?: null,
+            'customer_id'           => $request->customer_id ?: null,
+            'customer_linked_from'  => $request->customer_linked_from ?: null,
+            'customer_link_set_at'  => $request->customer_id ? now() : null,
         ]);
 
         return response()->json(['success' => true, 'message' => 'კავშირი განახლდა']);

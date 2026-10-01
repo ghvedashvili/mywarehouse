@@ -13,7 +13,7 @@ class User extends Authenticatable {
 	 *
 	 * @var array
 	 */
-	protected $fillable = ['name', 'email', 'password', 'role', 'chat_enabled', 'customer_id', 'customer_linked_from'];
+	protected $fillable = ['name', 'email', 'password', 'role', 'chat_enabled', 'customer_id', 'customer_linked_from', 'customer_link_set_at'];
 
 	/**
 	 * The attributes that should be hidden for arrays.
@@ -22,6 +22,11 @@ class User extends Authenticatable {
 	 */
 	protected $hidden = [
 		'password', 'remember_token',
+	];
+
+	protected $casts = [
+		'customer_linked_from'  => 'datetime',
+		'customer_link_set_at'  => 'datetime',
 	];
 
     public function customer()

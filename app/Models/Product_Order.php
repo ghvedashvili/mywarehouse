@@ -23,17 +23,18 @@ class Product_Order extends Model
         'order_address', 'order_alt_tel', 'order_city_id',
         'cancelled_at', 'original_qty', 'courier_paid_at', 'fully_paid_at', 'payment_comment',
         'is_gift',
-        'cancelled_responsible_user_id', 'cancelled_comment',
+        'cancelled_responsible_user_id', 'cancelled_comment', 'cancelled_responsibility_assigned_at',
         'received_at',
     ];
 
     protected $hidden = ['created_at', 'updated_at'];
 
     protected $casts = [
-        'cancelled_at'    => 'datetime',
-        'courier_paid_at' => 'datetime',
-        'fully_paid_at'   => 'datetime',
-        'received_at'     => 'datetime',
+        'cancelled_at'                          => 'datetime',
+        'courier_paid_at'                       => 'datetime',
+        'fully_paid_at'                         => 'datetime',
+        'received_at'                           => 'datetime',
+        'cancelled_responsibility_assigned_at'  => 'datetime',
     ];
 
     protected static function booted()

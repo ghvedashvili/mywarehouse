@@ -68,6 +68,14 @@ class PurchaseOrderController extends Controller
             'cancelled_comment'              => 'nullable|string|max:2000',
         ]);
 
+        // პასუხისმგებლის მინიჭების თარიღი ფიქსირდება ცალკე (და არა purchase-ის
+        // created_at-ით) — თორემ SalaryService-ის საკურიერო დანაკლისი
+        // უკუსვლით შეეხმიანებოდა უკვე დახურულ/გადახდილ თვეს, როცა ადმინი
+        // მოგვიანებით ანიჭებს პასუხისმგებელს ძველ დაბრუნებაზე.
+        if (array_key_exists('cancelled_responsible_user_id', $data)) {
+            $data['cancelled_responsibility_assigned_at'] = $data['cancelled_responsible_user_id'] ? now() : null;
+        }
+
         $order->update($data);
 
         return response()->json(['success' => true, 'message' => 'შენახულია']);
