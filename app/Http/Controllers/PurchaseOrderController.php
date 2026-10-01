@@ -433,6 +433,11 @@ class PurchaseOrderController extends Controller
             'status_id'     => $inTransitQty > 0 ? 2 : 3,
             'status_name'   => $rep->orderStatus?->name  ?? '-',
             'status_color'  => $rep->orderStatus?->color ?? 'default',
+            // ნაწილობრივი/სრული მიღების გაუქმებისთვის — status=3 row-ის id
+            // და რაოდენობა ცალკე, დამოუკიდებლად "in transit" მდგომარეობისგან
+            // (ჯგუფი შეიძლება ნაწილობრივ იყოს მიღებული — ეს row-ი მაინც არსებობს).
+            'received_id'   => $received->first()?->id,
+            'received_qty'  => (int) $received->sum('quantity'),
         ];
     })->values());
 }
@@ -1416,26 +1421,59 @@ $purchase->refresh();
             $messages = [];
 
             foreach ($request->items as $item) {
-                $orderId     = (int) $item['order_id'];
-                $receivedQty = (int) $item['received_qty'];
-                $lostQty     = (int) ($item['lost_qty'] ?? 0);
-                $lostNote    = $item['lost_note'] ?? null;
+                $orderId        = (int) $item['order_id'];
+                $reqReceivedQty = (int) $item['received_qty'];
+                $reqLostQty     = (int) ($item['lost_qty'] ?? 0);
+                $lostNote       = $item['lost_note'] ?? null;
 
-                if ($receivedQty === 0 && $lostQty === 0) continue;
+                if ($reqReceivedQty === 0 && $reqLostQty === 0) continue;
 
-                $purchase = Product_Order::where('order_type', 'purchase')
+                $anchor = Product_Order::where('order_type', 'purchase')
                     ->where('status_id', 2)->find($orderId);
 
-                if (!$purchase) continue;
+                if (!$anchor) continue;
 
-                $totalQty = $purchase->quantity;
-                $sum      = $receivedQty + $lostQty;
+                // იმავე პროდუქტ/ზომაზე შესაძლოა რამდენიმე "გზაში" row არსებობდეს
+                // ერთდროულად (ნაწილობრივი მიღება, შემდეგ მიღების გაუქმება ტოვებს
+                // ასეთ ფრაგმენტებს) — ყველას ერთად ვუყურებთ, FIFO წესით
+                // (ძველიდან ახლისკენ), რომ "ჯამური თავისუფალი ადგილის" შემოწმება
+                // სწორი იყოს, თუნდაც ერთ კონკრეტულ row-ს ამდენი აღარ ჰქონდეს.
+                $rootGroupIdForSiblings = $anchor->purchase_group_id ?? $anchor->id;
+                $siblings = Product_Order::where('order_type', 'purchase')
+                    ->where('status_id', 2)
+                    ->where('purchase_group_id', $rootGroupIdForSiblings)
+                    ->where('product_id', $anchor->product_id)
+                    ->where('product_size', $anchor->product_size)
+                    ->orderBy('id')
+                    ->get();
+
+                $totalQty = (int) $siblings->sum('quantity');
+                $sum      = $reqReceivedQty + $reqLostQty;
 
                 if ($sum > $totalQty) {
                     throw new \Exception(
-                        'ჯამი ('.$sum.') > შეკვეთილი ('.$totalQty.') — '.($purchase->product?->name ?? '#'.$orderId)
+                        'ჯამი ('.$sum.') > შეკვეთილი ('.$totalQty.') — '.($anchor->product?->name ?? '#'.$orderId)
                     );
                 }
+
+                $remaining   = $totalQty - $sum;
+                $remReceived = $reqReceivedQty;
+                $remLost     = $reqLostQty;
+
+            foreach ($siblings as $purchase) {
+                if ($remReceived <= 0 && $remLost <= 0) break;
+
+                $capacity = $purchase->quantity;
+                if ($capacity <= 0) continue;
+
+                $receivedQty  = min($remReceived, $capacity);
+                $remReceived -= $receivedQty;
+                $capacity    -= $receivedQty;
+
+                $lostQty  = min($remLost, $capacity);
+                $remLost -= $lostQty;
+
+                if ($receivedQty === 0 && $lostQty === 0) continue;
 
                 $gProdId       = $purchase->product_id;
                 $gSize         = $purchase->product_size ?? '';
@@ -1490,11 +1528,12 @@ $purchase->refresh();
                     $stock->save();
                 }
 
-                $remaining = $totalQty - $sum;
+                $sibTotalQty  = $purchase->quantity;
+                $sibRemaining = $sibTotalQty - $receivedQty - $lostQty;
 
                 $newPurchase = null;
 
-                if ($remaining === 0) {
+                if ($sibRemaining === 0) {
                     // სრული მიღება — quantity ზუსტად რეალურად მიღებულს უნდა
                     // შეესაბამებოდეს (0-ც კანონიერია, თუ ყველაფერი დაიკარგა/წუნია);
                     // max(...,1)-ს ცრუ "1 თავისუფალი ადგილი" შეჰქონდა getNextPurchase()-ში.
@@ -1502,12 +1541,12 @@ $purchase->refresh();
                 } elseif ($receivedQty > 0) {
                     // ნაწილობრივი მიღება — split: original→status=3, new purchase→status=2 (remainder)
                     $rootGroupId = $purchase->purchase_group_id ?? $purchase->id;
-                    $originalQty = $purchase->original_qty ?? $totalQty;
-                    $ratio       = $receivedQty / $totalQty;
+                    $originalQty = $purchase->original_qty ?? $sibTotalQty;
+                    $ratio       = $receivedQty / $sibTotalQty;
 
                     $newData = $purchase->toArray();
                     unset($newData['id'], $newData['created_at'], $newData['updated_at'], $newData['order_number']);
-                    $newData['quantity']          = $remaining;
+                    $newData['quantity']          = $sibRemaining;
                     $newData['status_id']         = 2;
                     $newData['purchase_group_id'] = $rootGroupId;
                     $newData['original_qty']      = $originalQty;
@@ -1532,7 +1571,7 @@ $purchase->refresh();
                     $newPurchase = Product_Order::create($newData);
                 } else {
                     // receivedQty=0 — მხოლოდ ჩამოწერა, purchase-ის qty მცირდება
-                    $purchase->update(['quantity' => $remaining]);
+                    $purchase->update(['quantity' => $sibRemaining]);
                 }
 
                 // linked sale-ების გადაწინაურება
@@ -1574,7 +1613,7 @@ $purchase->refresh();
                             // split case — დარჩენილი sales → new (გზაში) purchase
                             $sale->purchase_order_id = $newPurchase->id;
                             $sale->save();
-                        } elseif ($remaining > 0) {
+                        } elseif ($sibRemaining > 0) {
                             // receivedQty=0 case — purchase-ს კვლავ აქვს ნაშთი, sale რჩება
                             continue;
                         } else {
@@ -1623,9 +1662,10 @@ $purchase->refresh();
                     PurchaseService::attachPendingSalesToPurchase($purchase, $stock);
                 }
                 $stock->save();
+            }
 
-                $name = $purchase->product?->name ?? ('#'.$orderId);
-                $messages[] = $name . ': ' . $receivedQty . ' ✅' . ($remaining > 0 ? ' (' . $remaining . ' კვლავ გზაში)' : '');
+                $name = $anchor->product?->name ?? ('#'.$orderId);
+                $messages[] = $name . ': ' . $reqReceivedQty . ' ✅' . ($remaining > 0 ? ' (' . $remaining . ' კვლავ გზაში)' : '');
             }
 
             if (empty($messages)) {
@@ -1688,6 +1728,78 @@ $purchase->refresh();
             }
 
             return response()->json(['success' => true, 'message' => 'მიღება გაუქმდა! ორდერი "გზაშია" სტატუსში დაბრუნდა.']);
+        });
+    }
+
+    // ─── ცალკეული (ერთი) line-ის მიღების გაუქმება — undoGroupReceipt-ის
+    // იგივე მექანიზმია, მაგრამ არ მოითხოვს მთელი ჯგუფის სრულად მიღებას.
+    // საჭიროა, როცა ბევრნივთიანი შეკვეთიდან მხოლოდ ერთი ნივთი იქნა
+    // შეცდომით მიღებული — დანარჩენები "გზაშია" რჩება, ჯგუფური გაუქმება
+    // კი მთელ ჯგუფს ითხოვს სტატუს=3-ში.
+    public function undoReceiveLine($id)
+    {
+        return \DB::transaction(function () use ($id) {
+            $anchor = Product_Order::where('order_type', 'purchase')
+                ->where('status_id', 3)->find($id);
+
+            if (!$anchor) {
+                return response()->json(['success' => false, 'message' => 'ორდერი ვერ მოიძებნა ან არ არის მიღებულ სტატუსში'], 404);
+            }
+
+            // იმავე პროდუქტ/ზომაზე შესაძლოა რამდენიმე status=3 row არსებობდეს
+            // (ნაწილობრივი მიღებები რამდენჯერმე მომხდარა) — getGroupItems ამათ
+            // ჯამურად აჩვენებს ("მიღებული" რაოდენობა), ამიტომ გაუქმებაც ყველას
+            // ერთად უნდა ეხებოდეს, თორემ ნაჩვენები და რეალურად გაუქმებული
+            // რაოდენობა არ დაემთხვევა.
+            $rootGroupIdForSiblings = $anchor->purchase_group_id ?? $anchor->id;
+            $siblings = Product_Order::where('order_type', 'purchase')
+                ->where('status_id', 3)
+                ->where('purchase_group_id', $rootGroupIdForSiblings)
+                ->where('product_id', $anchor->product_id)
+                ->where('product_size', $anchor->product_size)
+                ->get();
+
+            // ჯერ ყველას ვამოწმებთ — ან ყველა გაუქმდება, ან არცერთი
+            foreach ($siblings as $order) {
+                $courierCount = Product_Order::where('purchase_order_id', $order->id)
+                    ->whereIn('status_id', [4, 5, 6])->count();
+                if ($courierCount > 0) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'შეუძლებელია — ' . $courierCount . ' მასზე დაკავშირებული გაყიდვა უკვე კურიერთანაა',
+                    ], 422);
+                }
+
+                // წუნი/დანაკარგი ამ კონკრეტულ მიღებაზეა დაფიქსირებული — ეს ცალკე
+                // Defect/FinanceEntry ჩანაწერებს ქმნის, რომელთა უსაფრთხო
+                // ავტომატური გაუქმება დამატებით ლოგიკას საჭიროებს.
+                if (Defect::where('purchase_order_id', $order->id)->exists()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'ამ მიღებაში წუნი/დანაკარგია დაფიქსირებული — ავტომატური გაუქმება ვერ ხერხდება',
+                    ], 422);
+                }
+            }
+
+            $totalUndone = 0;
+
+            foreach ($siblings as $order) {
+                PurchaseService::handleStockForPurchase($order->id, 2, $order->original_sale_id !== null);
+                $order->status_id   = 2;
+                $order->received_at = null;
+                $order->save();
+                PurchaseService::syncSaleOrdersAfterPurchase($order, 3, 2);
+
+                $logKey    = $this->pStockKey($order->product_id, $order->product_size ?? '');
+                $stockNow  = Warehouse::where('product_id', $order->product_id)->where('size', $logKey)->first();
+                $qtyBefore = ($stockNow->physical_qty ?? 0) + $order->quantity;
+                WarehouseLogService::log('purchase_rollback', $order->product_id, $logKey,
+                    -$order->quantity, 'purchase_order', $order->id, null, $qtyBefore);
+
+                $totalUndone += $order->quantity;
+            }
+
+            return response()->json(['success' => true, 'message' => $totalUndone . ' ცალის მიღება გაუქმდა! "გზაშია" სტატუსში დაბრუნდა.']);
         });
     }
 }

@@ -1171,6 +1171,7 @@ $(function() {
              + '<th>პროდუქტი</th><th>კოდი</th><th>ზომა</th>'
              + '<th class="text-center">შეკვეთა</th>'
              + '<th class="text-center">გზაშია</th>'
+             + '<th class="text-center">მიღებული</th>'
              + '<th class="text-center">დაკარგ.</th>'
              + (isAdmin ? '<th class="text-end" style="color:#7c3aed;">თვიტ.($)</th>' : '')
              + '</tr></thead><tbody>';
@@ -1189,6 +1190,14 @@ $(function() {
                     ? '<span class="text-danger fw-bold">' + lost + '</span>'
                     : '<span class="text-muted">—</span>';
 
+                var receivedQty  = it.received_qty || 0;
+                var receivedCell = receivedQty > 0
+                    ? '<span class="text-success fw-bold">' + receivedQty + '</span>'
+                        + (it.received_id
+                            ? ' <a onclick="undoReceiveLine(' + it.received_id + ',' + groupId + ',' + receivedQty + ')" class="btn btn-xs" style="background:#f97316;color:#fff;" title="ამ ნივთის მიღების გაუქმება"><i class="fa fa-rotate-left"></i></a>'
+                            : '')
+                    : '<span class="text-muted">—</span>';
+
                 var costCell = cost > 0
                     ? '<span style="color:#7c3aed;font-weight:700;">$' + cost.toFixed(2) + '</span>'
                     : '<span class="text-muted">—</span>';
@@ -1200,6 +1209,7 @@ $(function() {
                 var gvStatsRow = '<div class="gv-stats-row">'
                     + '<div class="gv-stat"><div class="gv-sl">შეკვ.</div><div class="gv-sv">' + orig + '</div></div>'
                     + '<div class="gv-stat"><div class="gv-sl">გზაში</div><div class="gv-sv">' + remainCell + '</div></div>'
+                    + '<div class="gv-stat"><div class="gv-sl">მიღებ.</div><div class="gv-sv">' + receivedCell + '</div></div>'
                     + '<div class="gv-stat"><div class="gv-sl">დაკარგ.</div><div class="gv-sv">' + lostCell + '</div></div>'
                     + (isAdmin ? '<div class="gv-stat"><div class="gv-sl">ღირ.</div><div class="gv-sv">' + costCell + '</div></div>' : '')
                     + '</div>';
@@ -1230,6 +1240,7 @@ $(function() {
                      +  '<td class="mc-td-sz align-middle">' + (it.product_size||'—') + '</td>'
                      +  '<td class="mc-td-stat text-center fw-bold align-middle">' + orig + '</td>'
                      +  '<td class="mc-td-stat text-center align-middle">' + remainCell + '</td>'
+                     +  '<td class="mc-td-stat text-center align-middle">' + receivedCell + '</td>'
                      +  '<td class="mc-td-stat text-center align-middle">' + lostCell + '</td>'
                      +  (isAdmin ? '<td class="mc-td-stat text-end align-middle">' + costCell + '</td>' : '')
                      +  '</tr>';
@@ -1237,7 +1248,8 @@ $(function() {
 
             html += '</tbody></table>';
             $('#gv-body').html(html);
-            new bootstrap.Modal(document.getElementById('modal-group-view')).show();
+            var gvEl = document.getElementById('modal-group-view');
+            (bootstrap.Modal.getInstance(gvEl) || new bootstrap.Modal(gvEl)).show();
         }});
     };
 
@@ -1712,6 +1724,37 @@ $(function() {
                     purchasesTable.ajax.reload();
                     returnsInTransitTable.ajax.reload(); returnsReceivedTable.ajax.reload();
                     refreshPurchaseStats();
+                    swal({ title: '✅', text: res.message, type: 'success', timer: 2000 });
+                },
+                error: function(xhr) {
+                    var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'შეცდომა!';
+                    swal({ title: 'შეცდომა', text: msg, type: 'error' });
+                }
+            });
+        });
+    };
+
+    // ცალკეული ნივთის მიღების გაუქმება ჯგუფის დათვალიერების მოდალიდან —
+    // სასარგებლოა, როცა ბევრნივთიანი შეკვეთიდან მხოლოდ ერთი ნივთი იქნა
+    // შეცდომით მიღებული და დანარჩენები კვლავ "გზაშია".
+    window.undoReceiveLine = function(lineId, groupId, qty) {
+        swal({
+            title: 'ამ ნივთის მიღების გაუქმება?',
+            text: (qty ? qty + ' ცალის ' : '') + 'მიღება გაუქმდება და "გზაშია" სტატუსში დაბრუნდება, საწყობის ნაშთი განახლდება',
+            type: 'warning', showCancelButton: true,
+            confirmButtonColor: '#f97316',
+            cancelButtonText: 'გაუქმება', confirmButtonText: 'კი, გავაუქმო'
+        }).then(function(result) {
+            if (!result.isConfirmed) return;
+            $.ajax({
+                url: "{{ url('purchases/line') }}/" + lineId + '/undo-receipt',
+                type: 'POST',
+                data: { _token: "{{ csrf_token() }}" },
+                success: function(res) {
+                    purchasesTable.ajax.reload();
+                    returnsInTransitTable.ajax.reload(); returnsReceivedTable.ajax.reload();
+                    refreshPurchaseStats();
+                    openGroupView(groupId);
                     swal({ title: '✅', text: res.message, type: 'success', timer: 2000 });
                 },
                 error: function(xhr) {

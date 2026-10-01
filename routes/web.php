@@ -168,6 +168,7 @@ Route::post('warehouse/stock-correction/apply',  [WarehouseController::class, 's
         Route::get('purchases/group/{groupId}/items',           [PurchaseOrderController::class, 'getGroupItems'])->name('purchases.groupItems');
         Route::post('purchases/group/{groupId}/partial-receive',[PurchaseOrderController::class, 'groupPartialReceive'])->name('purchases.groupPartialReceive');
         Route::post('purchases/group/{groupId}/undo-receipt',   [PurchaseOrderController::class, 'undoGroupReceipt'])->name('purchases.undoGroupReceipt');
+        Route::post('purchases/line/{id}/undo-receipt',          [PurchaseOrderController::class, 'undoReceiveLine'])->name('purchases.undoReceiveLine');
         Route::get('purchases/stats', [PurchaseOrderController::class, 'stats'])->name('purchases.stats');
         Route::patch('purchases/{id}/responsibility', [PurchaseOrderController::class, 'updateReturnResponsibility'])->name('purchases.updateResponsibility')->middleware('role:admin');
     });
