@@ -24,7 +24,7 @@ class Product_Order extends Model
         'cancelled_at', 'original_qty', 'courier_paid_at', 'fully_paid_at', 'payment_comment',
         'is_gift',
         'cancelled_responsible_user_id', 'cancelled_comment', 'cancelled_responsibility_assigned_at',
-        'received_at',
+        'received_at', 'is_flagged',
     ];
 
     protected $hidden = ['created_at', 'updated_at'];
@@ -35,6 +35,7 @@ class Product_Order extends Model
         'fully_paid_at'                         => 'datetime',
         'received_at'                           => 'datetime',
         'cancelled_responsibility_assigned_at'  => 'datetime',
+        'is_flagged'                            => 'boolean',
     ];
 
     protected static function booted()

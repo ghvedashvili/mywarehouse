@@ -131,6 +131,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('productsOut/{id}/status',  [ProductOrderController::class, 'updateStatus'])->name('productsOut.updateStatus');
     Route::patch('productsOut/{id}/payment', [ProductOrderController::class, 'updatePayment'])->name('productsOut.updatePayment');
     Route::patch('productsOut/{id}/comment', [ProductOrderController::class, 'updateComment'])->name('productsOut.updateComment');
+    Route::patch('productsOut/{id}/flag',    [ProductOrderController::class, 'toggleFlag'])->name('productsOut.toggleFlag')->middleware('role:admin');
 
     // ── Warehouse (ნაშთი) ─────────────────────────────────────────────
     Route::get('warehouse',             [WarehouseController::class, 'index'])->name('warehouse.index');

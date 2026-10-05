@@ -1089,7 +1089,21 @@ class ProductOrderController extends Controller
             });
         }
 
-        $query->latest();
+        // საყურადღებოდ მონიშნული ორდერები ყოველთვის თავში, თარიღის
+        // მიუხედავად — "ადმინს ჰქონდეს ღილაკი, ორდერი მონიშნოს
+        // საყურადღებოდ და ის მუდმივად იყოს ზევით" მოთხოვნის თანახმად.
+        // ტოპ-დონეზე მხოლოდ is_primary/დამოუკიდებელი რიგები ჩანან — თუ
+        // მონიშნულია ჯგუფის რომელიმე შვილი (merged_id-ით), მთელი ჯგუფიც
+        // (მისი primary row) უნდა ავარდეს თავში, არა მხოლოდ თვითონ
+        // primary-ის საკუთარი is_flagged.
+        $query->orderByRaw(
+            "(is_flagged = 1 OR (merged_id IS NOT NULL AND EXISTS (
+                SELECT 1 FROM product_Order AS po_flag_check
+                WHERE po_flag_check.merged_id = product_Order.merged_id
+                  AND po_flag_check.is_flagged = 1
+                  AND po_flag_check.status = 'active'
+            ))) DESC"
+        )->latest();
 
         $draw   = (int)request('draw', 1);
         $start  = (int)request('start', 0);
@@ -1209,6 +1223,13 @@ class ProductOrderController extends Controller
             ->filter(function() {})
             ->addColumn('order_id', function ($item) {
                 return $item->order_number ?? ('S' . $item->id);
+            })
+            // ჯგუფური (primary) რიგისთვის — მონიშნულია თუ არა თავად primary
+            // ან რომელიმე მისი შვილი, რომ ბლინკავი "საყურადღებოა" ბეჯი
+            // ჯგუფის დონეზეც ჩანდეს, თუნდაც კონკრეტულ ნივთს ჰქონდეს ეს დროშა.
+            ->addColumn('group_flagged', function ($item) {
+                if (!$item->is_primary) return (bool) $item->is_flagged;
+                return (bool) $item->is_flagged || $item->children->contains('is_flagged', true);
             })
             ->addColumn('has_mergeable', function ($item) use ($mergeableCustomerIds) {
                 if ($item->status === 'deleted') return 0;
@@ -1618,24 +1639,34 @@ class ProductOrderController extends Controller
                     $revertBtn = '<a onclick="revertFromCourier(' . $id . ')" class="btn btn-outline-danger btn-xs" title="საწყობში დაბრუნება"><i class="fa fa-rotate-left"></i></a>';
                 }
 
+                // ადმინის ღილაკი ორდერის "საყურადღებოდ" მოსანიშნად/მოსახსნელად —
+                // ასეთი ორდერი მუდმივად თავში რჩება (ServerSide sort) და
+                // ციმციმებს ცხრილშიც.
+                $flagBtn = '';
+                if ($isAdmin) {
+                    $flagBtn = '<a onclick="toggleFlag(' . $id . ',' . ($item->is_flagged ? 1 : 0) . ')" class="btn btn-xs" '
+                        . 'style="background:' . ($item->is_flagged ? '#dc2626' : '#e5e7eb') . ';color:' . ($item->is_flagged ? '#fff' : '#374151') . ';" '
+                        . 'title="საყურადღებოდ მონიშვნა"><i class="fa fa-flag"></i></a>';
+                }
+
                 $wrap = '<div class="d-flex justify-content-center flex-wrap gap-1">';
 
                 // Group header row — no edit/delete/history (accessible from sub-rows)
                 if ($item->is_primary && $item->children->isNotEmpty()) {
-                    return $wrap . $revertBtn . $pdfBtn . $mailBtn . $unmergeBtn . '</div>';
+                    return $wrap . $flagBtn . $revertBtn . $pdfBtn . $mailBtn . $unmergeBtn . '</div>';
                 }
 
                 // სტატუს 5,6 — PDF, Mail, History + კომენტარის რედაქტირება
                 if (in_array($item->status_id, [5, 6])) {
                     $commentBtn = '<a onclick="editComment('.$item->id.')" class="btn btn-xs btn-warning" title="კომენტარი"><i class="fa fa-comment"></i></a>';
-                    return $wrap . $commentBtn . $pdfBtn . $mailBtn . $histBtn . '</div>';
+                    return $wrap . $flagBtn . $commentBtn . $pdfBtn . $mailBtn . $histBtn . '</div>';
                 }
 
                 if ($item->is_primary) {
-                    return $wrap . $revertBtn . $editBtn . $deleteBtn . $exchangeBtn . $pdfBtn . $mailBtn . $histBtn . $unmergeBtn . '</div>';
+                    return $wrap . $flagBtn . $revertBtn . $editBtn . $deleteBtn . $exchangeBtn . $pdfBtn . $mailBtn . $histBtn . $unmergeBtn . '</div>';
                 }
 
-                return $wrap . $revertBtn . $editBtn . $deleteBtn . $exchangeBtn . $pdfBtn . $mailBtn . $histBtn . '</div>';
+                return $wrap . $flagBtn . $revertBtn . $editBtn . $deleteBtn . $exchangeBtn . $pdfBtn . $mailBtn . $histBtn . '</div>';
             })
             ->addColumn('status_color', function ($item) {
                 return $item->orderStatus->color ?? 'default';
@@ -2148,6 +2179,20 @@ class ProductOrderController extends Controller
         $order->comment = $request->input('comment', '');
         $order->save();
         return response()->json(['success' => true]);
+    }
+
+    // ორდერის "საყურადღებოდ" მონიშვნა/მოხსნა — ადმინის ფუნქცია
+    public function toggleFlag($id)
+    {
+        $order = Product_Order::findOrFail($id);
+        $order->is_flagged = !$order->is_flagged;
+        $order->save();
+
+        return response()->json([
+            'success'    => true,
+            'is_flagged' => $order->is_flagged,
+            'message'    => $order->is_flagged ? 'ორდერი მონიშნულია საყურადღებოდ' : 'მონიშვნა მოიხსნა',
+        ]);
     }
 
     public function updateStatus(Request $request, $id)

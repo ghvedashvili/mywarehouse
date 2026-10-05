@@ -467,6 +467,19 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
 #products-out-table tbody tr.po-group-row td               { background: var(--c-surface2) !important; border-top: 2px solid var(--c-border-md) !important; }
 #products-out-table tbody tr.po-child-row td               { background: color-mix(in srgb,var(--c-blue-dim) 35%,transparent) !important; animation: childRowIn .18s ease-out; }
 @keyframes childRowIn { from{opacity:0;transform:translateY(-3px)} to{opacity:1;transform:translateY(0)} }
+#products-out-table tbody tr.po-row-flagged td              { background: color-mix(in srgb, var(--c-red) 8%, transparent) !important; }
+.po-flag-blink {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--c-red);
+  padding: 1px 7px;
+  border-radius: 4px;
+  margin-top: 3px;
+  animation: poFlagBlink 1s ease-in-out infinite;
+}
+@keyframes poFlagBlink { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
 /* ── CELL COMPONENTS ──────────────────────────────────────── */
 .label {
@@ -1886,6 +1899,7 @@ var columns = [
                 groups.forEach(function(g) { badges += '<span class="label label-'+g.color+'"><i class="fa fa-cube" style="font-size:9px;"></i> '+g.count+'× '+g.name+'</span>'; });
                 badges += '</div>';
                 return '<span class="po-order-num group">⬡ '+(data.order_number || ('G'+data.id))+'</span>'
+                    + (data.group_flagged ? '<div class="po-flag-blink"><i class="fa fa-triangle-exclamation"></i> საყურადღებოა</div>' : '')
                     + badges + (data.status_label || '') + courierHtml
                     + '<div><span class="po-expand-btn expand-btn" data-id="'+data.id+'"><i class="fa fa-chevron-right"></i> '+data.children_count+' შვილი</span></div>';
             }
@@ -1895,12 +1909,16 @@ var columns = [
             if (data.has_mergeable && data.customer_id && data.status !== 'deleted') {
                 mergeHint = '<span class="po-merge-hint merge-search-btn" data-customer-id="'+data.customer_id+'" title="ამ კლიენტის ორდერები"><i class="fa fa-link"></i></span>';
             }
+            var flagLine = data.group_flagged
+                ? '<div class="po-flag-blink"><i class="fa fa-triangle-exclamation"></i> საყურადღებოა</div>'
+                : '';
             return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;flex-wrap:nowrap;">'
                 + '<span class="po-order-num">'+orderNo+'</span>' + mergeHint + '</div>'
+                + flagLine
                 + (data.status_label || '') + courierHtml + crossRef;
         }
     },
-    { data: 'created_at', name: 'created_at', visible: false },
+    { data: 'created_at', name: 'created_at', visible: false, orderable: false },
     {
         data: null, orderable: false, searchable: false, responsivePriority: 3,
         render: function(data) {
@@ -2009,7 +2027,7 @@ var table = $('#products-out-table').DataTable({
     processing: true, serverSide: true, responsive: false,
     ajax: "{{ route('api.productsOut') }}",
     columns: columns,
-    order: [[2, 'desc']],
+    order: [], // სორტირება მთლიანად სერვერზეა გადაწყვეტილი (is_flagged პირველობით) — კლიენტმა არ უნდა მოითხოვოს ხელახალი დალაგება
     dom: 't<"d-flex justify-content-between align-items-center mt-2 px-3 pb-3"ip>',
     pageLength: 100,
     language: { info: '_START_–_END_ / _TOTAL_', paginate: { previous: '‹', next: '›' } },
@@ -2017,6 +2035,7 @@ var table = $('#products-out-table').DataTable({
         if (data.is_primary && data.children_count > 1) { $(row).addClass('po-group-row'); }
         if (data.status_id == 6) { $(row).addClass('po-row-exchanged'); }
         if (data.status_id == 5) { $(row).addClass('po-row-returned');  }
+        if (data.group_flagged)     { $(row).addClass('po-row-flagged');   }
         if (data.original_sale_id) { $(row).addClass('po-row-change'); }
         if (data.order_type === 'sale' && !data.original_sale_id) { $(row).addClass('po-row-sale'); }
         var geo  = parseFloat(data.price_georgia || 0) - parseFloat(data.discount || 0);
@@ -3559,6 +3578,20 @@ window.revertFromCourier = function(id) {
             success: function(res) { table.ajax.reload(null,false); swal('✅ დაბრუნდა!', res.message, 'success'); },
             error: function(xhr) { swal('შეცდომა', xhr.responseJSON ? xhr.responseJSON.message : 'შეცდომა!', 'error'); }
         });
+    });
+};
+
+window.toggleFlag = function(id, currentlyFlagged) {
+    $.ajax({
+        url: "{{ url('productsOut') }}/" + id + "/flag", type: 'PATCH',
+        data: { _token: "{{ csrf_token() }}" },
+        success: function(res) {
+            // paging აღდგეს 1-ელ გვერდზე — მონიშნული ორდერი თავში ავარდება,
+            // შესაძლოა ადმინი სხვა გვერდზე იდგეს და ვერ ხედავდეს
+            table.ajax.reload(null, true);
+            swal('✅', res.message, 'success');
+        },
+        error: function(xhr) { swal('შეცდომა', xhr.responseJSON ? xhr.responseJSON.message : 'შეცდომა!', 'error'); }
     });
 };
 
