@@ -652,6 +652,9 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
             <button id="btn-new-purchase" onclick="openPurchaseModal()" class="btn btn-success btn-sm">
                 <i class="fa fa-plus me-1"></i><span class="d-none d-sm-inline">ახალი შესყიდვა</span>
             </button>
+            <button id="btn-quick-receive" onclick="openQuickReceiveModal()" class="btn btn-warning btn-sm">
+                <i class="fa fa-inbox me-1"></i><span class="d-none d-sm-inline">პროდუქციის მიღება</span>
+            </button>
             @endif
         </div>
         @endif
@@ -978,6 +981,48 @@ table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control::before {
     </div>
 </div>
 
+{{-- ══ Quick Receive Modal — "პროდუქციის მიღება" ══ --}}
+<div class="modal fade" id="modal-quick-receive" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+        <div class="modal-content">
+            <div class="modal-header bg-light py-2">
+                <h5 class="modal-title fw-bold">📦 პროდუქციის მიღება</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3">
+                <p class="text-muted" style="font-size:12.5px;">
+                    მხოლოდ "გზაში" მყოფი, ჯერ მიუღებელი ჩვეულებრივი შესყიდვებიდან
+                    (არა დაბრუნება/გაცვლა) — ძველი ორდერებიდან ახლისკენ.
+                </p>
+                <div class="table-responsive mb-2">
+                    <table class="table table-sm table-bordered align-middle mb-0" id="qr-lines-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th>პროდუქტი</th>
+                                <th style="width:150px">ზომა</th>
+                                <th style="width:90px" class="text-center">მისაღები</th>
+                                <th style="width:90px">რაოდ.</th>
+                                <th style="width:36px"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="qr-lines-body"></tbody>
+                    </table>
+                </div>
+                <button type="button" id="btn-qr-add-line" class="btn btn-outline-success btn-sm"
+                        onclick="addQuickReceiveLine()">
+                    <i class="fa fa-plus me-1"></i> პროდუქტის დამატება
+                </button>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">გაუქმება</button>
+                <button type="button" class="btn btn-success" id="btn-qr-save" onclick="submitQuickReceive()">
+                    <i class="fa fa-check me-1"></i> მიღება
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {{-- ══ In-Transit Sales Modal ══ --}}
 <div class="modal fade" id="modal-in-transit" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
@@ -1077,6 +1122,7 @@ $(function() {
         $('#tab-' + tab).show();
 
         $('#btn-new-purchase').toggle(tab === 'regular');
+        $('#btn-quick-receive').toggle(tab === 'regular');
 
         if (tab === 'regular') {
             purchasesTable.columns.adjust().draw(false);
@@ -2060,6 +2106,260 @@ $(function() {
             },
             complete: function() {
                 $('#btn-gr-save').prop('disabled', false).html('<i class="fa fa-check me-1"></i> დადასტურება');
+            }
+        });
+    };
+
+    // ══ QUICK RECEIVE — "პროდუქციის მიღება" (ჯგუფის მიუხედავად, FIFO) ══
+    var qrLineIndex = 0;
+    var qrCatalog   = []; // [{id,name,product_code,image_url,sizes:[{size,receivable_qty}]}] — ერთხელ იტვირთება მოდალის გახსნისას
+
+    window.openQuickReceiveModal = function() {
+        $('#qr-lines-body').empty();
+        qrLineIndex = 0;
+        $('#btn-qr-save').prop('disabled', false).html('<i class="fa fa-check me-1"></i> მიღება');
+        new bootstrap.Modal(document.getElementById('modal-quick-receive')).show();
+
+        $.get("{{ route('purchases.receivableProducts') }}", function(products) {
+            qrCatalog = products;
+            addQuickReceiveLine();
+        });
+    };
+
+    // პროდუქტს ამ ხაზისთვის (და მის სხვა ჯერ არჩევად ზომებს) თუ აქვს
+    // მინიმუმ ერთი ზომა, რომელიც სხვა ხაზში უკვე არ არის დაკავებული.
+    function qrProductHasFreeSize(product, $excludeTr) {
+        var used = qrUsedPairs($excludeTr);
+        return product.sizes.some(function(s) { return !used[product.id + '|' + s.size]; });
+    }
+
+    // ხაზის პროდუქტის dropdown-ს ხელახლა აგებს qrCatalog-იდან — მალავს
+    // პროდუქტებს, რომელთა ყველა ზომაც უკვე სხვა ხაზშია დაკავებული
+    // (გარდა ამ ხაზზე უკვე არჩეულისა, რომ არჩევანი არ დაიკარგოს).
+    function qrRenderProductOptions($tr) {
+        var $prodSel   = $tr.find('.qr-line-product');
+        var currentVal = $prodSel.val();
+
+        $prodSel.empty().append('<option value="">— პროდუქტი —</option>');
+        qrCatalog.forEach(function(p) {
+            if (String(p.id) !== String(currentVal) && !qrProductHasFreeSize(p, $tr)) return;
+            $prodSel.append(
+                $('<option>').val(p.id).text(p.name + (p.product_code ? ' (' + p.product_code + ')' : ''))
+                    .attr('data-image', p.image_url || '')
+            );
+        });
+        if (currentVal) $prodSel.val(currentVal);
+    }
+
+    // ყველა ხაზის პროდუქტის dropdown-ს ანახლებს (გარდა, სურვილისამებრ,
+    // ერთისა) — საჭიროა, როცა რომელიმე ზომა დაიკავეს/გაათავისუფლეს და
+    // ამან შეიძლება სხვა ხაზებზეც იმოქმედოს.
+    function qrRefreshAllProductDropdowns($excludeTr) {
+        $('#qr-lines-body tr.qr-line').not($excludeTr || []).each(function() {
+            qrRenderProductOptions($(this));
+        });
+    }
+
+    window.addQuickReceiveLine = function() {
+        var idx = qrLineIndex++;
+
+        var $prodSel = $('<select required>')
+            .addClass('form-select form-select-sm qr-line-product w-100')
+            .attr('data-idx', idx)
+            .append('<option value="">— პროდუქტი —</option>');
+
+        var $sizeSel = $('<select required disabled>')
+            .addClass('form-select form-select-sm qr-line-size')
+            .append('<option value="">—</option>');
+
+        var $maxBadge = $('<span class="badge bg-light text-dark border qr-line-max">—</span>');
+
+        var $qty = $('<input type="number" required disabled>')
+            .addClass('form-control form-control-sm qr-line-qty')
+            .attr({ min: 0, value: 0 });
+
+        var $removeBtn = $('<button type="button">')
+            .addClass('btn btn-outline-danger btn-sm qr-remove-line p-1')
+            .html('<i class="fa fa-times"></i>');
+
+        var $tr = $('<tr class="qr-line">').append(
+            $('<td>').append($prodSel),
+            $('<td>').append($sizeSel),
+            $('<td class="text-center">').append($maxBadge),
+            $('<td>').append($qty),
+            $('<td class="text-center">').append($removeBtn)
+        );
+
+        $('#qr-lines-body').append($tr);
+        qrRenderProductOptions($tr);
+
+        $prodSel.select2({
+            dropdownParent: $('#modal-quick-receive'),
+            width: '100%',
+            placeholder: '— პროდუქტი —',
+            templateResult: function(opt) {
+                if (!opt.id) return opt.text;
+                var img = $(opt.element).attr('data-image');
+                var $s = $('<span style="display:flex;align-items:center;gap:8px;">');
+                if (img) $s.append($('<img>').attr('src', img).css({ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '3px', flexShrink: 0 }));
+                $s.append(document.createTextNode(opt.text));
+                return $s;
+            },
+            templateSelection: function(opt) {
+                if (!opt.id) return opt.text;
+                var img = $(opt.element).attr('data-image');
+                if (!img) return opt.text;
+                var $s = $('<span style="display:flex;align-items:center;gap:6px;">');
+                $s.append($('<img>').attr('src', img).css({ width: '24px', height: '24px', objectFit: 'cover', borderRadius: '2px', flexShrink: 0 }));
+                $s.append(document.createTextNode(opt.text));
+                return $s;
+            }
+        });
+    };
+
+    // უკვე სხვა ხაზში არჩეული (პროდუქტი+ზომა) წყვილები — დუბლირების
+    // თავიდან ასაცილებლად. $excludeTr — თავად ამ ხაზს არ ითვლის.
+    function qrUsedPairs($excludeTr) {
+        var used = {};
+        $('#qr-lines-body tr.qr-line').not($excludeTr).each(function() {
+            var pid = $(this).find('.qr-line-product').val();
+            var sz  = $(this).find('.qr-line-size').val();
+            if (pid && sz) used[pid + '|' + sz] = true;
+        });
+        return used;
+    }
+
+    // ხაზის ზომის dropdown-ს ხელახლა აგებს მისი cache-ირებული sizes-იდან,
+    // გამორიცხავს სხვა ხაზში უკვე არჩეულ იგივე (პროდუქტი+ზომა) წყვილებს.
+    function qrRenderSizeOptions($tr) {
+        var $sizeSel   = $tr.find('.qr-line-size');
+        var sizes      = $tr.data('sizes') || [];
+        var productId  = $tr.find('.qr-line-product').val();
+        var currentVal = $sizeSel.val();
+        var used       = qrUsedPairs($tr);
+
+        $sizeSel.empty().append('<option value="">—</option>');
+        sizes.forEach(function(s) {
+            if (used[productId + '|' + s.size] && s.size !== currentVal) return;
+            $sizeSel.append('<option value="' + s.size + '">' + s.size + ' (მისაღები: ' + s.receivable_qty + ')</option>');
+        });
+
+        if (currentVal && sizes.some(function(s) { return s.size === currentVal; }) && !used[productId + '|' + currentVal]) {
+            $sizeSel.val(currentVal);
+        }
+    }
+
+    // იგივე პროდუქტის მქონე სხვა ხაზებს ანახლებს (რომ ახლახან არჩეული
+    // ზომა მათი სიიდანაც გაქრეს, ან გათავისუფლებისას — დაუბრუნდეს).
+    function qrRefreshSiblingLines(productId, $excludeTr) {
+        $('#qr-lines-body tr.qr-line').not($excludeTr).each(function() {
+            if ($(this).find('.qr-line-product').val() === productId) {
+                qrRenderSizeOptions($(this));
+            }
+        });
+    }
+
+    $(document).on('change', '.qr-line-product', function() {
+        var $tr          = $(this).closest('tr');
+        var $sizeSel     = $tr.find('.qr-line-size');
+        var $maxBadge    = $tr.find('.qr-line-max');
+        var $qty         = $tr.find('.qr-line-qty');
+        var productId    = $(this).val();
+        var prevProductId = $tr.data('product-id');
+
+        $sizeSel.empty().append('<option value="">—</option>').prop('disabled', true);
+        $maxBadge.text('—');
+        $qty.val(0).removeAttr('max').prop('disabled', true);
+        $tr.removeData('sizes');
+        $tr.data('product-id', productId);
+
+        if (prevProductId) qrRefreshSiblingLines(prevProductId, $tr);
+        qrRefreshAllProductDropdowns($tr);
+        if (!productId) return;
+
+        var product = qrCatalog.find(function(p) { return String(p.id) === String(productId); });
+        $tr.data('sizes', product ? product.sizes : []);
+        qrRenderSizeOptions($tr);
+        $sizeSel.prop('disabled', false);
+    });
+
+    $(document).on('change', '.qr-line-size', function() {
+        var $tr       = $(this).closest('tr');
+        var size      = $(this).val();
+        var sizes     = $tr.data('sizes') || [];
+        var row       = sizes.find(function(s) { return s.size === size; });
+        var $maxBadge = $tr.find('.qr-line-max');
+        var $qty      = $tr.find('.qr-line-qty');
+        var productId = $tr.find('.qr-line-product').val();
+
+        if (!row) {
+            $maxBadge.text('—');
+            $qty.val(0).removeAttr('max').prop('disabled', true);
+        } else {
+            $maxBadge.text(row.receivable_qty);
+            // 0-ად ვტოვებთ განზრახ — სრული რაოდენობა ხელით უნდა ჩაიწეროს,
+            // რომ არაფერი შემთხვევით არ "გამორჩეს" ავტომატურად შევსებული 1-ით.
+            $qty.val(0).attr('max', row.receivable_qty).prop('disabled', false);
+        }
+
+        qrRefreshSiblingLines(productId, $tr);
+        qrRefreshAllProductDropdowns($tr);
+    });
+
+    $(document).on('click', '.qr-remove-line', function() {
+        if ($('#qr-lines-body tr').length <= 1) {
+            var $tr = $(this).closest('tr');
+            var productId = $tr.find('.qr-line-product').val();
+            $tr.find('.qr-line-product').val('').trigger('change.select2').trigger('change');
+            if (productId) qrRefreshSiblingLines(productId, $tr);
+            qrRefreshAllProductDropdowns($tr);
+            return;
+        }
+        var $removedTr   = $(this).closest('tr');
+        var removedProductId = $removedTr.find('.qr-line-product').val();
+        $removedTr.find('.qr-line-product').select2('destroy');
+        $removedTr.remove();
+        if (removedProductId) qrRefreshSiblingLines(removedProductId, null);
+        qrRefreshAllProductDropdowns();
+    });
+
+    window.submitQuickReceive = function() {
+        var items = [];
+        var valid = true;
+
+        $('#qr-lines-body tr.qr-line').each(function() {
+            var productId = $(this).find('.qr-line-product').val();
+            var size      = $(this).find('.qr-line-size').val();
+            var qty       = parseInt($(this).find('.qr-line-qty').val()) || 0;
+            var max       = parseInt($(this).find('.qr-line-max').text()) || 0;
+
+            if (!productId || !size || qty < 1) return;
+            if (qty > max) valid = false;
+            items.push({ product_id: productId, size: size, qty: qty });
+        });
+
+        if (!valid) { swal('შეცდომა', 'ერთ-ერთი ხაზის რაოდენობა აღემატება მისაღებს', 'error'); return; }
+        if (!items.length) { swal('შეცდომა', 'აირჩიეთ მინიმუმ ერთი პროდუქტი და ზომა', 'error'); return; }
+
+        $('#btn-qr-save').prop('disabled', true).html('...');
+
+        $.ajax({
+            url: "{{ route('purchases.quickReceive') }}",
+            type: 'POST',
+            data: { items: items, _token: "{{ csrf_token() }}" },
+            success: function(res) {
+                bootstrap.Modal.getInstance(document.getElementById('modal-quick-receive')).hide();
+                purchasesTable.ajax.reload();
+                returnsInTransitTable.ajax.reload(); returnsReceivedTable.ajax.reload();
+                refreshPurchaseStats();
+                swal({ title: '✅', text: res.message, type: 'success' });
+            },
+            error: function(xhr) {
+                var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'შეცდომა!';
+                swal({ title: 'შეცდომა', text: msg, type: 'error' });
+            },
+            complete: function() {
+                $('#btn-qr-save').prop('disabled', false).html('<i class="fa fa-check me-1"></i> მიღება');
             }
         });
     };

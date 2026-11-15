@@ -442,6 +442,91 @@ class PurchaseOrderController extends Controller
     })->values());
 }
 
+// ─── "პროდუქციის მიღება" — ჯგუფის მიუხედავად, თავისუფალი მიღება ──────
+// მხოლოდ ჩვეულებრივი (არა დაბრუნება/გაცვლის) შესყიდვებიდან, რომლებიც
+// ჯერ "გზაშია" (status=2) — დაბრუნება/გაცვლა (original_sale_id NOT NULL)
+// განზრახ გამოირიცხება, ეს ცალკე ნაკადია.
+// პასუხი თითო პროდუქტზე მისი სრული ზომების ჩამონათვალით (და თითოეულის
+// მისაღები რაოდენობით) ერთად ჩატვირთავს — frontend-ს არც პროდუქტის და
+// არც ზომის სია აღარ სჭირდება ცალ-ცალკე მოთხოვნით, ყველაფერი ერთხელ
+// მოაქვს და იქიდან ფილტრავს (მათ შორის დუბლირების თავიდან ასაცილებლად).
+public function receivableProducts()
+{
+    $rows = Product_Order::where('order_type', 'purchase')
+        ->where('status_id', 2)
+        ->whereNull('original_sale_id')
+        ->selectRaw('product_id, product_size, SUM(quantity) as receivable_qty')
+        ->groupBy('product_id', 'product_size')
+        ->having('receivable_qty', '>', 0)
+        ->get()
+        ->groupBy('product_id');
+
+    $products = Product::whereIn('id', $rows->keys())
+        ->orderBy('name')
+        ->get(['id', 'name', 'product_code', 'image']);
+
+    return response()->json($products->map(fn($p) => [
+        'id'           => $p->id,
+        'name'         => $p->name,
+        'product_code' => $p->product_code,
+        'image_url'    => $p->image_url,
+        'sizes'        => $rows[$p->id]->map(fn($r) => [
+            'size'           => $r->product_size,
+            'receivable_qty' => (int) $r->receivable_qty,
+        ])->values(),
+    ])->values());
+}
+
+// ─── "პროდუქციის მიღება" submit — FIFO, ჯგუფის მიუხედავად ────────────
+public function quickReceive(Request $request)
+{
+    $request->validate([
+        'items'              => 'required|array|min:1',
+        'items.*.product_id' => 'required|integer|exists:products,id',
+        'items.*.size'       => 'required|string',
+        'items.*.qty'        => 'required|integer|min:1',
+    ]);
+
+    return \DB::transaction(function () use ($request) {
+        $messages = [];
+
+        foreach ($request->items as $item) {
+            $productId = (int) $item['product_id'];
+            $size      = $item['size'];
+            $qty       = (int) $item['qty'];
+
+            // FIFO — ყველა ჩვეულებრივი, ჯერ მიუღებელი შესყიდვის row,
+            // ჯგუფის მიუხედავად, ძველიდან ახლისკენ
+            $siblings = Product_Order::where('order_type', 'purchase')
+                ->where('status_id', 2)
+                ->whereNull('original_sale_id')
+                ->where('product_id', $productId)
+                ->where('product_size', $size)
+                ->orderBy('created_at')
+                ->get();
+
+            $available = (int) $siblings->sum('quantity');
+            $product   = Product::find($productId);
+
+            if ($qty > $available) {
+                throw new \Exception(
+                    'მოთხოვნილი (' . $qty . ') აღემატება მისაღებს (' . $available . ') — '
+                    . ($product->name ?? '#' . $productId) . ' / ' . $size
+                );
+            }
+
+            $this->consumeSiblingsFifo($siblings, $qty, 0, null);
+
+            $messages[] = ($product->name ?? '#' . $productId) . ' / ' . $size . ': ' . $qty . ' ✅';
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => implode("\n", $messages),
+        ]);
+    });
+}
+
     // ─── შესყიდვის შექმნა ─────────────────────────────────────────────
     public function store(Request $request)
     {
@@ -1456,24 +1541,52 @@ $purchase->refresh();
                     );
                 }
 
-                $remaining   = $totalQty - $sum;
-                $remReceived = $reqReceivedQty;
-                $remLost     = $reqLostQty;
+                $remaining = $totalQty - $sum;
+                $this->consumeSiblingsFifo($siblings, $reqReceivedQty, $reqLostQty, $lostNote);
 
-            foreach ($siblings as $purchase) {
-                if ($remReceived <= 0 && $remLost <= 0) break;
+                $name = $anchor->product?->name ?? ('#'.$orderId);
+                $messages[] = $name . ': ' . $reqReceivedQty . ' ✅' . ($remaining > 0 ? ' (' . $remaining . ' კვლავ გზაში)' : '');
+            }
 
-                $capacity = $purchase->quantity;
-                if ($capacity <= 0) continue;
+            if (empty($messages)) {
+                return response()->json(['success' => false, 'message' => '⚠️ ვერაფერი დამუშავდა — ორდერები ვერ მოიძებნა ან რაოდენობა 0-ია.'], 422);
+            }
 
-                $receivedQty  = min($remReceived, $capacity);
-                $remReceived -= $receivedQty;
-                $capacity    -= $receivedQty;
+            return response()->json([
+                'success' => true,
+                'message' => implode("\n", $messages),
+            ]);
+        });
+    }
 
-                $lostQty  = min($remLost, $capacity);
-                $remLost -= $lostQty;
+    /**
+     * მოცემულ (წინასწარ არჩეულ, ძველიდან ახლისკენ დალაგებულ) purchase
+     * row-ებზე FIFO წესით ანაწილებს მოთხოვნილ მიღებულ/დაკარგულ რაოდენობას —
+     * თითოეულზე ასრულებს ნაშთის მოძრაობას, სრულ/ნაწილობრივ status=3-ზე
+     * გადაყვანას (საჭიროებისას გახლეჩვით) და დაკავშირებული sale-ების
+     * დაწინაურებას/გადანაწილებას. გაზიარებულია ჯგუფური და თავისუფალი
+     * (ჯგუფის მიუხედავად, პროდუქტი+ზომით) მიღებას შორის — იგივე ლოგიკა,
+     * განსხვავებულად შერჩეულ $siblings-ზე.
+     */
+    private function consumeSiblingsFifo(\Illuminate\Support\Collection $siblings, int $reqReceivedQty, int $reqLostQty, ?string $lostNote = null): void
+    {
+        $remReceived = $reqReceivedQty;
+        $remLost     = $reqLostQty;
 
-                if ($receivedQty === 0 && $lostQty === 0) continue;
+        foreach ($siblings as $purchase) {
+            if ($remReceived <= 0 && $remLost <= 0) break;
+
+            $capacity = $purchase->quantity;
+            if ($capacity <= 0) continue;
+
+            $receivedQty  = min($remReceived, $capacity);
+            $remReceived -= $receivedQty;
+            $capacity    -= $receivedQty;
+
+            $lostQty  = min($remLost, $capacity);
+            $remLost -= $lostQty;
+
+            if ($receivedQty === 0 && $lostQty === 0) continue;
 
                 $gProdId       = $purchase->product_id;
                 $gSize         = $purchase->product_size ?? '';
@@ -1656,27 +1769,13 @@ $purchase->refresh();
                     }
                 }
 
-                // pending sale-ების მიბმა status=3 purchase-ზე
-                if ($receivedQty > 0) {
-                    $purchase->refresh();
-                    PurchaseService::attachPendingSalesToPurchase($purchase, $stock);
-                }
-                $stock->save();
+            // pending sale-ების მიბმა status=3 purchase-ზე
+            if ($receivedQty > 0) {
+                $purchase->refresh();
+                PurchaseService::attachPendingSalesToPurchase($purchase, $stock);
             }
-
-                $name = $anchor->product?->name ?? ('#'.$orderId);
-                $messages[] = $name . ': ' . $reqReceivedQty . ' ✅' . ($remaining > 0 ? ' (' . $remaining . ' კვლავ გზაში)' : '');
-            }
-
-            if (empty($messages)) {
-                return response()->json(['success' => false, 'message' => '⚠️ ვერაფერი დამუშავდა — ორდერები ვერ მოიძებნა ან რაოდენობა 0-ია.'], 422);
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => implode("\n", $messages),
-            ]);
-        });
+            $stock->save();
+        }
     }
 
     // ─── სრულად მიღებული ჯგუფის მიღების გაუქმება (3→2) ──────────────────
