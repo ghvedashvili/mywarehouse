@@ -22,6 +22,7 @@ use App\Http\Controllers\CourierController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\StickyNoteController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\ActiveClientsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -214,5 +215,10 @@ Route::post('warehouse/stock-correction/apply',  [WarehouseController::class, 's
     Route::get('/diagnostic/audit-log', [\App\Http\Controllers\DiagnosticController::class, 'auditLog'])->name('diagnostic.auditLog');
     Route::get('/diagnostic/warehouse',      [\App\Http\Controllers\DiagnosticController::class, 'warehouseDiagnostic'])->name('diagnostic.warehouse');
     Route::post('/diagnostic/warehouse/fix', [\App\Http\Controllers\DiagnosticController::class, 'fixWarehouseDiagnostic'])->name('diagnostic.warehouseFix');
+
+    // ── Active Clients (admin only) ────────────────────────────────────
+    Route::get('/active-clients',             [ActiveClientsController::class, 'index'])->name('active-clients.index')->middleware('role:admin');
+    Route::get('/active-clients/api',         [ActiveClientsController::class, 'apiList'])->name('active-clients.api')->middleware('role:admin');
+    Route::get('/active-clients/export-excel',[ActiveClientsController::class, 'exportExcel'])->name('active-clients.exportExcel')->middleware('role:admin');
 
 });

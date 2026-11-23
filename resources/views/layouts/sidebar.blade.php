@@ -105,6 +105,9 @@
             <a href="{{ route('diagnostic.index') }}" class="sidebar-link {{ request()->is('diagnostic*') ? 'active' : '' }}" onclick="closeSidebar()">
                 <i class="fa fa-stethoscope"></i> დიაგნოსტიკა
             </a>
+            <a href="{{ route('active-clients.index') }}" class="sidebar-link {{ request()->is('active-clients*') ? 'active' : '' }}" onclick="closeSidebar()">
+                <i class="fa fa-address-book"></i> აქტიური კლიენტები
+            </a>
             <a href="#" class="sidebar-link" onclick="closeSidebar(); annOpenModal(); return false;">
                 <i class="fa fa-bullhorn"></i> შეტყობინებები
             </a>
