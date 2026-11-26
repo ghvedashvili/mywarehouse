@@ -184,6 +184,7 @@ Route::post('warehouse/stock-correction/apply',  [WarehouseController::class, 's
     Route::post('/user/{id}/role', [UserController::class, 'updateRole'])->name('user.updateRole');
     Route::patch('/user/{id}/customer-link', [UserController::class, 'updateCustomerLink'])->name('user.customerLink');
     Route::patch('/user/{id}/toggle-chat',   [UserController::class, 'toggleChat'])->name('user.toggleChat');
+    Route::patch('/user/{id}/toggle-pause',  [UserController::class, 'togglePause'])->name('user.togglePause');
 
     // ── Roles & Permissions ───────────────────────────────────────────
     Route::get('/roles', [RolePermissionController::class, 'index'])->name('roles.index');

@@ -19,6 +19,7 @@ class UserController extends Controller
     'index',
     'destroy',
     'updateRole',
+    'togglePause',
 ]);
 
         // admin და staff — დანარჩენი CRUD (index, store, edit, update)
@@ -27,6 +28,7 @@ class UserController extends Controller
             'changePassword',
             'destroy',
             'updateRole',
+            'togglePause',
         ]);
     }
 
@@ -151,7 +153,16 @@ class UserController extends Controller
                         style="width:34px;height:18px;cursor:' . ($isAdmin ? 'pointer' : 'default') . '">
                 </div>';
             })
-            ->rawColumns(['action', 'role', 'chat'])
+            ->addColumn('pause', function ($user) use ($isAdmin) {
+                $checked = $user->is_paused ? 'checked' : '';
+                $disabled = $isAdmin ? '' : 'disabled';
+                return '<div class="form-check form-switch d-flex justify-content-center mb-0">
+                    <input class="form-check-input" type="checkbox" ' . $checked . ' ' . $disabled . '
+                        onchange="togglePause(' . $user->id . ', this)"
+                        style="width:34px;height:18px;cursor:' . ($isAdmin ? 'pointer' : 'default') . '">
+                </div>';
+            })
+            ->rawColumns(['action', 'role', 'chat', 'pause'])
             ->make(true);
     }
 
@@ -200,6 +211,21 @@ class UserController extends Controller
         $user = User::findOrFail($id);
         $user->update(['chat_enabled' => !$user->chat_enabled]);
         return response()->json(['chat_enabled' => $user->chat_enabled]);
+    }
+
+    public function togglePause($id)
+    {
+        if (Auth::id() == $id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'საკუთარი ანგარიშის პაუზა არ შეიძლება.',
+            ], 403);
+        }
+
+        $user = User::findOrFail($id);
+        $user->update(['is_paused' => !$user->is_paused]);
+
+        return response()->json(['is_paused' => $user->is_paused]);
     }
 
     public function updateCustomerLink(Request $request, $id)

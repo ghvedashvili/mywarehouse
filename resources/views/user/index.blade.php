@@ -64,7 +64,7 @@
         <div class="table-responsive">
             <table id="user-table" class="table wh-table table-hover align-middle w-100">
                 <thead>
-                    <tr><th>ID</th><th>სახელი</th><th>Email</th><th>როლი</th><th style="text-align:center;">💬 ჩატი</th><th>მოქმედება</th></tr>
+                    <tr><th>ID</th><th>სახელი</th><th>Email</th><th>როლი</th><th style="text-align:center;">💬 ჩატი</th><th style="text-align:center;">⏸ პაუზა</th><th>მოქმედება</th></tr>
                 </thead>
                 <tbody></tbody>
             </table>
@@ -226,6 +226,7 @@ var table = $('#user-table').DataTable({
         {data:'email'},
         {data:'role',   orderable:false},
         {data:'chat',   orderable:false, searchable:false, width:'80px'},
+        {data:'pause',  orderable:false, searchable:false, width:'80px'},
         {data:'action', orderable:false, searchable:false}
     ],
     rowCallback: function(row, d) {
@@ -281,6 +282,24 @@ function toggleChat(id, el) {
         },
         error: function() {
             el.checked = !el.checked; // revert
+        }
+    });
+}
+
+// ── Toggle Pause (login block) ───────────────────────────────────
+function togglePause(id, el) {
+    $.ajax({
+        url: '/user/' + id + '/toggle-pause',
+        type: 'PATCH',
+        data: { _token: '{{ csrf_token() }}' },
+        success: function(r) {
+            el.checked = r.is_paused;
+        },
+        error: function(xhr) {
+            el.checked = !el.checked; // revert
+            if (xhr.status === 403 && xhr.responseJSON && xhr.responseJSON.message) {
+                alert(xhr.responseJSON.message);
+            }
         }
     });
 }
